@@ -9,6 +9,7 @@ pub type YamlResult<T> = std::result::Result<T, YamlError>;
 pub enum YamlError {
     Utf8(Utf8Error),
     Io(String),
+    UnexpectedEof,
     /// Input decoding error. If `encoding` feature is disabled, contains `None`,
     /// otherwise contains the UTF-8 decoding error
     NonDecodable(Option<Utf8Error>),

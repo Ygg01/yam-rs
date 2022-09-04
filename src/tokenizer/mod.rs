@@ -1,16 +1,17 @@
-mod tokenizer;
 mod event;
 mod reader;
+mod tokenizer;
 
-use std::borrow::Cow;
 use crate::tokenizer::event::YamlEvent;
 use crate::tokenizer::reader::StrReader;
-use crate::tokenizer::tokenizer::{SpanToken, YamlTokenizer};
+use crate::tokenizer::tokenizer::SpanToken;
+use std::borrow::Cow;
 
+pub use tokenizer::YamlTokenizer;
 
 pub enum YamlToken<'a> {
     // strings, booleans, numbers, nulls, all treated the same
-    Scalar(Cow<'a,[u8]>),
+    Scalar(Cow<'a, [u8]>),
 
     // flow style like `[x, x, x]`
     // or block style like:
@@ -25,7 +26,7 @@ pub enum YamlToken<'a> {
     Mapping(Vec<Entry<'a>>),
 
     // Error during parsing
-    Error
+    Error,
 }
 
 pub struct Entry<'a> {
@@ -33,7 +34,7 @@ pub struct Entry<'a> {
     value: YamlToken<'a>,
 }
 
-struct StrIterator<'a> {
+pub struct StrIterator<'a> {
     state: YamlTokenizer,
     reader: StrReader<'a>,
 }
@@ -41,6 +42,7 @@ struct StrIterator<'a> {
 impl<'a> StrIterator<'a> {
     pub(crate) fn to_token(&self, token: SpanToken) -> YamlEvent<'a> {
         match token {
+            SpanToken::SeqStart => YamlEvent::SeqStart,
             SpanToken::Scalar(start, end) => YamlEvent::ScalarValue(self.to_cow(start, end)),
         }
     }
@@ -50,12 +52,11 @@ impl<'a> StrIterator<'a> {
     }
 }
 
-
 impl<'a> Iterator for StrIterator<'a> {
     type Item = YamlEvent<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let span =  self.state.read_token(&mut self.reader);
+        let span = self.state.read_token(&mut self.reader);
         match span {
             Some(x) => Some(self.to_token(x)),
             None => None,
