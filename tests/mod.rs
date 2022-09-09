@@ -2,23 +2,22 @@ extern crate steel_yaml;
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::{Debug, format, Write};
+    use std::fmt::{format, Debug, Write};
 
-    use steel_yaml::YamlTokenizer;
+    use steel_yaml::Scanner;
 
     #[test]
-    fn parse_document() {
+    fn parse_empty_document() {
         let yaml = r#"
-        "#;
+# test"
+  # test
+#;
         let expect = r#"
 +STR
--STR
-"#;
-        let tokenizer = YamlTokenizer::default();
+-STR"#;
         let mut event = String::new();
-        tokenizer.from_string(yaml).for_each(
-            |x| event.push_str(&*format!("{:?}\n", x))
-        );
+        Scanner::from_str_reader(yaml)
+            .for_each(|x| event.push_str(&*format!("\n{:?}", x)));
         assert_eq!(expect, event);
     }
 }

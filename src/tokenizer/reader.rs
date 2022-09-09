@@ -1,12 +1,7 @@
-use crate::error::{YamlError, YamlResult};
-use crate::tokenizer::tokenizer::{SpanToken, YamlTokenizer};
-use crate::tokenizer::YamlToken;
-use std::io;
-use std::io::BufRead;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
-    pos: usize,
+    pub(crate) pos: usize,
 }
 
 impl<'a> StrReader<'a> {
@@ -16,25 +11,33 @@ impl<'a> StrReader<'a> {
 }
 
 pub(crate) trait Reader {
-    fn peek_byte(&mut self) -> YamlResult<Option<u8>>;
+    fn peek_byte(&mut self) -> Option<u8>;
+    fn peek_byte_is(&mut self, needle: u8) -> bool;
     fn consume_bytes(&mut self, amount: usize);
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
-    fn append_curr_char(&mut self) -> usize;
 
     fn try_read_slice(&mut self, needle: &str, case_sensitive: bool) -> bool;
     #[inline(always)]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         self.try_read_slice(needle, true)
     }
-    fn skip_space_tab(&mut self) -> usize;
     fn read_fast_until(&mut self, needle: &[u8]) -> FastRead;
+    fn skip_space_tab(&mut self) -> usize;
+    fn read_line(&mut self) -> (usize, usize);
 }
 
 impl<'r> Reader for StrReader<'r> {
-    fn peek_byte(&mut self) -> YamlResult<Option<u8>> {
+    fn peek_byte(&mut self) -> Option<u8> {
         match self.slice.as_bytes().get(self.pos) {
-            Some(x) => Ok(Some(*x)),
-            _ => Err(YamlError::UnexpectedEof),
+            Some(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    fn peek_byte_is(&mut self, needle: u8) -> bool {
+        match self.slice.as_bytes().get(self.pos) {
+            Some(x) if x == &needle => true,
+            _ => false,
         }
     }
 
@@ -46,10 +49,6 @@ impl<'r> Reader for StrReader<'r> {
         &self.slice.as_bytes()[start..end]
     }
 
-    fn append_curr_char(&mut self) -> usize {
-        self.pos
-    }
-
     fn try_read_slice(&mut self, needle: &str, case_sensitive: bool) -> bool {
         if self.slice.len() < needle.len() {
             return false;
@@ -59,7 +58,8 @@ impl<'r> Reader for StrReader<'r> {
             self.slice.as_bytes()[self.pos..self.pos + needle.len()].starts_with(needle.as_bytes())
         } else {
             needle.as_bytes().iter().enumerate().all(|(offset, char)| {
-                self.slice.as_bytes()[self.pos + offset].to_ascii_lowercase() == char.to_ascii_lowercase()
+                self.slice.as_bytes()[self.pos + offset].to_ascii_lowercase()
+                    == char.to_ascii_lowercase()
             })
         };
 
@@ -67,14 +67,6 @@ impl<'r> Reader for StrReader<'r> {
             self.pos += needle.len();
         }
         read
-    }
-
-    fn skip_space_tab(&mut self) -> usize {
-        let start = self.slice.as_bytes()
-            .iter()
-            .position(|b| !is_tab_space(*b))
-            .unwrap_or(0);
-        start
     }
 
     fn read_fast_until(&mut self, needle: &[u8]) -> FastRead {
@@ -86,6 +78,39 @@ impl<'r> Reader for StrReader<'r> {
         self.pos += n;
         read
     }
+
+    fn skip_space_tab(&mut self) -> usize {
+        self.slice.as_bytes()[self.pos..]
+            .iter()
+            .position(|b| !is_tab_space(*b))
+            .unwrap_or(0)
+    }
+
+    fn read_line(&mut self) -> (usize, usize) {
+        if let Some(n) = fast_find(&[b'\r', b'\n'], &self.slice.as_bytes()[self.pos..]) {
+            let x = (self.pos, self.pos+n);
+            self.consume_bytes(n+1);
+            if self.peek_byte_is(b'\n') {
+                self.consume_bytes(1);
+            };
+            return x;
+        }
+        (0, 0)
+    }
+}
+
+#[test]
+pub fn test_readline() {
+    let mut win_reader = StrReader::new("#   |\r\n");
+    let mut lin_reader = StrReader::new("#   |\n");
+    let mut mac_reader = StrReader::new("#   |\r");
+
+    assert_eq!((0, 5), win_reader.read_line());
+    assert_eq!(None, win_reader.peek_byte());
+    assert_eq!((0, 5), lin_reader.read_line());
+    assert_eq!(None, lin_reader.peek_byte());
+    assert_eq!((0, 5), mac_reader.read_line());
+    assert_eq!(None, mac_reader.peek_byte());
 }
 
 #[inline]

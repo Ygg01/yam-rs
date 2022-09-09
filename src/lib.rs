@@ -1,4 +1,4 @@
 pub mod error;
 pub mod tokenizer;
 
-pub use tokenizer::YamlTokenizer;
+pub use tokenizer::Scanner;
