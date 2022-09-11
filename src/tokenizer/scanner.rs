@@ -62,9 +62,13 @@ impl Scanner {
     }
 
     fn try_read_comments<T: Reader>(&self, reader: &mut T)  {
-        reader.skip_space_tab();
 
-        if reader.peek_byte_is(b'#') {
+        while {
+            // do
+            reader.skip_space_tab();
+            reader.peek_byte_is(b'#')
+        } {
+            // while
             reader.read_line();
         }
 

@@ -11,7 +11,7 @@ mod tests {
         let yaml = r#"
 # test"
   # test
-#;
+"#;
         let expect = r#"
 +STR
 -STR"#;
