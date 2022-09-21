@@ -1,13 +1,14 @@
-mod event;
-mod reader;
-mod scanner;
+use std::borrow::Cow;
+
+pub use scanner::Scanner;
 
 use crate::tokenizer::event::YamlEvent;
 use crate::tokenizer::reader::StrReader;
 use crate::tokenizer::scanner::{Control, SpanToken};
-use std::borrow::Cow;
 
-pub use scanner::Scanner;
+mod event;
+mod reader;
+mod scanner;
 
 pub enum YamlToken<'a> {
     // strings, booleans, numbers, nulls, all treated the same
