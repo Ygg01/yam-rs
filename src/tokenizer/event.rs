@@ -2,7 +2,9 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::str::from_utf8_unchecked;
 
-use crate::tokenizer::event::YamlEvent::{Comment, DocEnd, DocStart, ScalarValue, SeqEnd, SeqStart, StreamEnd, StreamStart};
+use crate::tokenizer::event::YamlEvent::{
+    DocEnd, DocStart, ScalarValue, SeqEnd, SeqStart, StreamEnd, StreamStart, YamlTag,
+};
 
 pub enum YamlEvent<'a> {
     StreamStart,
@@ -11,8 +13,8 @@ pub enum YamlEvent<'a> {
     DocEnd,
     SeqStart,
     SeqEnd,
+    YamlTag(Cow<'a, [u8]>),
     ScalarValue(Cow<'a, [u8]>),
-    Comment(Cow<'a, [u8]>),
 }
 
 impl<'a> Debug for YamlEvent<'a> {
@@ -24,9 +26,8 @@ impl<'a> Debug for YamlEvent<'a> {
             DocEnd => write!(f, "-DOC"),
             SeqStart => write!(f, "+SEQ"),
             SeqEnd => write!(f, "-SEQ"),
-            Comment(x) => write!(f, "#COM {}", unsafe{from_utf8_unchecked(x.as_ref())}),
-            ScalarValue(x) => write!(f, "+VAL {}", unsafe{from_utf8_unchecked(x.as_ref())}),
-
+            YamlTag(x) => write!(f, "#TAG {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
+            ScalarValue(x) => write!(f, "+VAL {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
         }
     }
 }

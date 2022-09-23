@@ -2,7 +2,7 @@ extern crate steel_yaml;
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::{Debug, format, Write};
+    use std::fmt::{format, Debug, Write};
 
     use steel_yaml::Scanner;
 
@@ -16,8 +16,7 @@ mod tests {
 +STR
 -STR"#;
         let mut event = String::new();
-        Scanner::from_str_reader(yaml)
-            .for_each(|x| event.push_str(&*format!("\n{:?}", x)));
+        Scanner::from_str_reader(yaml).for_each(|x| event.push_str(&*format!("\n{:?}", x)));
         assert_eq!(expect, event);
     }
 }
