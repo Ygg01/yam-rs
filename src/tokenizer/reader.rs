@@ -149,6 +149,35 @@ pub fn test_readline() {
     assert_eq!(0, mac_reader.col);
 }
 
+#[test]
+pub fn test_read2lines() {
+    let mut win_reader = StrReader::new("#   |\r\n \r\n");
+    let mut lin_reader = StrReader::new("#   |\n\n");
+    let mut mac_reader = StrReader::new("#   |\r\r");
+
+    assert_eq!((0, 5), win_reader.read_line());
+    assert_eq!(Some(b' '), win_reader.peek_byte());
+    assert_eq!(0, win_reader.col);
+    assert_eq!((7, 8), win_reader.read_line());
+    assert_eq!(0, win_reader.col);
+    assert_eq!(None, win_reader.peek_byte());
+
+    assert_eq!((0, 5), lin_reader.read_line());
+    assert_eq!(Some(b'\n'), lin_reader.peek_byte());
+    assert_eq!(0, lin_reader.col);
+    assert_eq!((6, 6), lin_reader.read_line());
+    assert_eq!(0, lin_reader.col);
+    assert_eq!(None, lin_reader.peek_byte());
+
+    assert_eq!((0, 5), mac_reader.read_line());
+    assert_eq!(Some(b'\r'), mac_reader.peek_byte());
+    assert_eq!(0, mac_reader.col);
+    assert_eq!((6, 6), mac_reader.read_line());
+    assert_eq!(0, mac_reader.col);
+    assert_eq!(None, mac_reader.peek_byte());
+
+}
+
 #[inline]
 pub(crate) fn is_tab_space(b: u8) -> bool {
     match b {
