@@ -113,20 +113,34 @@ impl<'r> Reader for StrReader<'r> {
     fn read_non_comment_line(&mut self) -> (usize, usize) {
         let start = self.pos;
         let content = &self.slice.as_bytes()[start..];
-        let consume: usize = memchr::memchr3_iter(b'\r', b'\n', b'#', content)
-            .map(|p| {
-                if content[p] == b'\r' && content[p + 1] == b'\n' {
-                    p
-                } else {
-                    p - 1
-                }
-            })
-            .sum();
-        self.consume_bytes(consume);
-        if content[start + consume] == b'\r' || content[start + consume] == b'\n' {
-            self.col = 0;
+        let mut iter = memchr::memchr3_iter(b'\r', b'\n', b'#', content);
+        let mut end = self.pos;
+        let mut consume = 0usize;
+
+        if let Some((new_end, c)) = iter.next().map(|p| (p, content[p])) {
+            end = new_end;
+            consume = end + 1;
+
+            if c == b'\n' {
+                self.consume_bytes(consume);
+                self.col = 0;
+                return (start, end);
+            }
         }
-        (start, start + consume)
+        while let Some(pos) = iter.next() {
+            let ascii = content[pos];
+            if ascii == b'\r' && pos < content.len() - 1 && content[pos + 1] == b'\n' {
+                self.consume_bytes(pos + 2);
+                self.col = 0;
+                return (start, end);
+            } else if ascii == b'\r' || ascii == b'\n' {
+                self.consume_bytes(pos + 1);
+                self.col = 0;
+                return (start, end);
+            }
+        }
+
+        (start, end)
     }
 }
 
@@ -175,7 +189,28 @@ pub fn test_read2lines() {
     assert_eq!((6, 6), mac_reader.read_line());
     assert_eq!(0, mac_reader.col);
     assert_eq!(None, mac_reader.peek_byte());
+}
 
+#[test]
+pub fn read_non_comment_line() {
+    let mut win_reader = StrReader::new("   # # \r\n");
+    let mut mac_reader = StrReader::new("   # # \r");
+    let mut lin_reader = StrReader::new("   # # \n");
+
+    assert_eq!((0, 3), win_reader.read_non_comment_line());
+    assert_eq!(None, win_reader.peek_byte());
+    assert_eq!(9, win_reader.pos);
+    assert_eq!(0, win_reader.col);
+
+    assert_eq!((0, 3), mac_reader.read_non_comment_line());
+    assert_eq!(None, mac_reader.peek_byte());
+    assert_eq!(8, mac_reader.pos);
+    assert_eq!(0, mac_reader.col);
+
+    assert_eq!((0, 3), lin_reader.read_non_comment_line());
+    assert_eq!(None, lin_reader.peek_byte());
+    assert_eq!(8, lin_reader.pos);
+    assert_eq!(0, lin_reader.col);
 }
 
 #[inline]

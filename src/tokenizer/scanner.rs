@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::error::YamlError;
+use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::State::StreamStart;
 use crate::tokenizer::StrIterator;
@@ -61,7 +62,8 @@ impl Scanner {
             if reader.try_read_slice_exact("%YAML") {
                 reader.skip_space_tab();
                 if let Some(x) = reader.find_fast2_offset(b'\t', b' ') {
-                    self.tokens.push_back(SpanToken::YamlTag(x.0, x.1));
+                    self.tokens
+                        .push_back(SpanToken::Directive(DirectiveType::Yaml, x.0, x.1));
                     reader.consume_bytes(x.1 - x.0);
                     reader.read_line();
                 }
@@ -90,7 +92,7 @@ impl Scanner {
 #[derive(Copy, Clone)]
 pub enum SpanToken {
     Scalar(usize, usize),
-    YamlTag(usize, usize),
+    Directive(DirectiveType, usize, usize),
     StreamStart,
     StreamEnd,
 }

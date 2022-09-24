@@ -46,7 +46,9 @@ impl<'a> StrIterator<'a> {
             SpanToken::StreamStart => YamlEvent::StreamStart,
             SpanToken::StreamEnd => YamlEvent::StreamEnd,
             SpanToken::Scalar(start, end) => YamlEvent::ScalarValue(self.to_cow(start, end)),
-            SpanToken::YamlTag(start, end) => YamlEvent::YamlTag(self.to_cow(start, end)),
+            SpanToken::Directive(typ, start, end) => {
+                YamlEvent::Directive(typ, self.to_cow(start, end))
+            }
         }
     }
 
