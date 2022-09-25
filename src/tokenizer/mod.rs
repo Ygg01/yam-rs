@@ -49,6 +49,7 @@ impl<'a> StrIterator<'a> {
             SpanToken::Directive(typ, start, end) => {
                 YamlEvent::Directive(typ, self.to_cow(start, end))
             }
+            SpanToken::ErrorToken(err) => YamlEvent::Error(err),
         }
     }
 
@@ -79,4 +80,9 @@ impl<'a> Iterator for StrIterator<'a> {
         };
         Some(self.to_token(span))
     }
+}
+
+#[derive(Copy, Clone)]
+pub enum ErrorType {
+    ExpectedDocumentStart,
 }
