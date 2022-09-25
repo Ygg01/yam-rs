@@ -1,8 +1,10 @@
-use crate::tokenizer::ErrorType;
 use std::borrow::Cow;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Formatter, write};
 use std::str::from_utf8_unchecked;
 
+use YamlEvent::Error;
+
+use crate::tokenizer::ErrorType;
 use crate::tokenizer::event::YamlEvent::{
     Directive, DocEnd, DocStart, ScalarValue, SeqEnd, SeqStart, StreamEnd, StreamStart,
 };
@@ -37,7 +39,7 @@ impl<'a> Debug for YamlEvent<'a> {
             SeqEnd => write!(f, "-SEQ"),
             Directive(_, x) => write!(f, "#TAG {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
             ScalarValue(x) => write!(f, "+VAL {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
-            _ => Ok(()),
+            Error(x) => write!(f, "ERR"),
         }
     }
 }

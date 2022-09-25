@@ -1,3 +1,5 @@
+use std::str::from_utf8_unchecked;
+
 use memchr::memchr2;
 
 pub struct StrReader<'a> {
@@ -17,23 +19,28 @@ impl<'a> StrReader<'a> {
 }
 
 pub(crate) trait Reader {
+    fn eof(&self) -> bool;
     fn pos(&self) -> usize;
     fn col(&self) -> usize;
     fn peek_byte(&mut self) -> Option<u8>;
     fn peek_byte_is(&mut self, needle: u8) -> bool;
     fn consume_bytes(&mut self, amount: usize);
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
-
-    #[inline(always)]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
-    fn find_next_non_whitespace(&self) -> Option<usize>;
+    fn find_next_whitespace(&self) -> Option<usize>;
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
     fn skip_space_tab(&mut self) -> usize;
+    fn skip_whitespace(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
 }
 
 impl<'r> Reader for StrReader<'r> {
+    #[inline]
+    fn eof(&self) -> bool {
+        self.pos >= self.slice.as_bytes().len()
+    }
+
     fn pos(&self) -> usize {
         self.pos
     }
@@ -67,6 +74,9 @@ impl<'r> Reader for StrReader<'r> {
 
     #[inline(always)]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
+        if self.slice.len() < self.pos + needle.len() {
+            return false;
+        }
         if self.slice.as_bytes()[self.pos..self.pos + needle.len()].starts_with(needle.as_bytes()) {
             self.pos += needle.len();
             return true;
@@ -74,10 +84,10 @@ impl<'r> Reader for StrReader<'r> {
         false
     }
 
-    fn find_next_non_whitespace(&self) -> Option<usize> {
+    fn find_next_whitespace(&self) -> Option<usize> {
         self.slice.as_bytes()[self.pos..]
             .iter()
-            .position(|p| !is_whitespace(*p))
+            .position(|p| is_whitespace(*p))
     }
 
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)> {
@@ -91,6 +101,15 @@ impl<'r> Reader for StrReader<'r> {
         let n = self.slice.as_bytes()[self.pos..]
             .iter()
             .position(|b| !is_tab_space(*b))
+            .unwrap_or(0);
+        self.consume_bytes(n);
+        n
+    }
+
+    fn skip_whitespace(&mut self) -> usize {
+        let n = self.slice.as_bytes()[self.pos..]
+            .iter()
+            .position(|b| !is_whitespace(*b))
             .unwrap_or(0);
         self.consume_bytes(n);
         n
