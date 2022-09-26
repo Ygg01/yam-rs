@@ -1,13 +1,13 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Formatter, write};
+use std::fmt::{write, Debug, Display, Formatter};
 use std::str::from_utf8_unchecked;
 
 use YamlEvent::Error;
 
-use crate::tokenizer::ErrorType;
 use crate::tokenizer::event::YamlEvent::{
     Directive, DocEnd, DocStart, ScalarValue, SeqEnd, SeqStart, StreamEnd, StreamStart,
 };
+use crate::tokenizer::ErrorType;
 
 pub enum YamlEvent<'a> {
     StreamStart,
@@ -28,6 +28,16 @@ pub enum DirectiveType {
     Reserved,
 }
 
+impl Display for DirectiveType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DirectiveType::Yaml => write!(f, "YAML"),
+            DirectiveType::Tag => write!(f, "TAG"),
+            DirectiveType::Reserved => write!(f, "RESERVED"),
+        }
+    }
+}
+
 impl<'a> Debug for YamlEvent<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -37,7 +47,9 @@ impl<'a> Debug for YamlEvent<'a> {
             DocEnd => write!(f, "-DOC"),
             SeqStart => write!(f, "+SEQ"),
             SeqEnd => write!(f, "-SEQ"),
-            Directive(_, x) => write!(f, "#TAG {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
+            Directive(typ, x) => {
+                write!(f, "#{} {}", typ, unsafe { from_utf8_unchecked(x.as_ref()) })
+            }
             ScalarValue(x) => write!(f, "+VAL {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
             Error(x) => write!(f, "ERR"),
         }
