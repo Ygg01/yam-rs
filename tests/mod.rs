@@ -28,4 +28,19 @@ ERR
 -STR"#;
         assert_eq_event(input_yaml, expect);
     }
+
+    #[test]
+    fn parse_flow_scalars() {
+        let null_yaml = r#"
+null
+"#;
+        let expected = r#"
++STR
++DOC
++VAL null
+-DOC
+-STR
+"#;
+        assert_eq_event(null_yaml, expected)
+    }
 }

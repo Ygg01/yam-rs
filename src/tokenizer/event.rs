@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{write, Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, write};
 use std::str::from_utf8_unchecked;
 
 use YamlEvent::Error;
