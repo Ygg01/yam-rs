@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
-use std::fs::read;
+
+use State::{InBlockMap, InBlockScalar, InBlockSeq, InFlowMap, InFlowSeq};
 
 use crate::error::YamlError;
 use crate::tokenizer::event::DirectiveType;
@@ -10,7 +11,7 @@ use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::Control::{Continue, Eof};
 use crate::tokenizer::scanner::QuoteType::{Double, Plain, Single};
 use crate::tokenizer::scanner::ScannerContext::BlockIn;
-use crate::tokenizer::scanner::State::{InDoc, InFlowScalar, StreamEnd, StreamStart};
+use crate::tokenizer::scanner::State::{BlockNode, InFlowScalar, StreamEnd, StreamStart};
 
 #[derive(Clone, Default)]
 pub struct Scanner {
@@ -38,7 +39,7 @@ impl Default for ScannerContext {
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum State {
     StreamStart,
-    InDoc,
+    BlockNode,
     StreamEnd,
     InFlowSeq,
     InBlockSeq,
@@ -85,7 +86,7 @@ impl Scanner {
 
     pub(crate) fn emit_end_of_stream(&mut self) {
         match self.curr_state {
-            InDoc => self.tokens.push_back(SpanToken::DocEnd),
+            BlockNode => self.tokens.push_back(SpanToken::DocEnd),
             _ => (),
         }
         self.tokens.push_back(SpanToken::StreamEnd);
@@ -104,7 +105,7 @@ impl Scanner {
         }
         match self.curr_state {
             StreamStart => self.read_start_stream(reader),
-            InDoc => self.read_in_doc(reader),
+            BlockNode => self.read_block_node(reader),
             InFlowScalar(_) => self.read_flow_scalar(reader),
             _  => (),
         };
@@ -147,37 +148,37 @@ impl Scanner {
                     .push_back(SpanToken::ErrorToken(ErrorType::ExpectedDocumentStart));
             }
         }
-        self.curr_state = InDoc;
+        self.curr_state = BlockNode;
         self.tokens.push_back(SpanToken::DocStart);
     }
 
-    pub(crate) fn read_in_doc<R: Reader>(&mut self, reader: &mut R) {
+    pub(crate) fn read_block_node<R: Reader>(&mut self, reader: &mut R) {
         reader.skip_whitespace();
         let mut consume = 1;
         if let Some(x) = reader.peek_byte() {
             match x {
                 b'[' => {
-                    self.switch_state(State::InFlowSeq);
+                    self.switch_state(InFlowSeq);
                 }
                 b'-' => {
-                    self.switch_state(State::InBlockSeq);
+                    self.switch_state(InBlockSeq);
                     consume = 0; // Can be re-consumed as scalar `--`
                 }
                 b'{' => {
-                    self.switch_state(State::InFlowMap);
+                    self.switch_state(InFlowMap);
                 }
                 b'?' => {
-                    self.switch_state(State::InBlockMap);
+                    self.switch_state(InBlockMap);
                     consume = 0; // Can be re-consumed as `??` scalar
                 }
                 b'\'' => {
-                    self.switch_state(State::InFlowScalar(Single));
+                    self.switch_state(InFlowScalar(Single));
                 }
                 b'"' => {
-                    self.switch_state(State::InFlowScalar(Double));
+                    self.switch_state(InFlowScalar(Double));
                 }
                 b'|' => {
-                    self.switch_state(State::InBlockScalar);
+                    self.switch_state(InBlockScalar);
                 }
                 b'.' => {
                     if reader.try_read_slice_exact("...") {
@@ -198,7 +199,8 @@ impl Scanner {
     }
 
     pub(crate) fn read_flow_scalar<R: Reader>(&mut self, reader: &mut R) {
-        self.curr_state = InDoc;
+        self.curr_state = BlockNode;
+        reader.skip_whitespace();
         reader.read_line();
     }
 
