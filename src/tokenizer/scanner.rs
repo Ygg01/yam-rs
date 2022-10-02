@@ -5,8 +5,8 @@ use State::{InBlockMap, InBlockScalar, InBlockSeq, InFlowMap, InFlowSeq};
 use crate::error::YamlError;
 use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::event::YamlEvent::{Directive, DocEnd};
-use crate::tokenizer::iter::{ErrorType, StrIterator};
 use crate::tokenizer::iter::ErrorType::StartedBlockInFlow;
+use crate::tokenizer::iter::{ErrorType, StrIterator};
 use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::Control::{Continue, Eof};
 use crate::tokenizer::scanner::QuoteType::{Double, Plain, Single};
@@ -30,7 +30,7 @@ impl Default for Scanner {
     }
 }
 
-#[derive(Copy, Clone, )]
+#[derive(Copy, Clone)]
 pub(crate) enum ScannerContext {
     BlockIn,
     BlockOut,
@@ -39,7 +39,6 @@ pub(crate) enum ScannerContext {
     FlowOut,
     FlowKey,
 }
-
 
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum State {
@@ -54,7 +53,6 @@ pub(crate) enum State {
     InFlowScalar(QuoteType),
     InBlockScalar,
 }
-
 
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum QuoteType {
@@ -105,7 +103,7 @@ impl Scanner {
         }
         match self.curr_state {
             StreamStart => self.read_start_stream(reader),
-            BlockNode => self.read_block_node(reader, 0, BlockOut),
+            DocStart => self.read_block_node(reader, 0, BlockOut),
             // InFlowScalar(Plain) => self.read_flow_scalar_unquote(reader, ),
             _ => (),
         };
@@ -152,8 +150,12 @@ impl Scanner {
         self.tokens.push_back(SpanToken::DocStart);
     }
 
-
-    pub(crate) fn read_block_node<R: Reader>(&mut self, reader: &mut R, indent: usize, context: ScannerContext) {
+    pub(crate) fn read_block_node<R: Reader>(
+        &mut self,
+        reader: &mut R,
+        indent: usize,
+        context: ScannerContext,
+    ) {
         reader.skip_whitespace();
         if let Some(x) = reader.peek_byte() {
             match x {
@@ -200,7 +202,12 @@ impl Scanner {
         self.curr_state = next_state;
     }
 
-    pub(crate) fn read_flow_scalar_unquote<R: Reader>(&mut self, reader: &mut R, indent: usize, context: ScannerContext) {
+    pub(crate) fn read_flow_scalar_unquote<R: Reader>(
+        &mut self,
+        reader: &mut R,
+        indent: usize,
+        context: ScannerContext,
+    ) {
         self.curr_state = InFlowScalar(Plain);
         let n = reader.skip_whitespace();
         reader.read_line();
