@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use crate::tokenizer::event::YamlEvent;
 use crate::tokenizer::reader::StrReader;
-use crate::tokenizer::scanner::State::StreamEnd;
 use crate::tokenizer::scanner::{Control, SpanToken};
 use crate::Scanner;
 

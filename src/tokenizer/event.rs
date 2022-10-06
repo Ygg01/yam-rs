@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{write, Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::str::from_utf8_unchecked;
 
 use YamlEvent::Error;
@@ -51,7 +51,7 @@ impl<'a> Debug for YamlEvent<'a> {
                 write!(f, "#{} {}", typ, unsafe { from_utf8_unchecked(x.as_ref()) })
             }
             ScalarValue(x) => write!(f, "+VAL {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
-            Error(x) => write!(f, "ERR"),
+            Error(_) => write!(f, "ERR"),
         }
     }
 }

@@ -2,16 +2,14 @@ use std::collections::VecDeque;
 
 use State::{InBlockMap, InBlockScalar, InBlockSeq, InFlowMap, InFlowSeq};
 
-use crate::error::YamlError;
 use crate::tokenizer::event::DirectiveType;
-use crate::tokenizer::event::YamlEvent::{Directive, DocEnd};
-use crate::tokenizer::iter::ErrorType::StartedBlockInFlow;
 use crate::tokenizer::iter::{ErrorType, StrIterator};
-use crate::tokenizer::reader::{Reader, StrReader};
+use crate::tokenizer::reader::{is_flow_indicator, is_indicator, is_whitespace, Reader, StrReader};
 use crate::tokenizer::scanner::Control::{Continue, Eof};
 use crate::tokenizer::scanner::QuoteType::{Double, Plain, Single};
-use crate::tokenizer::scanner::ScannerContext::{BlockIn, BlockOut, FlowOut};
-use crate::tokenizer::scanner::State::{BlockNode, InFlowScalar, StreamEnd, StreamStart};
+use crate::tokenizer::scanner::ScannerContext::{BlockIn, BlockKey, BlockOut, FlowIn, FlowKey, FlowOut};
+use crate::tokenizer::scanner::SpanToken::Scalar;
+use crate::tokenizer::scanner::State::{BlockNode, Failure, InFlowScalar, StreamEnd, StreamStart};
 
 #[derive(Clone)]
 pub struct Scanner {
@@ -52,6 +50,7 @@ pub(crate) enum State {
     InMap,
     InFlowScalar(QuoteType),
     InBlockScalar,
+    Failure,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -103,8 +102,7 @@ impl Scanner {
         }
         match self.curr_state {
             StreamStart => self.read_start_stream(reader),
-            DocStart => self.read_block_node(reader, 0, BlockOut),
-            // InFlowScalar(Plain) => self.read_flow_scalar_unquote(reader, ),
+            BlockNode => self.read_block_node(reader, 0, BlockIn),
             _ => (),
         };
         if !self.tokens.is_empty() || !self.closing {
@@ -154,9 +152,9 @@ impl Scanner {
         &mut self,
         reader: &mut R,
         indent: usize,
-        context: ScannerContext,
+        _context: ScannerContext,
     ) {
-        reader.skip_whitespace();
+        self.try_skip_comments(reader);
         if let Some(x) = reader.peek_byte() {
             match x {
                 b'[' => {
@@ -191,7 +189,7 @@ impl Scanner {
                     }
                 }
                 _ => {
-                    self.read_flow_scalar_unquote(reader, indent, context);
+                    self.read_flow_scalar_unquote(reader, indent, FlowOut);
                 }
             }
         };
@@ -208,9 +206,23 @@ impl Scanner {
         indent: usize,
         context: ScannerContext,
     ) {
-        self.curr_state = InFlowScalar(Plain);
-        let n = reader.skip_whitespace();
-        reader.read_line();
+        let is_flow_context = matches!(context, FlowIn | FlowKey);
+        if let Some(x) = reader.peek_byte() {
+            if is_whitespace(x) || is_indicator(x) {
+                return;
+            }
+
+            while {
+                let len = reader.read_plain_in_line(reader.pos() + 1, is_flow_context);
+                if len != 0 {
+                    self.tokens.push_back(Scalar(reader.pos(), reader.pos() + len));
+                    reader.consume_bytes(len);
+                }
+                len != 0 && matches!(context, FlowOut | FlowIn)
+            } {
+                reader.skip_folded(indent);
+            }
+        }
     }
 
     fn try_skip_comments<T: Reader>(&self, reader: &mut T) {
@@ -224,6 +236,11 @@ impl Scanner {
         }
     }
 }
+
+fn is_plain_first(chr: u8, context: ScannerContext) -> bool {
+    is_indicator(chr)
+}
+
 
 #[derive(Copy, Clone)]
 pub enum SpanToken {
