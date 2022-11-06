@@ -29,9 +29,12 @@ pub(crate) trait Reader {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn find_next_whitespace(&self) -> Option<usize>;
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
-    fn skip_space_tab(&mut self) -> usize;
+    fn skip_space_tab(&mut self, allow_tab: bool) -> usize;
+    fn read_indent(&mut self, indent: usize) -> bool;
+    fn read_break(&mut self) -> Option<(usize, usize)>;
     fn skip_whitespace(&mut self) -> usize;
-    fn skip_indent(&mut self, indent: usize) -> Option<usize>;
+    fn skip_indent(&mut self, indent: usize) -> bool;
+    fn skip_indent_less(&mut self, indent: usize) -> bool;
     fn read_line(&mut self) -> (usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
     fn read_plain_in_line(&mut self, start: usize, is_flow_context: bool) -> usize;
@@ -100,13 +103,43 @@ impl<'r> Reader for StrReader<'r> {
         None
     }
 
-    fn skip_space_tab(&mut self) -> usize {
+    fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
         let n = self.slice.as_bytes()[self.pos..]
             .iter()
-            .position(|b| !is_tab_space(*b))
+            .position(|b| *b != b' ' && !(allow_tab && *b == b'\t'))
             .unwrap_or(0);
         self.consume_bytes(n);
         n
+    }
+
+    fn read_indent(&mut self, indent: usize) -> bool {
+        if self.slice.as_bytes()[self.pos..self.pos + indent]
+            .iter()
+            .all(|x| *x == b' ')
+        {
+            self.consume_bytes(indent);
+            return true;
+        }
+        false
+    }
+
+    fn read_break(&mut self) -> Option<(usize, usize)> {
+        let start = self.pos;
+        if self.peek_byte_is(b'\n') {
+            self.pos += 1;
+            self.col = 0;
+            Some((start, start + 1))
+        } else if self.peek_byte_is(b'\r') {
+            let amount = match self.slice.as_bytes().get(start + 1) {
+                Some(b'\n') => 2,
+                _ => 1,
+            };
+            self.col = 0;
+            self.pos += amount;
+            Some((start, start + amount))
+        } else {
+            None
+        }
     }
 
     fn skip_whitespace(&mut self) -> usize {
@@ -118,20 +151,28 @@ impl<'r> Reader for StrReader<'r> {
         n
     }
 
-    fn skip_indent(&mut self, indent: usize) -> Option<usize> {
+    fn skip_indent(&mut self, indent: usize) -> bool {
         if !self.slice.as_bytes()[self.pos..self.pos + indent]
             .iter()
             .all(|&b| b == b' ')
         {
-            return None;
+            return false;
         }
-        let n = self.slice.as_bytes()[self.pos + indent..]
-            .iter()
-            .position(|b| !is_whitespace(*b))
-            .unwrap_or(0);
-        self.consume_bytes(n + indent);
-        Some(n)
+        self.consume_bytes(indent);
+        true
     }
+
+    #[inline]
+    fn skip_indent_less(&mut self, indent: usize) -> bool {
+        let n = self.slice.as_bytes()[self.pos..]
+            .iter().enumerate()
+            .position(|(pos, x)| {
+                *x == b' ' && pos < indent
+            }).unwrap_or(0);
+        self.consume_bytes(n);
+        n > 0
+    }
+
 
     fn read_line(&mut self) -> (usize, usize) {
         let start = self.pos;
@@ -297,7 +338,8 @@ pub(crate) fn is_indicator(chr: u8) -> bool {
 
 #[inline]
 fn is_plain(is_flow_context: bool, win0: u8, win1: u8) -> bool {
-    is_whitespace(win0) || is_whitespace(win1)
+    is_whitespace(win0)
+        || is_whitespace(win1)
         || (win0 == b':' && (is_whitespace(win1) || is_flow_context && is_flow_indicator(win1)))
         || (win1 == b'#' && is_whitespace(win0))
 }
@@ -308,11 +350,4 @@ pub(crate) fn is_flow_indicator(chr: u8) -> bool {
         b',' | b'[' | b']' | b'{' | b'}' => true,
         _ => false,
     }
-}
-
-#[inline]
-pub(crate) fn is_not_plain_safe(x0: u8, x1: u8, safe_in: bool) -> bool {
-    (x0 == b'?' || x0 == b':' || x0 == b'-')
-        && !is_whitespace(x1)
-        && (safe_in || !is_flow_indicator(x1))
 }
