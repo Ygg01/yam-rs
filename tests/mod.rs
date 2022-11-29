@@ -8,7 +8,8 @@ mod tests {
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
-        Scanner::from_str_reader(input_yaml).for_each(|x| event.push_str(&*format!("\n{:?}", x)));
+        let scan = Scanner::from_str_reader(input_yaml);
+        scan.for_each(|x| event.push_str(&*format!("\n{:?}", x)));
         assert_eq!(expect, event);
     }
 
@@ -23,8 +24,6 @@ mod tests {
 +STR
 #YAML 1.3
 ERR
-+DOC
--DOC
 -STR"#;
         assert_eq_event(input_yaml, expect);
     }
@@ -32,15 +31,12 @@ ERR
     #[test]
     fn parse_flow_scalars() {
         let null_yaml = r#"
-null
+null  #comment
 "#;
         let expected = r#"
 +STR
-+DOC
 +VAL null
--DOC
--STR
-"#;
+-STR"#;
         assert_eq_event(null_yaml, expected)
     }
 }
