@@ -31,7 +31,7 @@ ERR
     #[test]
     fn parse_flow_scalars() {
         let null_yaml = r#"
-null  #comment
+null
 "#;
         let expected = r#"
 +STR
@@ -42,16 +42,27 @@ null  #comment
 
     #[test]
     fn parse_flow_scalars_multiline() {
-        let null_yaml = r#"
+        let multiline = r#"
 test
-
 xt
 "#;
         let expected = r#"
 +STR
 +VAL test
-xt
++VAL xt
 -STR"#;
-        assert_eq_event(null_yaml, expected)
+        assert_eq_event(multiline, expected);
+
+        let multi_newline = r#"
+test
+
+xt
+"#;
+        let expected_multi = r#"
++STR
++VAL test
++VAL
++VAL xt
+-STR"#;
     }
 }

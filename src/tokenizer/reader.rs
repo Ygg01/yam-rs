@@ -1,8 +1,11 @@
-use std::{ops::ControlFlow, slice::Windows};
-use std::cmp::Ordering;
 use std::ops::ControlFlow::{Break, Continue};
+use std::{ops::ControlFlow, slice::Windows};
 
 use memchr::memchr2;
+
+use IndentType::{Less, LessOrEqual};
+
+use crate::tokenizer::reader::IndentType::Equal;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -22,17 +25,17 @@ impl<'a> StrReader<'a> {
 
 pub trait QueryUntil {
     fn position_until<P>(&mut self, predicate: P) -> usize
-        where
-            Self: Sized,
-            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
+    where
+        Self: Sized,
+        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
 }
 
 impl<'a> QueryUntil for Windows<'a, u8> {
     #[inline]
     fn position_until<P>(&mut self, predicate: P) -> usize
-        where
-            Self: Sized,
-            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+    where
+        Self: Sized,
+        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
     {
         #[inline]
         fn check<'a>(
@@ -47,40 +50,42 @@ impl<'a> QueryUntil for Windows<'a, u8> {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum IndentType {
-    None,
-    Less,
-    Equal,
-    LessOrEqual,
+    Less(u32),
+    Equal(u32),
+    LessOrEqual(u32),
 }
 
 impl IndentType {
     #[inline]
-    pub(crate) fn compare(&self, lhs: u32, rhs: u32) -> bool {
+    pub(crate) fn compare(&self, value: u32) -> Result<IndentType, ()> {
         match self {
-            IndentType::Less => lhs < rhs,
-            IndentType::Equal => lhs == rhs,
-            IndentType::LessOrEqual => lhs <= rhs,
-            _ => unreachable!(),
+            LessOrEqual(limit) | Less(limit) if value < *limit => Ok(Less(value)),
+            LessOrEqual(limit) | Equal(limit) if value == *limit => Ok(Equal(value)),
+            _ => Err(()),
         }
     }
 
     #[inline]
-    pub(crate) fn is_valid(&self, lhs: u32, rhs: u32) -> bool {
+    pub(crate) fn is_valid(&self, lhs: u32) -> bool {
         match self {
-            IndentType::Less => lhs + 1 < rhs,
-            IndentType::Equal => lhs + 1 <= rhs,
-            IndentType::LessOrEqual => lhs + 1 <= rhs,
-            _ => unreachable!(),
+            Less(rhs) => lhs + 1 < *rhs,
+            Equal(rhs) => lhs + 1 <= *rhs,
+            LessOrEqual(rhs) => lhs + 1 <= *rhs,
         }
     }
 }
 
 pub(crate) trait Reader {
-    fn eof(&self) -> bool;
+    #[inline]
+    fn eof(&self) -> bool {
+        self.is_eof(0)
+    }
+    fn is_eof(&self, offset: usize) -> bool;
     fn pos(&self) -> usize;
     fn col(&self) -> usize;
-    fn peek_byte_at(&self, offset: i8) -> Option<u8>;
+    fn peek_byte_at(&self, offset: i32) -> Option<u8>;
     fn peek_byte(&self) -> Option<u8>;
     fn peek_byte_is(&self, needle: u8) -> bool {
         match self.peek_byte() {
@@ -88,22 +93,25 @@ pub(crate) trait Reader {
             _ => false,
         }
     }
-    fn peek_byte_at_check(&self, offset: i8, check: fn(u8) -> bool) -> bool {
+    fn peek_byte_at_check(&self, offset: i32, check: fn(u8) -> bool) -> bool {
         match self.peek_byte_at(offset) {
             Some(x) if check(x) => true,
             _ => false,
         }
     }
-    fn position_until<L>(&self, lookahead_predicate: L) -> usize
-        where
-            L: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
+    fn check_bytes<P>(&self, check: P) -> bool
+    where
+        P: Fn(u8, u8) -> bool;
+    fn position_until<P>(&self, offset: usize, lookahead_predicate: P) -> usize
+    where
+        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
     fn consume_bytes(&mut self, amount: usize);
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn find_next_whitespace(&self) -> Option<usize>;
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
     fn skip_space_tab(&mut self, allow_tab: bool) -> usize;
-    fn try_read_indent(&mut self, indent: u32, indent_type: IndentType) -> u32;
+    fn try_read_indent(&mut self, indent_type: IndentType) -> Result<IndentType, ()>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
     fn skip_whitespace(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
@@ -112,8 +120,8 @@ pub(crate) trait Reader {
 
 impl<'r> Reader for StrReader<'r> {
     #[inline]
-    fn eof(&self) -> bool {
-        self.pos >= self.slice.as_bytes().len()
+    fn is_eof(&self, offset: usize) -> bool {
+        self.pos + offset >= self.slice.as_bytes().len()
     }
 
     fn pos(&self) -> usize {
@@ -124,7 +132,7 @@ impl<'r> Reader for StrReader<'r> {
         self.col
     }
 
-    fn peek_byte_at(&self, offset: i8) -> Option<u8> {
+    fn peek_byte_at(&self, offset: i32) -> Option<u8> {
         let new_pos = if offset >= 0 {
             self.pos + offset as usize
         } else {
@@ -143,11 +151,23 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
-    fn position_until<P>(&self, predicate: P) -> usize
-        where
-            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+    fn check_bytes<P>(&self, check: P) -> bool
+    where
+        P: Fn(u8, u8) -> bool,
     {
-        self.slice.as_bytes()[self.pos..]
+        let sl = &self.slice.as_bytes()[self.pos..];
+        match (sl.get(0), sl.get(1)) {
+            (Some(x0), None) => check(*x0, b'\0'),
+            (Some(x0), Some(x1)) => check(*x0, *x1),
+            _ => false,
+        }
+    }
+
+    fn position_until<P>(&self, offset: usize, predicate: P) -> usize
+    where
+        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+    {
+        self.slice.as_bytes()[self.pos + offset..]
             .windows(2)
             .position_until(predicate)
     }
@@ -196,21 +216,25 @@ impl<'r> Reader for StrReader<'r> {
         n
     }
 
-    fn try_read_indent(&mut self, indent: u32, indent_type: IndentType) -> bool {
+    fn try_read_indent(&mut self, indent_type: IndentType) -> Result<IndentType, ()> {
         let consume = match self.slice.as_bytes()[self.pos..]
             .iter()
             .try_fold(0u32, |prev, &x| {
-                if x == b' ' && indent_type.is_valid(prev, indent) {
+                if x == b' ' && indent_type.is_valid(prev) {
                     Continue(prev + 1)
                 } else {
                     Break(prev)
                 }
-            })
-        {
-            Continue(x) | Break(x) => x,
+            }) {
+            Continue(value) | Break(value) => indent_type.compare(value),
         };
-        self.consume_bytes(consume as usize);
-        indent_type.compare(consume, indent)
+        match consume {
+            Ok(Less(amount)) | Ok(Equal(amount)) | Ok(LessOrEqual(amount)) => {
+                self.consume_bytes(amount as usize)
+            }
+            _ => {}
+        };
+        consume
     }
 
     fn read_break(&mut self) -> Option<(usize, usize)> {
@@ -377,7 +401,7 @@ pub fn test_position_until() {
 
     assert_eq!(
         4,
-        look_ahead.position_until(|pos, x0, x1| {
+        look_ahead.position_until(0, |pos, x0, x1| {
             if is_tab_space(x0) && x1 == b'#' {
                 Break(pos)
             } else {
@@ -390,7 +414,7 @@ pub fn test_position_until() {
 
     assert_eq!(
         4,
-        look_behind.position_until(|pos, x0, x1| {
+        look_behind.position_until(0, |pos, x0, x1| {
             if x0 == b'#' && is_tab_space(x1) {
                 Break(pos)
             } else {
@@ -403,7 +427,7 @@ pub fn test_position_until() {
 
     assert_eq!(
         5,
-        look_any.position_until(|pos, x0, x1| {
+        look_any.position_until(0, |pos, x0, x1| {
             if is_tab_space(x0) {
                 Break(pos)
             } else if is_tab_space(x1) {
@@ -417,31 +441,41 @@ pub fn test_position_until() {
 
 #[test]
 pub fn test_try_read_indent() {
-    fn try_read(input: &str, indent: u32, indent_type: IndentType, success: bool, expected_pos: usize) {
+    fn try_read(
+        input: &str,
+        indent_type: IndentType,
+        expected_res: Result<IndentType, ()>,
+        expected_pos: usize,
+    ) {
         let mut reader = StrReader::new(input);
-        let read = reader.try_read_indent(indent, indent_type);
+        let read = reader.try_read_indent(indent_type);
 
-        assert_eq!(success, read);
+        assert_eq!(expected_res, read);
         assert_eq!(expected_pos, reader.pos);
     }
 
-    try_read("     #", 3, IndentType::Equal, true, 3);
-    try_read("     #", 6, IndentType::Equal, false, 5);
+    try_read("     #", Equal(3), Ok(Equal(3)), 3);
+    try_read("     #", Equal(6), Err(()), 0);
 
-    try_read("     #", 4, IndentType::Less, true, 3);
-    try_read("     #", 0, IndentType::Less, false, 0);
+    try_read("     #", Less(4), Ok(Less(3)), 3);
+    try_read("     #", Less(0), Err(()), 0);
 
-    try_read("     #", 4, IndentType::LessOrEqual, true, 4);
-    try_read("     #", 7, IndentType::LessOrEqual, true, 5);
+    try_read("     #", LessOrEqual(4), Ok(Equal(4)), 4);
+    try_read("     #", LessOrEqual(7), Ok(Less(5)), 5);
 }
-
-
-
 
 #[inline]
 pub(crate) fn is_tab_space(b: u8) -> bool {
     match b {
         b' ' | b'\t' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) fn is_yaml_collection(chr: u8) -> bool {
+    match chr {
+        b'?' | b':' | b'-' => true,
         _ => false,
     }
 }
