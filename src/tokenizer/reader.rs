@@ -3,9 +3,9 @@ use std::{ops::ControlFlow, slice::Windows};
 
 use memchr::memchr2;
 
-use IndentType::{Less, LessOrEqual};
+use IndentType::{LessIndent, LessOrEqualIndent};
 
-use crate::tokenizer::reader::IndentType::Equal;
+use crate::tokenizer::reader::IndentType::EqualIndent;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -52,17 +52,19 @@ impl<'a> QueryUntil for Windows<'a, u8> {
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum IndentType {
-    Less(u32),
-    Equal(u32),
-    LessOrEqual(u32),
+    LessIndent(u32),
+    EqualIndent(u32),
+    LessOrEqualIndent(u32),
 }
 
 impl IndentType {
     #[inline]
     pub(crate) fn compare(&self, value: u32) -> Result<IndentType, ()> {
         match self {
-            LessOrEqual(limit) | Less(limit) if value < *limit => Ok(Less(value)),
-            LessOrEqual(limit) | Equal(limit) if value == *limit => Ok(Equal(value)),
+            LessOrEqualIndent(limit) | LessIndent(limit) if value < *limit => Ok(LessIndent(value)),
+            LessOrEqualIndent(limit) | EqualIndent(limit) if value == *limit => {
+                Ok(EqualIndent(value))
+            }
             _ => Err(()),
         }
     }
@@ -70,9 +72,9 @@ impl IndentType {
     #[inline]
     pub(crate) fn is_valid(&self, lhs: u32) -> bool {
         match self {
-            Less(rhs) => lhs + 1 < *rhs,
-            Equal(rhs) => lhs + 1 <= *rhs,
-            LessOrEqual(rhs) => lhs + 1 <= *rhs,
+            LessIndent(rhs) => lhs + 1 < *rhs,
+            EqualIndent(rhs) => lhs + 1 <= *rhs,
+            LessOrEqualIndent(rhs) => lhs + 1 <= *rhs,
         }
     }
 }
@@ -229,7 +231,7 @@ impl<'r> Reader for StrReader<'r> {
             Continue(value) | Break(value) => indent_type.compare(value),
         };
         match consume {
-            Ok(Less(amount)) | Ok(Equal(amount)) | Ok(LessOrEqual(amount)) => {
+            Ok(LessIndent(amount)) | Ok(EqualIndent(amount)) | Ok(LessOrEqualIndent(amount)) => {
                 self.consume_bytes(amount as usize)
             }
             _ => {}
@@ -454,14 +456,14 @@ pub fn test_try_read_indent() {
         assert_eq!(expected_pos, reader.pos);
     }
 
-    try_read("     #", Equal(3), Ok(Equal(3)), 3);
-    try_read("     #", Equal(6), Err(()), 0);
+    try_read("     #", EqualIndent(3), Ok(EqualIndent(3)), 3);
+    try_read("     #", EqualIndent(6), Err(()), 0);
 
-    try_read("     #", Less(4), Ok(Less(3)), 3);
-    try_read("     #", Less(0), Err(()), 0);
+    try_read("     #", LessIndent(4), Ok(LessIndent(3)), 3);
+    try_read("     #", LessIndent(0), Err(()), 0);
 
-    try_read("     #", LessOrEqual(4), Ok(Equal(4)), 4);
-    try_read("     #", LessOrEqual(7), Ok(Less(5)), 5);
+    try_read("     #", LessOrEqualIndent(4), Ok(EqualIndent(4)), 4);
+    try_read("     #", LessOrEqualIndent(7), Ok(LessIndent(5)), 5);
 }
 
 #[inline]
