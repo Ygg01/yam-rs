@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::ops::ControlFlow::{Break, Continue};
 
 use ErrorType::NoDocStartAfterTag;
-use SpanToken::DocStart;
+use SpanToken::DocumentStart;
 
 use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::iter::ErrorType::{ExpectedIndent, UnexpectedSymbol};
@@ -10,10 +10,10 @@ use crate::tokenizer::iter::{ErrorType, StrIterator};
 use crate::tokenizer::reader::IndentType::{EqualIndent, LessOrEqualIndent};
 use crate::tokenizer::reader::{is_flow_indicator, is_tab_space, is_whitespace, Reader, StrReader};
 use crate::tokenizer::scanner::NodeContext::{BlockIn, BlockKey, FlowIn, FlowKey, FlowOut};
-use crate::tokenizer::scanner::ParserState::{FlowNode, PreDocStart, RootBlock, StreamStart};
+use crate::tokenizer::scanner::ParserState::{FlowNode, PreDocStart, RootBlock};
 use crate::tokenizer::scanner::QuoteType::{Double, Single};
 use crate::tokenizer::scanner::SpanToken::{
-    ErrorToken, MappingStart, Scalar, ScalarFold, SequenceEnd, SequenceStart,
+    Directive, ErrorToken, MappingStart, MarkEnd, MarkStart, SequenceEnd, SequenceStart,
 };
 
 use super::reader::is_yaml_collection;
@@ -23,6 +23,7 @@ pub struct Scanner {
     pub(crate) curr_state: ParserState,
     pub(crate) stream_end: bool,
     tokens: VecDeque<SpanToken>,
+    stack: VecDeque<ParserState>,
 }
 
 impl Default for Scanner {
@@ -30,14 +31,14 @@ impl Default for Scanner {
         Self {
             stream_end: false,
             tokens: VecDeque::new(),
-            curr_state: StreamStart,
+            curr_state: PreDocStart,
+            stack: VecDeque::new(),
         }
     }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub(crate) enum ParserState {
-    StreamStart,
     PreDocStart,
     RootBlock,
     FlowNode(NodeContext, u32),
@@ -122,10 +123,6 @@ impl Scanner {
     pub(crate) fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
         self.scan_to_next_token(reader, true);
         match self.curr_state {
-            StreamStart => {
-                self.tokens.push_back(SpanToken::StreamStart);
-                self.curr_state = PreDocStart;
-            }
             RootBlock => match reader.peek_byte() {
                 Some(b'{') => self.fetch_flow_col(reader, FlowOut, 0),
                 Some(b'[') => self.fetch_flow_col(reader, FlowOut, 0),
@@ -147,7 +144,8 @@ impl Scanner {
                     if x != b']' && x != b'}' && x != b'@' {
                         self.fetch_plain_scalar(reader, BlockIn, 0);
                     } else {
-                        self.tokens.push_back(ErrorToken(UnexpectedSymbol))
+                        self.tokens
+                            .push_back(ErrorToken(UnexpectedSymbol(x as char)))
                     }
                 }
                 None => self.stream_end = true,
@@ -155,6 +153,10 @@ impl Scanner {
             FlowNode(context, indent) => match reader.peek_byte() {
                 Some(b'{') => self.fetch_flow_col(reader, context, indent + 1),
                 Some(b'[') => self.fetch_flow_col(reader, context, indent + 1),
+                Some(b']') if indent > 0 => self.fetch_flow_col(reader, context, indent - 1),
+                Some(b'}') if indent > 0 => self.fetch_flow_col(reader, context, indent - 1),
+                Some(b']') => self.tokens.push_back(ErrorToken(UnexpectedSymbol(']'))),
+                Some(b'}') => self.tokens.push_back(ErrorToken(UnexpectedSymbol('}'))),
                 Some(_) => {}
                 None => self.stream_end = true,
             },
@@ -167,28 +169,29 @@ impl Scanner {
                 if reader.try_read_slice_exact("%YAML") {
                     reader.skip_space_tab(true);
                     if let Some(x) = reader.find_next_whitespace() {
-                        self.tokens.push_back(SpanToken::Directive(
-                            DirectiveType::Yaml,
-                            reader.pos(),
-                            reader.pos() + x,
-                        ));
+                        self.tokens.push_back(Directive(DirectiveType::Yaml));
+                        self.tokens.push_back(MarkStart(reader.pos()));
+                        self.tokens.push_back(MarkEnd(reader.pos() + x));
+
                         reader.consume_bytes(x);
                         reader.read_line();
                     }
                 } else {
                     let tag = if reader.try_read_slice_exact("%TAG") {
-                        DirectiveType::Tag
+                        Directive(DirectiveType::Tag)
                     } else {
-                        DirectiveType::Reserved
+                        Directive(DirectiveType::Reserved)
                     };
                     reader.skip_space_tab(true);
                     let x = reader.read_non_comment_line();
                     if x.0 != x.1 {
-                        self.tokens.push_back(SpanToken::Directive(tag, x.0, x.1));
+                        self.tokens.push_back(tag);
+                        self.tokens.push_back(MarkStart(x.0));
+                        self.tokens.push_back(MarkEnd(x.1));
                     }
                 }
                 if reader.try_read_slice_exact("---") {
-                    self.tokens.push_back(DocStart)
+                    self.tokens.push_back(DocumentStart)
                 } else {
                     self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
                 }
@@ -197,7 +200,6 @@ impl Scanner {
         }
 
         if reader.eof() {
-            self.tokens.push_back(SpanToken::StreamEnd);
             self.stream_end = true;
             return;
         }
@@ -210,7 +212,7 @@ impl Scanner {
             // read comment line
             if reader.peek_byte_is(b'#') {
                 reader.read_line();
-                break;
+                continue;
             }
 
             // if not end of file read new line or space/tab in next loop
@@ -231,7 +233,19 @@ impl Scanner {
         }
 
         self.skip_separation_spaces(reader, context, indent);
-        self.curr_state = FlowNode(context.to_flow(), indent);
+        self.push_state(FlowNode(context.to_flow(), indent));
+    }
+
+    fn push_state(&mut self, state: ParserState) {
+        self.stack.push_back(self.curr_state);
+        self.curr_state = state;
+    }
+
+    fn pop_state(&mut self) {
+        match self.stack.pop_front() {
+            Some(x) => self.curr_state = x,
+            None => self.curr_state = ParserState::AfterDocEnd,
+        }
     }
 
     fn skip_separation_spaces<R: Reader>(
@@ -335,7 +349,8 @@ impl Scanner {
             }
             // b-as-line-feed expected
             if let Some(x) = reader.read_break() {
-                self.tokens.push_back(ScalarFold(x.0, x.1));
+                self.tokens.push_back(MarkStart(x.0));
+                self.tokens.push_back(MarkEnd(x.1));
                 continue;
             } else if indent > 0 {
                 self.tokens
@@ -369,7 +384,7 @@ impl Scanner {
                     && (is_whitespace(x1)
                         || (context.in_flow_collection() && is_flow_indicator(x1)))
                 {
-                    self.tokens.push_back(SpanToken::MapKey);
+                    self.tokens.push_back(MappingStart);
                     return Break(pos);
                 }
 
@@ -383,7 +398,8 @@ impl Scanner {
         }
 
         if offset > 0 {
-            self.tokens.push_back(Scalar(start, start + offset));
+            self.tokens.push_back(MarkStart(start));
+            self.tokens.push_back(MarkEnd(start + offset));
             reader.consume_bytes(offset as usize);
         }
     }
@@ -406,17 +422,14 @@ fn is_invalid_scalar(x0: u8, x1: u8, in_flow_collection: bool) -> bool {
 
 #[derive(Copy, Clone)]
 pub enum SpanToken {
-    MapKey,
     ErrorToken(ErrorType),
-    Scalar(usize, usize),
-    ScalarFold(usize, usize),
-    Directive(DirectiveType, usize, usize),
+    MarkStart(usize),
+    MarkEnd(usize),
+    Directive(DirectiveType),
     SequenceStart,
     SequenceEnd,
     MappingStart,
     MappingEnd,
-    DocStart,
-    DocEnd,
-    StreamStart,
-    StreamEnd,
+    DocumentStart,
+    DocumentEnd,
 }
