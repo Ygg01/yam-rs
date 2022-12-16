@@ -87,7 +87,7 @@ pub(crate) trait Reader {
     fn is_eof(&self, offset: usize) -> bool;
     fn pos(&self) -> usize;
     fn col(&self) -> usize;
-    fn peek_byte_at(&self, offset: i32) -> Option<u8>;
+    fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     fn peek_byte(&self) -> Option<u8>;
     fn peek_byte_is(&self, needle: u8) -> bool {
         match self.peek_byte() {
@@ -95,7 +95,7 @@ pub(crate) trait Reader {
             _ => false,
         }
     }
-    fn peek_byte_at_check(&self, offset: i32, check: fn(u8) -> bool) -> bool {
+    fn peek_byte_at_check(&self, offset: usize, check: fn(u8) -> bool) -> bool {
         match self.peek_byte_at(offset) {
             Some(x) if check(x) => true,
             _ => false,
@@ -134,13 +134,8 @@ impl<'r> Reader for StrReader<'r> {
         self.col
     }
 
-    fn peek_byte_at(&self, offset: i32) -> Option<u8> {
-        let new_pos = if offset >= 0 {
-            self.pos + offset as usize
-        } else {
-            self.pos - offset.abs() as usize
-        };
-        match self.slice.as_bytes().get(new_pos) {
+    fn peek_byte_at(&self, offset: usize) -> Option<u8> {
+        match self.slice.as_bytes().get(self.pos + offset) {
             Some(x) => Some(*x),
             _ => None,
         }
