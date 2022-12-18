@@ -461,35 +461,11 @@ pub fn test_try_read_indent() {
     try_read("     #", LessOrEqualIndent(7), Ok(LessIndent(5)), 5);
 }
 
-#[inline]
-pub(crate) fn is_tab_space(b: u8) -> bool {
-    match b {
-        b' ' | b'\t' => true,
-        _ => false,
-    }
-}
-
-#[inline]
-pub(crate) fn is_yaml_collection(chr: u8) -> bool {
-    match chr {
-        b'?' | b':' | b'-' => true,
-        _ => false,
-    }
-}
 
 #[inline]
 pub(crate) fn is_whitespace(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => true,
-        _ => false,
-    }
-}
-
-#[inline]
-pub(crate) fn is_indicator(chr: u8) -> bool {
-    match chr {
-        b'-' | b'?' | b':' | b',' | b'[' | b']' | b'{' | b'}' | b'#' | b'&' | b'*' | b'!'
-        | b'|' | b'>' | b'\'' | b'"' | b'%' | b'@' | b'`' => true,
         _ => false,
     }
 }

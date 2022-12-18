@@ -8,7 +8,7 @@ use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::iter::ErrorType::{ExpectedIndent, UnexpectedSymbol};
 use crate::tokenizer::iter::{ErrorType, StrIterator};
 use crate::tokenizer::reader::IndentType::{EqualIndent, LessOrEqualIndent};
-use crate::tokenizer::reader::{is_flow_indicator, is_tab_space, is_whitespace, Reader, StrReader};
+use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, Reader, StrReader};
 use crate::tokenizer::scanner::NodeContext::{BlockIn, BlockKey, FlowIn, FlowKey, FlowOut};
 use crate::tokenizer::scanner::ParserState::{FlowMap, FlowSeq, PreDocStart, RootBlock};
 use crate::tokenizer::scanner::QuoteType::{Double, Single};
