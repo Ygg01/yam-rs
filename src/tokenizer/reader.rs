@@ -313,7 +313,13 @@ impl<'r> Reader for StrReader<'r> {
     }
 }
 
-impl<'r> StrReader<'r> {}
+#[inline]
+pub(crate) fn is_tab_space(b: u8) -> bool {
+    match b {
+        b' ' | b'\t' => true,
+        _ => false,
+    }
+}
 
 #[test]
 pub fn test_readline() {
