@@ -11,8 +11,9 @@ use crate::tokenizer::reader::IndentType::{EqualIndent, LessOrEqualIndent};
 use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, Reader, StrReader};
 use crate::tokenizer::scanner::NodeContext::{BlockIn, BlockKey, FlowIn, FlowKey, FlowOut};
 use crate::tokenizer::scanner::ParserState::{FlowMap, FlowSeq, PreDocStart, RootBlock};
-use crate::tokenizer::scanner::QuoteType::{Double, Single};
-use crate::tokenizer::scanner::SpanToken::{Directive, ErrorToken, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd, SequenceStart};
+use crate::tokenizer::scanner::SpanToken::{
+    Directive, ErrorToken, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd, SequenceStart,
+};
 
 #[derive(Clone)]
 pub struct Scanner {
@@ -87,18 +88,6 @@ impl NodeContext {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub(crate) enum QuoteType {
-    Single,
-    Double,
-}
-
-impl Default for QuoteType {
-    fn default() -> Self {
-        Single
-    }
-}
-
 impl Scanner {
     pub fn from_str_reader(slice: &str) -> StrIterator<'_> {
         StrIterator {
@@ -167,8 +156,8 @@ impl Scanner {
                 Some(b'!') => self.fetch_tag(reader),
                 Some(b'>') => self.fetch_block_scalar(reader, false),
                 Some(b'|') => self.fetch_block_scalar(reader, false),
-                Some(b'\'') => self.fetch_flow_scalar(reader, Single),
-                Some(b'"') => self.fetch_flow_scalar(reader, Double),
+                Some(b'\'') => self.fetch_quoted_scalar(reader),
+                Some(b'"') => self.fetch_quoted_scalar(reader),
                 Some(b'#') => {
                     // comment
                     reader.read_line();
@@ -197,8 +186,10 @@ impl Scanner {
                     self.tokens.push_back(ErrorToken(UnexpectedSymbol('}')));
                 }
                 Some(b',') => reader.consume_bytes(1),
-                Some(b'\'') => self.fetch_flow_scalar(reader, Single),
-                Some(b'"') => self.fetch_flow_scalar(reader, Double),
+                Some(b'\'') => self.fetch_quoted_scalar(reader),
+                Some(b'"') => self.fetch_quoted_scalar(reader),
+                Some(b':') => self.fetch_empty_map(reader, context, indent),
+                Some(b'?') => self.fetch_explicit_map(reader, context, indent),
                 Some(_) => {
                     self.fetch_plain_scalar(reader, context, indent);
                 }
@@ -213,12 +204,17 @@ impl Scanner {
                     self.pop_state();
                 }
                 Some(b']') => {
-                    reader.consume_bytes(1);
-                    self.tokens.push_back(ErrorToken(UnexpectedSymbol(']')));
+                    if self.is_prev_sequence() {
+                        self.tokens.push_back(MappingEnd);
+                        self.pop_state();
+                    } else {
+                        reader.consume_bytes(1);
+                        self.tokens.push_back(ErrorToken(UnexpectedSymbol(']')));
+                    }
                 }
                 Some(b',') => reader.consume_bytes(1),
-                Some(b'\'') => self.fetch_flow_scalar(reader, Single),
-                Some(b'"') => self.fetch_flow_scalar(reader, Double),
+                Some(b'\'') => self.fetch_quoted_scalar(reader),
+                Some(b'"') => self.fetch_quoted_scalar(reader),
                 Some(_) => {
                     self.fetch_plain_scalar(reader, context, indent);
                 }
@@ -271,7 +267,7 @@ impl Scanner {
     }
 
     fn pop_state(&mut self) {
-        match self.stack.pop_front() {
+        match self.stack.pop_back() {
             Some(x) => self.curr_state = x,
             None => self.curr_state = ParserState::AfterDocEnd,
         }
@@ -326,14 +322,14 @@ impl Scanner {
     fn fetch_block_scalar<R: Reader>(&mut self, reader: &mut R, literal: bool) {
         todo!()
     }
-    fn fetch_flow_scalar<R: Reader>(&mut self, reader: &mut R, quote: QuoteType) {
+    fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R) {
         todo!()
     }
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
         let is_multiline = !context.in_implicit_key();
 
         // assume first char will be correct and consume it
-        self.read_plain_one_line(context, reader);
+        self.read_plain_one_line(reader, context);
 
         // if multiline then we process next plain scalar
         if !reader.peek_byte_at_check(0, is_flow_indicator) {
@@ -343,24 +339,23 @@ impl Scanner {
                     reader.skip_space_tab(true);
                 }
                 // b-l-folded
-                self.read_folded(FlowIn, indent, reader);
-    
+                self.read_folded(reader, FlowIn, indent);
+
                 //s-flow-line-prefix
                 if reader.try_read_indent(EqualIndent(indent)).is_ok() {
                     if reader.col() != 0 {
                         reader.skip_space_tab(true);
                     }
-                    self.read_plain_one_line(context, reader);
+                    self.read_plain_one_line(reader, context);
                 } else {
                     self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
                 }
             }
         }
-        
     }
 
     #[inline]
-    fn read_folded<R: Reader>(&mut self, context: NodeContext, indent: u32, reader: &mut R) {
+    fn read_folded<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
         // try read break
         if reader.read_break().is_none() {
             self.tokens
@@ -393,7 +388,7 @@ impl Scanner {
     }
 
     #[inline]
-    fn read_plain_one_line<R: Reader>(&mut self, context: NodeContext, reader: &mut R) {
+    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R, context: NodeContext) {
         let start = reader.pos();
         let in_flow_collection = context.in_flow_collection();
         let mut offset = 0;
@@ -417,6 +412,22 @@ impl Scanner {
             self.tokens.push_back(MarkStart(start));
             self.tokens.push_back(MarkEnd(start + offset));
             reader.consume_bytes(offset as usize);
+        }
+    }
+    fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
+        todo!()
+    }
+    fn fetch_empty_map<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
+        self.tokens.push_back(MappingStart);
+        reader.consume_bytes(1);
+        self.push_state(FlowMap(context, indent));
+    }
+
+    #[inline]
+    fn is_prev_sequence(&self) -> bool {
+        match self.stack.back() {
+            Some(FlowSeq(_, _)) => true,
+            _ => false,
         }
     }
 }
