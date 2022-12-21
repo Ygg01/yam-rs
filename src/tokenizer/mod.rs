@@ -17,10 +17,10 @@ pub enum YamlToken<'a> {
     //     - x
     Sequence(Vec<YamlToken<'a>>),
 
-    // flow style like `{x: X, x: X}`
+    // flow style like `{x: Y, a: B}`
     // or block style like:
-    //     x: X
-    //     x: X
+    //     x: Y
+    //     a: B
     Mapping(Vec<Entry<'a>>),
 
     // Error during parsing
