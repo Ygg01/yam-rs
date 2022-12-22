@@ -47,7 +47,7 @@ impl<'a> Iterator for StrIterator<'a> {
                                         borrow.to_mut().extend(self.to_cow(x0, x1).to_vec());
                                     }
                                 }
-                                Some(LineFeed) => {
+                                Some(NewLine) => {
                                     self.state.pop_token();
                                     borrow.to_mut().push(b'\n');
                                 }
@@ -83,7 +83,7 @@ impl<'a> Iterator for StrIterator<'a> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum ErrorType {
     NoDocStartAfterTag,
     UnexpectedEndOfFile,

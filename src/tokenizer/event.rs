@@ -58,7 +58,7 @@ impl<'a> Debug for YamlEvent<'a> {
             }
             ScalarValue(x) => write!(f, "=VAL {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
             Alias(x) => write!(f, "=ALI {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
-            Error(_) => write!(f, "ERR"),
+            Error(x) => write!(f, "ERR({:?})", x),
         }
     }
 }

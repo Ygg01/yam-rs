@@ -44,6 +44,9 @@ xt
     const SEQ_NESTED_COL1: &'static str = r#"
 [:]
 "#;
+    const SEQ_NESTED_COL2: &'static str = r#"
+[{:}]
+"#;
 
     const SEQ_NESTED_COL1_EXPECTED: &'static str = r#"
 +SEQ
@@ -78,5 +81,6 @@ xt
     #[test]
     fn parse_nested_col() {
         assert_eq_event(SEQ_NESTED_COL1, SEQ_NESTED_COL1_EXPECTED);
+        assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL1_EXPECTED);
     }
 }
