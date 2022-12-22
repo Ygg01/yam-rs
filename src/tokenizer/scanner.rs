@@ -196,6 +196,10 @@ impl Scanner {
                 Some(b'"') => self.fetch_quoted_scalar(reader),
                 Some(b':') => self.fetch_empty_map(reader, indent),
                 Some(b'?') => self.fetch_explicit_map(reader),
+                Some(b'#') => {
+                    // comment
+                    reader.read_line();
+                }
                 Some(_) => {
                     self.fetch_plain_scalar(reader, self.curr_state, false);
                 }
@@ -223,6 +227,10 @@ impl Scanner {
                 Some(b',') => reader.consume_bytes(1),
                 Some(b'\'') => self.fetch_quoted_scalar(reader),
                 Some(b'"') => self.fetch_quoted_scalar(reader),
+                Some(b'#') => {
+                    // comment
+                    reader.read_line();
+                }
                 Some(_) => {
                     self.fetch_plain_scalar(reader, self.curr_state, true);
                 }
