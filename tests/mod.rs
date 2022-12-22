@@ -75,6 +75,10 @@ xt
     const SEQ_X_Y_MAP2: &'static str = r#"
 {? x: y}
 "#;
+    const SEQ_X_Y_MAP3: &'static str = r#"
+{x: #comment
+ y}
+"#;
     const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
 +MAP
 =VAL x
@@ -117,5 +121,6 @@ xt
         assert_eq_event(SEQ_XY_MAP1, SEQ_XY_MAP1_EXPECTED);
         assert_eq_event(SEQ_X_Y_MAP1, SEQ_X_Y_MAP_EXPECTED);
         assert_eq_event(SEQ_X_Y_MAP2, SEQ_X_Y_MAP_EXPECTED);
+        assert_eq_event(SEQ_X_Y_MAP3, SEQ_X_Y_MAP_EXPECTED);
     }
 }
