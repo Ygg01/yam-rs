@@ -1,10 +1,14 @@
 extern crate steel_yaml;
 
+mod tokenizer;
+
 #[cfg(test)]
 mod tests {
-    use std::fmt::{format, Debug, Write};
+    use std::fmt::{Debug, format, Write};
 
     use steel_yaml::Scanner;
+
+    use crate::tokenizer::StrIterator;
 
     const EMPTY_DOC_INPUT: &'static str = r#"
 # test"
@@ -38,6 +42,7 @@ xt
     const SEQ_FLOW_EXPECTED: &'static str = r#"
 +SEQ
 =VAL x
+-SEP-
 =VAL y
 -SEQ"#;
 
@@ -54,11 +59,19 @@ xt
 -MAP
 -SEQ"#;
 
+    const SEQ_NESTED_COL2_EXPECTED: &'static str = r#"
++SEQ
++MAP
+-KEY-
+-MAP
+-SEQ"#;
+
     const SEQ_EMPTY_MAP: &'static str = r#"
 {:}
 "#;
     const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
 +MAP
+-KEY-
 -MAP"#;
 
     const SEQ_XY_MAP1: &'static str = r#"
@@ -82,13 +95,29 @@ xt
     const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
 +MAP
 =VAL x
+-KEY-
 =VAL y
+-MAP"#;
+
+    const SEQ_COMPLEX_MAP: &'static str = r#"
+{[x,y]:a}
+"#;
+
+    const SEQ_COMPLEX_MAP_EXPECTED: &'static str = r#"
++MAP
++SEQ
+=VAL x
+-SEP-
+=VAL y
+-SEQ
+-KEY-
+=VAL a
 -MAP"#;
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
-        let scan = Scanner::from_str_reader(input_yaml);
-        scan.for_each(|x| event.push_str(&*format!("\n{:?}", x)));
+        let scan = StrIterator::new_from_string(input_yaml);
+        scan.for_each(|x| event.push_str(x.as_ref()));
         assert_eq!(expect, event);
     }
 
@@ -112,15 +141,20 @@ xt
     #[test]
     fn parse_nested_col() {
         assert_eq_event(SEQ_NESTED_COL1, SEQ_NESTED_COL1_EXPECTED);
-        assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL1_EXPECTED);
+        assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL2_EXPECTED);
     }
 
     #[test]
-    fn parse_map() {
+    fn parse_flow_map() {
         assert_eq_event(SEQ_EMPTY_MAP, SEQ_EMPTY_MAP_EXPECTED);
         assert_eq_event(SEQ_XY_MAP1, SEQ_XY_MAP1_EXPECTED);
         assert_eq_event(SEQ_X_Y_MAP1, SEQ_X_Y_MAP_EXPECTED);
         assert_eq_event(SEQ_X_Y_MAP2, SEQ_X_Y_MAP_EXPECTED);
         assert_eq_event(SEQ_X_Y_MAP3, SEQ_X_Y_MAP_EXPECTED);
+    }
+
+    #[test]
+    fn parse_complex_map() {
+        assert_eq_event(SEQ_COMPLEX_MAP, SEQ_COMPLEX_MAP_EXPECTED);
     }
 }

@@ -4,23 +4,22 @@ use std::ops::ControlFlow::{self, Break, Continue};
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
 
-use crate::tokenizer::event::DirectiveType;
-use crate::tokenizer::iter::ErrorType::{ExpectedIndent, UnexpectedSymbol};
-use crate::tokenizer::iter::{ErrorType, StrIterator};
-use crate::tokenizer::reader::IndentType::{EndInstead, EqualIndent, LessOrEqualIndent};
+use crate::tokenizer::{DirectiveType, ErrorType};
+use crate::tokenizer::ErrorType::{ExpectedIndent, UnexpectedSymbol};
 use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, Reader, StrReader};
+use crate::tokenizer::reader::IndentType::{EndInstead, EqualIndent, LessOrEqualIndent};
 use crate::tokenizer::scanner::ParserState::{
     BlockKey, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
 };
 use crate::tokenizer::scanner::SpanToken::{
-    Directive, ErrorToken, Key, MappingEnd, MappingStart, MarkEnd, MarkStart, NewLine, SequenceEnd,
-    SequenceStart,
+    Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, NewLine,
+    SequenceEnd, SequenceStart,
 };
 
 #[derive(Clone)]
 pub struct Scanner {
     pub(crate) curr_state: ParserState,
-    pub(crate) stream_end: bool,
+    pub stream_end: bool,
     tokens: VecDeque<SpanToken>,
     stack: VecDeque<ParserState>,
 }
@@ -42,7 +41,7 @@ pub(crate) enum ParserState {
     RootBlock,
     FlowSeq(u32),
     FlowMap(u32),
-    FlowKey(u32),
+    FlowKey(u32, bool),
     BlockSeq(u32),
     BlockMap(u32),
     BlockKey(u32),
@@ -50,10 +49,13 @@ pub(crate) enum ParserState {
 }
 
 impl ParserState {
-
     pub(crate) fn indent(&self) -> u32 {
         match self {
-            FlowKey(ind) | FlowMap(ind) | FlowSeq(ind) | BlockKey(ind) | BlockSeq(ind)
+            FlowKey(ind, _)
+            | FlowMap(ind)
+            | FlowSeq(ind)
+            | BlockKey(ind)
+            | BlockSeq(ind)
             | BlockMap(ind) => *ind,
             _ => 0,
         }
@@ -62,15 +64,23 @@ impl ParserState {
     #[inline]
     pub fn in_flow_collection(&self) -> bool {
         match &self {
-            FlowKey(_) | FlowSeq(_) | FlowMap(_) => true,
+            FlowKey(_, _) | FlowSeq(_) | FlowMap(_) => true,
             _ => false,
         }
     }
 
     #[inline]
     pub fn is_flow(&self) -> bool {
-        match *self {
-            FlowMap(_) | FlowKey(_) => true,
+        match &self {
+            FlowMap(_) | FlowKey(_, _) => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_implicit(&self) -> bool {
+        match &self {
+            FlowKey(_, true) => true,
             _ => false,
         }
     }
@@ -78,31 +88,24 @@ impl ParserState {
 
 impl Scanner {
     #[inline]
-    pub(crate) fn peek_token(&self) -> Option<SpanToken> {
+    pub fn peek_token(&self) -> Option<SpanToken> {
         match self.tokens.front() {
             Some(&x) => Some(x),
             None => None,
         }
     }
 
-    pub fn from_str_reader(slice: &str) -> StrIterator<'_> {
-        StrIterator {
-            state: Default::default(),
-            reader: StrReader::new(slice),
-        }
-    }
-
     #[inline(always)]
-    pub(crate) fn pop_token(&mut self) -> Option<SpanToken> {
+    pub fn pop_token(&mut self) -> Option<SpanToken> {
         self.tokens.pop_front()
     }
 
     #[inline(always)]
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.tokens.is_empty()
     }
 
-    pub(crate) fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
+    pub fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
         self.scan_to_next_token(reader, true);
         match self.curr_state {
             PreDocStart => {
@@ -160,7 +163,7 @@ impl Scanner {
                 }
                 Some(x) => {
                     if x != b']' && x != b'}' && x != b'@' {
-                        self.fetch_plain_scalar(reader, self.curr_state, false);
+                        self.fetch_plain_scalar(reader, self.curr_state);
                     } else {
                         reader.consume_bytes(1);
                         self.tokens
@@ -187,18 +190,22 @@ impl Scanner {
                 }
                 Some(b'\'') => self.fetch_quoted_scalar(reader),
                 Some(b'"') => self.fetch_quoted_scalar(reader),
-                Some(b':') => self.fetch_empty_map(reader, indent),
+                Some(b':') => {
+                    reader.consume_bytes(1);
+                    self.tokens.push_back(MappingStart);
+                    self.push_state(FlowKey(indent, true));
+                }
                 Some(b'?') => self.fetch_explicit_map(reader),
                 Some(b'#') => {
                     // comment
                     reader.read_line();
                 }
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, self.curr_state, false);
+                    self.fetch_plain_scalar(reader, self.curr_state);
                 }
                 None => self.stream_end = true,
             },
-            FlowMap(indent) => match reader.peek_byte() {
+            FlowMap(indent) | FlowKey(indent, _) => match reader.peek_byte() {
                 Some(b'[') => self.fetch_flow_col(reader, indent + 1),
                 Some(b'{') => self.fetch_flow_col(reader, indent + 1),
                 Some(b'}') => {
@@ -206,7 +213,7 @@ impl Scanner {
                     self.tokens.push_back(MappingEnd);
                     self.pop_state();
                 }
-                Some(b':') => self.fetch_empty_map(reader, indent),
+                Some(b':') => self.process_map_key(reader, indent),
                 Some(b']') => {
                     if self.is_prev_sequence() {
                         self.tokens.push_back(MappingEnd);
@@ -225,7 +232,7 @@ impl Scanner {
                     reader.read_line();
                 }
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, self.curr_state, true);
+                    self.fetch_plain_scalar(reader, self.curr_state);
                 }
                 None => self.stream_end = true,
             },
@@ -268,8 +275,15 @@ impl Scanner {
             self.tokens.push_back(SequenceStart);
             self.push_state(FlowSeq(indent));
         } else if peek == b'{' {
+            if reader.col() != 0 {
+                reader.skip_space_tab(true);
+            }
+            if reader.peek_byte_is(b'?') {
+                self.push_state(FlowKey(indent, false));
+            } else {
+                self.push_state(FlowKey(indent, true));
+            }
             self.tokens.push_back(MappingStart);
-            self.push_state(FlowMap(indent));
         }
     }
 
@@ -307,13 +321,8 @@ impl Scanner {
         todo!()
     }
     fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R) {}
-    fn fetch_plain_scalar<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        context: ParserState,
-        is_implicit: bool,
-    ) {
-        let mut is_multiline = !is_implicit;
+    fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, context: ParserState) {
+        let mut is_multiline = context.is_implicit();
         let indent = context.indent();
 
         // assume first char will be correct and consume it
@@ -422,21 +431,22 @@ impl Scanner {
             self.tokens.push_back(MappingStart);
         }
 
-        self.tokens.push_back(Key);
         if !reader.peek_byte_at_check(1, is_whitespace) {
-            self.fetch_plain_scalar(reader, self.curr_state, false);
+            self.fetch_plain_scalar(reader, self.curr_state);
             return;
         }
         reader.consume_bytes(1);
         reader.skip_space_tab(true);
     }
 
-    fn fetch_empty_map<R: Reader>(&mut self, reader: &mut R, indent: u32) {
+    fn process_map_key<R: Reader>(&mut self, reader: &mut R, indent: u32) {
         reader.consume_bytes(1);
 
-        if !self.is_map() {
-            self.tokens.push_back(MappingStart);
-            self.push_state(FlowMap(indent));
+        if self.is_key() {
+            self.curr_state = FlowMap(indent);
+            self.tokens.push_back(KeyEnd);
+        } else {
+            self.fetch_plain_scalar(reader, self.curr_state);
         }
     }
 
@@ -451,7 +461,15 @@ impl Scanner {
     #[inline]
     fn is_map(&self) -> bool {
         match self.curr_state {
-            FlowMap(_) => true,
+            FlowMap(_) | FlowKey(_, _) => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    fn is_key(&self) -> bool {
+        match self.curr_state {
+            FlowKey(_, _) => true,
             _ => false,
         }
     }
@@ -504,7 +522,7 @@ pub enum SpanToken {
     Directive(DirectiveType),
     Alias,
     Separator,
-    Key,
+    KeyEnd,
     SequenceStart,
     SequenceEnd,
     MappingStart,

@@ -1,5 +1,5 @@
-use std::ops::ControlFlow::{Break, Continue};
 use std::{ops::ControlFlow, slice::Windows};
+use std::ops::ControlFlow::{Break, Continue};
 
 use memchr::memchr2;
 
@@ -51,7 +51,7 @@ impl<'a> QueryUntil for Windows<'a, u8> {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum IndentType {
+pub enum IndentType {
     EndInstead,
     LessIndent(u32),
     EqualIndent(u32),
@@ -86,7 +86,7 @@ impl IndentType {
     }
 }
 
-pub(crate) trait Reader {
+pub trait Reader {
     #[inline]
     fn eof(&self) -> bool {
         self.is_eof(0)
