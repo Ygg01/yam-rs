@@ -41,9 +41,9 @@ xt
 "#;
     const SEQ_FLOW_EXPECTED: &'static str = r#"
 +SEQ
-=VAL x
--SEP-
-=VAL y
+  =VAL x
+  -SEP-
+  =VAL y
 -SEQ"#;
 
     const SEQ_NESTED_COL1: &'static str = r#"
@@ -55,15 +55,15 @@ xt
 
     const SEQ_NESTED_COL1_EXPECTED: &'static str = r#"
 +SEQ
-+MAP
--MAP
+  +MAP
+  -MAP
 -SEQ"#;
 
     const SEQ_NESTED_COL2_EXPECTED: &'static str = r#"
 +SEQ
-+MAP
--KEY-
--MAP
+  +MAP
+    -KEY-
+  -MAP
 -SEQ"#;
 
     const SEQ_EMPTY_MAP: &'static str = r#"
@@ -71,7 +71,7 @@ xt
 "#;
     const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
 +MAP
--KEY-
+  -KEY-
 -MAP"#;
 
     const SEQ_XY_MAP1: &'static str = r#"
@@ -79,7 +79,7 @@ xt
 "#;
     const SEQ_XY_MAP1_EXPECTED: &'static str = r#"
 +MAP
-=VAL x:y
+  =VAL x:y
 -MAP"#;
 
     const SEQ_X_Y_MAP1: &'static str = r#"
@@ -94,9 +94,9 @@ xt
 "#;
     const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
 +MAP
-=VAL x
--KEY-
-=VAL y
+  =VAL x
+  -KEY-
+  =VAL y
 -MAP"#;
 
     const SEQ_COMPLEX_MAP: &'static str = r#"
@@ -105,13 +105,13 @@ xt
 
     const SEQ_COMPLEX_MAP_EXPECTED: &'static str = r#"
 +MAP
-+SEQ
-=VAL x
--SEP-
-=VAL y
--SEQ
--KEY-
-=VAL a
+  +SEQ
+    =VAL x
+    -SEP-
+    =VAL y
+  -SEQ
+  -KEY-
+  =VAL a
 -MAP"#;
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {

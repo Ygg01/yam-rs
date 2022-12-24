@@ -54,10 +54,13 @@ impl<'a> Iterator for StrIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            let mut ind = vec![b'\n'];
             if let Some(token) = self.state.pop_token() {
                 match token {
                     MarkStart(start) => {
-                        self.inner_cow = Cow::Owned("\n=VAL ".as_bytes().to_vec());
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("=VAL ".as_bytes());
+                        self.inner_cow = Cow::Owned(ind);
                         if let Some(MarkEnd(end)) = self.state.peek_token() {
                             self.state.pop_token();
                             self.merge_cow(start, end);
@@ -66,58 +69,77 @@ impl<'a> Iterator for StrIterator<'a> {
                     Space => self.merge_space(),
                     NewLine => self.merge_newline(),
                     MappingStart => {
-                        self.inner_cow.to_mut().extend("\n+MAP".as_bytes());
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("+MAP".as_bytes());
+                        self.indent += 2;
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     MappingEnd => {
-                        self.inner_cow.to_mut().extend("\n-MAP".as_bytes());
+                        self.indent -= 2;
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("-MAP".as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     SequenceStart => {
-                        self.inner_cow.to_mut().extend("\n+SEQ".as_bytes());
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("+SEQ".as_bytes());
+                        self.indent += 2;
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     SequenceEnd => {
-                        self.inner_cow.to_mut().extend("\n-SEQ".as_bytes());
+                        self.indent -= 2;
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("-SEQ".as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     DocumentStart => {
-                        self.inner_cow.to_mut().extend("\n+DOC".as_bytes());
+                        self.indent += 2;
+                        ind.extend("+DOC".as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     DocumentEnd => {
-                        self.inner_cow.to_mut().extend("\n-DOC".as_bytes());
+                        self.indent -= 2;
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("-DOC".as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     KeyEnd => {
-                        self.inner_cow.to_mut().extend("\n-KEY-".as_bytes());
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("-KEY-".as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     Directive(typ) => {
-                        self.inner_cow
-                            .to_mut()
-                            .extend(format!("\n#{:} ", typ).as_bytes());
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend(format!("#{:} ", typ).as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
                             (self.state.pop_token(), self.state.pop_token())
                         {
@@ -129,15 +151,18 @@ impl<'a> Iterator for StrIterator<'a> {
                         }
                     }
                     Separator => {
-                        self.inner_cow.to_mut().extend("\n-SEP-".as_bytes());
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend("-SEP-".as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
                         }
                     }
                     ErrorToken(x) => {
-                        let s = format!("\nERR({:?})", x);
-                        self.inner_cow.to_mut().extend(s.as_bytes());
+                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
+                        ind.extend(format!("ERR({:?})",x).as_bytes());
+                        self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);
                             return Some(String::from_utf8_unchecked(x.to_vec()));
