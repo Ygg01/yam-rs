@@ -2,21 +2,21 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::str::from_utf8_unchecked;
+use crate::Scanner;
+use crate::tokenizer::SpanToken::*;
+use crate::tokenizer::StrReader;
 
-use steel_yaml::Scanner;
-use steel_yaml::tokenizer::{DirectiveType, ErrorType, Reader, SpanToken, StrReader};
-use steel_yaml::tokenizer::SpanToken::*;
 
-pub struct StrIterator<'a> {
+pub struct EventIterator<'a> {
     pub(crate) state: Scanner,
     pub(crate) reader: StrReader<'a>,
     inner_cow: Cow<'a, [u8]>,
     indent: u32,
 }
 
-impl<'a> StrIterator<'a> {
-    pub fn new_from_string(input: &str) -> StrIterator {
-        StrIterator {
+impl<'a> EventIterator<'a> {
+    pub fn new_from_string(input: &str) -> EventIterator {
+        EventIterator {
             state: Scanner::default(),
             reader: StrReader::new(input),
             inner_cow: Cow::default(),
@@ -25,7 +25,7 @@ impl<'a> StrIterator<'a> {
     }
 }
 
-impl<'a> StrIterator<'a> {
+impl<'a> EventIterator<'a> {
     fn to_cow(&self, start: usize, end: usize) -> Cow<'a, [u8]> {
         Cow::Borrowed(self.reader.slice[start..end].as_bytes())
     }
@@ -49,7 +49,7 @@ impl<'a> StrIterator<'a> {
     }
 }
 
-impl<'a> Iterator for StrIterator<'a> {
+impl<'a> Iterator for EventIterator<'a> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {

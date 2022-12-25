@@ -4,10 +4,12 @@ pub use reader::Reader;
 pub use reader::StrReader;
 pub use scanner::Scanner;
 pub use scanner::SpanToken;
+pub use str_reader::EventIterator;
 
 mod event;
 mod reader;
 mod scanner;
+mod str_reader;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ErrorType {
