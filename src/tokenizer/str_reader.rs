@@ -1,11 +1,10 @@
+use crate::tokenizer::SpanToken::*;
+use crate::tokenizer::StrReader;
+use crate::Scanner;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::str::from_utf8_unchecked;
-use crate::Scanner;
-use crate::tokenizer::SpanToken::*;
-use crate::tokenizer::StrReader;
-
 
 pub struct EventIterator<'a> {
     pub(crate) state: Scanner,
@@ -161,7 +160,7 @@ impl<'a> Iterator for EventIterator<'a> {
                     }
                     ErrorToken(x) => {
                         ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend(format!("ERR({:?})",x).as_bytes());
+                        ind.extend(format!("ERR({:?})", x).as_bytes());
                         self.inner_cow.to_mut().extend(ind);
                         unsafe {
                             let x = mem::take(&mut self.inner_cow);

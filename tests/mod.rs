@@ -1,13 +1,11 @@
 extern crate steel_yaml;
 
-
 #[cfg(test)]
 mod tests {
-    use std::fmt::{Debug, format, Write};
+    use std::fmt::{format, Debug, Write};
 
-    use steel_yaml::Scanner;
     use steel_yaml::tokenizer::EventIterator;
-
+    use steel_yaml::Scanner;
 
     const EMPTY_DOC_INPUT: &'static str = r#"
 # test"

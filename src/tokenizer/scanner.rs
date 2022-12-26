@@ -4,10 +4,8 @@ use std::ops::ControlFlow::{self, Break, Continue};
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
 
-use crate::tokenizer::{DirectiveType, ErrorType};
-use crate::tokenizer::ErrorType::{ExpectedIndent, UnexpectedSymbol};
-use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, Reader, StrReader};
 use crate::tokenizer::reader::IndentType::{EndInstead, EqualIndent, LessOrEqualIndent};
+use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, Reader, StrReader};
 use crate::tokenizer::scanner::ParserState::{
     BlockKey, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
 };
@@ -15,6 +13,8 @@ use crate::tokenizer::scanner::SpanToken::{
     Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, NewLine,
     SequenceEnd, SequenceStart,
 };
+use crate::tokenizer::ErrorType::{ExpectedIndent, UnexpectedSymbol};
+use crate::tokenizer::{DirectiveType, ErrorType};
 
 #[derive(Clone)]
 pub struct Scanner {

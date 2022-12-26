@@ -1,9 +1,8 @@
 extern crate steel_yaml;
 
-use criterion::{black_box, Criterion, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use steel_yaml::tokenizer::EventIterator;
-
 
 const IN1: &'static str = r#"
 [{:}]
@@ -26,10 +25,9 @@ fn bench_yaml(input_yaml: &str, expect: &str) {
 fn bench_str_iter(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-yaml");
     group.significance_level(0.1).sample_size(50);
-    group.bench_function(
-        "bench_yaml",
-        |b| b.iter(|| bench_yaml(black_box(IN1), black_box(IN1_EXPECTED)))
-    );
+    group.bench_function("bench_yaml", |b| {
+        b.iter(|| bench_yaml(black_box(IN1), black_box(IN1_EXPECTED)))
+    });
     group.finish();
 }
 
