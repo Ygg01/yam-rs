@@ -155,7 +155,7 @@ impl<'a> Iterator for EventIterator<'a> {
                     };
                 }
             }
-            if self.state.is_empty() && self.state.stream_end {
+            if self.state.is_empty() && self.state.stream_end && self.lines.is_empty() {
                 return None;
             }
         }

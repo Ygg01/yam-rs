@@ -322,24 +322,26 @@ impl Scanner {
     }
     fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R, quote: u8) {
         let mut start = reader.pos();
+        let mut first = 1;
         reader.consume_bytes(1);
         while let Some(offset) = reader.find_fast3_iter(quote, b'\r', b'\n') {
             match reader.peek_byte_at(offset) {
                 Some(b'\r') | Some(b'\n') => {
                     if offset > 0 {
                         self.tokens.push_back(MarkStart(start));
-                        self.tokens.push_back(MarkEnd(start + offset + 1));
+                        self.tokens.push_back(MarkEnd(start + offset + first));
                         self.tokens.push_back(Space);
                     }
                     reader.read_line();
                     reader.skip_space_tab(self.curr_state.is_implicit());
                     start = reader.pos();
+                    first = 0;
                 }
                 Some(_) => {
                     // consume offset and the next quote
                     reader.consume_bytes(offset + 1);
                     self.tokens.push_back(MarkStart(start));
-                    self.tokens.push_back(MarkEnd(start + offset));
+                    self.tokens.push_back(MarkEnd(start + offset + first));
                     break;
                 }
                 None => {}

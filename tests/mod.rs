@@ -121,8 +121,7 @@ xt
 "#;
 
     const DQUOTE_STR_EXPECTED: &'static str = r#"
-  =VAL "double quote
-    "#;
+  =VAL "double quote"#;
 
     const SQUOTE_STR1: &'static str = r#"
   'single quote'
@@ -130,8 +129,7 @@ xt
 
     const SQUOTE_STR2: &'static str = r#"
   'single
-  quote'
-"#;
+  quote'"#;
 
     const SQUOTE_STR_EXPECTED: &'static str = r#"
   =VAL 'single quote"#;
@@ -182,9 +180,9 @@ xt
 
     #[test]
     fn flow_quote() {
-        // assert_eq_event(SQUOTE_STR1, SQUOTE_STR_EXPECTED);
+        assert_eq_event(SQUOTE_STR1, SQUOTE_STR_EXPECTED);
         assert_eq_event(SQUOTE_STR2, SQUOTE_STR_EXPECTED);
-        // assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
-        // assert_eq_event(DQUOTE_STR2, DQUOTE_STR_EXPECTED);
+        assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
+        assert_eq_event(DQUOTE_STR2, DQUOTE_STR_EXPECTED);
     }
 }
