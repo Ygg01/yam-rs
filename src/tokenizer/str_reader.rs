@@ -3,9 +3,9 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::str::from_utf8_unchecked;
 
+use crate::Scanner;
 use crate::tokenizer::SpanToken::*;
 use crate::tokenizer::StrReader;
-use crate::Scanner;
 
 pub struct EventIterator<'a> {
     pub(crate) state: Scanner,
@@ -45,32 +45,31 @@ impl<'a> Iterator for EventIterator<'a> {
                         MarkEnd(end) => {
                             let scalar = self.reader.slice[start..end].to_owned();
 
-                            if let Some(x) = self.lines.last_mut() 
-                            {
+                            if let Some(x) = self.lines.last_mut() {
                                 // account for indent and newline
                                 if x[self.indent + 1..].starts_with("=VAL") {
-                                    x.push_str(scalar.as_str()); 
+                                    x.push_str(scalar.as_str());
                                 };
-                            }else {
+                            } else {
                                 ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
-                                ind.extend("=VAL ".as_bytes());   
-                                ind.extend(scalar.as_bytes().to_vec()); 
+                                ind.extend("=VAL ".as_bytes());
+                                ind.extend(scalar.as_bytes().to_vec());
                                 unsafe {
                                     self.lines.push(String::from_utf8_unchecked(ind));
-                                } 
+                                }
                             }
-                        },
+                        }
                         NewLine => {
                             if let Some(x) = self.lines.last_mut() {
                                 x.push_str("\n");
                             }
-                        },
+                        }
                         Space => {
                             if let Some(x) = self.lines.last_mut() {
                                 x.push_str(" ");
                             }
-                        },
-                        Alias => {},
+                        }
+                        Alias => {}
                         MappingStart => {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("+MAP".as_bytes());
