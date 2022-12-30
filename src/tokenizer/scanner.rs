@@ -155,8 +155,8 @@ impl Scanner {
                 Some(b'!') => self.fetch_tag(reader),
                 Some(b'>') => self.fetch_block_scalar(reader, false),
                 Some(b'|') => self.fetch_block_scalar(reader, false),
-                Some(b'\'') => self.fetch_quoted_scalar(reader),
-                Some(b'"') => self.fetch_quoted_scalar(reader),
+                Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
+                Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                 Some(b'#') => {
                     // comment
                     reader.read_line();
@@ -188,8 +188,8 @@ impl Scanner {
                     reader.consume_bytes(1);
                     self.tokens.push_back(Separator);
                 }
-                Some(b'\'') => self.fetch_quoted_scalar(reader),
-                Some(b'"') => self.fetch_quoted_scalar(reader),
+                Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
+                Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                 Some(b':') => {
                     reader.consume_bytes(1);
                     self.tokens.push_back(MappingStart);
@@ -225,8 +225,8 @@ impl Scanner {
                 }
                 Some(b'?') => self.fetch_explicit_map(reader),
                 Some(b',') => reader.consume_bytes(1),
-                Some(b'\'') => self.fetch_quoted_scalar(reader),
-                Some(b'"') => self.fetch_quoted_scalar(reader),
+                Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
+                Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                 Some(b'#') => {
                     // comment
                     reader.read_line();
@@ -320,7 +320,32 @@ impl Scanner {
     fn fetch_block_scalar<R: Reader>(&mut self, reader: &mut R, literal: bool) {
         todo!()
     }
-    fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R) {}
+    fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R, quote: u8) {
+        let mut start = reader.pos();
+        reader.consume_bytes(1);
+        while let Some(offset) = reader.find_fast3_iter(quote, b'\r', b'\n') {
+            match reader.peek_byte_at(offset) {
+                Some(b'\r') | Some(b'\n') => {
+                    if offset > 0 {
+                        self.tokens.push_back(MarkStart(start));
+                        self.tokens.push_back(MarkEnd(start + offset + 1));
+                        self.tokens.push_back(Space);
+                    }
+                    reader.read_line();
+                    reader.skip_space_tab(self.curr_state.is_implicit());
+                    start = reader.pos();
+                }
+                Some(_) => {
+                    // consume offset and the next quote
+                    reader.consume_bytes(offset + 1);
+                    self.tokens.push_back(MarkStart(start));
+                    self.tokens.push_back(MarkEnd(start + offset));
+                    break;
+                }
+                None => {}
+            };
+        }
+    }
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, context: ParserState) {
         let mut is_multiline = context.is_implicit();
         let indent = context.indent();

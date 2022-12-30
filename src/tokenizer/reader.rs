@@ -1,7 +1,9 @@
+use std::iter::Map;
 use std::ops::ControlFlow::{Break, Continue};
+use std::slice::Iter;
 use std::{ops::ControlFlow, slice::Windows};
 
-use memchr::memchr2;
+use memchr::{memchr3, memchr3_iter, Memchr3};
 
 use IndentType::{EndInstead, LessIndent, LessOrEqualIndent};
 
@@ -24,7 +26,7 @@ impl<'a> StrReader<'a> {
 }
 
 pub trait QueryUntil {
-    fn position_until<P>(&mut self, predicate: P) -> usize
+    fn position_until_window<P>(&mut self, predicate: P) -> usize
     where
         Self: Sized,
         P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
@@ -32,7 +34,7 @@ pub trait QueryUntil {
 
 impl<'a> QueryUntil for Windows<'a, u8> {
     #[inline]
-    fn position_until<P>(&mut self, predicate: P) -> usize
+    fn position_until_window<P>(&mut self, predicate: P) -> usize
     where
         Self: Sized,
         P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
@@ -114,17 +116,17 @@ pub trait Reader {
     fn position_until<P>(&self, offset: usize, lookahead_predicate: P) -> usize
     where
         P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
+    fn skip_space_tab(&mut self, allow_tab: bool) -> usize;
     fn consume_bytes(&mut self, amount: usize);
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn find_next_whitespace(&self) -> Option<usize>;
-    fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
-    fn skip_space_tab(&mut self, allow_tab: bool) -> usize;
     fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType;
     fn read_break(&mut self) -> Option<(usize, usize)>;
     fn skip_whitespace(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
+    fn find_fast3_iter(&self, needle1: u8, needle2: u8, needle3: u8) -> Option<usize>;
 }
 
 impl<'r> Reader for StrReader<'r> {
@@ -173,7 +175,19 @@ impl<'r> Reader for StrReader<'r> {
     {
         self.slice.as_bytes()[self.pos + offset..]
             .windows(2)
-            .position_until(predicate)
+            .position_until_window(predicate)
+    }
+
+    #[inline]
+    fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
+        let x = match self.slice.as_bytes()[self.pos..]
+            .iter()
+            .try_fold(0usize, |acc, x| is_tab_space(acc, *x, allow_tab))
+        {
+            Continue(x) | Break(x) => x,
+        };
+        self.consume_bytes(x);
+        x
     }
 
     #[inline(always)]
@@ -202,22 +216,6 @@ impl<'r> Reader for StrReader<'r> {
         self.slice.as_bytes()[self.pos..]
             .iter()
             .position(|p| is_whitespace(*p))
-    }
-
-    fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)> {
-        if let Some(n) = memchr2(needle1, needle2, &self.slice.as_bytes()[self.pos..]) {
-            return Some((self.pos, self.pos + n));
-        }
-        None
-    }
-
-    fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
-        let n = self.slice.as_bytes()[self.pos..]
-            .iter()
-            .position(|b| *b != b' ' && !(allow_tab && *b == b'\t'))
-            .unwrap_or(0);
-        self.consume_bytes(n);
-        n
     }
 
     fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType {
@@ -292,7 +290,7 @@ impl<'r> Reader for StrReader<'r> {
     fn read_non_comment_line(&mut self) -> (usize, usize) {
         let start = self.pos;
         let content = &self.slice.as_bytes()[start..];
-        let mut iter = memchr::memchr3_iter(b'\r', b'\n', b'#', content);
+        let mut iter = memchr3_iter(b'\r', b'\n', b'#', content);
         let mut end = self.pos;
         let mut consume: usize = 0;
 
@@ -321,14 +319,44 @@ impl<'r> Reader for StrReader<'r> {
 
         (start, end)
     }
+
+    fn find_fast3_iter(&self, needle1: u8, needle2: u8, needle3: u8) -> Option<usize> {
+        memchr3_iter(
+            needle1,
+            needle2,
+            needle3,
+            &self.slice.as_bytes()[self.pos..],
+        )
+        .next()
+    }
 }
 
 #[inline]
-pub(crate) fn is_tab_space(b: u8) -> bool {
-    match b {
-        b' ' | b'\t' => true,
-        _ => false,
+pub fn is_tab_space(pos: usize, chr: u8, allow_tab: bool) -> ControlFlow<usize, usize> {
+    if chr == b' ' || (allow_tab && chr == b'\t') {
+        Continue(pos + 1)
+    } else {
+        Break(pos)
     }
+}
+
+#[test]
+pub fn test_skip_space_tab() {
+    let mut ws1 = StrReader::new("    |");
+    let mut ws2 = StrReader::new("\t");
+    let mut ws3 = StrReader::new("test");
+
+    assert_eq!(4, ws1.skip_space_tab(false));
+    assert_eq!(0, ws2.skip_space_tab(false));
+    assert_eq!(0, ws3.skip_space_tab(false));
+
+    let mut wst1 = StrReader::new("\t   ");
+    let mut wst2 = StrReader::new("\t");
+    let mut wst3 = StrReader::new("test");
+
+    assert_eq!(4, wst1.skip_space_tab(true));
+    assert_eq!(1, wst2.skip_space_tab(true));
+    assert_eq!(0, wst3.skip_space_tab(true));
 }
 
 #[test]
@@ -411,6 +439,14 @@ pub fn skip_whitespace() {
 #[test]
 pub fn test_position_until() {
     let look_ahead = StrReader::new("test #");
+
+    #[inline]
+    pub(crate) fn is_tab_space(b: u8) -> bool {
+        match b {
+            b' ' | b'\t' => true,
+            _ => false,
+        }
+    }
 
     assert_eq!(
         4,

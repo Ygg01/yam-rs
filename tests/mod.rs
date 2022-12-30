@@ -111,6 +111,31 @@ xt
     =VAL a
   -MAP"#;
 
+    const DQUOTE_STR1: &'static str = r#"
+  "double quote"
+    "#;
+
+    const DQUOTE_STR2: &'static str = r#"
+  "double
+  quote"
+"#;
+
+    const DQUOTE_STR_EXPECTED: &'static str = r#"
+  =VAL "double quote
+    "#;
+
+    const SQUOTE_STR1: &'static str = r#"
+  'single quote'
+    "#;
+
+    const SQUOTE_STR2: &'static str = r#"
+  'single
+  quote'
+"#;
+
+    const SQUOTE_STR_EXPECTED: &'static str = r#"
+  =VAL 'single quote"#;
+
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
         let scan = EventIterator::new_from_string(input_yaml);
@@ -153,5 +178,13 @@ xt
     #[test]
     fn parse_complex_map() {
         assert_eq_event(SEQ_COMPLEX_MAP, SEQ_COMPLEX_MAP_EXPECTED);
+    }
+
+    #[test]
+    fn flow_quote() {
+        // assert_eq_event(SQUOTE_STR1, SQUOTE_STR_EXPECTED);
+        assert_eq_event(SQUOTE_STR2, SQUOTE_STR_EXPECTED);
+        // assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
+        // assert_eq_event(DQUOTE_STR2, DQUOTE_STR_EXPECTED);
     }
 }
