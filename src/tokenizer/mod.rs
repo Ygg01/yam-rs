@@ -6,7 +6,6 @@ pub use scanner::Scanner;
 pub use scanner::SpanToken;
 pub use str_reader::EventIterator;
 
-mod event;
 mod reader;
 mod scanner;
 mod str_reader;
@@ -19,7 +18,7 @@ pub enum ErrorType {
     ExpectedDocumentStart,
     ExpectedNewline,
     ExpectedNewlineInFolded,
-    ExpectedIndent(u32),
+    ExpectedIndent(usize),
     StartedBlockInFlow,
 }
 

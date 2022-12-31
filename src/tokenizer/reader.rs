@@ -1,9 +1,9 @@
-use std::{ops::ControlFlow, slice::Windows};
 use std::iter::Map;
 use std::ops::ControlFlow::{Break, Continue};
 use std::slice::Iter;
+use std::{ops::ControlFlow, slice::Windows};
 
-use memchr::{memchr3, Memchr3, memchr3_iter};
+use memchr::{memchr3, memchr3_iter, Memchr3};
 
 use IndentType::{EndInstead, LessIndent, LessOrEqualIndent};
 
@@ -55,16 +55,16 @@ impl<'a> QueryUntil for Windows<'a, u8> {
 #[derive(Debug, PartialEq)]
 pub enum IndentType {
     EndInstead,
-    LessIndent(u32),
-    EqualIndent(u32),
-    LessOrEqualIndent(u32),
+    LessIndent(usize),
+    EqualIndent(usize),
+    LessOrEqualIndent(usize),
 }
 
 impl IndentType {}
 
 impl IndentType {
     #[inline]
-    pub(crate) fn compare(&self, value: u32) -> IndentType {
+    pub(crate) fn compare(&self, value: usize) -> IndentType {
         match self {
             LessOrEqualIndent(limit) | LessIndent(limit) if value < *limit => LessIndent(value),
             LessOrEqualIndent(limit) | EqualIndent(limit) if value == *limit => EqualIndent(value),
@@ -78,7 +78,7 @@ impl IndentType {
     }
 
     #[inline]
-    pub(crate) fn is_valid(&self, lhs: u32) -> bool {
+    pub(crate) fn is_valid(&self, lhs: usize) -> bool {
         match self {
             EndInstead => false,
             LessIndent(rhs) => lhs + 1 < *rhs,
@@ -110,9 +110,6 @@ pub trait Reader {
             _ => false,
         }
     }
-    fn check_bytes<P>(&self, check: P) -> bool
-    where
-        P: Fn(u8, u8) -> bool;
     fn position_until<P>(&self, offset: usize, lookahead_predicate: P) -> usize
     where
         P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
@@ -154,18 +151,6 @@ impl<'r> Reader for StrReader<'r> {
         match self.slice.as_bytes().get(self.pos) {
             Some(x) => Some(*x),
             _ => None,
-        }
-    }
-
-    fn check_bytes<P>(&self, check: P) -> bool
-    where
-        P: Fn(u8, u8) -> bool,
-    {
-        let sl = &self.slice.as_bytes()[self.pos..];
-        match (sl.get(0), sl.get(1)) {
-            (Some(x0), None) => check(*x0, b'\0'),
-            (Some(x0), Some(x1)) => check(*x0, *x1),
-            _ => false,
         }
     }
 
@@ -224,7 +209,7 @@ impl<'r> Reader for StrReader<'r> {
         }
         let consume = match self.slice.as_bytes()[self.pos..]
             .iter()
-            .try_fold(0u32, |prev, &x| {
+            .try_fold(0, |prev, &x| {
                 if x == b' ' && indent_type.is_valid(prev) {
                     Continue(prev + 1)
                 } else {

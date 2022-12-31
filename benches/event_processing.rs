@@ -1,6 +1,6 @@
 extern crate steel_yaml;
 
-use criterion::{black_box, Criterion, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use steel_yaml::tokenizer::EventIterator;
 
