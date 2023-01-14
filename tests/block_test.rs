@@ -18,7 +18,6 @@ const BLOCK_AS_PLAIN: &'static str = r#"
    - y
 "#;
 
-
 const BLOCK_EXPECTED: &'static str = r#"
   +MAP
     =VAL x
