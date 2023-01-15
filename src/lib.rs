@@ -1,6 +1,6 @@
 extern crate core;
 
-pub use tokenizer::Scanner;
+pub use tokenizer::Spanner;
 
 pub mod error;
 pub mod tokenizer;

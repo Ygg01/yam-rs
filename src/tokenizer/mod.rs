@@ -2,12 +2,12 @@ use std::fmt::{Display, Formatter};
 
 pub use reader::Reader;
 pub use reader::StrReader;
-pub use scanner::Scanner;
-pub use scanner::SpanToken;
+pub use spanner::SpanToken;
+pub use spanner::Spanner;
 pub use str_reader::EventIterator;
 
 mod reader;
-mod scanner;
+mod spanner;
 mod str_reader;
 
 #[derive(Copy, Clone, Debug)]
