@@ -21,16 +21,16 @@ const BLOCK_AS_PLAIN: &'static str = r#"
 "#;
 
 const BLOCK_EXPECTED: &'static str = r#"
-  +MAP
+  +SEQ
     =VAL x
     -SEP-
     =VAL y
-  -MAP"#;
+  -SEQ"#;
 
 mod common;
 
 #[test]
 pub fn block_seq() {
-    assert_eq_event(BLOCK1_INPUT, BLOCK_EXPECTED);
-    // assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
+    // assert_eq_event(BLOCK1_INPUT, BLOCK_EXPECTED);
+    assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
 }

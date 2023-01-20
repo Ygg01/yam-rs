@@ -19,7 +19,7 @@ fn bench_yaml(input_yaml: &str, expect: &str) {
     let mut event = String::new();
     let scan = EventIterator::new_from_string(input_yaml);
     scan.for_each(|x| event.push_str(x.as_ref()));
-    // assert_eq!(expect, event);
+    assert_eq!(expect, event);
 }
 
 fn bench_str_iter(c: &mut Criterion) {
