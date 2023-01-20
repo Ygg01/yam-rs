@@ -1,13 +1,10 @@
-use std::iter::Map;
+#![allow(clippy::match_like_matches_macro)]
+
 use std::ops::ControlFlow::{Break, Continue};
-use std::slice::Iter;
 use std::{ops::ControlFlow, slice::Windows};
 
-use memchr::{memchr3, memchr3_iter, Memchr3};
+use memchr::{memchr3_iter};
 
-use IndentType::{EndInstead, LessIndent, LessOrEqualIndent};
-
-use crate::tokenizer::reader::IndentType::EqualIndent;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -52,48 +49,6 @@ impl<'a> QueryUntil for Windows<'a, u8> {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum IndentType {
-    EndInstead,
-    LessIndent(usize),
-    EqualIndent(usize),
-    LessOrEqualIndent(usize),
-}
-
-impl IndentType {
-    #[inline]
-    pub(crate) fn compare(&self, value: usize) -> IndentType {
-        match self {
-            LessOrEqualIndent(limit) | LessIndent(limit) if value < *limit => LessIndent(value),
-            LessOrEqualIndent(limit) | EqualIndent(limit) if value == *limit => EqualIndent(value),
-            _ => EndInstead,
-        }
-    }
-
-    #[inline]
-    pub(crate) fn is_equal(&self) -> bool {
-        matches!(self, EqualIndent(_))
-    }
-
-    #[inline]
-    pub(crate) fn is_valid(&self, lhs: usize) -> bool {
-        match self {
-            EndInstead => false,
-            LessIndent(rhs) => lhs + 1 < *rhs,
-            EqualIndent(rhs) => lhs + 1 <= *rhs,
-            LessOrEqualIndent(rhs) => lhs + 1 <= *rhs,
-        }
-    }
-
-    #[inline]
-    pub(crate) fn is_nonzero(&self) -> bool {
-        match self {
-            LessIndent(0) | EqualIndent(0) | LessOrEqualIndent(0) => false,
-            _ => true,
-        }
-    }
-}
-
 pub trait Reader {
     #[inline]
     fn eof(&self) -> bool {
@@ -124,7 +79,6 @@ pub trait Reader {
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn find_next_whitespace(&self) -> Option<usize>;
-    fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType;
     fn read_break(&mut self) -> Option<(usize, usize)>;
     fn skip_whitespace(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
@@ -147,17 +101,11 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn peek_byte_at(&self, offset: usize) -> Option<u8> {
-        match self.slice.as_bytes().get(self.pos + offset) {
-            Some(x) => Some(*x),
-            _ => None,
-        }
+        self.slice.as_bytes().get(self.pos + offset).copied()
     }
 
     fn peek_byte(&self) -> Option<u8> {
-        match self.slice.as_bytes().get(self.pos) {
-            Some(x) => Some(*x),
-            _ => None,
-        }
+        self.slice.as_bytes().get(self.pos).copied()
     }
 
     fn position_until<P>(&self, offset: usize, predicate: P) -> usize
@@ -209,32 +157,6 @@ impl<'r> Reader for StrReader<'r> {
             .position(|p| is_white_tab_or_break(*p))
     }
 
-    fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType {
-        if !indent_type.is_nonzero() {
-            return EqualIndent(0);
-        }
-        if self.eof() {
-            return EndInstead;
-        }
-        let consume = match self.slice.as_bytes()[self.pos..]
-            .iter()
-            .try_fold(0, |prev, &x| {
-                if x == b' ' && indent_type.is_valid(prev) {
-                    Continue(prev + 1)
-                } else {
-                    Break(prev)
-                }
-            }) {
-            Continue(value) | Break(value) => indent_type.compare(value),
-        };
-        match consume {
-            LessIndent(amount) | EqualIndent(amount) | LessOrEqualIndent(amount) => {
-                self.consume_bytes(amount as usize)
-            }
-            _ => {}
-        };
-        consume
-    }
 
     fn read_break(&mut self) -> Option<(usize, usize)> {
         let start = self.pos;
@@ -286,7 +208,7 @@ impl<'r> Reader for StrReader<'r> {
         let content = &self.slice.as_bytes()[start..];
         let mut iter = memchr3_iter(b'\r', b'\n', b'#', content);
         let mut end = self.pos;
-        let mut consume: usize = 0;
+        let consume: usize;
 
         if let Some((new_end, c)) = iter.next().map(|p| (p, content[p])) {
             end = new_end;
@@ -298,7 +220,7 @@ impl<'r> Reader for StrReader<'r> {
                 return (start, end);
             }
         }
-        while let Some(pos) = iter.next() {
+        for pos in iter {
             let ascii = content[pos];
             if ascii == b'\r' && pos < content.len() - 1 && content[pos + 1] == b'\n' {
                 self.consume_bytes(pos + 2);
@@ -480,31 +402,6 @@ pub fn test_position_until() {
             }
         })
     );
-}
-
-#[test]
-pub fn test_try_read_indent() {
-    fn try_read(
-        input: &str,
-        indent_type: IndentType,
-        expected_res: IndentType,
-        expected_pos: usize,
-    ) {
-        let mut reader = StrReader::new(input);
-        let read = reader.try_read_indent(indent_type);
-
-        assert_eq!(expected_res, read);
-        assert_eq!(expected_pos, reader.pos);
-    }
-
-    try_read("     #", EqualIndent(3), EqualIndent(3), 3);
-    try_read("     #", EqualIndent(6), EndInstead, 0);
-
-    try_read("     #", LessIndent(4), LessIndent(3), 3);
-    try_read("     #", LessIndent(0), EqualIndent(0), 0);
-
-    try_read("     #", LessOrEqualIndent(4), EqualIndent(4), 4);
-    try_read("     #", LessOrEqualIndent(7), LessIndent(5), 5);
 }
 
 #[inline]

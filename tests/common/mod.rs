@@ -1,4 +1,5 @@
 extern crate steel_yaml;
+
 use steel_yaml::tokenizer::EventIterator;
 
 pub fn assert_eq_event(input_yaml: &str, expect: &str) {
