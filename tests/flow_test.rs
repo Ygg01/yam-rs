@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+
 const EMPTY_DOC_INPUT: &'static str = r#"
 # test"
   # test
@@ -14,6 +15,12 @@ null
 "#;
 const NULL_YAML_EXPECTED: &'static str = r#"
   =VAL null"#;
+
+
+const MULTI_WORD_INPUT: &'static str = r#"
+  null test xy"#;
+const MULTI_WORD_EXPECTED: &'static str = r#"
+  =VAL null test xy"#;
 
 const MULTILINE_INPUT: &'static str = r#"
 test
@@ -138,6 +145,7 @@ fn parse_empty_document() {
 #[test]
 fn parse_flow_scalars() {
     assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EXPECTED);
+    assert_eq_event(MULTI_WORD_INPUT, MULTI_WORD_EXPECTED);
     assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
 }
 

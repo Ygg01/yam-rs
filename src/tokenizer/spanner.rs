@@ -7,8 +7,7 @@ use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
 
 use crate::tokenizer::reader::{
-    is_flow_indicator, is_indicator, is_white_tab, is_white_tab_or_break,
-    ns_plain_safe, Reader,
+    is_flow_indicator, is_indicator, is_white_tab, is_white_tab_or_break, ns_plain_safe, Reader,
 };
 use crate::tokenizer::spanner::ParserState::{
     BlockKey, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
@@ -17,7 +16,7 @@ use crate::tokenizer::spanner::SpanToken::{
     Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, NewLine,
     SequenceEnd, SequenceStart,
 };
-use crate::tokenizer::ErrorType::{UnexpectedSymbol};
+use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::{DirectiveType, ErrorType};
 
 use super::reader::is_newline;
@@ -40,7 +39,6 @@ impl Default for Spanner {
         }
     }
 }
-
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub(crate) enum ParserState {
@@ -83,7 +81,6 @@ impl ParserState {
             _ => false,
         }
     }
-
 }
 
 impl Spanner {
@@ -228,7 +225,7 @@ impl Spanner {
                     }
                 }
                 Some(b'?') => self.fetch_explicit_map(reader),
-                Some(b',') => reader.consume_bytes(1),
+                Some(b',') => {reader.consume_bytes(1);},
                 Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
                 Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                 Some(b'#') => {
@@ -364,17 +361,15 @@ impl Spanner {
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R) {
         let mut num_newlines = 0;
         while !reader.eof() {
-            if let Some((start, offset)) = self.read_plain_one_line(reader) {
-
-                match  num_newlines {
+            if let Some((start, end)) = self.read_plain_one_line(reader) {
+                match num_newlines {
                     x if x == 1 => self.tokens.push_back(Space),
-                    x if x > 1 => self.tokens.push_back(NewLine(num_newlines as u32)),
-                    _ => {}, 
+                    x if x > 1 => self.tokens.push_back(NewLine(num_newlines)),
+                    _ => {}
                 }
 
                 self.tokens.push_back(MarkStart(start));
-                self.tokens.push_back(MarkEnd(start + offset));
-                reader.consume_bytes(offset);
+                self.tokens.push_back(MarkEnd(end));
             } else {
                 return;
             }
@@ -390,7 +385,15 @@ impl Spanner {
             } else if is_newline(chr) {
                 let folded_newline = self.skip_separation_spaces(reader, false);
                 if reader.col() >= self.curr_state.indent() {
-                    num_newlines = folded_newline;
+                    num_newlines = folded_newline as u32;
+                }
+            }
+
+            if reader.peek_byte_is(b'-') {
+                match self.curr_state {
+                    BlockSeq(x) if x == reader.col() => return,
+                    BlockSeq(x) if x > reader.col() => continue,
+                    _ => {}
                 }
             }
         }
@@ -427,7 +430,6 @@ impl Spanner {
         let start = reader.pos();
         let in_flow_collection = self.curr_state.in_flow_collection();
 
-        let mut offset = 0;
         if reader.eof()
             || reader.peek_byte_at_check(0, is_white_tab_or_break)
             || reader.peek_byte_at_check(0, is_indicator)
@@ -438,10 +440,11 @@ impl Spanner {
             return None;
         }
 
-        offset += 1;
-        loop {
-            offset += reader.skip_space_tab(true);
-            offset += reader.position_until(offset, |pos, x0, x1| {
+        let mut end = reader.consume_bytes(1);
+
+        while !reader.eof() {
+            let spaces = reader.count_space_tab(true);
+            let read_iter = reader.position_until(spaces, |pos, x0, x1| {
                 // ns-plain-char  prevent ` #`
                 if is_white_tab_or_break(x0) && x1 == b'#' {
                     return Break(pos);
@@ -461,12 +464,13 @@ impl Spanner {
 
                 Continue(pos + 1)
             });
-            return if offset != 0 {
-                Some((start, offset))
+            if read_iter == 0 {
+                break;
             } else {
-                None
-            };
+                end = reader.consume_bytes(read_iter + spaces);
+            }
         }
+        Some((start, end))
     }
 
     fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R) {
