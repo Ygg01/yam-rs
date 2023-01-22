@@ -144,7 +144,7 @@ impl Spanner {
                 Some(b'&') => self.fetch_alias(reader),
                 Some(b'*') => self.fetch_anchor(reader),
                 Some(b':') => self.fetch_block_map(reader),
-                Some(b'-') => self.switch_to_block_seq(reader, 0),
+                Some(b'-') => self.fetch_block_seq(reader, 0),
                 Some(b'?') => self.fetch_block_map_key(reader),
                 Some(b'!') => self.fetch_tag(reader),
                 Some(b'>') => self.fetch_block_scalar(reader, false),
@@ -306,7 +306,7 @@ impl Spanner {
         todo!()
     }
 
-    fn switch_to_block_seq<R: Reader>(&mut self, reader: &mut R, indent: usize) {
+    fn fetch_block_seq<R: Reader>(&mut self, reader: &mut R, indent: usize) {
         if reader.peek_byte_at_check(1, is_white_tab_or_break) {
             let new_indent: usize = reader.col();
             if reader.peek_byte_at_check(1, is_newline) {
@@ -325,9 +325,6 @@ impl Spanner {
         }
     }
 
-    fn fetch_block_seq<R: Reader>(&self, _reader: &mut R, _indent: usize) {
-        todo!()
-    }
 
     fn fetch_block_map_key<R: Reader>(&mut self, _reader: &mut R) {
         todo!()
@@ -413,6 +410,12 @@ impl Spanner {
                     BlockSeq(x) if reader.col() > x => {
                         allow_minus = true;
                         continue;
+                    }
+                    BlockSeq(x) if reader.col() < x => {
+                        self.tokens
+                            .push_back(ErrorToken(ErrorType::ExpectedIndent(x, reader.col())));
+                        reader.read_line();
+                        return;
                     }
                     _ => {}
                 }

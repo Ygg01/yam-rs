@@ -3,8 +3,7 @@
 use std::ops::ControlFlow::{Break, Continue};
 use std::{ops::ControlFlow, slice::Windows};
 
-use memchr::{memchr3_iter};
-
+use memchr::memchr3_iter;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -132,9 +131,8 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
-
     #[inline(always)]
-    fn consume_bytes(&mut self, amount: usize) -> usize{
+    fn consume_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
         self.col += amount;
         self.pos
@@ -161,7 +159,6 @@ impl<'r> Reader for StrReader<'r> {
             .iter()
             .position(|p| is_white_tab_or_break(*p))
     }
-
 
     fn read_break(&mut self) -> Option<(usize, usize)> {
         let start = self.pos;
