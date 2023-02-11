@@ -184,11 +184,11 @@ const ERR_PLAIN_SCALAR: &'static str = r#"
   b
  c"#;
 
- const ERR_PLAIN_SCALAR_EXPECTED: &'static str = r#"
+const ERR_PLAIN_SCALAR_EXPECTED: &'static str = r#"
   =VAL a b
   ERR(ExpectedIndent { actual: 1, expected: 2 })"#;
 
 #[test]
 fn err_plain_scalar() {
-  assert_eq_event(ERR_PLAIN_SCALAR, ERR_PLAIN_SCALAR_EXPECTED);
+    assert_eq_event(ERR_PLAIN_SCALAR, ERR_PLAIN_SCALAR_EXPECTED);
 }
