@@ -25,26 +25,6 @@ pub fn block_seq() {
     assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
 }
 
-const BLOCK_AS_PLAIN: &'static str = r#"
-  - x
-   - y
-"#;
-
-const BLOCK_AS_PLAIN2: &'static str = r#"
-- x - y
-"#;
-
-const BLOCK_AS_PLAIN_EXPECTED: &'static str = r#"
-  +SEQ
-    =VAL x - y
-  -SEQ"#;
-
-#[test]
-pub fn block_plain() {
-    assert_eq_event(BLOCK_AS_PLAIN, BLOCK_AS_PLAIN_EXPECTED);
-    assert_eq_event(BLOCK_AS_PLAIN2, BLOCK_AS_PLAIN_EXPECTED);
-}
-
 const BLOCK_ERR_INPUT: &'static str = r#"
   - x
  - y
@@ -145,13 +125,31 @@ pub fn plain_block() {
     assert_eq_event(BLOCK_PLAIN, BLOCK_PLAIN_EXPECTED)
 }
 
+const SEQ_PLAIN: &'static str = r#"
+  - x
+   - y
+"#;
+
+const SEQ_PLAIN2: &'static str = r#"
+- x - y
+"#;
+
+const SEQ_PLAIN_EXPECTED: &'static str = r#"
+  +SEQ
+    =VAL x - y
+  -SEQ"#;
+
+#[test]
+pub fn seq_plain() {
+    assert_eq_event(SEQ_PLAIN, SEQ_PLAIN_EXPECTED);
+    assert_eq_event(SEQ_PLAIN2, SEQ_PLAIN_EXPECTED);
+}
+
 const BLOCK_MAP_INPUT: &'static str = r#"
   a:
     x
     u
   c :
-  d:
- 
 "#;
 
 const BLOCK_MAP_EXPECTED: &'static str = r#"
@@ -162,11 +160,44 @@ const BLOCK_MAP_EXPECTED: &'static str = r#"
     -SEP-
     =VAL c
     -KEY-
-    -SEP-
-    =VAL d
   -MAP"#;
 
 #[test]
 pub fn block_map() {
     assert_eq_event(BLOCK_MAP_INPUT, BLOCK_MAP_EXPECTED);
+}
+
+const MULTILINE_COMMENT_BLOCK1: &'static str = r#"
+  multi: 
+    abc  # a comment
+"#;
+
+const MULTILINE_COMMENT_BLOCK1_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL multi
+    -KEY-
+    =VAL ab
+    -SEP-
+  -MAP
+"#;
+
+const MULTILINE_COMMENT_BLOCK2: &'static str = r#"
+  multi:
+    ab  # a comment
+    xyz  # a commeent
+"#;
+
+const MULTILINE_COMMENT_BLOCK2_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL multi
+    -KEY-
+    =VAL ab
+
+  -MAP
+"#;
+
+#[test]
+pub fn multiline_block_comment() {
+    assert_eq_event(MULTILINE_COMMENT_BLOCK1, MULTILINE_COMMENT_BLOCK1_EXPECTED);
+    assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK2_EXPECTED);
 }

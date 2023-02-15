@@ -1,7 +1,8 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use std::ops::ControlFlow::{Break, Continue};
 use std::{ops::ControlFlow, slice::Windows};
+use std::ops::{Range, RangeFrom, RangeInclusive};
+use std::ops::ControlFlow::{Break, Continue};
 
 use memchr::memchr3_iter;
 
@@ -24,18 +25,18 @@ impl<'a> StrReader<'a> {
 }
 
 pub trait QueryUntil {
-    fn position_until_window<P>(&mut self, predicate: P) -> usize
-    where
-        Self: Sized,
-        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
+    fn position_until_window<P>(&mut self, predicate: P) -> (usize, bool)
+        where
+            Self: Sized,
+            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
 }
 
 impl<'a> QueryUntil for Windows<'a, u8> {
     #[inline]
-    fn position_until_window<P>(&mut self, predicate: P) -> usize
-    where
-        Self: Sized,
-        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+    fn position_until_window<P>(&mut self, predicate: P) -> (usize, bool)
+        where
+            Self: Sized,
+            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
     {
         #[inline]
         fn check<'a>(
@@ -45,7 +46,8 @@ impl<'a> QueryUntil for Windows<'a, u8> {
         }
 
         match self.try_fold(0usize, check(predicate)) {
-            Break(x) | Continue(x) => x,
+            Break(x) => (x, false),
+            Continue(x) => (x, true),
         }
     }
 }
@@ -55,9 +57,12 @@ pub trait Reader {
     fn eof(&self) -> bool {
         self.is_eof(0)
     }
+    fn eof_or_pos(&self, pos: usize) -> usize;
     fn is_eof(&self, offset: usize) -> bool;
     fn pos(&self) -> usize;
+    fn set_pos(&mut self, new_pos: usize);
     fn col(&self) -> usize;
+    fn set_col(&mut self, col: usize);
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     fn peek_byte(&self) -> Option<u8>;
     fn peek_byte_unwrap(&self, offset: usize) -> u8;
@@ -73,15 +78,21 @@ pub trait Reader {
             _ => false,
         }
     }
-    fn position_until<P>(&self, offset: usize, lookahead_predicate: P) -> usize
-    where
-        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
+    #[inline]
     fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
         let x = self.count_space_tab(allow_tab);
         self.consume_bytes(x);
         x
     }
-    fn count_space_tab(&mut self, allow_tab: bool) -> usize;
+    #[inline]
+    fn count_space_tab(&self, allow_tab: bool) -> usize {
+        self.count_space_tab_range_from(self.pos().., allow_tab)
+    }
+    fn count_space_tab_range_from(&self, range: RangeFrom<usize>, allow_tab: bool) -> usize;
+    fn count_space_tab_range(&self, range: Range<usize>, allow_tab: bool) -> usize;
+    fn position_until_range<P>(&self, range: RangeInclusive<usize>, predicate: P) -> usize
+        where
+            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
     fn skip_n_spaces(&mut self, skip: usize) -> Result<(), ErrorType>;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
@@ -89,12 +100,24 @@ pub trait Reader {
     fn find_next_whitespace(&self) -> Option<usize>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
     fn skip_whitespace(&mut self) -> usize;
-    fn read_line(&mut self) -> (usize, usize);
+    #[inline]
+    fn read_line(&mut self) -> (usize, usize) {
+        let (start, end, consume) = self.get_line_offset();
+        self.set_pos(consume);
+        self.set_col(0);
+        (start, end)
+    }
+    fn get_line_offset(&self) -> (usize, usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
     fn find_fast3_iter(&self, needle1: u8, needle2: u8, needle3: u8) -> Option<usize>;
 }
 
 impl<'r> Reader for StrReader<'r> {
+    #[inline]
+    fn eof_or_pos(&self, pos: usize) -> usize {
+        pos.min(self.slice.as_bytes().len() - 1)
+    }
+
     #[inline]
     fn is_eof(&self, offset: usize) -> bool {
         self.pos + offset >= self.slice.as_bytes().len()
@@ -104,8 +127,16 @@ impl<'r> Reader for StrReader<'r> {
         self.pos
     }
 
+    fn set_pos(&mut self, new_pos: usize) {
+        self.pos = new_pos;
+    }
+
     fn col(&self) -> usize {
         self.col
+    }
+
+    fn set_col(&mut self, col: usize) {
+        self.col = col;
     }
 
     fn peek_byte_at(&self, offset: usize) -> Option<u8> {
@@ -123,23 +154,40 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
-    fn position_until<P>(&self, offset: usize, predicate: P) -> usize
-    where
-        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
-    {
-        self.slice.as_bytes()[self.pos + offset..]
-            .windows(2)
-            .position_until_window(predicate)
-    }
-
     #[inline]
-    fn count_space_tab(&mut self, allow_tab: bool) -> usize {
-        match self.slice.as_bytes()[self.pos..]
+    fn count_space_tab_range_from(&self, range: RangeFrom<usize>, allow_tab: bool) -> usize {
+        match self.slice.as_bytes()[range]
             .iter()
             .try_fold(0usize, |acc, x| is_tab_space(acc, *x, allow_tab))
         {
             Continue(x) | Break(x) => x,
         }
+    }
+
+    #[inline]
+    fn count_space_tab_range(&self, range: Range<usize>, allow_tab: bool) -> usize {
+        match self.slice.as_bytes()[range]
+            .iter()
+            .try_fold(0usize, |acc, x| is_tab_space(acc, *x, allow_tab))
+        {
+            Continue(x) | Break(x) => x,
+        }
+    }
+
+    fn position_until_range<P>(&self, range: RangeInclusive<usize>, mut predicate: P) -> usize
+        where
+            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+    {
+        let last_pos = range.end() - range.start();
+        let slice = &self.slice.as_bytes()[range.clone()];
+        let (mut pos, is_continue) = slice
+            .windows(2)
+            .position_until_window(&mut predicate);
+        let x = self.slice.as_bytes()[*range.end()];
+        if is_continue && pos == last_pos && predicate(pos, x, x).is_continue() {
+            pos += 1;
+        }
+        pos
     }
 
     fn skip_n_spaces(&mut self, num_spaces: usize) -> Result<(), ErrorType> {
@@ -217,24 +265,22 @@ impl<'r> Reader for StrReader<'r> {
         n
     }
 
-    fn read_line(&mut self) -> (usize, usize) {
+    fn get_line_offset(&self) -> (usize, usize, usize) {
         let slice = self.slice.as_bytes();
         let start = self.pos;
         let remaining = slice.len() - start;
         let content = &slice[start..];
-        let (n, consume) = memchr::memchr2_iter(b'\r', b'\n', content).next().map_or(
-            (remaining, remaining),
-            |p| {
-                if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
-                    (p, p + 2)
-                } else {
-                    (p, p + 1)
-                }
-            },
-        );
-        self.consume_bytes(consume);
-        self.col = 0;
-        (start, start + n)
+        let (n, newline) =
+            memchr::memchr2_iter(b'\r', b'\n', content)
+                .next()
+                .map_or((remaining, remaining), |p| {
+                    if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
+                        (p, 2)
+                    } else {
+                        (p, 1)
+                    }
+                });
+        (start, start + n, start + n + newline)
     }
 
     fn read_non_comment_line(&mut self) -> (usize, usize) {
@@ -277,7 +323,7 @@ impl<'r> Reader for StrReader<'r> {
             needle3,
             &self.slice.as_bytes()[self.pos..],
         )
-        .next()
+            .next()
     }
 }
 
@@ -389,6 +435,7 @@ pub fn skip_whitespace() {
 #[test]
 pub fn test_position_until() {
     let look_ahead = StrReader::new("test #");
+    let range = 0..=look_ahead.slice.len() - 1;
 
     #[inline]
     pub(crate) fn is_tab_space(b: u8) -> bool {
@@ -400,7 +447,7 @@ pub fn test_position_until() {
 
     assert_eq!(
         4,
-        look_ahead.position_until(0, |pos, x0, x1| {
+        look_ahead.position_until_range(range.clone(), |pos, x0, x1| {
             if is_tab_space(x0) && x1 == b'#' {
                 Break(pos)
             } else {
@@ -413,7 +460,7 @@ pub fn test_position_until() {
 
     assert_eq!(
         4,
-        look_behind.position_until(0, |pos, x0, x1| {
+        look_behind.position_until_range(range.clone(), |pos, x0, x1| {
             if x0 == b'#' && is_tab_space(x1) {
                 Break(pos)
             } else {
@@ -426,7 +473,7 @@ pub fn test_position_until() {
 
     assert_eq!(
         5,
-        look_any.position_until(0, |pos, x0, x1| {
+        look_any.position_until_range(range, |pos, x0, x1| {
             if is_tab_space(x0) {
                 Break(pos)
             } else if is_tab_space(x1) {

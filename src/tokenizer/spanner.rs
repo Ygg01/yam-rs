@@ -54,6 +54,7 @@ pub(crate) enum ParserState {
 }
 
 impl ParserState {
+    #[inline]
     pub(crate) fn indent(&self, default: usize) -> usize {
         match self {
             FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) | BlockMap(ind) => *ind,
@@ -75,6 +76,20 @@ impl ParserState {
         match &self {
             FlowKey(_, true) => true,
             _ => false,
+        }
+    }
+
+    #[inline]
+    fn is_block_col(&self) -> bool {
+        matches!(self, BlockMap(_) | BlockSeq(_))
+    }
+
+    #[inline]
+    fn is_new_block_col(&self, curr_indent: usize) -> bool {
+        match &self {
+            FlowKey(_, _) | FlowMap(_) | FlowSeq(_) => false,
+            BlockMap(x) if *x == curr_indent => false,
+            _ => true,
         }
     }
 }
@@ -252,6 +267,7 @@ impl Spanner {
             for state in self.stack.iter().rev() {
                 let x = match *state {
                     BlockSeq(_) => SequenceEnd,
+                    BlockMap(_) => MappingEnd,
                     _ => continue,
                 };
                 self.tokens.push_back(x);
@@ -481,19 +497,25 @@ impl Spanner {
 
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, start_indent: usize) {
         let mut allow_minus = false;
+        let mut first_in_block = !self.curr_state.in_flow_collection();
         let mut num_newlines = 0;
         let mut tokens = vec![];
         let mut curr_indent = reader.col();
+        let init_indent = if matches!(self.curr_state, BlockMap(_)) {
+            reader.col()
+        } else {
+            start_indent
+        };
+
         while !reader.eof() {
             // if plain scalar is less indentend than previous
             // It can be
             // a) Part of BlockMap
             // b) An error outside of block map
-            if curr_indent < start_indent {
+            if curr_indent < init_indent {
                 if matches!(self.curr_state, BlockMap(_)) {
                     tokens.push(Separator);
-                    self.pop_state();
-                } else {
+                } else if !self.curr_state.is_block_col() {
                     reader.read_line();
                     tokens.push(ErrorToken(ErrorType::ExpectedIndent {
                         actual: curr_indent,
@@ -508,28 +530,29 @@ impl Spanner {
                 None => break,
             };
 
+            reader.skip_space_tab(true);
+
+            let chr = reader.peek_byte_unwrap(0);
+
+            if first_in_block && chr == b':' {
+                if self.curr_state.is_new_block_col(curr_indent) {
+                    self.push_state(BlockMap(curr_indent));
+                    self.tokens.push_back(MappingStart);
+                }
+                self.tokens.push_back(MarkStart(start));
+                self.tokens.push_back(MarkEnd(end));
+                return;
+            }
+
             match num_newlines {
                 x if x == 1 => tokens.push(Space),
                 x if x > 1 => tokens.push(NewLine(num_newlines)),
                 _ => {}
             }
 
-            reader.skip_space_tab(true);
-
-            let chr = reader.peek_byte_unwrap(0);
-
-            if chr == b':' && !self.curr_state.in_flow_collection() {
-                reader.consume_bytes(1);
-                self.tokens.push_back(MappingStart);
-                self.tokens.push_back(MarkStart(start));
-                self.tokens.push_back(MarkEnd(end));
-                self.tokens.push_back(KeyEnd);
-                self.push_state(BlockMap(curr_indent));
-                return;
-            }
-
             tokens.push(MarkStart(start));
             tokens.push(MarkEnd(end));
+            first_in_block = false;
 
             if is_newline(chr) {
                 let folded_newline = self.skip_separation_spaces(reader, false);
@@ -614,10 +637,13 @@ impl Spanner {
         }
 
         let mut end = reader.consume_bytes(1);
+        let (_, line_end, _) = reader.get_line_offset();
+        let line_end = reader.eof_or_pos(line_end);
+        let mut newline = false;
 
-        while !reader.eof() {
-            let spaces = reader.count_space_tab(true);
-            let read_iter = reader.position_until(spaces, |pos, x0, x1| {
+        while end < line_end {
+            let spaces = reader.count_space_tab_range_from(end.., true);
+            let read_iter = reader.position_until_range(end + spaces..=line_end, |pos, x0, x1| {
                 // ns-plain-char  prevent ` #`
                 if is_white_tab_or_break(x0) && x1 == b'#' {
                     return Break(pos);
@@ -630,8 +656,10 @@ impl Spanner {
                 }
 
                 if !ns_plain_safe(x0, in_flow_collection) {
+                    newline = is_newline(x0);
                     return Break(pos);
                 } else if !ns_plain_safe(x1, in_flow_collection) {
+                    newline = is_newline(x1);
                     return Break(pos + 1);
                 };
 
@@ -639,10 +667,10 @@ impl Spanner {
             });
             if read_iter == 0 {
                 break;
-            } else {
-                end = reader.consume_bytes(read_iter + spaces);
             }
-        }
+            end += read_iter + spaces;
+        }       
+        reader.set_pos(end);
         Some((start, end))
     }
 
