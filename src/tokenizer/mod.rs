@@ -14,6 +14,7 @@ mod str_reader;
 pub enum ErrorType {
     NoDocStartAfterTag,
     UnexpectedEndOfFile,
+    UnexpectedComment,
     UnexpectedSymbol(char),
     ExpectedDocumentStart,
     ExpectedNewline,
