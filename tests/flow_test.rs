@@ -59,7 +59,7 @@ const SEQ_FLOW_EXPECTED: &'static str = r#"
 
 #[test]
 fn parse_flow_seq() {
-    // assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EXPECTED);
+    assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EXPECTED);
     assert_eq_event(SEQ_FLOW_INPUT2, SEQ_FLOW_EXPECTED);
 }
 
@@ -151,6 +151,31 @@ fn parse_complex_map() {
     assert_eq_event(SEQ_COMPLEX_MAP, SEQ_COMPLEX_MAP_EXPECTED);
 }
 
+const SQUOTE_STR1: &'static str = r#"
+  'single quote'
+    "#;
+
+const SQUOTE_STR2: &'static str = r#"
+  'single
+  quote'"#;
+
+const SQUOTE_STR_EXPECTED: &'static str = r#"
+  =VAL single quote"#;
+
+const SQUOTE_ESCAPE: &'static str = r#"'for single quote, use '' two of them'"#;
+const SQUOTE_ESCAPE2: &'static str = r#"'for single quote, use
+'' two of them'"#;
+const SQUOTE_ESCAPE_EXPECTED: &'static str = r#"
+  =VAL for single quote, use ' two of them"#;
+
+#[test]
+fn flow_single_quote() {
+    assert_eq_event(SQUOTE_STR1, SQUOTE_STR_EXPECTED);
+    assert_eq_event(SQUOTE_STR2, SQUOTE_STR_EXPECTED);
+    assert_eq_event(SQUOTE_ESCAPE, SQUOTE_ESCAPE_EXPECTED);
+    assert_eq_event(SQUOTE_ESCAPE2, SQUOTE_ESCAPE_EXPECTED);
+}
+
 const DQUOTE_STR1: &'static str = r#"
   "double quote"
     "#;
@@ -163,21 +188,8 @@ const DQUOTE_STR2: &'static str = r#"
 const DQUOTE_STR_EXPECTED: &'static str = r#"
   =VAL "double quote"#;
 
-const SQUOTE_STR1: &'static str = r#"
-  'single quote'
-    "#;
-
-const SQUOTE_STR2: &'static str = r#"
-  'single
-  quote'"#;
-
-const SQUOTE_STR_EXPECTED: &'static str = r#"
-  =VAL 'single quote"#;
-
 #[test]
-fn flow_quote() {
-    assert_eq_event(SQUOTE_STR1, SQUOTE_STR_EXPECTED);
-    assert_eq_event(SQUOTE_STR2, SQUOTE_STR_EXPECTED);
+fn flow_double_quote() {
     assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
     assert_eq_event(DQUOTE_STR2, DQUOTE_STR_EXPECTED);
 }

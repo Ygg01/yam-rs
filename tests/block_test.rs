@@ -202,7 +202,7 @@ const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
   multi:
     ab  
     xyz  # a commeent
-"#;  
+"#;
 
 const MULTILINE_COMMENT_BLOCK4_EXPECTED: &'static str = r#"
   +MAP
