@@ -1,9 +1,6 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
-use std::fs::read;
-
-use memchr::memchr3_iter;
 
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
@@ -177,8 +174,7 @@ impl Spanner {
                     Some(b'|') => self.fetch_block_scalar(reader, true),
                     Some(b'>') => self.fetch_block_scalar(reader, false),
                     Some(b'\'') => self.fetch_single_quote(reader),
-                    // TODO
-                    // Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
+                    Some(b'"') => self.fetch_double_quote(reader),
                     Some(b'#') => {
                         // comment
                         reader.read_line();
@@ -212,8 +208,7 @@ impl Spanner {
                     self.tokens.push_back(Separator);
                 }
                 Some(b'\'') => self.fetch_single_quote(reader),
-                // TODO
-                // Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
+                Some(b'"') => self.fetch_double_quote(reader),
                 Some(b':') => {
                     reader.consume_bytes(1);
                     self.tokens.push_back(MappingStart);
@@ -252,8 +247,7 @@ impl Spanner {
                     reader.consume_bytes(1);
                 }
                 Some(b'\'') => self.fetch_single_quote(reader),
-                // TODO
-                // Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
+                Some(b'"') => self.fetch_double_quote(reader),
                 Some(b'#') => {
                     // comment
                     reader.read_line();
@@ -470,61 +464,73 @@ impl Spanner {
         }
     }
 
-    // TODO Escaping properly
-    // fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R, quote: u8) {
-    //     let mut start = reader.pos();
-    //     let mut first = 1;
-    //     reader.consume_bytes(1);
-    //     while let Some(offset) = reader.find_fast3_iter(quote, b'\r', b'\n') {
-    //         match reader.peek_byte_at(offset) {
-    //             Some(b'\r') | Some(b'\n') => {
-    //                 if offset > 0 {
-    //                     self.tokens.push_back(MarkStart(start));
-    //                     self.tokens.push_back(MarkEnd(start + offset + first));
-    //                     self.tokens.push_back(Space);
-    //                 }
-    //                 reader.read_line();
-    //                 reader.skip_space_tab(self.curr_state.is_implicit());
-    //                 start = reader.pos();
-    //                 first = 0;
-    //             }
-    //             Some(_) => {
-    //                 // consume offset and the next quote
-    //                 reader.consume_bytes(offset + 1);
-    //                 self.tokens.push_back(MarkStart(start));
-    //                 self.tokens.push_back(MarkEnd(start + offset + first));
-    //                 break;
-    //             }
-    //             None => {}
-    //         };
-    //     }
-    // }
+    fn fetch_double_quote<R: Reader>(&mut self, reader: &mut R) {
+        reader.consume_bytes(1);
+        let is_implicit = self.curr_state.is_implicit();
+
+        while !reader.eof() {
+            let (line_start, line_end, _) = reader.get_line_offset();
+            let pos = memchr::memchr(b'"', reader.slice_bytes(line_start, line_end));
+            match pos {
+                Some(len) if len > 1 => {
+                    // Check for `\` escape
+                    if reader.peek_byte_at(len - 1) != Some(b'\\') {
+                        self.tokens.push_back(MarkStart(line_start));
+                        self.tokens.push_back(MarkEnd(line_start + len));
+                        reader.consume_bytes(len + 1);
+                        break;
+                    } else {
+                        self.tokens.push_back(MarkStart(line_start));
+                        self.tokens.push_back(MarkEnd(line_start + len - 1));
+                        self.tokens.push_back(MarkStart(line_start + len ));
+                        self.tokens.push_back(MarkEnd(line_start + len + 1));
+                        reader.consume_bytes(len + 1);
+                        continue;
+                    }
+                }
+                Some(len) => {
+                    self.tokens.push_back(MarkStart(line_start));
+                    self.tokens.push_back(MarkEnd(line_start + len));
+                    reader.consume_bytes(len + 1);
+                    break;
+                }
+                None => {
+                    self.tokens.push_back(MarkStart(line_start));
+                    self.tokens.push_back(MarkEnd(line_end));
+                    self.tokens.push_back(Space);
+                    reader.read_line();
+                    reader.skip_space_tab(is_implicit);
+                }
+            }
+        }
+    }
 
     fn fetch_single_quote<R: Reader>(&mut self, reader: &mut R) {
         reader.consume_bytes(1);
         let is_implicit = self.curr_state.is_implicit();
 
-        loop {
+        while !reader.eof() {
             let (line_start, line_end, _) = reader.get_line_offset();
             let pos = memchr::memchr(b'\'', reader.slice_bytes(line_start, line_end));
             match pos {
                 Some(len) => {
+                    // Converts double '' to ' hence why we consume one extra char
                     if reader.peek_byte_at(len + 1) == Some(b'\'') {
-                        self.tokens.push_back(MarkStart(line_start)); 
-                        self.tokens.push_back(MarkEnd(line_start + len + 1)); 
+                        self.tokens.push_back(MarkStart(line_start));
+                        self.tokens.push_back(MarkEnd(line_start + len + 1));
                         reader.consume_bytes(len + 2);
                         continue;
                     } else {
-                        self.tokens.push_back(MarkStart(line_start)); 
-                        self.tokens.push_back(MarkEnd(line_start + len)); 
+                        self.tokens.push_back(MarkStart(line_start));
+                        self.tokens.push_back(MarkEnd(line_start + len));
                         reader.consume_bytes(len + 1);
                         break;
                     }
                 }
                 None => {
                     self.tokens.push_back(MarkStart(line_start));
-                    self.tokens.push_back(MarkEnd(line_end));      
-                    self.tokens.push_back(Space); 
+                    self.tokens.push_back(MarkEnd(line_end));
+                    self.tokens.push_back(Space);
                     reader.read_line();
                     reader.skip_space_tab(is_implicit);
                 }
