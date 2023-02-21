@@ -7,6 +7,7 @@ use std::ops::{Range, RangeFrom, RangeInclusive};
 use memchr::memchr3_iter;
 
 use super::ErrorType;
+use super::spanner::ParserState;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -122,6 +123,8 @@ pub trait Reader {
     }
     fn get_line_offset(&self) -> (usize, usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
+    // Refactor
+    fn read_block_seq(&mut self, indent: usize) -> Option<ParserState>;
 }
 
 impl<'r> Reader for StrReader<'r> {
@@ -320,6 +323,23 @@ impl<'r> Reader for StrReader<'r> {
         }
 
         (start, end)
+    }
+
+    fn read_block_seq(&mut self, indent: usize) -> Option<ParserState> {
+        if self.peek_byte_at_check(1, is_white_tab_or_break) {
+            let new_indent: usize = self.col();
+            if self.peek_byte_at_check(1, is_newline) {
+                self.consume_bytes(1);
+                self.read_break();
+            } else {
+                self.consume_bytes(2);
+            }
+
+            if new_indent >= indent {
+                return Some(ParserState::BlockSeq(new_indent));
+            }
+        }
+        None
     }
 }
 
