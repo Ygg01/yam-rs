@@ -15,7 +15,7 @@ use super::spanner::ParserState;
 use super::{ErrorType, SpanToken};
 
 pub struct StrReader<'a> {
-    pub slice: &'a str,
+    pub slice: &'a [u8],
     pub(crate) pos: usize,
     pub(crate) col: usize,
 }
@@ -23,7 +23,7 @@ pub struct StrReader<'a> {
 impl<'a> StrReader<'a> {
     pub fn new(slice: &'a str) -> StrReader<'a> {
         Self {
-            slice,
+            slice: slice.as_bytes(),
             pos: 0,
             col: 0,
         }
@@ -226,12 +226,12 @@ pub trait Reader {
 impl<'r> Reader for StrReader<'r> {
     #[inline]
     fn eof_or_pos(&self, pos: usize) -> usize {
-        pos.min(self.slice.as_bytes().len() - 1)
+        pos.min(self.slice.len() - 1)
     }
 
     #[inline]
     fn is_eof(&self, offset: usize) -> bool {
-        self.pos + offset >= self.slice.as_bytes().len()
+        self.pos + offset >= self.slice.len()
     }
 
     fn pos(&self) -> usize {
@@ -251,27 +251,27 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn peek_byte_at(&self, offset: usize) -> Option<u8> {
-        self.slice.as_bytes().get(self.pos + offset).copied()
+        self.slice.get(self.pos + offset).copied()
     }
 
     fn peek_byte(&self) -> Option<u8> {
-        self.slice.as_bytes().get(self.pos).copied()
+        self.slice.get(self.pos).copied()
     }
 
     fn peek_byte_unwrap(&self, offset: usize) -> u8 {
-        match self.slice.as_bytes().get(self.pos + offset) {
+        match self.slice.get(self.pos + offset) {
             Some(x) => *x,
             _ => b'\0',
         }
     }
 
     fn get_lookahead_iterator(&self, range: RangeInclusive<usize>) -> LookAroundBytes {
-        LookAroundBytes::new(self.slice.as_bytes(), range)
+        LookAroundBytes::new(self.slice, range)
     }
 
     #[inline]
     fn count_space_tab_range_from(&self, range: RangeFrom<usize>, allow_tab: bool) -> usize {
-        match self.slice.as_bytes()[range]
+        match self.slice[range]
             .iter()
             .try_fold(0usize, |acc, x| is_tab_space(acc, *x, allow_tab))
         {
@@ -281,7 +281,7 @@ impl<'r> Reader for StrReader<'r> {
 
     #[inline]
     fn count_space_tab_range(&self, range: Range<usize>, allow_tab: bool) -> usize {
-        match self.slice.as_bytes()[range]
+        match self.slice[range]
             .iter()
             .try_fold(0usize, |acc, x| is_tab_space(acc, *x, allow_tab))
         {
@@ -290,7 +290,7 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn skip_n_spaces(&mut self, num_spaces: usize) -> Result<(), ErrorType> {
-        let count = self.slice.as_bytes()[self.pos..]
+        let count = self.slice[self.pos..]
             .iter()
             .enumerate()
             .take_while(|&(count, &x)| x == b' ' && count < num_spaces)
@@ -316,12 +316,12 @@ impl<'r> Reader for StrReader<'r> {
 
     #[inline(always)]
     fn slice_bytes(&self, start: usize, end: usize) -> &'r [u8] {
-        &self.slice.as_bytes()[start..end]
+        &self.slice[start..end]
     }
 
     #[inline(always)]
     fn slice_bytes_from(&self, start: usize) -> &'r [u8] {
-        &self.slice.as_bytes()[start..]
+        &self.slice[start..]
     }
 
     #[inline(always)]
@@ -329,7 +329,7 @@ impl<'r> Reader for StrReader<'r> {
         if self.slice.len() < self.pos + needle.len() {
             return false;
         }
-        if self.slice.as_bytes()[self.pos..self.pos + needle.len()].starts_with(needle.as_bytes()) {
+        if self.slice[self.pos..self.pos + needle.len()].starts_with(needle.as_bytes()) {
             self.pos += needle.len();
             return true;
         }
@@ -337,7 +337,7 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn find_next_whitespace(&self) -> Option<usize> {
-        self.slice.as_bytes()[self.pos..]
+        self.slice[self.pos..]
             .iter()
             .position(|p| is_white_tab_or_break(*p))
     }
@@ -349,7 +349,7 @@ impl<'r> Reader for StrReader<'r> {
             self.col = 0;
             Some((start, start + 1))
         } else if self.peek_byte_is(b'\r') {
-            let amount = match self.slice.as_bytes().get(start + 1) {
+            let amount = match self.slice.get(start + 1) {
                 Some(b'\n') => 2,
                 _ => 1,
             };
@@ -362,7 +362,7 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn skip_whitespace(&mut self) -> usize {
-        let n = self.slice.as_bytes()[self.pos..]
+        let n = self.slice[self.pos..]
             .iter()
             .position(|b| !is_white_tab_or_break(*b))
             .unwrap_or(0);
@@ -371,7 +371,7 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn get_line_offset(&self) -> (usize, usize, usize) {
-        let slice = self.slice.as_bytes();
+        let slice = self.slice;
         let start = self.pos;
         let remaining = slice.len() - start;
         let content = &slice[start..];
@@ -390,7 +390,7 @@ impl<'r> Reader for StrReader<'r> {
 
     fn read_non_comment_line(&mut self) -> (usize, usize) {
         let start = self.pos;
-        let content = &self.slice.as_bytes()[start..];
+        let content = &self.slice[start..];
         let mut iter = memchr3_iter(b'\r', b'\n', b'#', content);
         let mut end = self.pos;
         let consume: usize;
