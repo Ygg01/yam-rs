@@ -194,8 +194,9 @@ const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
   +MAP
     =VAL multi
     -KEY-
-    ERR(UnexpectedComment)
-    =VAL ab xyz
+    =VAL ab
+    ERR(UnexpectedComment) 
+    =VAL xyz
   -MAP"#;
 
 const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
