@@ -219,3 +219,31 @@ pub fn multiline_block_comment() {
     assert_eq_event(MULTILINE_COMMENT_BLOCK3, MULTILINE_COMMENT_BLOCK3_EXPECTED);
     assert_eq_event(MULTILINE_COMMENT_BLOCK4, MULTILINE_COMMENT_BLOCK4_EXPECTED);
 }
+
+const EXPLICIT_BLOCK_MAP1: &'static str = r#"
+  ? test
+  : value
+"#;
+
+const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL test
+    -KEY-
+    =VAL value
+  -MAP"#;
+
+// const EXPLICIT_BLOCK_MAP2: &'static str = r#"
+//    ? test
+//   : value
+// "#;
+//
+// const EXPLICIT_BLOCK_MAP3: &'static str = r#"
+//    ? test
+//     : value
+// "#;
+
+#[test]
+pub fn explicit_block_map() {
+    assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
+}
+

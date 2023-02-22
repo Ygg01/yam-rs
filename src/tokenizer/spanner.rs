@@ -42,7 +42,7 @@ pub enum ParserState {
     FlowMap(usize),
     FlowKey(usize, bool),
     BlockSeq(usize),
-    BlockMap(usize),
+    BlockMap(usize, bool),
     AfterDocEnd,
 }
 
@@ -50,7 +50,7 @@ impl ParserState {
     #[inline]
     pub(crate) fn indent(&self, default: usize) -> usize {
         match self {
-            FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) | BlockMap(ind) => *ind,
+            FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) | BlockMap(ind, _) => *ind,
             RootBlock => default,
             PreDocStart | AfterDocEnd => 0,
         }
@@ -74,14 +74,14 @@ impl ParserState {
 
     #[inline]
     pub(crate) fn is_block_col(&self) -> bool {
-        matches!(self, BlockMap(_) | BlockSeq(_))
+        matches!(self, BlockMap(_, _) | BlockSeq(_))
     }
 
     #[inline]
     pub(crate) fn is_new_block_col(&self, curr_indent: usize) -> bool {
         match &self {
             FlowKey(_, _) | FlowMap(_) | FlowSeq(_) => false,
-            BlockMap(x) if *x == curr_indent => false,
+            BlockMap(x, _) if *x == curr_indent => false,
             _ => true,
         }
     }
@@ -113,7 +113,7 @@ impl Spanner {
                     self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
                 }
             }
-            RootBlock | BlockMap(_) | BlockSeq(_) => {
+            RootBlock | BlockMap(_, _) | BlockSeq(_) => {
                 let indent = self.curr_state.indent(reader.col());
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_col(reader, indent),
@@ -125,7 +125,7 @@ impl Spanner {
                         self.tokens.push_back(KeyEnd);
                     }
                     Some(b'-') => self.fetch_block_seq(reader, indent),
-                    Some(b'?') => self.fetch_block_map_key(reader),
+                    Some(b'?') => self.fetch_block_map_key(reader, indent),
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => {
                         reader.read_block_scalar(true, &self.curr_state, &mut self.tokens)
@@ -238,7 +238,7 @@ impl Spanner {
             for state in self.stack.iter().rev() {
                 let x = match *state {
                     BlockSeq(_) => SequenceEnd,
-                    BlockMap(_) => MappingEnd,
+                    BlockMap(_, _) => MappingEnd,
                     _ => continue,
                 };
                 self.tokens.push_back(x);
@@ -301,8 +301,10 @@ impl Spanner {
         }
     }
 
-    fn fetch_block_map_key<R: Reader>(&mut self, _reader: &mut R) {
-        todo!()
+    fn fetch_block_map_key<R: Reader>(&mut self, reader: &mut R, indent: usize) {
+        reader.consume_bytes(1);
+        self.push_state(BlockMap(indent, true));
+        self.tokens.push_back(MappingStart);
     }
 
     fn fetch_tag<R: Reader>(&mut self, _reader: &mut R) {
