@@ -7,7 +7,8 @@ use SpanToken::{DocumentStart, Separator};
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
-    AfterDocEnd, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
+    AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, FlowKey, FlowKeyExp, FlowMap, FlowSeq,
+    PreDocStart, RootBlock,
 };
 use crate::tokenizer::spanner::SpanToken::{
     ErrorToken, KeyEnd, MappingEnd, MappingStart, SequenceEnd, SequenceStart,
@@ -40,9 +41,11 @@ pub enum ParserState {
     RootBlock,
     FlowSeq(usize),
     FlowMap(usize),
-    FlowKey(usize, bool),
+    FlowKey(usize),
+    FlowKeyExp(usize),
     BlockSeq(usize),
-    BlockMap(usize, bool),
+    BlockMap(usize),
+    BlockKeyExp(usize),
     AfterDocEnd,
 }
 
@@ -50,9 +53,8 @@ impl ParserState {
     #[inline]
     pub(crate) fn indent(&self, default: usize) -> usize {
         match self {
-            FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) | BlockMap(ind, _) => {
-                *ind
-            }
+            FlowKey(ind) | FlowKeyExp(ind) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind)
+            | BlockMap(ind) | BlockKeyExp(ind) => *ind,
             RootBlock => default,
             PreDocStart | AfterDocEnd => 0,
         }
@@ -61,7 +63,7 @@ impl ParserState {
     #[inline]
     pub fn in_flow_collection(&self) -> bool {
         match &self {
-            FlowKey(_, _) | FlowSeq(_) | FlowMap(_) => true,
+            FlowKey(_) | FlowKeyExp(_) | FlowSeq(_) | FlowMap(_) => true,
             _ => false,
         }
     }
@@ -69,21 +71,21 @@ impl ParserState {
     #[inline]
     pub(crate) fn is_implicit(&self) -> bool {
         match &self {
-            FlowKey(_, true) => true,
+            FlowKeyExp(_) => true,
             _ => false,
         }
     }
 
     #[inline]
     pub(crate) fn is_block_col(&self) -> bool {
-        matches!(self, BlockMap(_, _) | BlockSeq(_))
+        matches!(self, BlockMap(_) | BlockSeq(_) | BlockKeyExp(_))
     }
 
     #[inline]
     pub(crate) fn is_new_block_col(&self, curr_indent: usize) -> bool {
         match &self {
-            FlowKey(_, _) | FlowMap(_) | FlowSeq(_) => false,
-            BlockMap(x, _) if *x == curr_indent => false,
+            FlowKey(_) | FlowKeyExp(_) | FlowMap(_) | FlowSeq(_) => false,
+            BlockMap(x) | BlockKeyExp(x) if *x == curr_indent => false,
             _ => true,
         }
     }
@@ -115,7 +117,7 @@ impl Spanner {
                     self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
                 }
             }
-            RootBlock | BlockMap(_, _) | BlockSeq(_) => {
+            RootBlock | BlockMap(_) | BlockKeyExp(_) | BlockSeq(_) => {
                 let indent = self.curr_state.indent(reader.col());
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_col(reader, indent),
@@ -182,7 +184,7 @@ impl Spanner {
                 Some(b':') => {
                     reader.consume_bytes(1);
                     self.tokens.push_back(MappingStart);
-                    self.push_state(FlowKey(indent, true));
+                    self.push_state(FlowKeyExp(indent));
                 }
                 Some(b'?') => self.fetch_explicit_map(reader),
                 Some(b'#') => {
@@ -194,7 +196,7 @@ impl Spanner {
                 }
                 None => self.stream_end = true,
             },
-            FlowMap(indent) | FlowKey(indent, _) => match reader.peek_byte() {
+            FlowMap(indent) | FlowKey(indent) | FlowKeyExp(indent) => match reader.peek_byte() {
                 Some(b'[') => self.fetch_flow_col(reader, indent + 1),
                 Some(b'{') => self.fetch_flow_col(reader, indent + 1),
                 Some(b'}') => {
@@ -240,7 +242,7 @@ impl Spanner {
             for state in self.stack.iter().rev() {
                 let x = match *state {
                     BlockSeq(_) => SequenceEnd,
-                    BlockMap(_, _) => MappingEnd,
+                    BlockMap(_) | BlockKeyExp(_) => MappingEnd,
                     _ => continue,
                 };
                 self.tokens.push_back(x);
@@ -264,9 +266,9 @@ impl Spanner {
                 reader.skip_space_tab(true);
             }
             if reader.peek_byte_is(b'?') {
-                self.push_state(FlowKey(indent, false));
+                self.push_state(FlowKey(indent));
             } else {
-                self.push_state(FlowKey(indent, true));
+                self.push_state(FlowKeyExp(indent));
             }
             self.tokens.push_back(MappingStart);
         }
@@ -305,7 +307,7 @@ impl Spanner {
 
     fn fetch_block_map_key<R: Reader>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
-        self.push_state(BlockMap(indent, true));
+        self.push_state(BlockKeyExp(indent));
         self.tokens.push_back(MappingStart);
     }
 
@@ -356,7 +358,7 @@ impl Spanner {
     #[inline]
     fn is_map(&self) -> bool {
         match self.curr_state {
-            FlowMap(_) | FlowKey(_, _) => true,
+            FlowMap(_) | FlowKey(_) | FlowKeyExp(_) => true,
             _ => false,
         }
     }
@@ -364,7 +366,7 @@ impl Spanner {
     #[inline]
     fn is_key(&self) -> bool {
         match self.curr_state {
-            FlowKey(_, _) => true,
+            FlowKey(_) | FlowKeyExp(_) => true,
             _ => false,
         }
     }
