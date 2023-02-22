@@ -6,7 +6,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
 use super::spanner::ParserState;
-use super::{SpanToken};
+use super::SpanToken;
 
 pub struct LookAroundBytes<'a> {
     iter: &'a [u8],
