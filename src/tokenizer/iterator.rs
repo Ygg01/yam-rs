@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
+use crate::tokenizer::str_reader::StrReader;
 use crate::tokenizer::SpanToken::*;
-use crate::tokenizer::StrReader;
 use crate::Spanner;
 
 pub struct EventIterator<'a> {
@@ -43,11 +43,9 @@ impl<'a> Iterator for EventIterator<'a> {
                             let scalar = self.reader.slice[start..end].to_owned();
 
                             match self.lines.back_mut() {
-                                Some(line) if line[self.indent + 1..].starts_with("=VAL") => {
-                                    unsafe {
-                                        line.as_mut_vec().extend(scalar);
-                                    }
-                                }
+                                Some(line) if line[self.indent + 1..].starts_with("=VAL") => unsafe {
+                                    line.as_mut_vec().extend(scalar);
+                                },
                                 _ => {
                                     ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                                     ind.extend("=VAL ".as_bytes());

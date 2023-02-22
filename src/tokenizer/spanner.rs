@@ -10,8 +10,7 @@ use crate::tokenizer::spanner::ParserState::{
     AfterDocEnd, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
 };
 use crate::tokenizer::spanner::SpanToken::{
-    Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd,
-    SequenceStart,
+    ErrorToken, KeyEnd, MappingEnd, MappingStart, SequenceEnd, SequenceStart,
 };
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::{DirectiveType, ErrorType};
@@ -89,11 +88,6 @@ impl ParserState {
 }
 
 impl Spanner {
-    #[inline]
-    pub fn peek_token(&self) -> Option<SpanToken> {
-        self.tokens.front().copied()
-    }
-
     #[inline(always)]
     pub fn pop_token(&mut self) -> Option<SpanToken> {
         self.tokens.pop_front()
@@ -112,31 +106,7 @@ impl Spanner {
                     self.curr_state = RootBlock;
                     return;
                 }
-
-                if reader.try_read_slice_exact("%YAML") {
-                    reader.skip_space_tab(true);
-                    if let Some(x) = reader.find_next_whitespace() {
-                        self.tokens.push_back(Directive(DirectiveType::Yaml));
-                        self.tokens.push_back(MarkStart(reader.pos()));
-                        self.tokens.push_back(MarkEnd(reader.pos() + x));
-
-                        reader.consume_bytes(x);
-                        reader.read_line();
-                    }
-                } else {
-                    let tag = if reader.try_read_slice_exact("%TAG") {
-                        Directive(DirectiveType::Tag)
-                    } else {
-                        Directive(DirectiveType::Reserved)
-                    };
-                    reader.skip_space_tab(true);
-                    let x = reader.read_non_comment_line();
-                    if x.0 != x.1 {
-                        self.tokens.push_back(tag);
-                        self.tokens.push_back(MarkStart(x.0));
-                        self.tokens.push_back(MarkEnd(x.1));
-                    }
-                }
+                reader.try_read_tag(&mut self.tokens);
                 if reader.try_read_slice_exact("---") {
                     self.tokens.push_back(DocumentStart)
                 } else {
@@ -277,7 +247,7 @@ impl Spanner {
     }
 
     fn fetch_flow_col<R: Reader>(&mut self, reader: &mut R, indent: usize) {
-        let peek = reader.peek_byte_unwrap(0);
+        let peek = reader.peek_byte().unwrap_or(b'\0');
         reader.consume_bytes(1);
 
         if reader.col() != 0 {
@@ -354,10 +324,10 @@ impl Spanner {
 
         if !reader.peek_byte_at_check(1, is_white_tab_or_break) {
             self.fetch_plain_scalar(reader, reader.col());
-            return;
+        } else {
+            reader.consume_bytes(1);
+            reader.skip_space_tab(true);
         }
-        reader.consume_bytes(1);
-        reader.skip_space_tab(true);
     }
 
     fn process_map_key<R: Reader>(&mut self, reader: &mut R, indent: usize) {
