@@ -22,6 +22,7 @@ pub struct Spanner {
     pub stream_end: bool,
     tokens: VecDeque<SpanToken>,
     stack: VecDeque<ParserState>,
+    offset_indent: Option<usize>,
 }
 
 impl Default for Spanner {
@@ -31,6 +32,7 @@ impl Default for Spanner {
             tokens: VecDeque::new(),
             curr_state: PreDocStart,
             stack: VecDeque::new(),
+            offset_indent: None,
         }
     }
 }
@@ -127,6 +129,10 @@ impl Spanner {
                     Some(b':') => {
                         reader.consume_bytes(1);
                         self.tokens.push_back(KeyEnd);
+                        if let BlockKeyExp(x) = self.curr_state {
+                            self.curr_state = BlockMap(x);
+                            self.offset_indent = Some(indent);
+                        }
                     }
                     Some(b'-') => self.fetch_block_seq(reader, indent),
                     Some(b'?') => self.fetch_block_map_key(reader, indent),
@@ -308,6 +314,7 @@ impl Spanner {
     fn fetch_block_map_key<R: Reader>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
         self.push_state(BlockKeyExp(indent));
+        self.offset_indent = Some(indent);
         self.tokens.push_back(MappingStart);
     }
 
@@ -316,7 +323,8 @@ impl Spanner {
     }
 
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, start_indent: usize) {
-        let (tokens, new_state) = reader.read_plain_scalar(start_indent, &self.curr_state);
+        let (tokens, new_state) =
+            reader.read_plain_scalar(start_indent, &self.curr_state, &mut self.offset_indent);
         if let Some(new_state) = new_state {
             self.push_state(new_state);
         }

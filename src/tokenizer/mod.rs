@@ -21,6 +21,7 @@ pub enum ErrorType {
     ExpectedNewline,
     ExpectedNewlineInFolded,
     ExpectedIndent { actual: usize, expected: usize },
+    MappingExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
 }
 
