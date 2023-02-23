@@ -72,8 +72,6 @@ impl<'a> StrReader<'a> {
             .position(|p| is_white_tab_or_break(*p))
     }
 
-
-
     fn skip_n_spaces(&mut self, num_spaces: usize, prev_indent: usize) -> Flow {
         let count = self.slice[self.pos..]
             .iter()
@@ -83,7 +81,7 @@ impl<'a> StrReader<'a> {
 
         if count == prev_indent {
             Flow::Break
-        } else if count != num_spaces  {
+        } else if count != num_spaces {
             Flow::Error(count)
         } else {
             self.pos += count;
@@ -621,7 +619,7 @@ impl<'r> Reader for StrReader<'r> {
                         }));
                         break;
                     }
-                    _ => {},
+                    _ => {}
                 }
             }
 

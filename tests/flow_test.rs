@@ -214,3 +214,15 @@ const ERR_PLAIN_SCALAR_EXPECTED: &'static str = r#"
 fn err_plain_scalar() {
     assert_eq_event(ERR_PLAIN_SCALAR, ERR_PLAIN_SCALAR_EXPECTED);
 }
+
+const SIMPLE_DOC: &'static str = r#"
+---[]"#;
+
+const SIMPLE_DOC_EXPECTED: &'static str = r#"
+  +SEQ
+  -SEQ"#;
+
+#[test]
+fn simple_doc() {
+    assert_eq_event(SIMPLE_DOC, SIMPLE_DOC_EXPECTED);
+}
