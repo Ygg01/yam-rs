@@ -93,7 +93,6 @@ pub trait Reader {
         &mut self,
         start_indent: usize,
         curr_state: &ParserState,
-        offset_indent: &mut Option<usize>,
     ) -> (Vec<SpanToken>, Option<ParserState>);
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
     fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<SpanToken>);
