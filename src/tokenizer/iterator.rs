@@ -86,6 +86,22 @@ impl<'a> Iterator for EventIterator<'a> {
                                 }
                             }
                         }
+                        TagStart(start) => {
+                            if let (Some(MarkStart(mid)), Some(MarkEnd(end))) =
+                                    (self.state.pop_token(), self.state.pop_token())
+                            {
+                                let tag_schema = self.reader.slice[start..mid].to_owned();
+                                let tag = self.reader.slice[mid + 1..end].to_owned();
+                                ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                                ind.push(b'!');
+                                ind.extend(tag_schema);
+                                ind.push(b'!');
+                                ind.extend(tag);
+                                unsafe {
+                                    self.lines.push_back(String::from_utf8_unchecked(ind))
+                                }
+                            }
+                        }
                         MappingStart => {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("+MAP".as_bytes());

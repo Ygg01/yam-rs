@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 mod iter;
+mod borrow_builder;
 
 pub enum YamlToken<'a> {
     // strings, booleans, numbers, nulls, all treated the same

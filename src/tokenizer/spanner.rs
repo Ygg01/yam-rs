@@ -5,6 +5,8 @@ use std::collections::VecDeque;
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::{Alias, Anchor, DocumentStart, Separator};
 
+use crate::tokenizer::{DirectiveType, ErrorType};
+use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
     AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, BlockValExp, FlowKey, FlowKeyExp, FlowMap,
@@ -13,8 +15,7 @@ use crate::tokenizer::spanner::ParserState::{
 use crate::tokenizer::spanner::SpanToken::{
     ErrorToken, KeyEnd, MappingEnd, MappingStart, SequenceEnd, SequenceStart,
 };
-use crate::tokenizer::ErrorType::UnexpectedSymbol;
-use crate::tokenizer::{DirectiveType, ErrorType};
+use crate::tokenizer::SpanToken::{MarkEnd, MarkStart, TagStart};
 
 #[derive(Clone)]
 pub struct Spanner {
@@ -125,8 +126,7 @@ impl Spanner {
                     } else {
                         self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
                     }
-                } else if reader.try_read_slice_exact("---") {
-                }
+                } else if reader.try_read_slice_exact("---") {}
                 self.curr_state = RootBlock;
                 return;
             }
@@ -170,7 +170,7 @@ impl Spanner {
                         } else {
                             reader.consume_bytes(1);
                             self.tokens
-                                .push_back(ErrorToken(UnexpectedSymbol(x as char)))
+                                    .push_back(ErrorToken(UnexpectedSymbol(x as char)))
                         }
                     }
                     None => self.stream_end = true,
@@ -324,8 +324,14 @@ impl Spanner {
         self.tokens.push_back(MappingStart);
     }
 
-    fn fetch_tag<R: Reader>(&mut self, _reader: &mut R) {
-        todo!()
+    fn fetch_tag<R: Reader>(&mut self, reader: &mut R) {
+        let start = reader.consume_bytes(1);
+        if let Some((mid, end)) = reader.read_tag() {
+            self.tokens.push_back(TagStart(start));
+            self.tokens.push_back(MarkStart(mid));
+            self.tokens.push_back(MarkEnd(end));
+            reader.consume_bytes(end - start);
+        }
     }
 
     fn fetch_plain_scalar<R: Reader>(
@@ -335,7 +341,7 @@ impl Spanner {
         init_indent: usize,
     ) {
         let (tokens, new_state) =
-            reader.read_plain_scalar(start_indent, init_indent, &self.curr_state);
+                reader.read_plain_scalar(start_indent, init_indent, &self.curr_state);
 
         match new_state {
             Some(BlockValExp(x)) => self.curr_state = BlockValExp(x),
@@ -407,6 +413,17 @@ pub enum SpanToken {
     /// Reference to an element with alternative name e.g. `*foo`
     Anchor,
     Separator,
+    /// YAML tag start followed by MarkStart, MarkEnd
+    /// It decomposes like this:
+    /// ```text
+    ///   !schema!tag
+    ///    ^     ^   ^
+    ///    |     |   |
+    ///    |     |   +- MarkEnd
+    ///    |     +- MarkStart
+    ///    +- TagStart
+    /// ```
+    TagStart(usize),
     KeyEnd,
     SequenceStart,
     SequenceEnd,
