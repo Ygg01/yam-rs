@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 
 use ErrorType::NoDocStartAfterTag;
-use SpanToken::{DocumentStart, Separator};
+use SpanToken::{Alias, Anchor, DocumentStart, Separator};
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
@@ -119,7 +119,7 @@ impl Spanner {
         match self.curr_state {
             PreDocStart => {
                 if reader.peek_byte_is(b'%') {
-                    reader.try_read_tag(&mut self.tokens);
+                    reader.try_read_yaml_directive(&mut self.tokens);
                     if reader.try_read_slice_exact("---") {
                         self.tokens.push_back(DocumentStart)
                     } else {
@@ -140,8 +140,8 @@ impl Spanner {
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_col(reader, indent),
                     Some(b'[') => self.fetch_flow_col(reader, indent),
-                    Some(b'&') => self.fetch_alias(reader),
-                    Some(b'*') => self.fetch_anchor(reader),
+                    Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
+                    Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
                     Some(b':') => {
                         reader.consume_bytes(1);
                         self.tokens.push_back(KeyEnd);
@@ -177,6 +177,8 @@ impl Spanner {
                 }
             }
             FlowSeq(indent) => match reader.peek_byte() {
+                Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
+                Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
                 Some(b'[') => self.fetch_flow_col(reader, indent + 1),
                 Some(b'{') => self.fetch_flow_col(reader, indent + 1),
                 Some(b']') => {
@@ -214,6 +216,8 @@ impl Spanner {
                 None => self.stream_end = true,
             },
             FlowMap(indent) | FlowKey(indent) | FlowKeyExp(indent) => match reader.peek_byte() {
+                Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
+                Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
                 Some(b'[') => self.fetch_flow_col(reader, indent + 1),
                 Some(b'{') => self.fetch_flow_col(reader, indent + 1),
                 Some(b'}') => {
@@ -303,14 +307,6 @@ impl Spanner {
             Some(x) => self.curr_state = x,
             None => self.curr_state = AfterDocEnd,
         }
-    }
-
-    fn fetch_alias<R: Reader>(&mut self, _reader: &mut R) {
-        todo!()
-    }
-
-    fn fetch_anchor<R: Reader>(&mut self, _reader: &mut R) {
-        todo!()
     }
 
     fn fetch_block_seq<R: Reader>(&mut self, reader: &mut R, indent: usize) {
@@ -406,7 +402,10 @@ pub enum SpanToken {
     NewLine(u32),
     Space,
     Directive(DirectiveType),
+    /// Element with alternative name e.g. `&foo [x,y]`
     Alias,
+    /// Reference to an element with alternative name e.g. `*foo`
+    Anchor,
     Separator,
     KeyEnd,
     SequenceStart,

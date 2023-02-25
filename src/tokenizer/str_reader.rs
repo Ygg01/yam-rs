@@ -656,7 +656,7 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
-    fn try_read_tag(&mut self, tokens: &mut VecDeque<SpanToken>) {
+    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<SpanToken>) {
         if self.try_read_slice_exact("%YAML") {
             self.skip_space_tab(true);
             if let Some(x) = self.find_next_whitespace() {
@@ -681,5 +681,18 @@ impl<'r> Reader for StrReader<'r> {
                 tokens.push_back(MarkEnd(x.1));
             }
         }
+    }
+
+    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<SpanToken>, token_push: SpanToken) {
+        self.consume_bytes(1);
+
+        let start = self.pos;
+        let end = self.slice[self.pos..]
+            .iter()
+            .position(|p| is_white_tab_or_break(*p) && is_flow_indicator(*p))
+            .unwrap_or(self.slice.len() - self.pos);
+        tokens.push_back(token_push);
+        tokens.push_back(MarkStart(start));
+        tokens.push_back(MarkEnd(end));
     }
 }
