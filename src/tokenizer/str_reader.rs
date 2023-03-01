@@ -1,21 +1,22 @@
 use std::collections::VecDeque;
-use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{RangeFrom, RangeInclusive};
+use std::ops::ControlFlow::{Break, Continue};
 
 use memchr::memchr3_iter;
-use reader::{is_flow_indicator, ns_plain_safe};
-use ErrorType::ExpectedIndent;
 
+use ErrorType::ExpectedIndent;
+use reader::{is_flow_indicator, ns_plain_safe};
+
+use crate::tokenizer::{DirectiveType, ErrorType, reader, Reader, SpanToken};
+use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::reader::{
-    is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
+    ChompIndicator, is_indicator, is_white_tab, is_white_tab_or_break, LookAroundBytes,
 };
 use crate::tokenizer::spanner::ParserState;
 use crate::tokenizer::spanner::ParserState::{BlockKeyExp, BlockMap, BlockSeq, BlockValExp};
-use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::SpanToken::{
     Directive, ErrorToken, MappingStart, MarkEnd, MarkStart, NewLine, Separator, Space,
 };
-use crate::tokenizer::{reader, DirectiveType, ErrorType, Reader, SpanToken};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -296,7 +297,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
 
             if new_indent >= indent {
-                return Some(BlockSeq(new_indent));
+                return Some(BlockSeq(new_indent as u32));
             }
         }
         None
@@ -395,13 +396,13 @@ impl<'r> Reader<()> for StrReader<'r> {
 
             if chr == b':' && first_line_block {
                 if curr_state.is_new_block_col(curr_indent) {
-                    new_state = Some(BlockMap(curr_indent));
+                    new_state = Some(BlockMap(curr_indent as u32));
                     tokens.push(MappingStart);
                 }
                 tokens.push(MarkStart(start));
                 tokens.push(MarkEnd(end));
                 break;
-            } else if chr == b':' && matches!(curr_state, BlockValExp(ind) if *ind == curr_indent) {
+            } else if chr == b':' && matches!(curr_state, BlockValExp(ind) if *ind as usize == curr_indent) {
                 tokens.push(Separator);
                 tokens.push(MarkStart(start));
                 tokens.push(MarkEnd(end));
@@ -420,7 +421,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
             if reader::is_newline(chr) {
                 let folded_newline = self.skip_separation_spaces(false);
-                if self.col >= curr_state.indent(0) {
+                if self.col >= curr_state.indent(0) as usize {
                     num_newlines = folded_newline as u32;
                 }
                 curr_indent = self.col;
@@ -431,24 +432,24 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
 
             match (self.peek_byte_unwrap(0), curr_state) {
-                (b'-', BlockSeq(ind)) if self.col == *ind => {
+                (b'-', BlockSeq(ind)) if self.col == *ind as usize => {
                     self.consume_bytes(1);
                     tokens.push(Separator);
                     break;
                 }
-                (b'-', BlockSeq(ind)) if self.col < *ind => {
+                (b'-', BlockSeq(ind)) if self.col < *ind as usize => {
                     self.read_line();
                     let err_type = ExpectedIndent {
-                        expected: *ind,
+                        expected: *ind as usize,
                         actual: curr_indent,
                     };
                     tokens.push(ErrorToken(err_type));
                     break;
                 }
-                (b'-', BlockSeq(ind)) if self.col > *ind => {
+                (b'-', BlockSeq(ind)) if self.col > *ind as usize => {
                     allow_minus = true;
                 }
-                (b':', BlockValExp(ind)) if self.col == *ind => {
+                (b':', BlockValExp(ind)) if self.col == *ind as usize => {
                     break;
                 }
                 _ => {}
@@ -540,12 +541,12 @@ impl<'r> Reader<()> for StrReader<'r> {
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
-                indentation = curr_state.indent(0) + (len - b'0') as usize;
+                indentation = curr_state.indent(0) as usize + (len - b'0') as usize;
             }
             (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Keep;
-                indentation = curr_state.indent(0) + (len - b'0') as usize;
+                indentation = curr_state.indent(0) as usize + (len - b'0') as usize;
             }
             (b'-', _) => {
                 self.consume_bytes(1);
@@ -557,7 +558,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
-                indentation = curr_state.indent(0) + (len - b'0') as usize;
+                indentation = curr_state.indent(0)  as usize  + (len - b'0') as usize;
             }
             _ => {}
         }
@@ -578,9 +579,9 @@ impl<'r> Reader<()> for StrReader<'r> {
         while !self.eof() {
             let curr_indent = curr_state.indent(0);
 
-            if let (b'-', BlockSeq(ind)) = (self.peek_byte_unwrap(curr_indent), curr_state) {
-                if self.col + curr_indent == *ind {
-                    self.consume_bytes(1 + curr_indent);
+            if let (b'-', BlockSeq(ind)) = (self.peek_byte_unwrap(curr_indent  as usize ), curr_state) {
+                if self.col + curr_indent  as usize  == *ind  as usize  {
+                    self.consume_bytes((1 + curr_indent) as usize );
                     trailing.push(Separator);
                     break;
                 }
@@ -610,7 +611,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 self.read_line();
                 continue;
             } else {
-                match self.skip_n_spaces(indentation, curr_state.indent(0)) {
+                match self.skip_n_spaces(indentation, curr_state.indent(0)  as usize ) {
                     Flow::Break => break,
                     Flow::Error(actual) => {
                         tokens.push_back(ErrorToken(ExpectedIndent {

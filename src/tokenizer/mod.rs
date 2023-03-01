@@ -10,6 +10,7 @@ mod iterator;
 mod reader;
 mod spanner;
 mod str_reader;
+mod buf_reader;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ErrorType {

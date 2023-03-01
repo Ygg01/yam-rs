@@ -40,24 +40,24 @@ impl Default for Spanner {
 pub enum ParserState {
     PreDocStart,
     RootBlock,
-    FlowSeq(usize),
-    FlowMap(usize),
-    FlowKey(usize),
-    FlowKeyExp(usize),
-    BlockSeq(usize),
-    BlockMap(usize),
-    BlockKeyExp(usize),
-    BlockValExp(usize),
+    FlowSeq(u32),
+    FlowMap(u32),
+    FlowKey(u32),
+    FlowKeyExp(u32),
+    BlockSeq(u32),
+    BlockMap(u32),
+    BlockKeyExp(u32),
+    BlockValExp(u32),
     AfterDocEnd,
 }
 
 impl ParserState {
     #[inline]
-    pub(crate) fn indent(&self, default: usize) -> usize {
+    pub(crate) fn indent(&self, default: usize) -> u32 {
         match self {
             FlowKey(ind) | FlowKeyExp(ind) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind)
             | BlockMap(ind) | BlockKeyExp(ind) | BlockValExp(ind) => *ind,
-            RootBlock => default,
+            RootBlock => default as u32,
             PreDocStart | AfterDocEnd => 0,
         }
     }
@@ -65,7 +65,7 @@ impl ParserState {
     #[inline]
     pub(crate) fn get_block_indent(&self, default: usize) -> usize {
         match self {
-            BlockKeyExp(ind) | BlockValExp(ind) => *ind,
+            BlockKeyExp(ind) | BlockValExp(ind) => *ind as usize,
             _ => default,
         }
     }
@@ -73,7 +73,7 @@ impl ParserState {
     #[inline]
     pub(crate) fn wrong_exp_indent(&self, curr_indent: usize) -> bool {
         match self {
-            BlockKeyExp(ind) | BlockValExp(ind) => *ind != curr_indent,
+            BlockKeyExp(ind) | BlockValExp(ind) => *ind as usize != curr_indent,
             _ => false,
         }
     }
@@ -98,7 +98,7 @@ impl ParserState {
     pub(crate) fn is_new_block_col(&self, curr_indent: usize) -> bool {
         match &self {
             FlowKey(_) | FlowKeyExp(_) | FlowMap(_) | FlowSeq(_) => false,
-            BlockMap(x) | BlockKeyExp(x) if *x == curr_indent => false,
+            BlockMap(x) | BlockKeyExp(x) if *x as usize == curr_indent => false,
             _ => true,
         }
     }
@@ -134,12 +134,12 @@ impl Spanner {
                 let indent = self.curr_state.indent(reader.col());
                 let init_indent = match self.curr_state {
                     BlockKeyExp(ind) | BlockValExp(ind) => ind,
-                    BlockMap(_) => reader.col(),
+                    BlockMap(_) => reader.col() as u32,
                     _ => indent,
                 };
                 match reader.peek_byte() {
-                    Some(b'{') => self.fetch_flow_col(reader, indent),
-                    Some(b'[') => self.fetch_flow_col(reader, indent),
+                    Some(b'{') => self.fetch_flow_col(reader, indent as usize),
+                    Some(b'[') => self.fetch_flow_col(reader, indent as usize),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
                     Some(b':') => {
@@ -149,8 +149,8 @@ impl Spanner {
                             self.curr_state = BlockMap(x);
                         }
                     }
-                    Some(b'-') => self.fetch_block_seq(reader, indent),
-                    Some(b'?') => self.fetch_block_map_key(reader, indent),
+                    Some(b'-') => self.fetch_block_seq(reader, indent as usize),
+                    Some(b'?') => self.fetch_block_map_key(reader, indent as usize),
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => {
                         reader.read_block_scalar(true, &self.curr_state, &mut self.tokens)
@@ -166,11 +166,11 @@ impl Spanner {
                     }
                     Some(x) => {
                         if x != b']' && x != b'}' && x != b'@' {
-                            self.fetch_plain_scalar(reader, indent, init_indent);
+                            self.fetch_plain_scalar(reader, indent as usize, init_indent as usize);
                         } else {
                             reader.consume_bytes(1);
                             self.tokens
-                                    .push_back(ErrorToken(UnexpectedSymbol(x as char)))
+                                .push_back(ErrorToken(UnexpectedSymbol(x as char)))
                         }
                     }
                     None => self.stream_end = true,
@@ -179,8 +179,8 @@ impl Spanner {
             FlowSeq(indent) => match reader.peek_byte() {
                 Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
                 Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
-                Some(b'[') => self.fetch_flow_col(reader, indent + 1),
-                Some(b'{') => self.fetch_flow_col(reader, indent + 1),
+                Some(b'[') => self.fetch_flow_col(reader, (indent + 1) as usize),
+                Some(b'{') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b']') => {
                     reader.consume_bytes(1);
                     self.tokens.push_back(SequenceEnd);
@@ -211,21 +211,21 @@ impl Spanner {
                     reader.read_line();
                 }
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, indent, reader.col());
+                    self.fetch_plain_scalar(reader, indent as usize, reader.col());
                 }
                 None => self.stream_end = true,
             },
             FlowMap(indent) | FlowKey(indent) | FlowKeyExp(indent) => match reader.peek_byte() {
                 Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
                 Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
-                Some(b'[') => self.fetch_flow_col(reader, indent + 1),
-                Some(b'{') => self.fetch_flow_col(reader, indent + 1),
+                Some(b'[') => self.fetch_flow_col(reader, (indent + 1) as usize),
+                Some(b'{') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b'}') => {
                     reader.consume_bytes(1);
                     self.tokens.push_back(MappingEnd);
                     self.pop_state();
                 }
-                Some(b':') => self.process_map_key(reader, indent),
+                Some(b':') => self.process_map_key(reader, indent as usize),
                 Some(b']') => {
                     if self.is_prev_sequence() {
                         self.tokens.push_back(MappingEnd);
@@ -250,7 +250,7 @@ impl Spanner {
                     reader.read_line();
                 }
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, indent, reader.col());
+                    self.fetch_plain_scalar(reader, indent as usize, reader.col());
                 }
                 None => self.stream_end = true,
             },
@@ -281,15 +281,15 @@ impl Spanner {
 
         if peek == b'[' {
             self.tokens.push_back(SequenceStart);
-            self.push_state(FlowSeq(indent));
+            self.push_state(FlowSeq(indent as u32));
         } else if peek == b'{' {
             if reader.col() != 0 {
                 reader.skip_space_tab(true);
             }
             if reader.peek_byte_is(b'?') {
-                self.push_state(FlowKey(indent));
+                self.push_state(FlowKey(indent as u32));
             } else {
-                self.push_state(FlowKeyExp(indent));
+                self.push_state(FlowKeyExp(indent as u32 ));
             }
             self.tokens.push_back(MappingStart);
         }
@@ -320,7 +320,7 @@ impl Spanner {
 
     fn fetch_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
-        self.push_state(BlockKeyExp(indent));
+        self.push_state(BlockKeyExp(indent as u32));
         self.tokens.push_back(MappingStart);
     }
 
@@ -341,7 +341,7 @@ impl Spanner {
         init_indent: usize,
     ) {
         let (tokens, new_state) =
-                reader.read_plain_scalar(start_indent, init_indent, &self.curr_state);
+            reader.read_plain_scalar(start_indent, init_indent, &self.curr_state);
 
         match new_state {
             Some(BlockValExp(x)) => self.curr_state = BlockValExp(x),
@@ -368,7 +368,7 @@ impl Spanner {
         reader.consume_bytes(1);
 
         if self.is_key() {
-            self.curr_state = FlowMap(indent);
+            self.curr_state = FlowMap(indent as u32);
             self.tokens.push_back(KeyEnd);
         } else {
             self.fetch_plain_scalar(reader, indent, indent);
