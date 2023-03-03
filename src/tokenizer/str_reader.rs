@@ -1,22 +1,20 @@
 use std::collections::VecDeque;
-use std::ops::{RangeFrom, RangeInclusive};
 use std::ops::ControlFlow::{Break, Continue};
+use std::ops::{RangeFrom, RangeInclusive};
 
 use memchr::memchr3_iter;
 
-use ErrorType::ExpectedIndent;
 use reader::{is_flow_indicator, ns_plain_safe};
+use ErrorType::ExpectedIndent;
 
-use crate::tokenizer::{DirectiveType, ErrorType, reader, Reader, SpanToken};
-use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::reader::{
-    ChompIndicator, is_indicator, is_white_tab, is_white_tab_or_break, LookAroundBytes,
+    is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
 use crate::tokenizer::spanner::ParserState;
 use crate::tokenizer::spanner::ParserState::{BlockKeyExp, BlockMap, BlockSeq, BlockValExp};
-use crate::tokenizer::SpanToken::{
-    Directive, ErrorToken, MappingStart, MarkEnd, MarkStart, NewLine, Separator, Space,
-};
+use crate::tokenizer::ErrorType::UnexpectedComment;
+use crate::tokenizer::SpanToken::*;
+use crate::tokenizer::{reader, ErrorType, Reader, SpanToken};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -165,7 +163,8 @@ impl<'a> StrReader<'a> {
         allow_minus: bool,
         had_comment: &mut bool,
         in_flow_collection: bool,
-        tokens: &mut Vec<SpanToken>,
+        tokens: &mut Vec<usize>,
+        errors: &mut Vec<ErrorType>,
     ) -> Option<(usize, usize)> {
         let start = self.pos;
 
@@ -183,7 +182,8 @@ impl<'a> StrReader<'a> {
             if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
                 if *had_comment {
-                    tokens.push(ErrorToken(UnexpectedComment))
+                    tokens.push(Error as usize);
+                    errors.push(UnexpectedComment);
                 } else {
                     *had_comment = true;
                     self.pos = line_end;
@@ -303,7 +303,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         None
     }
 
-    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<SpanToken>) {
+    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
         self.consume_bytes(1);
 
         while !self.eof() {
@@ -314,21 +314,21 @@ impl<'r> Reader<()> for StrReader<'r> {
                     // Converts double '' to ' hence why we consume one extra char
                     let offset = len + 1;
                     if self.slice.get(self.pos + offset).copied() == Some(b'\'') {
-                        tokens.push_back(MarkStart(line_start));
-                        tokens.push_back(MarkEnd(line_start + len + 1));
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len + 1);
                         self.consume_bytes(len + 2);
                         continue;
                     } else {
-                        tokens.push_back(MarkStart(line_start));
-                        tokens.push_back(MarkEnd(line_start + len));
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len);
                         self.consume_bytes(len + 1);
                         break;
                     }
                 }
                 None => {
-                    tokens.push_back(MarkStart(line_start));
-                    tokens.push_back(MarkEnd(line_end));
-                    tokens.push_back(Space);
+                    tokens.push_back(line_start);
+                    tokens.push_back(line_end);
+                    tokens.push_back(Space as usize);
                     self.read_line();
                     self.skip_space_tab(is_implicit);
                 }
@@ -341,7 +341,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         start_indent: usize,
         init_indent: usize,
         curr_state: &ParserState,
-    ) -> (Vec<SpanToken>, Option<ParserState>) {
+        errors: &mut Vec<ErrorType>,
+    ) -> (Vec<usize>, Option<ParserState>) {
         let mut allow_minus = false;
         let mut first_line_block = !curr_state.in_flow_collection();
 
@@ -358,10 +359,11 @@ impl<'r> Reader<()> for StrReader<'r> {
         while !self.eof() {
             // In explicit key mapping change in indentation is always an error
             if curr_state.wrong_exp_indent(curr_indent) && curr_indent != init_indent {
-                tokens.push(ErrorToken(ErrorType::MappingExpectedIndent {
+                tokens.push(Error as usize);
+                errors.push(ErrorType::MappingExpectedIndent {
                     actual: curr_indent,
                     expected: init_indent,
-                }));
+                });
                 break;
             } else if curr_indent < init_indent {
                 // if plain scalar is less indented than previous
@@ -369,13 +371,14 @@ impl<'r> Reader<()> for StrReader<'r> {
                 // a) Part of BlockMap
                 // b) An error outside of block map
                 if matches!(curr_state, BlockMap(_) | BlockKeyExp(_) | BlockValExp(_)) {
-                    tokens.push(Separator);
+                    tokens.push(Separator as usize);
                 } else {
                     self.read_line();
-                    tokens.push(ErrorToken(ExpectedIndent {
+                    tokens.push(Error as usize);
+                    errors.push(ErrorType::ExpectedIndent {
                         actual: curr_indent,
                         expected: start_indent,
-                    }));
+                    });
                 }
                 break;
             }
@@ -385,6 +388,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 &mut had_comment,
                 curr_state.in_flow_collection(),
                 &mut tokens,
+                errors,
             ) {
                 Some(x) => x,
                 None => break,
@@ -397,26 +401,31 @@ impl<'r> Reader<()> for StrReader<'r> {
             if chr == b':' && first_line_block {
                 if curr_state.is_new_block_col(curr_indent) {
                     new_state = Some(BlockMap(curr_indent as u32));
-                    tokens.push(MappingStart);
+                    tokens.push(MappingStart as usize);
                 }
-                tokens.push(MarkStart(start));
-                tokens.push(MarkEnd(end));
+                tokens.push(start);
+                tokens.push(end);
                 break;
-            } else if chr == b':' && matches!(curr_state, BlockValExp(ind) if *ind as usize == curr_indent) {
-                tokens.push(Separator);
-                tokens.push(MarkStart(start));
-                tokens.push(MarkEnd(end));
+            } else if chr == b':'
+                && matches!(curr_state, BlockValExp(ind) if *ind as usize == curr_indent)
+            {
+                tokens.push(Separator as usize);
+                tokens.push(start);
+                tokens.push(end);
                 break;
             }
 
             match num_newlines {
-                x if x == 1 => tokens.push(Space),
-                x if x > 1 => tokens.push(NewLine(num_newlines)),
+                x if x == 1 => tokens.push(Space as usize),
+                x if x > 1 => {
+                    tokens.push(NewLine as usize);
+                    tokens.push(x as usize);
+                }
                 _ => {}
             }
 
-            tokens.push(MarkStart(start));
-            tokens.push(MarkEnd(end));
+            tokens.push(start);
+            tokens.push(end);
             first_line_block = false;
 
             if reader::is_newline(chr) {
@@ -434,7 +443,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             match (self.peek_byte_unwrap(0), curr_state) {
                 (b'-', BlockSeq(ind)) if self.col == *ind as usize => {
                     self.consume_bytes(1);
-                    tokens.push(Separator);
+                    tokens.push(Separator as usize);
                     break;
                 }
                 (b'-', BlockSeq(ind)) if self.col < *ind as usize => {
@@ -443,7 +452,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                         expected: *ind as usize,
                         actual: curr_indent,
                     };
-                    tokens.push(ErrorToken(err_type));
+                    tokens.push(Error as usize);
+                    errors.push(err_type);
                     break;
                 }
                 (b'-', BlockSeq(ind)) if self.col > *ind as usize => {
@@ -485,7 +495,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         num_breaks
     }
 
-    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<SpanToken>) {
+    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
         self.consume_bytes(1);
 
         while !self.eof() {
@@ -496,30 +506,30 @@ impl<'r> Reader<()> for StrReader<'r> {
                     // Check for `\` escape
                     let offset = len - 1;
                     if self.slice.get(self.pos + offset).copied() != Some(b'\\') {
-                        tokens.push_back(MarkStart(line_start));
-                        tokens.push_back(MarkEnd(line_start + len));
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len);
                         self.consume_bytes(len + 1);
                         break;
                     } else {
-                        tokens.push_back(MarkStart(line_start));
-                        tokens.push_back(MarkEnd(line_start + len - 1));
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len - 1);
                         // we add the escaped `"` in `\"`
-                        tokens.push_back(MarkStart(line_start + len));
-                        tokens.push_back(MarkEnd(line_start + len + 1));
+                        tokens.push_back(line_start + len);
+                        tokens.push_back(line_start + len + 1);
                         self.consume_bytes(len + 1);
                         continue;
                     }
                 }
                 Some(len) => {
-                    tokens.push_back(MarkStart(line_start));
-                    tokens.push_back(MarkEnd(line_start + len));
+                    tokens.push_back(line_start);
+                    tokens.push_back(line_start + len);
                     self.consume_bytes(len + 1);
                     break;
                 }
                 None => {
-                    tokens.push_back(MarkStart(line_start));
-                    tokens.push_back(MarkEnd(line_end));
-                    tokens.push_back(Space);
+                    tokens.push_back(line_start);
+                    tokens.push_back(line_end);
+                    tokens.push_back(Space as usize);
                     self.read_line();
                     self.skip_space_tab(is_implicit);
                 }
@@ -531,7 +541,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         &mut self,
         literal: bool,
         curr_state: &ParserState,
-        tokens: &mut VecDeque<SpanToken>,
+        tokens: &mut VecDeque<usize>,
+        errors: &mut Vec<ErrorType>,
     ) {
         self.consume_bytes(1);
         let mut chomp = ChompIndicator::Clip;
@@ -558,7 +569,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
-                indentation = curr_state.indent(0)  as usize  + (len - b'0') as usize;
+                indentation = curr_state.indent(0) as usize + (len - b'0') as usize;
             }
             _ => {}
         }
@@ -568,7 +579,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         if self.peek_byte_is(b'#') {
             self.read_line();
         } else if self.read_break().is_none() {
-            tokens.push_back(ErrorToken(ErrorType::ExpectedNewline));
+            tokens.push_back(Error as usize);
+            errors.push(ErrorType::ExpectedNewline);
             return;
         }
 
@@ -579,10 +591,11 @@ impl<'r> Reader<()> for StrReader<'r> {
         while !self.eof() {
             let curr_indent = curr_state.indent(0);
 
-            if let (b'-', BlockSeq(ind)) = (self.peek_byte_unwrap(curr_indent  as usize ), curr_state) {
-                if self.col + curr_indent  as usize  == *ind  as usize  {
-                    self.consume_bytes((1 + curr_indent) as usize );
-                    trailing.push(Separator);
+            if let (b'-', BlockSeq(ind)) = (self.peek_byte_unwrap(curr_indent as usize), curr_state)
+            {
+                if self.col + curr_indent as usize == *ind as usize {
+                    self.consume_bytes((1 + curr_indent) as usize);
+                    trailing.push(Separator as usize);
                     break;
                 }
             }
@@ -594,7 +607,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 && newline_indent < indentation
                 && self.peek_byte_unwrap(newline_indent) == b'#'
             {
-                trailing.push(NewLine(new_line_token - 1));
+                trailing.push(NewLine as usize);
+                trailing.push(new_line_token - 1);
                 is_trailing_comment = true;
                 new_line_token = 1;
             };
@@ -611,13 +625,14 @@ impl<'r> Reader<()> for StrReader<'r> {
                 self.read_line();
                 continue;
             } else {
-                match self.skip_n_spaces(indentation, curr_state.indent(0)  as usize ) {
+                match self.skip_n_spaces(indentation, curr_state.indent(0) as usize) {
                     Flow::Break => break,
                     Flow::Error(actual) => {
-                        tokens.push_back(ErrorToken(ExpectedIndent {
+                        tokens.push_back(Error as usize);
+                        errors.push(ExpectedIndent {
                             actual,
                             expected: indentation,
-                        }));
+                        });
                         break;
                     }
                     _ => {}
@@ -627,17 +642,16 @@ impl<'r> Reader<()> for StrReader<'r> {
             let (start, end) = self.read_line();
             if start != end {
                 if new_line_token > 0 {
-                    let token =
-                        if new_line_token == 1 && !literal && previous_indent == newline_indent {
-                            Space
-                        } else {
-                            NewLine(new_line_token)
-                        };
-                    tokens.push_back(token);
+                    if new_line_token == 1 && !literal && previous_indent == newline_indent {
+                        tokens.push_back(Space as usize);
+                    } else {
+                        tokens.push_back(NewLine as usize);
+                        tokens.push_back(new_line_token);
+                    }
                 }
                 previous_indent = newline_indent;
-                tokens.push_back(MarkStart(start));
-                tokens.push_back(MarkEnd(end));
+                tokens.push_back(start);
+                tokens.push_back(end);
                 new_line_token = 1;
             }
         }
@@ -646,45 +660,47 @@ impl<'r> Reader<()> for StrReader<'r> {
                 if is_trailing_comment {
                     new_line_token = 1;
                 }
-                trailing.insert(0, NewLine(new_line_token));
+                trailing.insert(0, NewLine as usize);
+                trailing.insert(1, new_line_token as usize);
                 tokens.extend(trailing);
             }
             ChompIndicator::Clip => {
-                trailing.insert(0, NewLine(1));
+                trailing.insert(0, NewLine as usize);
+                trailing.insert(1, 1);
                 tokens.extend(trailing);
             }
             ChompIndicator::Strip => {}
         }
     }
 
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<SpanToken>) {
+    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) {
         if self.try_read_slice_exact("%YAML") {
             self.skip_space_tab(true);
             if let Some(x) = self.find_next_whitespace() {
-                tokens.push_back(Directive(DirectiveType::Yaml));
-                tokens.push_back(MarkStart(self.pos));
-                tokens.push_back(MarkEnd(self.pos + x));
+                tokens.push_back(DirectiveYaml as usize);
+                tokens.push_back(self.pos);
+                tokens.push_back(self.pos + x);
 
                 self.consume_bytes(x);
                 self.read_line();
             }
         } else {
             let tag = if self.try_read_slice_exact("%TAG") {
-                Directive(DirectiveType::Tag)
+                DirectiveTag
             } else {
-                Directive(DirectiveType::Reserved)
+                DirectiveReserved
             };
             self.skip_space_tab(true);
             let x = self.read_non_comment_line();
             if x.0 != x.1 {
-                tokens.push_back(tag);
-                tokens.push_back(MarkStart(x.0));
-                tokens.push_back(MarkEnd(x.1));
+                tokens.push_back(tag as usize);
+                tokens.push_back(x.0);
+                tokens.push_back(x.1);
             }
         }
     }
 
-    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<SpanToken>, token_push: SpanToken) {
+    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: SpanToken) {
         self.consume_bytes(1);
 
         let start = self.pos;
@@ -692,9 +708,9 @@ impl<'r> Reader<()> for StrReader<'r> {
             .iter()
             .position(|p| is_white_tab_or_break(*p) && is_flow_indicator(*p))
             .unwrap_or(self.slice.len() - self.pos);
-        tokens.push_back(token_push);
-        tokens.push_back(MarkStart(start));
-        tokens.push_back(MarkEnd(end));
+        tokens.push_back(token_push as usize);
+        tokens.push_back(start);
+        tokens.push_back(end);
     }
 
     fn read_tag(&self) -> Option<(usize, usize)> {
