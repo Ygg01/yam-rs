@@ -11,11 +11,10 @@ const BLOCK2_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_EXPECTED: &'static str = r#"
-  +SEQ
-    =VAL x
-    -SEP-
-    =VAL y
-  -SEQ"#;
+ +SEQ
+  =VAL x
+  =VAL y
+ -SEQ"#;
 
 mod common;
 
@@ -31,10 +30,10 @@ const BLOCK_ERR_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_ERR_EXPECTED: &'static str = r#"
-  +SEQ
-    =VAL x
-    ERR
-  -SEQ"#;
+ +SEQ
+  =VAL x
+  ERR
+ -SEQ"#;
 
 #[test]
 pub fn block_plain_err() {
@@ -47,13 +46,12 @@ const BLOCK_NESTED_SEQ_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_NESTED_SEQ_EXPECTED: &'static str = r#"
+ +SEQ
   +SEQ
-    +SEQ
-      =VAL a
-      -SEP-
-      =VAL b
-    -SEQ
-  -SEQ"#;
+   =VAL a
+   =VAL b
+  -SEQ
+ -SEQ"#;
 
 #[test]
 pub fn block_nested() {
@@ -89,20 +87,17 @@ const BLOCK_STRINGS_INPUT2: &'static str = r#"
 "#;
 
 const BLOCK_STRINGS_EXPECTED: &'static str = r#"
-  +SEQ
-    =VAL # keep\n\n
-    -SEP-
-    =VAL literal\nnext line\n
-    -SEP-
-    =VAL folded are continued\n
-    -SEP-
-    =VAL strip\n newline
-  -SEQ"#;
+ +SEQ
+  =VAL # keep\n\n
+  =VAL literal\nnext line\n
+  =VAL folded are continued\n
+  =VAL strip\n newline
+ -SEQ"#;
 
 const BLOCK_STRINGS_EXPECTED2: &'static str = r#"
-  +SEQ
-    =VAL 1\n 2\n3 4
-  -SEQ"#;
+ +SEQ
+  =VAL 1\n 2\n3 4
+ -SEQ"#;
 
 #[test]
 pub fn literal_block() {
@@ -118,7 +113,7 @@ const BLOCK_PLAIN: &'static str = r#"
 "#;
 
 const BLOCK_PLAIN_EXPECTED: &'static str = r#"
-  =VAL a b c d e"#;
+ =VAL a b c d e"#;
 
 #[test]
 pub fn plain_block() {
@@ -135,9 +130,9 @@ const SEQ_PLAIN2: &'static str = r#"
 "#;
 
 const SEQ_PLAIN_EXPECTED: &'static str = r#"
-  +SEQ
-    =VAL x - y
-  -SEQ"#;
+ +SEQ
+  =VAL x - y
+ -SEQ"#;
 
 #[test]
 pub fn seq_plain() {
@@ -153,14 +148,11 @@ const BLOCK_MAP_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_MAP_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL a
-    -KEY-
-    =VAL x u
-    -SEP-
-    =VAL c
-    -KEY-
-  -MAP"#;
+ +MAP
+  =VAL a
+  =VAL x u
+  =VAL c
+ -MAP"#;
 
 #[test]
 pub fn block_map() {
@@ -178,11 +170,10 @@ const MULTILINE_COMMENT_BLOCK2: &'static str = r#"
 "#;
 
 const MULTILINE_COMMENT_BLOCK1_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL mul
-    -KEY-
-    =VAL abc
-  -MAP"#;
+ +MAP
+  =VAL mul
+  =VAL abc
+ -MAP"#;
 
 const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
   multi:
@@ -191,13 +182,12 @@ const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
 "#;
 
 const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL multi
-    -KEY-
-    =VAL ab
-    ERR 
-    =VAL xyz
-  -MAP"#;
+ +MAP
+  =VAL multi
+  =VAL ab
+  ERR
+  =VAL xyz
+ -MAP"#;
 
 const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
   multi:
@@ -206,11 +196,10 @@ const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
 "#;
 
 const MULTILINE_COMMENT_BLOCK4_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL multi
-    -KEY-
-    =VAL ab xyz
-  -MAP"#;
+ +MAP
+  =VAL multi
+  =VAL ab xyz
+ -MAP"#;
 
 #[test]
 pub fn multiline_block_comment() {
@@ -232,22 +221,18 @@ const EXPLICIT_BLOCK_MAP_MIX: &'static str = r#"
 "#;
 
 const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL test
-    -KEY-
-    =VAL value
-  -MAP"#;
+ +MAP
+  =VAL test
+  =VAL value
+ -MAP"#;
 
 const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL test
-    -KEY-
-    =VAL value
-    -SEP-
-    =VAL tx
-    -KEY-
-    =VAL x
-  -MAP"#;
+ +MAP
+  =VAL test
+  =VAL value
+  =VAL tx
+  =VAL x
+ -MAP"#;
 
 #[test]
 pub fn explicit_block_map() {
@@ -261,12 +246,11 @@ const EXPLICIT_BLOCK_MAP_ERR1: &'static str = r#"
 "#;
 
 const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL test
-    ERR
-    -KEY-
-    =VAL value
-  -MAP"#;
+ +MAP
+  =VAL test
+  ERR
+  =VAL value
+ -MAP"#;
 
 const EXPLICIT_BLOCK_MAP_ERR2: &'static str = r#"
   ? test
@@ -274,12 +258,11 @@ const EXPLICIT_BLOCK_MAP_ERR2: &'static str = r#"
 "#;
 
 const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL test
-    ERR
-    -KEY-
-    =VAL value
-  -MAP"#;
+ +MAP
+  =VAL test
+  ERR
+  =VAL value
+ -MAP"#;
 
 #[test]
 pub fn explicit_block_map_err() {
@@ -294,11 +277,10 @@ const EXP_MAP_COMBINATION: &'static str = r#"
 "#;
 
 const EXP_MAP_COMBINATION_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL test\n
-    -KEY-
-    =VAL x
-  -MAP"#;
+ +MAP
+  =VAL test\n
+  =VAL x
+ -MAP"#;
 
 #[test]
 pub fn explicit_block_combination() {

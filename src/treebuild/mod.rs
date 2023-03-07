@@ -1,29 +1,38 @@
 use std::borrow::Cow;
 
-mod borrow_builder;
+use crate::tokenizer::ErrorType;
+
 mod iter;
 
-pub enum YamlToken<'a> {
+pub enum YamlToken<'a, TAG> {
     // strings, booleans, numbers, nulls, all treated the same
-    Scalar(Cow<'a, [u8]>),
+    Scalar(Cow<'a, [u8]>, TAG),
 
     // flow style like `[x, x, x]`
     // or block style like:
     //     - x
     //     - x
-    Sequence(Vec<YamlToken<'a>>),
+    Sequence(Vec<YamlToken<'a, TAG>>, TAG),
 
     // flow style like `{x: Y, a: B}`
     // or block style like:
     //     x: Y
     //     a: B
-    Mapping(Vec<Entry<'a>>),
-
-    // Error during parsing
-    Error,
+    Mapping(Vec<Entry<'a, TAG>>, TAG),
 }
 
-pub struct Entry<'a> {
-    key: YamlToken<'a>,
-    value: YamlToken<'a>,
+impl<'a, TAG> YamlToken<'a, TAG> {
+    pub fn empty(tag: TAG) -> YamlToken<'a, TAG> {
+        YamlToken::Scalar(Cow::default(), tag)
+    }
+}
+
+pub struct Entry<'a, TAG> {
+    key: YamlToken<'a, TAG>,
+    value: YamlToken<'a, TAG>,
+}
+
+pub struct YamlTokenError<'a, T> {
+    partial: YamlToken<'a, T>,
+    error: Vec<ErrorType>,
 }

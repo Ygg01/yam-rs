@@ -1,6 +1,6 @@
-extern crate steel_yaml;
-
 use steel_yaml::tokenizer::EventIterator;
+
+extern crate steel_yaml;
 
 pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     let mut event = String::new();

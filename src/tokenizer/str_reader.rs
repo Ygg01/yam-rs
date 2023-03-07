@@ -661,7 +661,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                     new_line_token = 1;
                 }
                 trailing.insert(0, NewLine as usize);
-                trailing.insert(1, new_line_token as usize);
+                trailing.insert(1, new_line_token);
                 tokens.extend(trailing);
             }
             ChompIndicator::Clip => {
