@@ -20,6 +20,7 @@ pub enum ErrorType {
     ExpectedDocumentStart,
     ExpectedNewline,
     ExpectedNewlineInFolded,
+    DirectiveEndMark,
     ExpectedIndent { actual: usize, expected: usize },
     MappingExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,

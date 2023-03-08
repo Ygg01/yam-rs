@@ -673,30 +673,35 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) {
-        if self.try_read_slice_exact("%YAML") {
-            self.skip_space_tab(true);
-            if let Some(x) = self.find_next_whitespace() {
-                tokens.push_back(DirectiveYaml as usize);
-                tokens.push_back(self.pos);
-                tokens.push_back(self.pos + x);
+    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool {
+        if self.peek_byte_is(b'%') {
+            if self.try_read_slice_exact("%YAML") {
+                self.skip_space_tab(true);
+                if let Some(x) = self.find_next_whitespace() {
+                    tokens.push_back(DirectiveYaml as usize);
+                    tokens.push_back(self.pos);
+                    tokens.push_back(self.pos + x);
 
-                self.consume_bytes(x);
-                self.read_line();
-            }
-        } else {
-            let tag = if self.try_read_slice_exact("%TAG") {
-                DirectiveTag
+                    self.consume_bytes(x);
+                    self.read_line();
+                }
             } else {
-                DirectiveReserved
-            };
-            self.skip_space_tab(true);
-            let x = self.read_non_comment_line();
-            if x.0 != x.1 {
-                tokens.push_back(tag as usize);
-                tokens.push_back(x.0);
-                tokens.push_back(x.1);
+                let tag = if self.try_read_slice_exact("%TAG") {
+                    DirectiveTag
+                } else {
+                    DirectiveReserved
+                };
+                self.skip_space_tab(true);
+                let x = self.read_non_comment_line();
+                if x.0 != x.1 {
+                    tokens.push_back(tag as usize);
+                    tokens.push_back(x.0);
+                    tokens.push_back(x.1);
+                }
             }
+            true
+        } else {
+            false
         }
     }
 

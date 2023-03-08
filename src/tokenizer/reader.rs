@@ -105,7 +105,7 @@ pub trait Reader<B> {
         tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
     );
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>);
+    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: SpanToken);
     fn read_tag(&self) -> Option<(usize, usize)>;
 }
