@@ -87,8 +87,7 @@ pub trait Reader<B> {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self) -> (usize, usize);
     // Refactor
-    fn read_block_seq(&mut self, indent: usize) -> Option<ParserState>;
-    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
+    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn read_plain_scalar(
         &mut self,
         start_indent: usize,
@@ -96,8 +95,6 @@ pub trait Reader<B> {
         curr_state: &ParserState,
         errors: &mut Vec<ErrorType>,
     ) -> (Vec<usize>, Option<ParserState>);
-    fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
-    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
     fn read_block_scalar(
         &mut self,
         literal: bool,
@@ -105,7 +102,10 @@ pub trait Reader<B> {
         tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
     );
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
+    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
+    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
+    fn read_block_seq(&mut self, indent: usize) -> Option<ParserState>;
+    fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: SpanToken);
     fn read_tag(&self) -> Option<(usize, usize)>;
 }
