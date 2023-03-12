@@ -1,5 +1,3 @@
-use std::fmt::{Display, Formatter};
-
 pub use iterator::EventIterator;
 pub use reader::Reader;
 pub use spanner::SpanToken;
@@ -10,6 +8,8 @@ mod iterator;
 mod reader;
 mod spanner;
 mod str_reader;
+
+pub use iterator::assert_eq_event;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ErrorType {
@@ -24,21 +24,6 @@ pub enum ErrorType {
     ExpectedIndent { actual: usize, expected: usize },
     MappingExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
+    UnexpectedEndOfScalar,
 }
 
-#[derive(Copy, Clone)]
-pub enum DirectiveType {
-    Yaml,
-    Tag,
-    Reserved,
-}
-
-impl Display for DirectiveType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DirectiveType::Yaml => write!(f, "YAML"),
-            DirectiveType::Tag => write!(f, "TAG"),
-            DirectiveType::Reserved => write!(f, "RESERVED"),
-        }
-    }
-}

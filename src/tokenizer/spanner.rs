@@ -1,7 +1,7 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
-use std::fmt::Display;
+use std::hint::unreachable_unchecked;
 use ParserState::PreDocStart;
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
@@ -13,13 +13,15 @@ use crate::tokenizer::spanner::SpanToken::*;
 use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
+use super::iterator::{ScalarType, DirectiveType};
+
 #[derive(Clone, Default)]
 pub struct Spanner {
     pub(crate) curr_state: ParserState,
     pub stream_end: bool,
     pub directive: bool,
-    tokens: VecDeque<usize>,
-    errors: Vec<ErrorType>,
+    pub(crate) tokens: VecDeque<usize>,
+    pub(crate) errors: Vec<ErrorType>,
     stack: Vec<ParserState>,
 }
 
@@ -110,6 +112,12 @@ impl Spanner {
     pub fn peek_token(&mut self) -> Option<usize> {
         self.tokens.front().copied()
     }
+
+    #[inline(always)]
+    pub fn peek_token_next(&mut self) -> Option<usize> {
+        self.tokens.get(1).copied()
+    }
+
 
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
@@ -460,9 +468,7 @@ const DIR_RES: usize = usize::MAX - 15;
 const DIR_TAG: usize = usize::MAX - 16;
 const DIR_YAML: usize = usize::MAX - 17;
 const ERROR: usize = usize::MAX - 18;
-const SPACE: usize = usize::MAX - 19;
-const NEWLINE: usize = usize::MAX - 20;
-
+const NEWLINE: usize = usize::MAX - 19;
 
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -470,7 +476,6 @@ const NEWLINE: usize = usize::MAX - 20;
 pub enum SpanToken {
     Mark,
     NewLine = NEWLINE,
-    Space = SPACE,
     Error = ERROR,
     DirectiveTag = DIR_TAG,
     DirectiveReserved = DIR_RES,
@@ -494,20 +499,26 @@ pub enum SpanToken {
     DocumentEnd = DOC_END,
 }
 
+impl SpanToken {
+    #[inline(always)]
+    pub (crate) unsafe fn to_yaml_directive(&self) -> DirectiveType {
+        match self {
+            &DirectiveTag => DirectiveType::Tag,
+            &DirectiveYaml => DirectiveType::Yaml,
+            &DirectiveReserved => DirectiveType::Reserved,
+            _ => unreachable_unchecked(),
+        }
+    }
 
-impl Display for SpanToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use crate::tokenizer::spanner::SpanToken::*;
-
-        match *self {
-            DocumentStart => write!(f, "+DOC"),
-            DocumentEnd => write!(f, "-DOC"),
-            SequenceStart => write!(f, "+SEQ"),
-            SequenceEnd => write!(f, "-SEQ"),
-            MappingStart => write!(f, "+MAP"),
-            MappingEnd => write!(f, "-MAP"),
-            Error => write!(f, "ERR"),
-            _ => write!(f, ""),
+    #[inline(always)]
+    pub (crate) unsafe fn to_scalar(&self) -> ScalarType {
+        match self {
+            &ScalarPlain | &Mark => ScalarType::Plain,
+            &ScalarFold => ScalarType::Folded,
+            &ScalarLit => ScalarType::Literal,
+            &ScalarSingleQuote => ScalarType::SingleQuote,
+            &ScalarDoubleQuote => ScalarType::DoubleQuote,
+            _ => unreachable_unchecked(),
         }
     }
 }
@@ -526,7 +537,7 @@ impl From<usize> for SpanToken {
             SCALAR_PLAIN => ScalarPlain,
             SCALAR_END => ScalarEnd,
             SCALAR_FOLD => ScalarFold,
-            SCALAR_LIT => ScalarLit ,
+            SCALAR_LIT => ScalarLit,
             SCALAR_QUOTE => ScalarSingleQuote,
             SCALAR_DQUOTE => ScalarDoubleQuote,
             TAG_START => TagStart,
@@ -535,7 +546,6 @@ impl From<usize> for SpanToken {
             DIR_RES => DirectiveReserved,
             DIR_TAG => DirectiveTag,
             DIR_YAML => DirectiveYaml,
-            SPACE => Space,
             NEWLINE => NewLine,
             ERROR => Error,
             _ => Mark,
