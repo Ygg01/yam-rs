@@ -12,7 +12,9 @@ use crate::tokenizer::reader::{
     is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
 use crate::tokenizer::spanner::ParserState;
-use crate::tokenizer::spanner::ParserState::{BlockKeyExp, BlockMap, BlockSeq, BlockValExp};
+use crate::tokenizer::spanner::ParserState::{
+    BlockMap, BlockMapKeyExp, BlockMapVal, BlockMapValExp, BlockSeq,
+};
 use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::SpanToken::*;
 use crate::tokenizer::{reader, ErrorType, Reader, SpanToken};
@@ -317,8 +319,10 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut num_newlines = 0;
         let mut tokens = vec![ScalarPlain as usize];
         let mut new_state = match curr_state {
-            BlockKeyExp(ind) => Some(BlockValExp(*ind)),
-            BlockValExp(ind) => Some(BlockMap(*ind)),
+            BlockMapKeyExp(ind) => Some(BlockMapValExp(*ind)),
+            BlockMapValExp(ind) => Some(BlockMap(*ind)),
+            BlockMap(ind) => Some(BlockMapVal(*ind)),
+            BlockMapVal(ind) => Some(BlockMap(*ind)),
             _ => None,
         };
         let mut curr_indent = curr_state.get_block_indent(self.col);
@@ -338,9 +342,10 @@ impl<'r> Reader<()> for StrReader<'r> {
                 // It can be
                 // a) Part of BlockMap
                 // b) An error outside of block map
-                if matches!(curr_state, BlockMap(_) | BlockKeyExp(_) | BlockValExp(_)) {
-                    tokens.push(ScalarEnd as usize);
-                } else {
+                if !matches!(
+                    curr_state,
+                    BlockMap(_) | BlockMapKeyExp(_) | BlockMapValExp(_) | BlockMapVal(_)
+                ) {
                     self.read_line();
                     tokens.push(Error as usize);
                     errors.push(ErrorType::ExpectedIndent {
@@ -367,15 +372,23 @@ impl<'r> Reader<()> for StrReader<'r> {
             let chr = self.peek_byte_unwrap(0);
 
             if chr == b':' && first_line_block {
-                if curr_state.is_new_block_col(curr_indent) {
-                    new_state = Some(BlockMap(curr_indent as u32));
+                
+                if curr_indent == init_indent
+                    && matches!(curr_state, BlockMapVal(x) if init_indent == *x as usize)
+                {
+                    tokens.push(ScalarEnd as usize);
+                    tokens.push(ScalarPlain as usize);
+                } else if curr_state.is_new_block_col(curr_indent) {
+                    self.consume_bytes(1);
+                    new_state = Some(BlockMapVal(curr_indent as u32));
                     tokens.insert(0, MappingStart as usize);
                 }
+
                 tokens.push(start);
                 tokens.push(end);
                 break;
             } else if chr == b':'
-                && matches!(curr_state, BlockValExp(ind) if *ind as usize == curr_indent)
+                && matches!(curr_state, BlockMapValExp(ind) if *ind as usize == curr_indent)
             {
                 tokens.push(ScalarPlain as usize);
                 tokens.push(start);
@@ -430,7 +443,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 (b'-', BlockSeq(ind)) if self.col > *ind as usize => {
                     allow_minus = true;
                 }
-                (b':', BlockValExp(ind)) if self.col == *ind as usize => {
+                (b':', BlockMapValExp(ind)) if self.col == *ind as usize => {
                     break;
                 }
                 _ => {}
@@ -596,9 +609,9 @@ impl<'r> Reader<()> for StrReader<'r> {
 
         let mut new_line_token = 0;
         let token = if literal {
-            SpanToken::ScalarLit as usize
+            ScalarLit as usize
         } else {
-            SpanToken::ScalarFold as usize
+            ScalarFold as usize
         };
         tokens.push_back(token);
         let mut trailing = vec![];
@@ -611,7 +624,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             {
                 if self.col + curr_indent as usize == *ind as usize {
                     self.consume_bytes((1 + curr_indent) as usize);
-                    trailing.push(ScalarEnd as usize);
+                    // trailing.push(ScalarEnd as usize);
                     break;
                 }
             }

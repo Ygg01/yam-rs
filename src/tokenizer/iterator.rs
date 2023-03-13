@@ -70,46 +70,45 @@ impl<'a> Display for Event<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Event::DocStart { explicit } => {
-                let exp_str = if *explicit { " ---"} else { ""};
+                let exp_str = if *explicit { " ---" } else { "" };
                 write!(f, "+DOC{}", exp_str)
             }
             Event::DocEnd => {
                 write!(f, "-DOC")
             }
             Event::SeqStart { flow } => {
-                let flow_str = if *flow {" []"} else {""};
+                let flow_str = if *flow { " []" } else { "" };
                 write!(f, "+SEQ{}", flow_str)
             }
-            Event::SeqEnd=> {
+            Event::SeqEnd => {
                 write!(f, "-SEQ")
             }
             Event::MapStart { flow } => {
-                let flow_str = if *flow {" {}"} else {""};
+                let flow_str = if *flow { " {}" } else { "" };
                 write!(f, "+MAP{}", flow_str)
-            },
+            }
             Event::MapEnd => {
                 write!(f, "-MAP")
-            },
-            Event::Directive { directive_type, value } => {
-                let val_str = unsafe {
-                    from_utf8_unchecked(value.as_ref())
-                };
+            }
+            Event::Directive {
+                directive_type,
+                value,
+            } => {
+                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 match directive_type {
                     DirectiveType::Yaml => write!(f, "%YAML {}", val_str),
                     _ => write!(f, "{}", val_str),
                 }
             }
             Event::Scalar { scalar_type, value } => {
-                let val_str = unsafe {
-                    from_utf8_unchecked(value.as_ref())
-                };
+                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 write!(f, "=VAL ")?;
                 match *scalar_type {
-                    ScalarType::Plain =>  write!(f, "{}", ":"),
-                    ScalarType::Folded =>  write!(f, "{}", ">"),
-                    ScalarType::Literal =>  write!(f, "{}", "|"),
-                    ScalarType::SingleQuote =>  write!(f, "{}", "\'"),
-                    ScalarType::DoubleQuote =>  write!(f, "{}", "\""),
+                    ScalarType::Plain => write!(f, "{}", ":"),
+                    ScalarType::Folded => write!(f, "{}", ">"),
+                    ScalarType::Literal => write!(f, "{}", "|"),
+                    ScalarType::SingleQuote => write!(f, "{}", "\'"),
+                    ScalarType::DoubleQuote => write!(f, "{}", "\""),
                 }?;
                 write!(f, "{}", val_str)
             }
@@ -135,7 +134,7 @@ impl<'a> Iterator for EventIterator<'a> {
             if self.state.is_empty() && !self.state.stream_end {
                 self.state.fetch_next_token(&mut self.reader);
             }
-            
+
             let curr_indent = self.indent;
             if let Some(x) = self.state.pop_token() {
                 let token = x.into();
@@ -160,12 +159,7 @@ impl<'a> Iterator for EventIterator<'a> {
                     }
                     DocumentStart => {
                         self.indent += 1;
-                        return Some((
-                            DocStart {
-                                explicit: true
-                            },
-                            curr_indent,
-                        ));
+                        return Some((DocStart { explicit: true }, curr_indent));
                     }
                     SequenceEnd => {
                         self.indent -= 1;
@@ -237,11 +231,10 @@ impl<'a> Iterator for EventIterator<'a> {
                             curr_indent,
                         ));
                     }
-
                     SpanToken::Alias => todo!(),
                     SpanToken::Anchor => todo!(),
                     TagStart => todo!(),
-                    Mark | NewLine | ScalarEnd => {}
+                    NewLine | ScalarEnd => {}
                 }
             }
             if self.state.stream_end && self.state.is_empty() {
@@ -250,7 +243,6 @@ impl<'a> Iterator for EventIterator<'a> {
         }
     }
 }
-
 
 pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     let mut line = String::new();
