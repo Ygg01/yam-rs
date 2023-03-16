@@ -11,8 +11,8 @@ use ErrorType::ExpectedIndent;
 use crate::tokenizer::reader::{
     is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
-use crate::tokenizer::spanner::ParserState;
-use crate::tokenizer::spanner::ParserState::{
+use crate::tokenizer::spanner::LexerState;
+use crate::tokenizer::spanner::LexerState::{
     BlockSeq,
 };
 use crate::tokenizer::ErrorType::UnexpectedComment;
@@ -228,7 +228,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end)
     }
 
-    fn read_block_seq(&mut self, indent: usize) -> Option<ParserState> {
+    fn read_block_seq(&mut self, indent: usize) -> Option<LexerState> {
         if self.peek_byte_at_check(1, is_white_tab_or_break) {
             let new_indent: usize = self.col;
             if self.peek_byte_at_check(1, reader::is_newline) {
@@ -419,7 +419,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     fn read_block_scalar(
         &mut self,
         literal: bool,
-        curr_state: &ParserState,
+        curr_state: &LexerState,
         tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
     ) {

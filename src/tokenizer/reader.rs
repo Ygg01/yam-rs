@@ -5,7 +5,7 @@ use std::ops::ControlFlow;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
-use super::spanner::ParserState;
+use super::spanner::LexerState;
 use super::{ErrorType, LexerToken};
 
 pub struct LookAroundBytes<'a> {
@@ -99,13 +99,13 @@ pub trait Reader<B> {
     fn read_block_scalar(
         &mut self,
         literal: bool,
-        curr_state: &ParserState,
+        curr_state: &LexerState,
         tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
     );
     fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
     fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
-    fn read_block_seq(&mut self, indent: usize) -> Option<ParserState>;
+    fn read_block_seq(&mut self, indent: usize) -> Option<LexerState>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken);
     fn read_tag(&self) -> Option<(usize, usize)>;

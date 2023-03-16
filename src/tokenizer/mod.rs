@@ -1,7 +1,7 @@
 pub use iterator::EventIterator;
 pub use reader::Reader;
 pub use spanner::LexerToken;
-pub use spanner::Spanner;
+pub use spanner::Lexer;
 pub use str_reader::StrReader;
 
 mod iterator;
