@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::{fmt::Write, str::from_utf8_unchecked};
 
-use crate::{tokenizer::SpanToken, Spanner};
+use crate::{tokenizer::LexerToken, Spanner};
 
 use super::StrReader;
 
@@ -104,11 +104,11 @@ impl<'a> Display for Event<'a> {
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 write!(f, "=VAL ")?;
                 match *scalar_type {
-                    ScalarType::Plain => write!(f, "{}", ":"),
-                    ScalarType::Folded => write!(f, "{}", ">"),
-                    ScalarType::Literal => write!(f, "{}", "|"),
-                    ScalarType::SingleQuote => write!(f, "{}", "\'"),
-                    ScalarType::DoubleQuote => write!(f, "{}", "\""),
+                    ScalarType::Plain => write!(f, ":"),
+                    ScalarType::Folded => write!(f, ">"),
+                    ScalarType::Literal => write!(f, "|"),
+                    ScalarType::SingleQuote => write!(f, "\'"),
+                    ScalarType::DoubleQuote => write!(f, "\""),
                 }?;
                 write!(f, "{}", val_str)
             }
@@ -128,7 +128,7 @@ impl<'a> Iterator for EventIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         pub use crate::tokenizer::iterator::Event::*;
-        pub use crate::tokenizer::SpanToken::*;
+        pub use crate::tokenizer::LexerToken::*;
 
         loop {
             if self.state.is_empty() && !self.state.stream_end {
@@ -173,7 +173,7 @@ impl<'a> Iterator for EventIterator<'a> {
                         self.indent -= 1;
                         return Some((DocEnd, self.indent));
                     }
-                    SpanToken::Error => return Some((Event::Error, curr_indent)),
+                    LexerToken::Error => return Some((Event::Error, curr_indent)),
                     DirectiveReserved | DirectiveTag | DirectiveYaml => {
                         let directive_type = unsafe { token.to_yaml_directive() };
                         return if let (Some(start), Some(end)) =
@@ -231,8 +231,8 @@ impl<'a> Iterator for EventIterator<'a> {
                             curr_indent,
                         ));
                     }
-                    SpanToken::Alias => todo!(),
-                    SpanToken::Anchor => todo!(),
+                    LexerToken::Alias => todo!(),
+                    LexerToken::Anchor => todo!(),
                     TagStart => todo!(),
                     NewLine | ScalarEnd => {}
                 }
@@ -248,7 +248,7 @@ pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     let mut line = String::new();
     let scan = EventIterator::new_from_string(input_yaml);
     scan.for_each(|(ev, indent)| {
-        line.push_str("\n");
+        line.push('\n');
         line.push_str(&" ".repeat(indent));
         write!(line, "{:}", ev);
     });

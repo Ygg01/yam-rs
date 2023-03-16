@@ -9,11 +9,13 @@ use crate::tokenizer::spanner::ParserState::{
     AfterDocEnd, BlockMap, BlockMapKeyExp, BlockMapVal, BlockMapValExp, BlockSeq, DirectiveSection,
     FlowKey, FlowKeyExp, FlowMap, FlowSeq, RootBlock,
 };
-use crate::tokenizer::spanner::SpanToken::*;
+use crate::tokenizer::spanner::LexerToken::*;
 use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
 use super::iterator::{DirectiveType, ScalarType};
+use ErrorType::ExpectedIndent;
+use super::reader::{is_newline, is_flow_indicator};
 
 #[derive(Clone, Default)]
 pub struct Spanner {
@@ -335,7 +337,7 @@ impl Spanner {
     }
 
     fn fetch_flow_col<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
-        pub use SpanToken::*;
+        pub use LexerToken::*;
 
         let peek = reader.peek_byte().unwrap_or(b'\0');
         reader.consume_bytes(1);
@@ -390,7 +392,7 @@ impl Spanner {
     }
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        pub use SpanToken::*;
+        pub use LexerToken::*;
 
         let start = reader.consume_bytes(1);
         if let Some((mid, end)) = reader.read_tag() {
@@ -408,12 +410,145 @@ impl Spanner {
         start_indent: usize,
         init_indent: usize,
     ) {
-        let (tokens, new_state) = reader.read_plain_scalar(
-            start_indent,
-            init_indent,
-            &self.curr_state,
-            &mut self.errors,
-        );
+        
+
+        let mut allow_minus = false;
+        let mut first_line_block = !self.curr_state.in_flow_collection();
+
+        let mut num_newlines = 0;
+        let mut tokens = vec![ScalarPlain as usize];
+        let mut new_state = match self.curr_state {
+            BlockMapKeyExp(ind) => Some(BlockMapValExp(ind)),
+            BlockMapValExp(ind) => Some(BlockMap(ind)),
+            BlockMap(ind) => Some(BlockMapVal(ind)),
+            BlockMapVal(ind) => Some(BlockMap(ind)),
+            _ => None,
+        };
+        let mut curr_indent = self.curr_state.get_block_indent(reader.col());
+        let mut had_comment = false;
+
+        while !reader.eof() {
+            // In explicit key mapping change in indentation is always an error
+            if self.curr_state.wrong_exp_indent(curr_indent) && curr_indent != init_indent {
+                tokens.push(Error as usize);
+                self.errors.push(ErrorType::MappingExpectedIndent {
+                    actual: curr_indent,
+                    expected: init_indent,
+                });
+                break;
+            } else if curr_indent < init_indent {
+                // if plain scalar is less indented than previous
+                // It can be
+                // a) Part of BlockMap
+                // b) An error outside of block map
+                if !matches!(
+                    self.curr_state,
+                    BlockMap(_) | BlockMapKeyExp(_) | BlockMapValExp(_) | BlockMapVal(_)
+                ) {
+                    reader.read_line();
+                    tokens.push(Error as usize);
+                    self.errors.push(ErrorType::ExpectedIndent {
+                        actual: curr_indent,
+                        expected: start_indent,
+                    });
+                }
+                break;
+            }
+
+            let (start, end) = match reader.read_plain_one_line(
+                allow_minus,
+                &mut had_comment,
+                self.curr_state.in_flow_collection(),
+                &mut tokens,
+                &mut self.errors,
+            ) {
+                Some(x) => x,
+                None => break,
+            };
+
+            reader.skip_space_tab(true);
+
+            let chr = reader.peek_byte_at(0).unwrap_or(b'\0');
+
+            if chr == b':' && first_line_block {
+                
+                if curr_indent == init_indent
+                    && matches!(self.curr_state, BlockMapVal(x) if init_indent == x as usize)
+                {
+                    tokens.push(ScalarEnd as usize);
+                    tokens.push(ScalarPlain as usize);
+                } else if self.curr_state.is_new_block_col(curr_indent) {
+                    reader.consume_bytes(1);
+                    new_state = Some(BlockMapVal(curr_indent as u32));
+                    tokens.insert(0, MappingStart as usize);
+                }
+
+                tokens.push(start);
+                tokens.push(end);
+                break;
+            } else if chr == b':'
+                && matches!(self.curr_state, BlockMapValExp(ind) if ind as usize == curr_indent)
+            {
+                tokens.push(ScalarPlain as usize);
+                tokens.push(start);
+                tokens.push(end);
+                break;
+            }
+
+            match num_newlines {
+                x if x == 1 => {
+                    tokens.push(NewLine as usize);
+                    tokens.push(0);
+                }
+                x if x > 1 => {
+                    tokens.push(NewLine as usize);
+                    tokens.push(x as usize);
+                }
+                _ => {}
+            }
+
+            tokens.push(start);
+            tokens.push(end);
+            first_line_block = false;
+
+            if is_newline(chr) {
+                let folded_newline = reader.skip_separation_spaces(false);
+                if reader.col() >= self.curr_state.indent(0) as usize {
+                    num_newlines = folded_newline as u32;
+                }
+                curr_indent = reader.col();
+            }
+
+            if self.curr_state.in_flow_collection() && is_flow_indicator(chr) {
+                break;
+            }
+
+            match (reader.peek_byte_at(0), self.curr_state) {
+                (Some(b'-'), BlockSeq(ind)) if reader.col() == ind as usize => {
+                    reader.consume_bytes(1);
+                    tokens.push(ScalarEnd as usize);
+                    break;
+                }
+                (Some(b'-'), BlockSeq(ind)) if reader.col() < ind as usize => {
+                    reader.read_line();
+                    let err_type = ExpectedIndent {
+                        expected: ind as usize,
+                        actual: curr_indent,
+                    };
+                    tokens.push(Error as usize);
+                    self.errors.push(err_type);
+                    break;
+                }
+                (Some(b'-'), BlockSeq(ind)) if reader.col() > ind as usize => {
+                    allow_minus = true;
+                }
+                (Some(b':'), BlockMapValExp(ind)) if reader.col() == ind as usize => {
+                    break;
+                }
+                _ => {}
+            }
+        }
+
 
         match new_state {
             Some(BlockMapValExp(x)) => self.curr_state = BlockMapValExp(x),
@@ -481,7 +616,6 @@ const MAP_END: usize = usize::MAX - 2;
 const MAP_START: usize = usize::MAX - 3;
 const SEQ_END: usize = usize::MAX - 4;
 const SEQ_START: usize = usize::MAX - 5;
-const SCALAR_EMPTY: usize = usize::MAX - 6;
 const SCALAR_PLAIN: usize = usize::MAX - 7;
 const SCALAR_FOLD: usize = usize::MAX - 8;
 const SCALAR_LIT: usize = usize::MAX - 9;
@@ -500,14 +634,13 @@ const NEWLINE: usize = usize::MAX - 20;
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[allow(clippy::enum_clike_unportable_variant)] //false positive see https://github.com/rust-lang/rust-clippy/issues/8043
-pub enum SpanToken {
+pub enum LexerToken {
     Mark,
     NewLine = NEWLINE,
     Error = ERROR,
     DirectiveTag = DIR_TAG,
     DirectiveReserved = DIR_RES,
     DirectiveYaml = DIR_YAML,
-    // ScalarEmpty = SCALAR_EMPTY,
     ScalarPlain = SCALAR_PLAIN,
     ScalarEnd = SCALAR_END,
     ScalarFold = SCALAR_FOLD,
@@ -527,33 +660,33 @@ pub enum SpanToken {
     DocumentEnd = DOC_END,
 }
 
-impl SpanToken {
+impl LexerToken {
     #[inline(always)]
-    pub(crate) unsafe fn to_yaml_directive(&self) -> DirectiveType {
+    pub(crate) unsafe fn to_yaml_directive(self) -> DirectiveType {
         match self {
-            &DirectiveTag => DirectiveType::Tag,
-            &DirectiveYaml => DirectiveType::Yaml,
-            &DirectiveReserved => DirectiveType::Reserved,
+            DirectiveTag => DirectiveType::Tag,
+            DirectiveYaml => DirectiveType::Yaml,
+            DirectiveReserved => DirectiveType::Reserved,
             _ => unreachable_unchecked(),
         }
     }
 
     #[inline(always)]
-    pub(crate) unsafe fn to_scalar(&self) -> ScalarType {
+    pub(crate) unsafe fn to_scalar(self) -> ScalarType {
         match self {
-            &ScalarPlain | &Mark => ScalarType::Plain,
-            &ScalarFold => ScalarType::Folded,
-            &ScalarLit => ScalarType::Literal,
-            &ScalarSingleQuote => ScalarType::SingleQuote,
-            &ScalarDoubleQuote => ScalarType::DoubleQuote,
+            ScalarPlain | Mark => ScalarType::Plain,
+            ScalarFold => ScalarType::Folded,
+            ScalarLit => ScalarType::Literal,
+            ScalarSingleQuote => ScalarType::SingleQuote,
+            ScalarDoubleQuote => ScalarType::DoubleQuote,
             _ => unreachable_unchecked(),
         }
     }
 }
 
-impl From<usize> for SpanToken {
+impl From<usize> for LexerToken {
     fn from(value: usize) -> Self {
-        pub use SpanToken::*;
+        pub use LexerToken::*;
 
         match value {
             DOC_END => DocumentEnd,
@@ -581,8 +714,8 @@ impl From<usize> for SpanToken {
     }
 }
 
-impl From<&usize> for SpanToken {
+impl From<&usize> for LexerToken {
     fn from(value: &usize) -> Self {
-        SpanToken::from(*value)
+        LexerToken::from(*value)
     }
 }
