@@ -228,21 +228,36 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end)
     }
 
-    fn read_block_seq(&mut self, indent: usize) -> Option<LexerState> {
-        if self.peek_byte_at_check(1, is_white_tab_or_break) {
-            let new_indent: usize = self.col;
-            if self.peek_byte_at_check(1, reader::is_newline) {
-                self.consume_bytes(1);
-                self.read_break();
-            } else {
-                self.consume_bytes(2);
-            }
+    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool {
+        if self.peek_byte_is(b'%') {
+            if self.try_read_slice_exact("%YAML") {
+                self.skip_space_tab(true);
+                if let Some(x) = self.find_next_whitespace() {
+                    tokens.push_back(DirectiveYaml as usize);
+                    tokens.push_back(self.pos);
+                    tokens.push_back(self.pos + x);
 
-            if new_indent >= indent {
-                return Some(BlockSeq(new_indent as u32));
+                    self.consume_bytes(x);
+                    self.read_line();
+                }
+            } else {
+                let tag = if self.try_read_slice_exact("%TAG") {
+                    DirectiveTag
+                } else {
+                    DirectiveReserved
+                };
+                self.skip_space_tab(true);
+                let x = self.read_non_comment_line();
+                if x.0 != x.1 {
+                    tokens.push_back(tag as usize);
+                    tokens.push_back(x.0);
+                    tokens.push_back(x.1);
+                }
             }
+            true
+        } else {
+            false
         }
-        None
     }
 
     fn read_plain_one_line(
@@ -306,114 +321,6 @@ impl<'r> Reader<()> for StrReader<'r> {
 
         self.pos = end_of_str;
         Some((start, end_of_str))
-    }
-
-    fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize {
-        let mut num_breaks = 0;
-        let mut found_eol = true;
-        while !self.eof() {
-            self.skip_space_tab(true);
-
-            if allow_comments && self.peek_byte_is(b'#') {
-                self.read_line();
-                found_eol = true;
-                num_breaks += 1;
-            }
-
-            if self.read_break().is_some() {
-                num_breaks += 1;
-                found_eol = true;
-            }
-
-            if !found_eol {
-                break;
-            } else {
-                self.skip_space_tab(false);
-                found_eol = false;
-            }
-        }
-        num_breaks
-    }
-
-    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
-        self.consume_bytes(1);
-        tokens.push_back(ScalarDoubleQuote as usize);
-
-        while !self.eof() {
-            let (line_start, line_end, _) = self.get_line_offset();
-            let pos = memchr::memchr(b'"', &self.slice[line_start..line_end]);
-            match pos {
-                Some(len) if len > 1 => {
-                    // Check for `\` escape
-                    let offset = len - 1;
-                    if self.slice.get(self.pos + offset).copied() != Some(b'\\') {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len);
-                        self.consume_bytes(len + 1);
-                        break;
-                    } else {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len - 1);
-                        // we add the escaped `"` in `\"`
-                        tokens.push_back(line_start + len);
-                        tokens.push_back(line_start + len + 1);
-                        self.consume_bytes(len + 1);
-                        continue;
-                    }
-                }
-                Some(len) => {
-                    tokens.push_back(line_start);
-                    tokens.push_back(line_start + len);
-                    self.consume_bytes(len + 1);
-                    break;
-                }
-                None => {
-                    tokens.push_back(line_start);
-                    tokens.push_back(line_end);
-                    tokens.push_back(NewLine as usize);
-                    tokens.push_back(0);
-                    self.read_line();
-                    self.skip_space_tab(is_implicit);
-                }
-            }
-        }
-        tokens.push_back(ScalarEnd as usize);
-    }
-
-    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
-        self.consume_bytes(1);
-        tokens.push_back(ScalarSingleQuote as usize);
-
-        while !self.eof() {
-            let (line_start, line_end, _) = self.get_line_offset();
-            let pos = memchr::memchr(b'\'', &self.slice[line_start..line_end]);
-            match pos {
-                Some(len) => {
-                    // Converts double '' to ' hence why we consume one extra char
-                    let offset = len + 1;
-                    if self.slice.get(self.pos + offset).copied() == Some(b'\'') {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len + 1);
-                        self.consume_bytes(len + 2);
-                        continue;
-                    } else {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len);
-                        self.consume_bytes(len + 1);
-                        break;
-                    }
-                }
-                None => {
-                    tokens.push_back(line_start);
-                    tokens.push_back(line_end);
-                    tokens.push_back(NewLine as usize);
-                    tokens.push_back(0);
-                    self.read_line();
-                    self.skip_space_tab(is_implicit);
-                }
-            }
-        }
-        tokens.push_back(ScalarEnd as usize);
     }
 
     fn read_block_scalar(
@@ -559,36 +466,129 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool {
-        if self.peek_byte_is(b'%') {
-            if self.try_read_slice_exact("%YAML") {
-                self.skip_space_tab(true);
-                if let Some(x) = self.find_next_whitespace() {
-                    tokens.push_back(DirectiveYaml as usize);
-                    tokens.push_back(self.pos);
-                    tokens.push_back(self.pos + x);
+    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
+        self.consume_bytes(1);
+        tokens.push_back(ScalarDoubleQuote as usize);
 
-                    self.consume_bytes(x);
-                    self.read_line();
+        while !self.eof() {
+            let (line_start, line_end, _) = self.get_line_offset();
+            let pos = memchr::memchr(b'"', &self.slice[line_start..line_end]);
+            match pos {
+                Some(len) if len > 1 => {
+                    // Check for `\` escape
+                    let offset = len - 1;
+                    if self.slice.get(self.pos + offset).copied() != Some(b'\\') {
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len);
+                        self.consume_bytes(len + 1);
+                        break;
+                    } else {
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len - 1);
+                        // we add the escaped `"` in `\"`
+                        tokens.push_back(line_start + len);
+                        tokens.push_back(line_start + len + 1);
+                        self.consume_bytes(len + 1);
+                        continue;
+                    }
                 }
-            } else {
-                let tag = if self.try_read_slice_exact("%TAG") {
-                    DirectiveTag
-                } else {
-                    DirectiveReserved
-                };
-                self.skip_space_tab(true);
-                let x = self.read_non_comment_line();
-                if x.0 != x.1 {
-                    tokens.push_back(tag as usize);
-                    tokens.push_back(x.0);
-                    tokens.push_back(x.1);
+                Some(len) => {
+                    tokens.push_back(line_start);
+                    tokens.push_back(line_start + len);
+                    self.consume_bytes(len + 1);
+                    break;
+                }
+                None => {
+                    tokens.push_back(line_start);
+                    tokens.push_back(line_end);
+                    tokens.push_back(NewLine as usize);
+                    tokens.push_back(0);
+                    self.read_line();
+                    self.skip_space_tab(is_implicit);
                 }
             }
-            true
-        } else {
-            false
         }
+        tokens.push_back(ScalarEnd as usize);
+    }
+
+    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
+        self.consume_bytes(1);
+        tokens.push_back(ScalarSingleQuote as usize);
+
+        while !self.eof() {
+            let (line_start, line_end, _) = self.get_line_offset();
+            let pos = memchr::memchr(b'\'', &self.slice[line_start..line_end]);
+            match pos {
+                Some(len) => {
+                    // Converts double '' to ' hence why we consume one extra char
+                    let offset = len + 1;
+                    if self.slice.get(self.pos + offset).copied() == Some(b'\'') {
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len + 1);
+                        self.consume_bytes(len + 2);
+                        continue;
+                    } else {
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len);
+                        self.consume_bytes(len + 1);
+                        break;
+                    }
+                }
+                None => {
+                    tokens.push_back(line_start);
+                    tokens.push_back(line_end);
+                    tokens.push_back(NewLine as usize);
+                    tokens.push_back(0);
+                    self.read_line();
+                    self.skip_space_tab(is_implicit);
+                }
+            }
+        }
+        tokens.push_back(ScalarEnd as usize);
+    }
+
+    fn read_block_seq(&mut self, indent: usize) -> Option<LexerState> {
+        if self.peek_byte_at_check(1, is_white_tab_or_break) {
+            let new_indent: usize = self.col;
+            if self.peek_byte_at_check(1, reader::is_newline) {
+                self.consume_bytes(1);
+                self.read_break();
+            } else {
+                self.consume_bytes(2);
+            }
+
+            if new_indent >= indent {
+                return Some(BlockSeq(new_indent as u32));
+            }
+        }
+        None
+    }
+
+    fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize {
+        let mut num_breaks = 0;
+        let mut found_eol = true;
+        while !self.eof() {
+            self.skip_space_tab(true);
+
+            if allow_comments && self.peek_byte_is(b'#') {
+                self.read_line();
+                found_eol = true;
+                num_breaks += 1;
+            }
+
+            if self.read_break().is_some() {
+                num_breaks += 1;
+                found_eol = true;
+            }
+
+            if !found_eol {
+                break;
+            } else {
+                self.skip_space_tab(false);
+                found_eol = false;
+            }
+        }
+        num_breaks
     }
 
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken) {
