@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::tokenizer::ErrorType;
 use crate::treebuild::YamlToken::Scalar;
 
-mod iter;
+mod iterator;
 
 pub enum YamlToken<'a, TAG = ()> {
     // strings, booleans, numbers, nulls, all treated the same

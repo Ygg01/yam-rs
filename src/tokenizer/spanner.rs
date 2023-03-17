@@ -172,8 +172,8 @@ impl Lexer {
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_col(reader, indent as usize),
                     Some(b'[') => self.fetch_flow_col(reader, indent as usize),
-                    Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
-                    Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
+                    Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
+                    Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b':') if indent == 0 && reader.col() == 0 => {
                         reader.consume_bytes(1);
                         if self.curr_state == RootBlock {
@@ -228,8 +228,8 @@ impl Lexer {
                 }
             }
             FlowSeq(indent) => match reader.peek_byte() {
-                Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
-                Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
+                Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
+                Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                 Some(b'[') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b'{') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b']') => {
@@ -268,8 +268,8 @@ impl Lexer {
                 None => self.stream_end = true,
             },
             FlowMap(indent) | FlowKey(indent) | FlowKeyExp(indent) => match reader.peek_byte() {
-                Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
-                Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
+                Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
+                Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                 Some(b'[') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b'{') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b'}') => {
@@ -447,7 +447,7 @@ impl Lexer {
                 ) {
                     reader.read_line();
                     tokens.push(Error as usize);
-                    self.errors.push(ErrorType::ExpectedIndent {
+                    self.errors.push(ExpectedIndent {
                         actual: curr_indent,
                         expected: start_indent,
                     });
@@ -648,9 +648,9 @@ pub enum LexerToken {
     ScalarSingleQuote = SCALAR_QUOTE,
     ScalarDoubleQuote = SCALAR_DQUOTE,
     /// Element with alternative name e.g. `&foo [x,y]`
-    Alias = ALIAS,
+    AliasToken = ALIAS,
     /// Reference to an element with alternative name e.g. `*foo`
-    Anchor = ANCHOR,
+    AnchorToken = ANCHOR,
     TagStart = TAG_START,
     SequenceStart = SEQ_START,
     SequenceEnd = SEQ_END,
@@ -671,6 +671,8 @@ impl LexerToken {
         }
     }
 
+    ///
+    /// This method transforms a [LexerToken] into a [ScalarType]
     #[inline(always)]
     pub(crate) unsafe fn to_scalar(self) -> ScalarType {
         match self {
@@ -702,8 +704,8 @@ impl From<usize> for LexerToken {
             SCALAR_QUOTE => ScalarSingleQuote,
             SCALAR_DQUOTE => ScalarDoubleQuote,
             TAG_START => TagStart,
-            ANCHOR => Anchor,
-            ALIAS => Alias,
+            ANCHOR => AnchorToken,
+            ALIAS => AliasToken,
             DIR_RES => DirectiveReserved,
             DIR_TAG => DirectiveTag,
             DIR_YAML => DirectiveYaml,
