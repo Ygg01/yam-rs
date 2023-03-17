@@ -95,7 +95,7 @@ pub trait Reader<B> {
         in_flow_collection: bool,
         tokens: &mut Vec<usize>,
         errors: &mut Vec<ErrorType>,
-    ) -> Option<(usize, usize)>;    
+    ) -> Option<(usize, usize)>;
     fn read_block_scalar(
         &mut self,
         literal: bool,
@@ -110,7 +110,6 @@ pub trait Reader<B> {
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken);
     fn read_tag(&self) -> Option<(usize, usize)>;
 }
-
 
 #[inline]
 pub fn is_tab_space(pos: usize, chr: u8, allow_tab: bool) -> ControlFlow<usize, usize> {

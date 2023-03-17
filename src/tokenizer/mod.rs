@@ -1,8 +1,8 @@
-use std::str::from_utf8;
 pub use iterator::EventIterator;
 pub use reader::Reader;
-pub use spanner::LexerToken;
 pub use spanner::Lexer;
+pub use spanner::LexerToken;
+use std::str::from_utf8;
 pub use str_reader::StrReader;
 
 mod iterator;
@@ -27,7 +27,6 @@ pub enum ErrorType {
     StartedBlockInFlow,
     UnexpectedEndOfScalar,
 }
-
 
 pub trait Slicer<'a> {
     fn slice(&self, start: usize, end: usize) -> &'a [u8];

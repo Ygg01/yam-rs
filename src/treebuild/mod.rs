@@ -3,6 +3,8 @@ use std::borrow::Cow;
 use crate::tokenizer::ErrorType;
 use crate::treebuild::YamlToken::Scalar;
 
+pub use iterator::YamlParser;
+
 mod iterator;
 
 pub enum YamlToken<'a, TAG = ()> {
@@ -31,6 +33,15 @@ impl<'a, TAG: Default> Default for YamlToken<'a, TAG> {
 pub struct Entry<'a, TAG> {
     key: YamlToken<'a, TAG>,
     value: YamlToken<'a, TAG>,
+}
+
+impl<'a, TAG: Default> Default for Entry<'a, TAG> {
+    fn default() -> Self {
+        Entry {
+            key: YamlToken::default(),
+            value: YamlToken::default(),
+        }
+    }
 }
 
 pub struct YamlTokenError<'a, T> {
