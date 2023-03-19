@@ -636,33 +636,96 @@ const NEWLINE: usize = usize::MAX - 20;
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[allow(clippy::enum_clike_unportable_variant)] //false positive see https://github.com/rust-lang/rust-clippy/issues/8043
+///
+/// [LexerToken] used to Lex YAML files
 pub enum LexerToken {
+    /// Denotes that value is a [usize] less than [NewLine] and thus its meaning decided by previous Tokens
+    /// usually marks a start/end token.
     Mark,
+    /// Denotes a newline and must be followed by a [Mark]. If next Mark is 0, it's space otherwise it's a `n`
+    /// number of newlines `\n`
     NewLine = NEWLINE,
+    /// Error in stream, check [Lexer.errors] for details
     ErrorToken = ERROR,
+    /// Directive Tag denoted by `%TAG` and followed by two [Mark] tokens
     DirectiveTag = DIR_TAG,
+    /// Directive Tag denoted by `@value` and followed by two [Mark] tokens
     DirectiveReserved = DIR_RES,
+    /// YAML directive showing minor/major version of e.g.
+    /// ```yaml
+    ///     %YAML 1.2
+    /// ```
     DirectiveYaml = DIR_YAML,
+    /// Plain Scalar that's neither quoted or literal or folded
+    /// ```yaml
+    ///     example: plain_scalar
+    /// ```
     ScalarPlain = SCALAR_PLAIN,
+    /// Helper token to end token
     ScalarEnd = SCALAR_END,
+    /// Folded scalar token
+    /// ```yaml
+    ///     example: >
+    ///         folded_scalar
+    /// ```
     ScalarFold = SCALAR_FOLD,
+    /// Literal scalar token
+    /// ```yaml
+    ///     example: |
+    ///         literal_scalar
+    /// ```
     ScalarLit = SCALAR_LIT,
+    /// Single quoted scalar
+    /// ```yaml
+    ///     example: 'single quote scalar'
+    /// ```
     ScalarSingleQuote = SCALAR_QUOTE,
+    /// Double quoted scalar
+    /// ```yaml
+    ///     example: "double quote scalar"
+    /// ```
     ScalarDoubleQuote = SCALAR_DQUOTE,
     /// Element with alternative name e.g. `&foo [x,y]`
     AliasToken = ALIAS,
     /// Reference to an element with alternative name e.g. `*foo`
     AnchorToken = ANCHOR,
     TagStart = TAG_START,
+    /// Start of a sequence token, e.g. `[` in 
+    /// ```yaml
+    ///  [a, b, c]
+    /// #^-- start of sequence 
+    /// ```
     SequenceStart = SEQ_START,
+    /// End of a sequence token, e.g. `]` in 
+    /// ```yaml
+    ///  [a, b, c]
+    /// #        ^-- end of sequence 
+    /// ```
     SequenceEnd = SEQ_END,
+    /// Start of a map  token, e.g. `{` in 
+    /// ```yaml
+    ///  { a: b,}
+    /// #^-- start of mapping 
+    /// ```
     MappingStart = MAP_START,
+    /// End of a map  token, e.g. `}` in 
+    /// ```yaml
+    ///  { a: b}
+    /// #      ^-- start of mapping 
+    /// ```
     MappingEnd = MAP_END,
+    /// Start of document implicit or otherwise
     DocumentStart = DOC_START,
+    /// End of document implicit or otherwise
     DocumentEnd = DOC_END,
 }
 
 impl LexerToken {
+
+    ///
+    /// This method transforms a [LexerToken] into a [DirectiveType]
+    /// 
+    /// It's UB to call on any [LexexToken] that isn't [DirectiveTag], [DirectiveYaml], or  [DirectiveReserved].
     #[inline(always)]
     pub(crate) unsafe fn to_yaml_directive(self) -> DirectiveType {
         match self {
@@ -675,6 +738,9 @@ impl LexerToken {
 
     ///
     /// This method transforms a [LexerToken] into a [ScalarType]
+    /// 
+    /// It's UB to call on any [LexexToken] that isn't [ScalarPlain], [Mark], [ScalarFold], [ScalarLit], 
+    /// [ScalarSingleQuote], [ScalarDoubleQuote].
     #[inline(always)]
     pub(crate) unsafe fn to_scalar(self) -> ScalarType {
         match self {
