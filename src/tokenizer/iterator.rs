@@ -8,7 +8,7 @@ use std::{fmt::Write, io, str::from_utf8_unchecked};
 
 use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
-use crate::{tokenizer::LexerToken, Lexer};
+use crate::Lexer;
 
 use super::StrReader;
 

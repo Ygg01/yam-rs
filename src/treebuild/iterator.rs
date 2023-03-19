@@ -151,7 +151,8 @@ where
         loop {
             match (tokens.get(0), tokens.get(1)) {
                 (Some(start), Some(end))
-                    if *start < NewLine as usize && *end < NewLine as usize => {
+                    if *start < NewLine as usize && *end < NewLine as usize =>
+                {
                     if cow.is_empty() {
                         cow = Borrowed(self.reader.slice(*start, *end))
                     } else {
@@ -159,7 +160,7 @@ where
                     }
                     tokens.pop_front();
                     tokens.pop_front();
-                },
+                }
                 (Some(newline), Some(line)) if *newline == NewLine as usize => {
                     if *line == 0 {
                         cow.to_mut().extend(" ".as_bytes());

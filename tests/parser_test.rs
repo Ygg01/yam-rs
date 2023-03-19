@@ -6,9 +6,9 @@ use steel_yaml::YamlParser;
 #[test]
 fn parse_doc() {
     let mut binding: YamlParser<StrReader> = YamlParser::from("null");
-    let x : YamlToken<'_, ()> = binding.parse_doc();
+    let x: YamlToken<'_, ()> = binding.parse_doc();
     match x {
-      YamlToken::Scalar(val, _) => assert_eq!("null", from_utf8(val.as_ref()).unwrap()),
+        YamlToken::Scalar(val, _) => assert_eq!("null", from_utf8(val.as_ref()).unwrap()),
         _ => panic!("unexpected"),
     };
 }
