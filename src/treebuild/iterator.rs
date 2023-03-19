@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
-use std::collections::{HashMap, VecDeque, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::marker::PhantomData;
 use std::mem::take;
 
@@ -16,8 +16,6 @@ pub struct YamlParser<'a, R, B = (), TAG = ()> {
     pub(crate) map: HashMap<String, &'a YamlToken<'a, TAG>>,
     buf: PhantomData<B>,
 }
-
-
 
 impl<'a, R, B, TAG: Default> YamlParser<'a, R, B, TAG>
 where
@@ -145,7 +143,7 @@ where
                 {
                     is_key = false;
                     entry.key = self.parse_scalar(tokens, errors, take(&mut tag));
-                    
+
                     let key_str = format!("{}", entry.key);
                     if keys.contains(&key_str) {
                         errors.push(ErrorType::DuplicateKey);

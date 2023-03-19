@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{Display};
+use std::fmt::Display;
 
 use crate::tokenizer::ErrorType;
 use crate::treebuild::YamlToken::Scalar;
@@ -35,7 +35,7 @@ impl<'a, TAG> Display for YamlToken<'a, TAG> {
                     write!(f, "{}", el)?;
                 }
                 Ok(())
-            },
+            }
             Self::Mapping(val, _) => {
                 write!(f, "MAP:")?;
                 for entry in val {
@@ -52,7 +52,6 @@ impl<'a, TAG: Default> Default for YamlToken<'a, TAG> {
         Scalar(Cow::default(), TAG::default())
     }
 }
-
 
 pub struct Entry<'a, TAG> {
     key: YamlToken<'a, TAG>,
