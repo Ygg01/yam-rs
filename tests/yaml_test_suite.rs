@@ -27,12 +27,12 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
     let input_yaml = fs::read_to_string(data.input_yaml)?;
     let mut actual_event = String::with_capacity(input_yaml.len());
     let ev_iterator: EventIterator<StrReader> = EventIterator::from(&*input_yaml);
-    actual_event.push_str("+STR");
-    ev_iterator.for_each(|(ev, indent)| {
-        actual_event.push_str("\r\n");
+    actual_event.push_str("+STR\r\n");
+    ev_iterator.for_each(|(ev, _)| {
         write!(actual_event, "{:}", ev);                
+        actual_event.push_str("\r\n");
     });
-    actual_event.push_str("-STR");
+    actual_event.push_str("-STR\r\n");
 
     let expected_event = fs::read_to_string(data.test_event)?;
     assert_eq!(expected_event, actual_event);
