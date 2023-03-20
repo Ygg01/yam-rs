@@ -142,7 +142,9 @@ impl Lexer {
                 } else if reader.try_read_slice_exact("---") {
                     self.directive = true;
                     self.tokens.push_back(DocumentStart as usize);
+                    self.curr_state = RootBlock;
                 } else {
+                    self.tokens.push_back(DocumentStart as usize);
                     self.curr_state = RootBlock;
                 }
                 return;
@@ -330,9 +332,7 @@ impl Lexer {
                 };
                 self.tokens.push_back(x as usize);
             }
-            if self.directive {
-                self.tokens.push_back(DocumentEnd as usize);
-            }
+            self.tokens.push_back(DocumentEnd as usize);
         }
     }
 
