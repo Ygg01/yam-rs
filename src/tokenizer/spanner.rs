@@ -520,20 +520,42 @@ impl Lexer {
                 break;
             }
 
+            let curr_col = reader.col() as u32;
+
             match (reader.peek_byte_at(0), self.curr_state) {
-                (Some(b'-'), BlockSeq(ind)) if reader.col() == ind as usize => {
+                (Some(b'-'), BlockSeq(ind)) if curr_col == ind => {
                     reader.consume_bytes(1);
                     tokens.push(ScalarEnd as usize);
                     break;
                 }
-                (Some(b'-'), BlockSeq(ind)) if reader.col() < ind as usize => {
-                    reader.read_line();
-                    let err_type = ExpectedIndent {
-                        expected: ind as usize,
-                        actual: curr_indent,
-                    };
-                    tokens.push(ErrorToken as usize);
-                    self.errors.push(err_type);
+                (Some(b'-'), BlockSeq(ind)) if curr_col < ind => {
+                    if let Some(pop) = self
+                        .stack
+                        .iter()
+                        .rposition(|&x| matches!(x, BlockSeq(c) if curr_col == c))
+                    {
+                        tokens.push(ScalarEnd as usize);
+                        for _ in 0..pop {
+                            match self.stack.pop() {
+                                Some(BlockSeq(_)) => tokens.push(SequenceEnd as usize),
+                                Some(BlockMap(_))
+                                | Some(BlockMapVal(_))
+                                | Some(BlockMapKeyExp(_))
+                                | Some(BlockMapValExp(_)) => {
+                                    tokens.push(MappingEnd as usize)
+                                }
+                                _ => {}
+                            }
+                        }
+                    } else {
+                        reader.read_line();
+                        let err_type = ExpectedIndent {
+                            expected: ind as usize,
+                            actual: curr_indent,
+                        };
+                        tokens.push(ErrorToken as usize);
+                        self.errors.push(err_type);
+                    }
                     break;
                 }
                 (Some(b'-'), BlockSeq(ind)) if reader.col() > ind as usize => {

@@ -4,6 +4,7 @@ pub use spanner::Lexer;
 pub use spanner::LexerToken;
 use std::str::from_utf8;
 pub use str_reader::StrReader;
+pub use iterator::Event;
 
 mod iterator;
 mod reader;

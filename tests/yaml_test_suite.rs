@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::fmt::Write;
 use steel_yaml::YamlParser;
-use steel_yaml::tokenizer::{EventIterator, StrReader};
+use steel_yaml::tokenizer::{EventIterator, StrReader, Event};
 
 const TEST_SIZE: usize = 360;
 
@@ -28,10 +28,13 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
     let mut actual_event = String::with_capacity(input_yaml.len());
     let ev_iterator: EventIterator<StrReader> = EventIterator::from(&*input_yaml);
     actual_event.push_str("+STR\r\n");
-    ev_iterator.for_each(|(ev, _)| {
+    for (ev, _) in ev_iterator {
+        if ev == Event::ErrorEvent {
+            break;
+        }
         write!(actual_event, "{:}", ev);                
         actual_event.push_str("\r\n");
-    });
+    }    
     actual_event.push_str("-STR\r\n");
 
     let expected_event = fs::read_to_string(data.test_event)?;
