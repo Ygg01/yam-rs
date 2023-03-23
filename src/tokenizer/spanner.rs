@@ -386,9 +386,14 @@ impl Lexer {
     }
 
     fn fetch_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
-        reader.consume_bytes(1);
-        self.push_state(BlockMapKeyExp(indent as u32));
-        self.tokens.push_back(MappingStart as usize);
+        if reader.peek_byte_at_check(1, is_white_tab_or_break) {
+            reader.consume_bytes(1);        
+            self.push_state(BlockMapKeyExp(indent as u32));
+            self.tokens.push_back(MappingStart as usize);
+        }
+        else {
+            self.fetch_plain_scalar(reader, indent, indent);
+        }    
     }
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
