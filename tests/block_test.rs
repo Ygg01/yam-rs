@@ -360,7 +360,7 @@ pub fn explicit_block_combination() {
 }
 
 const COMPLEX_BLOCK_KEY: &'static str = r##"
-a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~: safe
+a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
 :foo: baz
 -foo: boo
 "##;
