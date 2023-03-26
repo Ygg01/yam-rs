@@ -1,6 +1,7 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
+use std::fs::read;
 use std::hint::unreachable_unchecked;
 use LexerState::PreDocStart;
 
@@ -387,13 +388,12 @@ impl Lexer {
 
     fn fetch_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         if reader.peek_byte_at_check(1, is_white_tab_or_break) {
-            reader.consume_bytes(1);        
+            reader.consume_bytes(1);
             self.push_state(BlockMapKeyExp(indent as u32));
             self.tokens.push_back(MappingStart as usize);
-        }
-        else {
+        } else {
             self.fetch_plain_scalar(reader, indent, indent);
-        }    
+        }
     }
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
@@ -415,7 +415,6 @@ impl Lexer {
         start_indent: usize,
         init_indent: usize,
     ) {
-        let mut allow_minus = false;
         let mut first_line_block = !self.curr_state.in_flow_collection();
 
         let mut num_newlines = 0;
@@ -428,7 +427,9 @@ impl Lexer {
             _ => None,
         };
         let mut curr_indent = self.curr_state.get_block_indent(reader.col());
+        let mut offset_start = None;
         let mut had_comment = false;
+        let in_flow_collection = self.curr_state.in_flow_collection();
 
         while !reader.eof() {
             // In explicit key mapping change in indentation is always an error
@@ -458,15 +459,16 @@ impl Lexer {
                 break;
             }
 
-            let (start, end) = match reader.read_plain_one_line(
-                allow_minus,
-                &mut had_comment,
-                self.curr_state.in_flow_collection(),
-                &mut tokens,
-                &mut self.errors,
-            ) {
-                Some(x) => x,
-                None => break,
+            if reader.eof() || (offset_start.is_none() && reader.not_safe_char()) {
+                break;
+            }
+
+            let (start, end, error)  =
+                reader.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
+
+            if let Some(err) = error {
+                tokens.push(ErrorToken as usize);
+                self.errors.push(err);
             };
 
             reader.skip_space_tab(true);
@@ -546,9 +548,7 @@ impl Lexer {
                                 Some(BlockMap(_))
                                 | Some(BlockMapVal(_))
                                 | Some(BlockMapKeyExp(_))
-                                | Some(BlockMapValExp(_)) => {
-                                    tokens.push(MappingEnd as usize)
-                                }
+                                | Some(BlockMapValExp(_)) => tokens.push(MappingEnd as usize),
                                 _ => {}
                             }
                         }
@@ -564,7 +564,8 @@ impl Lexer {
                     break;
                 }
                 (Some(b'-'), BlockSeq(ind)) if reader.col() > ind as usize => {
-                    allow_minus = true;
+                    offset_start = Some(reader.pos());
+                    continue;
                 }
                 (Some(b':'), BlockMapValExp(ind)) if reader.col() == ind as usize => {
                     break;
