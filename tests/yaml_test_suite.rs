@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::fmt::Write;
+use steel_yaml::tokenizer::{Event, EventIterator, StrReader};
 use steel_yaml::YamlParser;
-use steel_yaml::tokenizer::{EventIterator, StrReader, Event};
 
 const TEST_SIZE: usize = 360;
 
@@ -32,9 +32,9 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
         if ev == Event::ErrorEvent {
             break;
         }
-        write!(actual_event, "{:}", ev);                
+        write!(actual_event, "{:}", ev);
         actual_event.push_str("\r\n");
-    }    
+    }
     actual_event.push_str("-STR\r\n");
 
     let expected_event = fs::read_to_string(data.test_event)?;
@@ -57,9 +57,7 @@ fn collect_test_suite(
             .file_name()
             .into_string()
             .expect("non-UTF8 string in path");
-        if file_type.is_dir()
-            && !ignore_list.contains(&&*dir_name)
-        {
+        if file_type.is_dir() && !ignore_list.contains(&&*dir_name) {
             collect_test(dir_name, &test_dir_path, &ignore_list, tests)?;
         }
     }
@@ -117,10 +115,7 @@ fn collect_test(
     Ok(())
 }
 
-fn collect_tests(
-    path: &Path,
-    filter_list: Vec<&str>,
-) -> Result<Vec<Trial>, Box<dyn Error>> {
+fn collect_tests(path: &Path, filter_list: Vec<&str>) -> Result<Vec<Trial>, Box<dyn Error>> {
     let mut tests = Vec::with_capacity(TEST_SIZE);
     collect_test_suite(path, filter_list, &mut tests)?;
     Ok(tests)

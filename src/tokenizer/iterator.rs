@@ -222,7 +222,12 @@ where
                     }
                     DocumentStart => {
                         self.indent += 1;
-                        return Some((DocStart { explicit: self.state.directive }, curr_indent));
+                        return Some((
+                            DocStart {
+                                explicit: self.state.directive,
+                            },
+                            curr_indent,
+                        ));
                     }
                     SequenceEnd => {
                         self.indent -= 1;

@@ -75,7 +75,6 @@ const SEQ_FLOW_EXPECTED: &'static str = r#"
   -SEQ
  -DOC"#;
 
-
 #[test]
 fn parse_flow_seq() {
     assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EXPECTED);
