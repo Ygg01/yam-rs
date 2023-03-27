@@ -181,7 +181,7 @@ impl Lexer {
                             && reader.col() == 0
                             && reader
                                 .peek_byte_at(1)
-                                .map_or(true, |x| is_white_tab_or_break(x)) =>
+                                .map_or(true, is_white_tab_or_break) =>
                     {
                         reader.consume_bytes(1);
                         if self.curr_state == RootBlock {
@@ -197,7 +197,7 @@ impl Lexer {
                     Some(b':')
                         if reader
                             .peek_byte_at(1)
-                            .map_or(true, |x| is_white_tab_or_break(x)) =>
+                            .map_or(true, is_white_tab_or_break) =>
                     {
                         reader.consume_bytes(1);
                         if let BlockMapKeyExp(x1) = self.curr_state {
