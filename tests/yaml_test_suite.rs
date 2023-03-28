@@ -27,14 +27,18 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
     let mut actual_event = String::with_capacity(input_yaml.len());
     let ev_iterator: EventIterator<StrReader> = EventIterator::from(&*input_yaml);
     actual_event.push_str("+STR\r\n");
+    let mut is_error = false;
     for (ev, _) in ev_iterator {
         if ev == Event::ErrorEvent {
+            is_error = true;
             break;
         }
         write!(actual_event, "{:}", ev);
         actual_event.push_str("\r\n");
     }
-    actual_event.push_str("-STR\r\n");
+    if !is_error {
+        actual_event.push_str("-STR\r\n");
+    }
 
     let expected_event = fs::read_to_string(data.test_event)?;
     assert_eq!(expected_event, actual_event);
