@@ -135,6 +135,23 @@ pub fn plain_block() {
     assert_eq_event(BLOCK_PLAIN, BLOCK_PLAIN_EXPECTED)
 }
 
+const BLOCK_PLAIN_MULTI: &str = r#"
+1st line
+
+ 2nd non
+	3rd non
+"#;
+
+const BLOCK_PLAIN_MULTI_EXPECTED: &str = r#"
+ +DOC
+  =VAL :1st line\\n2nd non 3rd non
+ -DOC"#;
+
+#[test]
+pub fn plain_multiline() {
+    assert_eq_event(BLOCK_PLAIN_MULTI, BLOCK_PLAIN_MULTI_EXPECTED)
+}
+
 const SEQ_PLAIN: &str = r#"
   - x
    - y

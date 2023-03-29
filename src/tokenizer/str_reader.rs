@@ -17,6 +17,8 @@ use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, LexerToken, Reader, Slicer};
 
+use super::reader::is_newline;
+
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
     pub(crate) pos: usize,
@@ -287,6 +289,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let start = offset_start.unwrap_or(self.pos);
         let (_, line_end, _) = self.get_line_offset();
         let end = self.consume_bytes(1);
+        let mut pos_end = end;
         let line_end = StrReader::eof_or_pos(self, line_end);
         let mut end_of_str = end;
 
@@ -294,43 +297,41 @@ impl<'r> Reader<()> for StrReader<'r> {
             // ns-plain-char  prevent ` #`
             if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
-                if *had_comment {
+                return if *had_comment {
                     self.pos = line_end;
-                    return (start, end_of_str, Some(UnexpectedComment));
+                    (start, end_of_str, Some(UnexpectedComment))
                 } else {
                     *had_comment = true;
                     self.pos = line_end;
-                    return (start, end_of_str, None);
-                }
+                    (start, end_of_str, None)
+                };
             }
 
             // ns-plain-char prevent `: `
             // or `:{`  in flow collections
             if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
-                // commit any uncommitted character, but ignore first character
-                if !is_white_tab(prev) && pos != end {
-                    end_of_str += 1;
-                }
-                self.pos = end_of_str;
+                pos_end = end_of_str;
                 break;
             }
 
             // // if current character is a flow indicator, break
             if is_flow_indicator(curr) && in_flow_collection {
-                self.pos = end_of_str;
+                pos_end = end_of_str;
                 break;
             }
 
             if is_white_tab_or_break(curr) {
-                // commit any uncommitted character, but ignore first character
-                if !is_white_tab_or_break(prev) && pos != end {
-                    end_of_str += 1;
+                if is_newline(curr) {
+                    pos_end = line_end;
+                    break;
                 }
-                continue;
+                pos_end = pos;
+            } else {
+                end_of_str = pos + 1;
+                pos_end = end_of_str;
             }
-            end_of_str = pos;
         }
-        self.pos = end_of_str;
+        self.pos = pos_end;
         (start, end_of_str, None)
     }
 
@@ -617,4 +618,15 @@ impl<'r> Reader<()> for StrReader<'r> {
     fn read_tag(&self) -> Option<(usize, usize)> {
         todo!()
     }
+}
+
+#[test]
+pub fn test_plain_scalar() {
+    let mut reader = StrReader::from("ab  \n xyz ");
+    let mut had_comment = true;
+    let (start, end, _) = reader.read_plain_one_line(None, &mut had_comment, false);
+    assert_eq!("ab".as_bytes(), &reader.slice[start..end]);
+    reader.skip_separation_spaces(false);
+    let (start, end, _) = reader.read_plain_one_line(None, &mut had_comment, false);
+    assert_eq!("xyz".as_bytes(), &reader.slice[start..end]);
 }
