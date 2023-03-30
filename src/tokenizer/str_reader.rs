@@ -315,7 +315,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
 
             // // if current character is a flow indicator, break
-            if is_flow_indicator(curr) && in_flow_collection {
+            if in_flow_collection && is_flow_indicator(curr)  {
                 pos_end = end_of_str;
                 break;
             }

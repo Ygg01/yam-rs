@@ -377,17 +377,32 @@ pub fn explicit_block_combination() {
     assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
 }
 
+// const COMPLEX_BLOCK_KEY: &str = r##"
+// a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
+// :foo: baz
+// -foo: boo
+// "##;
+
+// const COMPLEX_BLOCK_EXPECTED: &str = r##"
+//  +DOC
+//   +MAP
+//    =VAL :a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~
+//    =VAL :safe
+//    =VAL ::foo
+//    =VAL :baz
+//    =VAL :-foo
+//    =VAL :boo
+//   -MAP
+//  -DOC"##;
+
 const COMPLEX_BLOCK_KEY: &str = r##"
-a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
-:foo: baz
--foo: boo
-"##;
+ :foo: baz
+ -foo: boo
+ "##;
 
 const COMPLEX_BLOCK_EXPECTED: &str = r##"
  +DOC
   +MAP
-   =VAL :a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~
-   =VAL :safe
    =VAL ::foo
    =VAL :baz
    =VAL :-foo
@@ -398,4 +413,30 @@ const COMPLEX_BLOCK_EXPECTED: &str = r##"
 #[test]
 pub fn test_complex_block() {
     assert_eq_event(COMPLEX_BLOCK_KEY, COMPLEX_BLOCK_EXPECTED);
+}
+
+const MIX_BLOCK: &str = r##"
+-
+  key: x
+- 
+  val: y
+"##;
+
+const MIX_BLOCK_EXPECTED: &str = r##"
+ +DOC
+  +SEQ
+   +MAP
+    =VAL :key
+    =VAL :x
+   -MAP
+   +MAP
+    =VAL :val
+    =VAL :y
+   -MAP
+  -SEQ
+ -DOC"##;
+
+#[test]
+pub fn test_mix_blocks() {
+    assert_eq_event(MIX_BLOCK, MIX_BLOCK_EXPECTED);
 }

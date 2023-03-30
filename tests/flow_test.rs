@@ -92,14 +92,8 @@ const SEQ_NESTED_COL1_EXPECTED: &'static str = r#"
  +DOC
   +SEQ []
    +MAP {}
-   -MAP
-  -SEQ
- -DOC"#;
-
-const SEQ_NESTED_COL2_EXPECTED: &'static str = r#"
- +DOC
-  +SEQ []
-   +MAP {}
+    =VAL :
+    =VAL :
    -MAP
   -SEQ
  -DOC"#;
@@ -107,7 +101,7 @@ const SEQ_NESTED_COL2_EXPECTED: &'static str = r#"
 #[test]
 fn parse_nested_col() {
     assert_eq_event(SEQ_NESTED_COL1, SEQ_NESTED_COL1_EXPECTED);
-    assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL2_EXPECTED);
+    assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL1_EXPECTED);
 }
 
 const SEQ_EMPTY_MAP: &'static str = r#"
@@ -116,6 +110,8 @@ const SEQ_EMPTY_MAP: &'static str = r#"
 const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
  +DOC
   +MAP {}
+   =VAL :
+   =VAL :
   -MAP
  -DOC"#;
 
@@ -126,6 +122,7 @@ const SEQ_XY_MAP1_EXPECTED: &'static str = r#"
  +DOC
   +MAP {}
    =VAL :x:y
+   =VAL :
   -MAP
  -DOC"#;
 
