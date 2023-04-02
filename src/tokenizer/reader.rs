@@ -63,17 +63,13 @@ pub trait Reader<B> {
     fn eof(&self) -> bool;
     fn col(&self) -> usize;
     fn pos(&self) -> usize;
-    fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     fn peek_byte(&self) -> Option<u8>;
+    fn peek_byte2(&self) -> Option<u8>;
+    fn peek_byte_at(&self, offset: usize) -> Option<u8>;
+    #[inline]
     fn peek_byte_is(&self, needle: u8) -> bool {
-        match self.peek_byte_at(0) {
+        match self.peek_byte() {
             Some(x) if x == needle => true,
-            _ => false,
-        }
-    }
-    fn peek_byte_at_check(&self, offset: usize, check: fn(u8) -> bool) -> bool {
-        match self.peek_byte_at(offset) {
-            Some(x) if check(x) => true,
             _ => false,
         }
     }
