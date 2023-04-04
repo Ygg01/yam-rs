@@ -159,25 +159,6 @@ impl<'a> StrReader<'a> {
 
         (start, end)
     }
-
-    fn read_break(&mut self) -> Option<(usize, usize)> {
-        let start = self.pos;
-        if self.peek_byte_is(b'\n') {
-            self.pos += 1;
-            self.col = 0;
-            Some((start, start + 1))
-        } else if self.peek_byte_is(b'\r') {
-            let amount = match self.slice.get(start + 1) {
-                Some(b'\n') => 2,
-                _ => 1,
-            };
-            self.col = 0;
-            self.pos += amount;
-            Some((start, start + amount))
-        } else {
-            None
-        }
-    }
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
@@ -221,6 +202,24 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos += amount;
         self.col += amount;
         self.pos
+    }
+    fn read_break(&mut self) -> Option<(usize, usize)> {
+        let start = self.pos;
+        if self.peek_byte_is(b'\n') {
+            self.pos += 1;
+            self.col = 0;
+            Some((start, start + 1))
+        } else if self.peek_byte_is(b'\r') {
+            let amount = match self.slice.get(start + 1) {
+                Some(b'\n') => 2,
+                _ => 1,
+            };
+            self.col = 0;
+            self.pos += amount;
+            Some((start, start + amount))
+        } else {
+            None
+        }
     }
 
     #[inline(always)]
@@ -563,23 +562,6 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
         }
         tokens.push_back(ScalarEnd as usize);
-    }
-
-    fn read_block_seq(&mut self, indent: usize) -> Option<LexerState> {
-        if self.peek_byte2().map_or(false, is_white_tab_or_break) {
-            let new_indent: usize = self.col;
-            if self.peek_byte2().map_or(false, reader::is_newline) {
-                self.consume_bytes(1);
-                self.read_break();
-            } else {
-                self.consume_bytes(2);
-            }
-
-            if new_indent >= indent {
-                return Some(BlockSeq(new_indent as u32));
-            }
-        }
-        None
     }
 
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize {

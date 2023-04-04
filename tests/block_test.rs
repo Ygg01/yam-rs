@@ -36,11 +36,12 @@ const BLOCK_ERR_EXPECTED: &str = r#"
   +SEQ
    =VAL :x
    ERR
+   =VAL :y
   -SEQ
  -DOC"#;
 
 #[test]
-pub fn block_plain_err() {
+pub fn block_seq_err() {
     assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EXPECTED);
 }
 
@@ -58,6 +59,27 @@ const BLOCK_NESTED_SEQ_EXPECTED: &str = r#"
     =VAL :b
    -SEQ
    =VAL :c
+  -SEQ
+ -DOC"#;
+
+const BLOCK_NESTED_SEQ_INPUT2: &str = r#"
+  - - a
+    - b
+    - - c
+  - d
+"#;
+
+const BLOCK_NESTED_SEQ_EXPECTED2: &str = r#"
+ +DOC
+  +SEQ
+   +SEQ
+    =VAL :a
+    =VAL :b
+    +SEQ
+    =VAL :c
+    -SEQ
+   -SEQ
+   =VAL :d
   -SEQ
  -DOC"#;
 
@@ -191,14 +213,14 @@ const BLOCK_MAP_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const BLOCK_MAP_INPUT3: &str = r#"
+const BLOCK_MAP_INPUT2: &str = r#"
 :
 a: b
 : c
 d:
 "#;
 
-const BLOCK_MAP_EXPECTED3: &str = r#"
+const BLOCK_MAP_EXPECTED2: &str = r#"
  +DOC
   +MAP
    =VAL :
@@ -212,13 +234,13 @@ const BLOCK_MAP_EXPECTED3: &str = r#"
   -MAP
  -DOC"#;
 
-const BLOCK_MAP_INPUT2: &str = r#"
+const BLOCK_MAP_NESTED: &str = r#"
 a:
  b:
   c:
 d:"#;
 
-const BLOCK_MAP_EXPECTED2: &str = r#"
+const BLOCK_MAP_NESTED_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :a
@@ -234,11 +256,59 @@ const BLOCK_MAP_EXPECTED2: &str = r#"
   -MAP
  -DOC"#;
 
+ const BLOCK_MAP_SIMPLE: &str = r#"
+a: b
+:"#;
+
+ const BLOCK_MAP_SIMPLE_EXPECTED: &str = r#"
+ +DOC
+  +MAP
+   =VAL :a
+   =VAL :b
+   =VAL :
+   =VAL :
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn block_map() {
+  assert_eq_event(BLOCK_MAP_SIMPLE, BLOCK_MAP_SIMPLE_EXPECTED);
+  assert_eq_event(BLOCK_MAP_INPUT2, BLOCK_MAP_EXPECTED2);
     assert_eq_event(BLOCK_MAP_INPUT, BLOCK_MAP_EXPECTED);
-    assert_eq_event(BLOCK_MAP_INPUT2, BLOCK_MAP_EXPECTED2);
-    assert_eq_event(BLOCK_MAP_INPUT3, BLOCK_MAP_EXPECTED3);
+    assert_eq_event(BLOCK_MAP_NESTED, BLOCK_MAP_NESTED_EXPECTED);
+}
+
+const EMPTY_MAP_INPUT1: &str = r#"
+:"#;
+
+const EMPTY_MAP_EXPECTED1: &str = r#"
+ +DOC
+  +MAP
+   =VAL :
+   =VAL :
+  -MAP
+ -DOC"#;
+
+const EMPTY_MAP_INPUT2: &str = r#"
+:
+ a"#;
+
+const EMPTY_MAP_INPUT2_1: &str = r#"
+: a"#;
+
+const EMPTY_MAP_EXPECTED2: &str = r#"
+ +DOC
+  +MAP
+   =VAL :
+   =VAL :a
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn empty_map() {
+    assert_eq_event(EMPTY_MAP_INPUT1, EMPTY_MAP_EXPECTED1);
+    assert_eq_event(EMPTY_MAP_INPUT2, EMPTY_MAP_EXPECTED2);
+    assert_eq_event(EMPTY_MAP_INPUT2_1, EMPTY_MAP_EXPECTED2);
 }
 
 const MULTILINE_COMMENT_BLOCK1: &str = r#"
