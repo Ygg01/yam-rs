@@ -397,23 +397,17 @@ const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-#[test]
-pub fn explicit_block_map() {
-    assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
-    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
-}
-
-const EXPLICIT_BLOCK_MAP_ERR1: &str = r#"
-   ? test
-  : value
+const EXP_MAP_COMBINATION: &str = r#"
+ ? >
+   test
+ : x
 "#;
 
-const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &str = r#"
+const EXP_MAP_COMBINATION_EXPECTED: &str = r#"
  +DOC
   +MAP
-   =VAL :test
-   ERR
-   =VAL :value
+   =VAL >test\n
+   =VAL :x
   -MAP
  -DOC"#;
 
@@ -431,63 +425,53 @@ const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
+
+#[test]
+pub fn explicit_block_map() {
+    assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
+    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
+    assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
+}
+
+const EXPLICIT_BLOCK_MAP_ERR1: &str = r#"
+   ? test
+  : value
+"#;
+
+const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &str = r#"
+ +DOC
+  +MAP
+   =VAL :test
+   ERR
+   =VAL :value
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn explicit_block_map_err() {
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR1, EXPLICIT_BLOCK_MAP_ERR1_EXPECTED);
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR2, EXPLICIT_BLOCK_MAP_ERR2_EXPECTED);
 }
 
-const EXP_MAP_COMBINATION: &str = r#"
- ? >
-   test
- : x
-"#;
-
-const EXP_MAP_COMBINATION_EXPECTED: &str = r#"
- +DOC
-  +MAP
-   =VAL >test\n
-   =VAL :x
-  -MAP
- -DOC"#;
-
-#[test]
-pub fn explicit_block_combination() {
-    assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
-}
-
-// const COMPLEX_BLOCK_KEY: &str = r##"
-// a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
-// :foo: baz
-// -foo: boo
-// "##;
-
-// const COMPLEX_BLOCK_EXPECTED: &str = r##"
-//  +DOC
-//   +MAP
-//    =VAL :a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~
-//    =VAL :safe
-//    =VAL ::foo
-//    =VAL :baz
-//    =VAL :-foo
-//    =VAL :boo
-//   -MAP
-//  -DOC"##;
 
 const COMPLEX_BLOCK_KEY: &str = r##"
- :foo: baz
- -foo: boo
- "##;
+a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
+:foo: baz
+-foo: boo
+"##;
 
 const COMPLEX_BLOCK_EXPECTED: &str = r##"
  +DOC
   +MAP
+   =VAL :a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~
+   =VAL :safe
    =VAL ::foo
    =VAL :baz
    =VAL :-foo
    =VAL :boo
   -MAP
  -DOC"##;
+
 
 #[test]
 pub fn test_complex_block() {

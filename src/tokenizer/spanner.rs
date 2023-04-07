@@ -243,7 +243,12 @@ impl Lexer {
                             self.set_next_map_state();
                         }
                     }
-                    Some(b'-') => self.fetch_block_seq(reader, indent as usize),
+                    Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
+                        let new_indent = reader.col();
+                        reader.consume_bytes(1);
+            
+                        self.process_seq(new_indent, indent as usize);
+                    },
                     Some(b'?') => self.fetch_block_map_key(reader, indent as usize),
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => reader.read_block_scalar(
@@ -286,7 +291,12 @@ impl Lexer {
                     Some(b'[') => self.fetch_flow_seq(reader, indent as usize),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
-                    Some(b'-') => self.fetch_block_seq(reader, indent as usize),
+                    Some(b'-')  if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
+                        let new_indent = reader.col();
+                        reader.consume_bytes(1);
+            
+                        self.process_seq(new_indent, indent as usize);
+                    },
                     Some(b'?') => self.fetch_block_map_key(reader, indent as usize),
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => reader.read_block_scalar(
@@ -479,16 +489,6 @@ impl Lexer {
     #[inline]
     fn push_state(&mut self, state: LexerState) {
         self.stack.push(state);
-    }
-
-    fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
-        // move seq processing here
-        if reader.peek_byte2().map_or(false, is_white_tab_or_break) {
-            let new_indent = reader.col();
-            reader.consume_bytes(1);
-
-            self.process_seq(new_indent, indent);
-        };
     }
 
     fn fetch_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
