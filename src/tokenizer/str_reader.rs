@@ -354,12 +354,12 @@ impl<'r> Reader<()> for StrReader<'r> {
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
-                indentation = curr_state.indent(0) as usize + (len - b'0') as usize;
+                indentation = curr_state.indent() as usize + (len - b'0') as usize;
             }
             (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Keep;
-                indentation = curr_state.indent(0) as usize + (len - b'0') as usize;
+                indentation = curr_state.indent() as usize + (len - b'0') as usize;
             }
             (b'-', _) => {
                 self.consume_bytes(1);
@@ -371,7 +371,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
-                indentation = curr_state.indent(0) as usize + (len - b'0') as usize;
+                indentation = curr_state.indent() as usize + (len - b'0') as usize;
             }
             _ => {}
         }
@@ -397,7 +397,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
         while !self.eof() {
-            let curr_indent = curr_state.indent(0);
+            let curr_indent = curr_state.indent();
 
             match (self.peek_byte_unwrap(curr_indent as usize), curr_state) {
                 (b'-', BlockSeq(ind)) 
@@ -437,7 +437,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 self.read_line();
                 continue;
             } else {
-                match self.skip_n_spaces(indentation, curr_state.indent(0) as usize) {
+                match self.skip_n_spaces(indentation, curr_state.indent() as usize) {
                     Flow::Break => break,
                     Flow::Error(actual) => {
                         tokens.push_back(ErrorToken as usize);
