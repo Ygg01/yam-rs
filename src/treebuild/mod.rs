@@ -28,7 +28,7 @@ pub enum YamlToken<'a, TAG = ()> {
 impl<'a, TAG> Display for YamlToken<'a, TAG> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Scalar(val, _) => write!(f, "SCAL: {:?}", val),
+            Scalar(val, _) => write!(f, "SCAL: {:?}", val),
             Self::Sequence(val, _) => {
                 write!(f, "SEQ:")?;
                 for el in val {
@@ -68,6 +68,6 @@ impl<'a, TAG: Default> Default for Entry<'a, TAG> {
 }
 
 pub struct YamlTokenError<'a, T> {
-    partial: YamlToken<'a, T>,
-    error: Vec<ErrorType>,
+    _partial: YamlToken<'a, T>,
+    _error: Vec<ErrorType>,
 }

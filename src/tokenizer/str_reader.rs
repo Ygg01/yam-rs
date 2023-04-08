@@ -203,25 +203,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.col += amount;
         self.pos
     }
-    fn read_break(&mut self) -> Option<(usize, usize)> {
-        let start = self.pos;
-        if self.peek_byte_is(b'\n') {
-            self.pos += 1;
-            self.col = 0;
-            Some((start, start + 1))
-        } else if self.peek_byte_is(b'\r') {
-            let amount = match self.slice.get(start + 1) {
-                Some(b'\n') => 2,
-                _ => 1,
-            };
-            self.col = 0;
-            self.pos += amount;
-            Some((start, start + amount))
-        } else {
-            None
-        }
-    }
-
     #[inline(always)]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         if self.slice.len() < self.pos + needle.len() {
@@ -400,7 +381,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             let curr_indent = curr_state.indent();
 
             match (self.peek_byte_unwrap(curr_indent as usize), curr_state) {
-                (b'-', BlockSeq(ind)) 
+                (b'-', BlockSeq(ind))
                 | (b':', BlockMapExp(ind, _)) => {
                     if self.col + curr_indent as usize == *ind as usize {
                         self.consume_bytes((1 + curr_indent) as usize);
@@ -425,7 +406,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
             let newline_is_empty = self
                 .peek_byte_at(newline_indent)
-                .map_or(false, reader::is_newline)
+                .map_or(false, is_newline)
                 || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
 
             if indentation == 0 && newline_indent > 0 && !newline_is_empty {
@@ -609,6 +590,25 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_tag(&self) -> Option<(usize, usize)> {
         todo!()
+    }
+
+    fn read_break(&mut self) -> Option<(usize, usize)> {
+        let start = self.pos;
+        if self.peek_byte_is(b'\n') {
+            self.pos += 1;
+            self.col = 0;
+            Some((start, start + 1))
+        } else if self.peek_byte_is(b'\r') {
+            let amount = match self.slice.get(start + 1) {
+                Some(b'\n') => 2,
+                _ => 1,
+            };
+            self.col = 0;
+            self.pos += amount;
+            Some((start, start + amount))
+        } else {
+            None
+        }
     }
 }
 
