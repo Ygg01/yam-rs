@@ -13,7 +13,7 @@ pub(crate) fn _escape<F: Fn(u8) -> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> 
         if escaped.is_none() {
             escaped = Some(Vec::with_capacity(raw.len()));
         }
-        let escaped = escaped.as_mut().expect("Initialzied");
+        let escaped = escaped.as_mut().expect("Initialized");
         let new_pos = pos + i;
         escaped.extend(&raw[pos..new_pos]);
         match raw[new_pos] {
@@ -23,7 +23,7 @@ pub(crate) fn _escape<F: Fn(u8) -> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> 
             b'\n' => escaped.extend("\\n".as_bytes()),
             b'\'' => escaped.extend("\\'".as_bytes()),
             b'"' => escaped.extend("\\\"".as_bytes()),
-            _ => unreachable!("Only '\' are secaped"),
+            _ => unreachable!("Only '\' are escaped"),
         }
         pos = new_pos + 1;
     }

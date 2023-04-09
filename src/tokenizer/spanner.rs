@@ -212,28 +212,29 @@ impl Lexer {
                 }
             }
             RootBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
-                let (indent, init_indent) = match self.curr_state() {
-                    RootBlock => (0, reader.col() as u32),
-                    BlockMapExp(ind, _) => (ind, ind),
-                    BlockMap(ind, _) => (ind, reader.col() as u32),
+                let curr_state = self.curr_state();
+                let init_indent = match self.curr_state() {
+                    RootBlock =>  reader.col() as u32,
+                    BlockMapExp(ind, _) =>  ind,
+                    BlockMap(_, _) =>  reader.col() as u32,
                     _ => unsafe { unreachable_unchecked() },
                 };
-
+                let indent = curr_state.indent() as usize;
                 match reader.peek_byte() {
-                    Some(b'{') => self.fetch_flow_map(reader, indent as usize),
-                    Some(b'[') => self.fetch_flow_seq(reader, indent as usize),
+                    Some(b'{') => self.fetch_flow_map(reader, indent),
+                    Some(b'[') => self.fetch_flow_seq(reader, indent),
                     Some(b'&') => {
                         reader.consume_anchor_alias(&mut self.tokens, AnchorToken);
                     }
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
-                        self.process_colon(reader, indent);
+                        self.process_colon(reader);
                     }
                     Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
                         let new_indent = reader.col();
                         reader.consume_bytes(1);
 
-                        self.process_seq(new_indent, indent as usize);
+                        self.process_seq(new_indent, indent);
                     }
                     Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
                         self.fetch_exp_block_map_key(reader)
@@ -260,7 +261,7 @@ impl Lexer {
                     Some(peek_chr) => self.fetch_plain_scalar_block(
                         reader,
                         peek_chr,
-                        indent as usize,
+                        indent,
                         init_indent as usize,
                     ),
                     None => self.stream_end = true,
@@ -448,8 +449,9 @@ impl Lexer {
         }
     }
 
-    fn process_colon<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) {
+    fn process_colon<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
+        let indent = curr_state.indent();
         let col = reader.col();
         reader.consume_bytes(1);
 
@@ -466,7 +468,7 @@ impl Lexer {
             self.tokens.push_back(ErrorToken as usize);
             self.errors.push(ExpectedIndent {
                 actual: col,
-                expected: curr_state.indent() as usize,
+                expected: indent as usize,
             });
             self.set_next_map_state();
         } else {
