@@ -213,16 +213,10 @@ impl Lexer {
             }
             RootBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                 let curr_state = self.curr_state();
-                let init_indent = match self.curr_state() {
-                    RootBlock =>  reader.col() as u32,
-                    BlockMapExp(ind, _) =>  ind,
-                    BlockMap(_, _) =>  reader.col() as u32,
-                    _ => unsafe { unreachable_unchecked() },
-                };
-                let indent = curr_state.indent() as usize;
+                let state_indent = curr_state.indent() as usize;
                 match reader.peek_byte() {
-                    Some(b'{') => self.fetch_flow_map(reader, indent),
-                    Some(b'[') => self.fetch_flow_seq(reader, indent),
+                    Some(b'{') => self.fetch_flow_map(reader, state_indent),
+                    Some(b'[') => self.fetch_flow_seq(reader, state_indent),
                     Some(b'&') => {
                         reader.consume_anchor_alias(&mut self.tokens, AnchorToken);
                     }
@@ -234,7 +228,7 @@ impl Lexer {
                         let new_indent = reader.col();
                         reader.consume_bytes(1);
 
-                        self.process_seq(new_indent, indent);
+                        self.process_seq(new_indent, state_indent);
                     }
                     Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
                         self.fetch_exp_block_map_key(reader)
@@ -258,12 +252,7 @@ impl Lexer {
                         // comment
                         reader.read_line();
                     }
-                    Some(peek_chr) => self.fetch_plain_scalar_block(
-                        reader,
-                        peek_chr,
-                        indent,
-                        init_indent as usize,
-                    ),
+                    Some(peek) => self.fetch_plain_scalar_block(reader, peek, state_indent),
                     None => self.stream_end = true,
                 }
             }
@@ -301,12 +290,9 @@ impl Lexer {
                         // comment
                         reader.read_line();
                     }
-                    Some(peek_chr) => self.fetch_plain_scalar_block(
-                        reader,
-                        peek_chr,
-                        indent as usize,
-                        indent as usize,
-                    ),
+                    Some(peek_chr) => {
+                        self.fetch_plain_scalar_block(reader, peek_chr, indent as usize)
+                    }
                     None => self.stream_end = true,
                 }
             }
@@ -524,8 +510,7 @@ impl Lexer {
         &mut self,
         reader: &mut R,
         peek_chr: u8,
-        start_indent: usize,
-        init_indent: usize,
+        state_indent: usize,
     ) {
         if peek_chr == b']' || peek_chr == b'}' && peek_chr == b'@' {
             reader.consume_bytes(1);
@@ -535,9 +520,13 @@ impl Lexer {
         }
         let mut is_multiline = false;
         let mut ends_with = b'\x7F';
+        let init_indent = match self.curr_state() {
+            BlockMapExp(ind, _) => ind as usize,
+            _ => reader.col(),
+        };
         let scalar_tokens = self.get_plain_scalar(
             reader,
-            start_indent,
+            state_indent,
             init_indent,
             &mut is_multiline,
             &mut ends_with,
