@@ -383,7 +383,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             match (self.peek_byte_unwrap(curr_indent as usize), curr_state) {
                 (b'-', BlockSeq(ind)) | (b':', BlockMapExp(ind, _)) => {
                     if self.col + curr_indent as usize == *ind as usize {
-                        self.consume_bytes((1 + curr_indent) as usize);
+                        self.consume_bytes((curr_indent) as usize);
                         break;
                     }
                 }

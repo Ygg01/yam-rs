@@ -6,8 +6,6 @@ use std::hint::unreachable_unchecked;
 use ErrorType::ExpectedIndent;
 use LexerState::PreDocStart;
 
-use crate::tokenizer::ErrorType;
-use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::LexerState::{
     AfterDocEnd, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, FlowKeyExp, FlowMap,
@@ -16,6 +14,8 @@ use crate::tokenizer::spanner::LexerState::{
 use crate::tokenizer::spanner::LexerToken::*;
 use crate::tokenizer::spanner::MapState::{AfterColon, BeforeColon, BeforeKey};
 use crate::tokenizer::spanner::SeqState::{BeforeSeq, InSeq};
+use crate::tokenizer::ErrorType;
+use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{is_flow_indicator, is_newline};
@@ -228,18 +228,25 @@ impl Lexer {
                         self.fetch_exp_block_map_key(reader)
                     }
                     Some(b'!') => self.fetch_tag(reader),
-                    Some(b'|') => reader.read_block_scalar(
-                        true,
-                        &self.curr_state(),
-                        &mut self.tokens,
-                        &mut self.errors,
-                    ),
-                    Some(b'>') => reader.read_block_scalar(
-                        false,
-                        &self.curr_state(),
-                        &mut self.tokens,
-                        &mut self.errors,
-                    ),
+                    Some(b'|') => {
+                        reader.read_block_scalar(
+                            true,
+                            &self.curr_state(),
+                            &mut self.tokens,
+                            &mut self.errors,
+                        );
+                        self.set_next_map_state();
+                    }
+
+                    Some(b'>') => {
+                        reader.read_block_scalar(
+                            false,
+                            &self.curr_state(),
+                            &mut self.tokens,
+                            &mut self.errors,
+                        );
+                        self.set_next_map_state();
+                    }
                     Some(b'\'') => reader.read_single_quote(false, &mut self.tokens),
                     Some(b'"') => reader.read_double_quote(false, &mut self.tokens),
                     Some(b'#') => {
@@ -429,7 +436,7 @@ impl Lexer {
                     _ => continue,
                 };
                 self.tokens.push_back(x as usize);
-            }            
+            }
         }
     }
 
@@ -488,7 +495,7 @@ impl Lexer {
 
     #[inline]
     fn pop_state(&mut self) -> Option<LexerState> {
-        let x = self.stack.pop();        
+        let x = self.stack.pop();
         if let Some(state) = self.stack.last_mut() {
             if state == &DocBlock {
                 *state = AfterDocEnd;
@@ -561,40 +568,40 @@ impl Lexer {
     fn process_map(&mut self, init_indent: usize, scalar_tokens: Vec<usize>, chr: u8) {
         match self.curr_state() {
             BlockMap(indent, BeforeKey) | BlockMapExp(indent, _)
-            if init_indent == indent as usize =>
-                {
-                    self.set_next_map_state();
-                    self.tokens.extend(scalar_tokens);
-                }
+                if init_indent == indent as usize =>
+            {
+                self.set_next_map_state();
+                self.tokens.extend(scalar_tokens);
+            }
             BlockMap(indent, BeforeColon) | BlockMapExp(indent, _)
-            if init_indent > indent as usize =>
-                {
-                    self.set_next_map_state();
-                    self.push_state(BlockMap(init_indent as u32, BeforeKey));
-                    self.tokens.push_back(MappingStart as usize);
-                    self.tokens.extend(scalar_tokens);
-                }
+                if init_indent > indent as usize =>
+            {
+                self.set_next_map_state();
+                self.push_state(BlockMap(init_indent as u32, BeforeKey));
+                self.tokens.push_back(MappingStart as usize);
+                self.tokens.extend(scalar_tokens);
+            }
             BlockMap(indent, AfterColon) | BlockMapExp(indent, _)
-            if indent as usize == init_indent =>
-                {
-                    self.push_empty_token();
-                    self.tokens.extend(scalar_tokens);
-                    self.set_map_state(BeforeColon);
-                }
+                if indent as usize == init_indent =>
+            {
+                self.push_empty_token();
+                self.tokens.extend(scalar_tokens);
+                self.set_map_state(BeforeColon);
+            }
             BlockMap(indent, AfterColon) | BlockMapExp(indent, _)
-            if init_indent > indent as usize && chr == b':' =>
-                {
-                    self.set_next_map_state();
-                    self.tokens.push_back(MappingStart as usize);
-                    self.push_state(BlockMap(init_indent as u32, BeforeColon));
-                    self.tokens.extend(scalar_tokens);
-                }
+                if init_indent > indent as usize && chr == b':' =>
+            {
+                self.set_next_map_state();
+                self.tokens.push_back(MappingStart as usize);
+                self.push_state(BlockMap(init_indent as u32, BeforeColon));
+                self.tokens.extend(scalar_tokens);
+            }
             BlockMap(indent, AfterColon) | BlockMapExp(indent, _)
-            if init_indent > indent as usize =>
-                {
-                    self.set_next_map_state();
-                    self.tokens.extend(scalar_tokens);
-                }
+                if init_indent > indent as usize =>
+            {
+                self.set_next_map_state();
+                self.tokens.extend(scalar_tokens);
+            }
             state if !matches!(state, BlockMap(_, _) | BlockMapExp(_, _)) => {
                 self.push_state(BlockMap(init_indent as u32, BeforeColon));
                 self.tokens.push_back(MappingStart as usize);
@@ -658,9 +665,7 @@ impl Lexer {
                         self.push_empty_token();
                         self.tokens.push_back(MAP_END)
                     }
-                    Some(BlockMap(_, _) | BlockMapExp(_, _)) => {
-                        self.tokens.push_back(MAP_END)
-                    }
+                    Some(BlockMap(_, _) | BlockMapExp(_, _)) => self.tokens.push_back(MAP_END),
                     _ => {}
                 }
             }
@@ -931,7 +936,7 @@ pub enum LexerToken {
     /// Start of implicit Document
     DocumentStart = DOC_START,
     /// Start of explicit Document
-    DocumentStartExplicit  = DOC_START_EXP,
+    DocumentStartExplicit = DOC_START_EXP,
     /// End of implicit document.
     DocumentEnd = DOC_END,
     /// End of explicit document.
