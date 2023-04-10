@@ -104,7 +104,9 @@ pub enum Event<'a> {
     DocStart {
         explicit: bool,
     },
-    DocEnd,
+    DocEnd {
+        explicit: bool,
+    },
     SeqStart {
         flow: bool,
     },
@@ -134,8 +136,9 @@ impl<'a> Display for Event<'a> {
                 let exp_str = if *explicit { " ---" } else { "" };
                 write!(f, "+DOC{}", exp_str)
             }
-            Event::DocEnd => {
-                write!(f, "-DOC")
+            Event::DocEnd { explicit } => {
+                let exp_str = if *explicit { " ---" } else { "" };
+                write!(f, "-DOC{}", exp_str)
             }
             Event::SeqStart { flow } => {
                 let flow_str = if *flow { " []" } else { "" };
@@ -223,12 +226,11 @@ where
                     }
                     DocumentStart => {
                         self.indent += 1;
-                        return Some((
-                            DocStart {
-                                explicit: self.state.directive,
-                            },
-                            curr_indent,
-                        ));
+                        return Some((DocStart { explicit: false }, curr_indent));
+                    }
+                    DocumentStartExplicit => {
+                        self.indent += 1;
+                        return Some((DocStart { explicit: true }, curr_indent));
                     }
                     SequenceEnd => {
                         self.indent -= 1;
@@ -240,7 +242,11 @@ where
                     }
                     DocumentEnd => {
                         self.indent -= 1;
-                        return Some((DocEnd, self.indent));
+                        return Some((DocEnd { explicit: false }, self.indent));
+                    }
+                    DocumentEndExplicit => {
+                        self.indent -= 1;
+                        return Some((DocEnd { explicit: true }, self.indent));
                     }
                     ErrorToken => return Some((ErrorEvent, curr_indent)),
                     DirectiveReserved | DirectiveTag | DirectiveYaml => {

@@ -9,8 +9,7 @@ const EMPTY_DOC_ERR_INPUT: &str = r#"
 "#;
 const EMPTY_DOC_ERR_EXPECTED: &str = r#"
  %YAML 1.3
- ERR
--DOC"#;
+ ERR"#;
 
 const EMPTY_DOC_INPUT: &str = r#"
 %YAML 1.2
@@ -259,4 +258,22 @@ const SIMPLE_DOC_EXPECTED: &str = r#"
 #[test]
 fn simple_doc() {
     assert_eq_event(SIMPLE_DOC, SIMPLE_DOC_EXPECTED);
+}
+
+const SEQ_ERR: &str = r#"
+---
+[a, b] ]"#;
+
+const SEQ_ERR_EXPECTED: &str = r#"
+ +DOC ---
+  +SEQ []
+   =VAL :a
+   =VAL :b
+  -SEQ
+ -DOC
+ ERR"#;
+
+#[test]
+fn doc_end_err() {
+    assert_eq_event(SEQ_ERR, SEQ_ERR_EXPECTED);
 }
