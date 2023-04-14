@@ -277,3 +277,24 @@ const SEQ_ERR_EXPECTED: &str = r#"
 fn doc_end_err() {
     assert_eq_event(SEQ_ERR, SEQ_ERR_EXPECTED);
 }
+
+const SEQ_KEY: &str = r#"
+[a, b]: 3"#;
+
+
+const SEQ_KEY_EXPECTED: &str = r#"
+ +DOC 
+  +MAP
+   +SEQ []
+    =VAL :a
+    =VAL :b
+   -SEQ
+   =VAL :3
+  -MAP
+ +DOC"#;
+
+ #[test]
+fn seq_as_key() {
+  assert_eq_event(SEQ_KEY, SEQ_KEY_EXPECTED);
+}
+
