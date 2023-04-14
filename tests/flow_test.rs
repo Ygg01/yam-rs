@@ -279,11 +279,10 @@ fn doc_end_err() {
 }
 
 const SEQ_KEY: &str = r#"
-[a, b]: 3"#;
-
+[a, b]: 3 "#;
 
 const SEQ_KEY_EXPECTED: &str = r#"
- +DOC 
+ +DOC
   +MAP
    +SEQ []
     =VAL :a
@@ -291,10 +290,9 @@ const SEQ_KEY_EXPECTED: &str = r#"
    -SEQ
    =VAL :3
   -MAP
- +DOC"#;
+ -DOC"#;
 
- #[test]
+#[test]
 fn seq_as_key() {
-  assert_eq_event(SEQ_KEY, SEQ_KEY_EXPECTED);
+    assert_eq_event(SEQ_KEY, SEQ_KEY_EXPECTED);
 }
-
