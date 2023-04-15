@@ -346,11 +346,7 @@ impl Lexer {
             Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
             Some(b'[') => self.fetch_flow_seq(reader, (indent + 1) as usize),
             Some(b'{') => self.fetch_flow_map(reader, (indent + 1) as usize),
-            Some(b']') => {
-                reader.consume_bytes(1);
-                self.tokens.push_back(SEQ_END);
-                self.pop_state();
-            }
+            Some(b']') => {}
             Some(b':') if seq_state == BeforeSeq => {
                 self.tokens.push_back(MAP_START);
                 self.push_empty_token();
@@ -364,7 +360,6 @@ impl Lexer {
             }
             Some(b',') => {
                 reader.consume_bytes(1);
-                self.tokens.push_back(ScalarEnd as usize);
                 self.set_curr_state(FlowSeq(indent, BeforeSeq));
             }
             Some(b'\'') => {
@@ -480,26 +475,35 @@ impl Lexer {
         reader.consume_bytes(1);
         self.push_state(FlowSeq(indent as u32, BeforeSeq));
 
+        let pos = self.tokens.len();
+        self.tokens.push_back(SEQ_START);
+
         while !reader.eof() {
             reader.skip_separation_spaces(true);
+            let curr_state = self.curr_state();
 
-            match self.curr_state() {
+            match curr_state {
                 FlowSeq(indent, seq_state) => self.parse_flow_seq(reader, indent, seq_state),
                 FlowMap(indent, _) | FlowKeyExp(indent, _) => self.parse_flow_map(reader, indent),
                 _ => break,
             }
-        }
 
-        reader.count_space_tab(true);
+            if matches!(curr_state, FlowSeq(_, _)) && reader.peek_byte_is(b']') {
+                reader.consume_bytes(1);
+                self.tokens.push_back(SEQ_END);
+                self.pop_state();
 
-        if !reader.peek_byte_is(b':') {
-            self.tokens.push_front(SEQ_START);
-        } else {
-            reader.consume_bytes(1);
-            self.tokens.push_front(SEQ_START);
-            self.tokens.push_front(MAP_START_BLOCK);
-            // self.tokens.push_back(SEQ_END);
-            self.push_state(FlowMap(indent as u32, AfterColon))
+                if matches!(curr_state, FlowSeq(_, _))
+                    && !matches!(self.curr_state(), FlowKeyExp(_, _) | FlowMap(_, _))
+                {
+                    if let Some(amount) = reader.peek_non_space_byte(b':') {
+                        reader.consume_bytes(amount);
+                        self.tokens.insert(pos, MAP_START_BLOCK);
+                        self.push_state(FlowMap(indent as u32, AfterColon));
+                    }
+                }
+                break;
+            }
         }
     }
 

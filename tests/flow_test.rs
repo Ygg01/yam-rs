@@ -292,7 +292,26 @@ const SEQ_KEY_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
+
+ const SEQ_KEY2: &str = r#"
+[a, [b,c]]: 3 "#;
+
+const SEQ_KEY2_EXPECTED: &str = r#"
+ +DOC
+  +MAP
+   +SEQ []
+    =VAL :a
+    +SEQ []
+     =VAL :b
+     =VAL :c
+    -SEQ
+   -SEQ
+   =VAL :3
+  -MAP
+ -DOC"#;
+
 #[test]
 fn seq_as_key() {
     assert_eq_event(SEQ_KEY, SEQ_KEY_EXPECTED);
+    assert_eq_event(SEQ_KEY2, SEQ_KEY2_EXPECTED);
 }
