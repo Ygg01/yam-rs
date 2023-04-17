@@ -173,8 +173,7 @@ const BLOCK_PLAIN_EXPECTED: &str = r#"
  +DOC
   =VAL :a b c d e
  -DOC"#;
- 
- 
+
 const BLOCK_PLAIN2: &str = r#"
 a
 b  
@@ -185,11 +184,10 @@ e
 
 "#;
 
- const BLOCK_PLAIN2_EXPECTED: &str = r#"
+const BLOCK_PLAIN2_EXPECTED: &str = r#"
  +DOC
   =VAL :a b c d\ne
  -DOC"#;
-
 
 #[test]
 pub fn plain_block() {

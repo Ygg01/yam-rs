@@ -26,7 +26,7 @@ pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
     /// Reader type that usually implements a [Reader] trait which takes a Buffer type [B]
     pub(crate) reader: R,
     /// Lexer which controls current state of parsing
-    pub(crate) state: Lexer,
+    pub(crate) state: Lexer<'a>,
     /// Current event indentation level
     pub indent: usize,
     /// Helper to store the unconstrained types
