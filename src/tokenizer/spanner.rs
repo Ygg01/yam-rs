@@ -543,13 +543,13 @@ impl Lexer {
 
     #[inline]
     fn pop_state(&mut self) -> Option<LexerState> {
-        let x = self.stack.pop();
+        let pop_state = self.stack.pop();
         if let Some(state) = self.stack.last_mut() {
             if state == &DocBlock {
                 *state = AfterDocEnd;
             }
         };
-        x
+        pop_state
     }
 
     fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R) {
