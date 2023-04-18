@@ -644,62 +644,77 @@ impl Lexer {
         );
         let chr = reader.peek_byte().unwrap_or(b'\0');
         if chr == b':' || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _)) {
-            self.process_map(scalar_start, scalar_tokens, ends_with);
+            self.process_map(scalar_start, is_multiline, scalar_tokens, ends_with);
         } else {
             self.tokens.extend(scalar_tokens);
             self.set_next_map_state();
         }
     }
 
-    fn process_map(&mut self, init_indent: usize, scalar_tokens: Vec<usize>, chr: u8) {
+    fn process_map(
+        &mut self,
+        scalar_start: usize,
+        is_multiline: bool,
+        scalar_tokens: Vec<usize>,
+        ends_with: u8,
+    ) {
         match self.curr_state() {
-            BlockMap(indent, BeforeKey) | BlockMapExp(indent, _)
-                if init_indent == indent as usize =>
-            {
+            BlockMap(indent, BeforeKey) if scalar_start == indent as usize => {
+                self.set_next_map_state();
+                if ends_with != b':' {
+                    self.tokens.push_back(ERROR_TOKEN);
+                }
+                self.tokens.extend(scalar_tokens);
+            }
+            BlockMapExp(indent, _) if scalar_start == indent as usize => {
                 self.set_next_map_state();
                 self.tokens.extend(scalar_tokens);
             }
             BlockMap(indent, BeforeColon) | BlockMapExp(indent, _)
-                if init_indent > indent as usize =>
+                if scalar_start > indent as usize =>
             {
                 self.set_next_map_state();
-                let state = BlockMap(init_indent as u32, BeforeKey);
+                let state = BlockMap(scalar_start as u32, BeforeKey);
                 self.stack.push(state);
                 self.tokens.push_back(MAP_START_BLOCK);
                 self.tokens.extend(scalar_tokens);
             }
             BlockMap(indent, AfterColon) | BlockMapExp(indent, _)
-                if indent as usize == init_indent =>
+                if indent as usize == scalar_start =>
             {
                 self.push_empty_token();
                 self.tokens.extend(scalar_tokens);
                 self.set_map_state(BeforeColon);
             }
             BlockMap(indent, AfterColon) | BlockMapExp(indent, _)
-                if init_indent > indent as usize && chr == b':' =>
+                if scalar_start > indent as usize && ends_with == b':' =>
             {
                 self.set_next_map_state();
                 self.tokens.push_back(MAP_START_BLOCK);
-                let state = BlockMap(init_indent as u32, BeforeColon);
+                let state = BlockMap(scalar_start as u32, BeforeColon);
                 self.stack.push(state);
                 self.tokens.extend(scalar_tokens);
             }
             BlockMap(indent, AfterColon) | BlockMapExp(indent, _)
-                if init_indent > indent as usize =>
+                if scalar_start > indent as usize =>
             {
                 self.set_next_map_state();
                 self.tokens.extend(scalar_tokens);
             }
             state if !matches!(state, BlockMap(_, _) | BlockMapExp(_, _)) => {
-                let state1 = BlockMap(init_indent as u32, BeforeColon);
+                let state1 = BlockMap(scalar_start as u32, BeforeColon);
                 self.stack.push(state1);
+                if is_multiline {
+                    self.tokens.push_back(ERROR_TOKEN);
+                    self.errors.push(ErrorType::ImplicitKeysNeedToBeInline);
+                }
                 self.tokens.push_back(MAP_START_BLOCK);
                 self.tokens.extend(scalar_tokens);
             }
             _ => {
                 self.unwind_nested_blocks(
-                    init_indent,
-                    init_indent,
+                    scalar_start,
+                    scalar_start,
                     |state, indent| matches!(state, BlockMap(ind, _) | BlockMapExp(ind, _) if ind as usize == indent),
                 );
                 self.tokens.extend(scalar_tokens);

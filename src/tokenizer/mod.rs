@@ -23,6 +23,7 @@ pub enum ErrorType {
     ExpectedNewline,
     ExpectedNewlineInFolded,
     DirectiveEndMark,
+    ImplicitKeysNeedToBeInline,
     ExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
     TagNotTerminated,

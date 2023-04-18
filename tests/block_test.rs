@@ -154,7 +154,7 @@ const BLOCK_STRINGS_EXPECTED3: &str = r#"
   -MAP
  -DOC"#;
 
- const BLOCK_STRINGS_INPUT4: &str = r#"
+const BLOCK_STRINGS_INPUT4: &str = r#"
 plain: 
   spans
   lines
@@ -180,8 +180,6 @@ pub fn literal_block() {
     assert_eq_event(BLOCK_STRINGS_INPUT3, BLOCK_STRINGS_EXPECTED3);
     assert_eq_event(BLOCK_STRINGS_INPUT4, BLOCK_STRINGS_EXPECTED4);
 }
-
-
 
 const BLOCK_PLAIN: &str = r#"
   a
@@ -211,10 +209,34 @@ const BLOCK_PLAIN2_EXPECTED: &str = r#"
   =VAL :a b c d\ne
  -DOC"#;
 
+
 #[test]
 pub fn plain_block() {
     assert_eq_event(BLOCK_PLAIN, BLOCK_PLAIN_EXPECTED);
     assert_eq_event(BLOCK_PLAIN2, BLOCK_PLAIN2_EXPECTED);
+}
+
+const BLOCK_FOLDED: &str = r#"
+>
+ a
+ b
+ 
+ c
+ 
+ 
+ d
+"#;
+
+const BLOCK_FOLDED_EVENTS: &str = r#"
++DOC
+ =VAL >a b\nc\n\nd
+-DOC"#;
+
+
+#[test]
+pub fn plain_fold() {
+  assert_eq_event(BLOCK_FOLDED, BLOCK_FOLDED_EVENTS);
+
 }
 
 const BLOCK_PLAIN_MULTI: &str = r#"
@@ -509,6 +531,40 @@ const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &str = r#"
 pub fn explicit_block_map_err() {
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR1, EXPLICIT_BLOCK_MAP_ERR1_EXPECTED);
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR2, EXPLICIT_BLOCK_MAP_ERR2_EXPECTED);
+}
+
+const ERR_MULTILINE_KEY: &str = "
+invalid
+ key :  x";
+
+const ERR_MULTILINE_KEY_EVENT: &str = "
+ +DOC
+  ERR
+  +MAP
+   =VAL :invalid key
+   =VAL :x
+  -MAP
+ -DOC";
+
+const ERR_INVALID_KEY: &str = "
+a:
+  b
+c";
+
+const ERR_INVALID_EVENT: &str = "
+ +DOC
+  +MAP
+   =VAL :a
+   =VAL :b
+   ERR
+   =VAL :c
+  -MAP
+ -DOC";
+
+#[test]
+pub fn block_map_err() {
+    assert_eq_event(ERR_MULTILINE_KEY, ERR_MULTILINE_KEY_EVENT);
+    assert_eq_event(ERR_INVALID_KEY, ERR_INVALID_EVENT);
 }
 
 const COMPLEX_BLOCK_KEY: &str = r##"
