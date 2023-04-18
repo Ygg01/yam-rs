@@ -224,19 +224,17 @@ const BLOCK_FOLDED: &str = r#"
  c
  
  
- d
-"#;
+ d"#;
 
 const BLOCK_FOLDED_EVENTS: &str = r#"
-+DOC
- =VAL >a b\nc\n\nd
--DOC"#;
+ +DOC
+  =VAL >a b\nc\n\nd\n
+ -DOC"#;
 
 
 #[test]
 pub fn plain_fold() {
   assert_eq_event(BLOCK_FOLDED, BLOCK_FOLDED_EVENTS);
-
 }
 
 const BLOCK_PLAIN_MULTI: &str = r#"
