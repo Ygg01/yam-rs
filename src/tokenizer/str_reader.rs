@@ -3,17 +3,17 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{RangeFrom, RangeInclusive};
 use std::usize;
 
-use memchr::memchr3_iter;
+use memchr::{memchr, memchr3_iter};
 
 use reader::{is_flow_indicator, ns_plain_safe};
 use ErrorType::ExpectedIndent;
 
 use crate::tokenizer::reader::{
-    is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
+    is_indicator, is_uri_char, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
 use crate::tokenizer::spanner::LexerState;
 use crate::tokenizer::spanner::LexerState::{BlockMapExp, BlockSeq};
-use crate::tokenizer::ErrorType::UnexpectedComment;
+use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, LexerToken, Reader, Slicer};
 
@@ -598,8 +598,16 @@ impl<'r> Reader<()> for StrReader<'r> {
         tokens.push_back(end);
     }
 
-    fn read_tag(&self) -> Option<(usize, usize)> {
-        todo!()
+    fn read_tag(&self) -> Result<(usize, usize), ErrorType> {
+        if let Some(mid) = memchr(b'!', &self.slice[self.pos..]) {
+            let mid = self.pos + mid + 1;
+            let end = self.slice[mid..]
+                .iter()
+                .position(|c| !is_uri_char(*c))
+                .unwrap_or(self.slice.len() - self.pos);
+            return Ok((mid, mid + end));
+        }
+        Err(TagNotTerminated)
     }
 
     fn read_break(&mut self) -> Option<(usize, usize)> {

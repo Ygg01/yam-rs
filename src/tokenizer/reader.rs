@@ -104,7 +104,7 @@ pub trait Reader<B> {
     fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken);
-    fn read_tag(&self) -> Option<(usize, usize)>;
+    fn read_tag(&self) -> Result<(usize, usize), ErrorType>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
 }
 
@@ -165,4 +165,15 @@ pub(crate) fn is_indicator(chr: u8) -> bool {
         | b'|' | b'>' | b'\'' | b'"' | b'%' | b'@' | b'`' => true,
         _ => false,
     }
+}
+
+#[inline]
+pub(crate) fn is_uri_char(chr: u8) -> bool {
+    chr == b'!'
+        || chr == b']'
+        || chr == b'_'
+        || (b'#'..=b'+').contains(&chr)
+        || (b'-'..=b';').contains(&chr)
+        || (b'?'..=b'[').contains(&chr)
+        || chr.is_ascii_lowercase()
 }

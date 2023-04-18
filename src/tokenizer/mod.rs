@@ -25,6 +25,7 @@ pub enum ErrorType {
     DirectiveEndMark,
     ExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
+    TagNotTerminated,
     UnexpectedEndOfScalar,
     DuplicateKey,
 }
