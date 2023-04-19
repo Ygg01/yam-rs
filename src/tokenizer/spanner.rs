@@ -63,8 +63,9 @@ impl MapState {
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum SeqState {
+    BeforeFirstElem,
     #[default]
-    BeforeSeq,
+    BeforeElem,
     InSeq,
 }
 
@@ -394,7 +395,12 @@ impl Lexer {
             Some(b'[') => self.fetch_flow_seq(reader, (indent + 1) as usize),
             Some(b'{') => self.fetch_flow_map(reader, (indent + 1) as usize),
             Some(b']') => {}
-            Some(b':') if seq_state == BeforeSeq => {
+            Some(b'-') if seq_state == BeforeFirstElem => {
+                reader.consume_bytes(1);
+                self.tokens.push_back(ERROR_TOKEN);
+                self.errors.push(UnexpectedSymbol('-'));
+            }
+            Some(b':') if seq_state != InSeq => {
                 self.tokens.push_back(MAP_START);
                 self.push_empty_token();
                 self.set_curr_state(FlowSeq(indent, InSeq));
