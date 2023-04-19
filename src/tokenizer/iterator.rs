@@ -229,7 +229,7 @@ impl<'a> Display for Event<'a> {
             }
             Event::Alias(value) => {
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                write!(f, "=ALI {}", val_str)
+                write!(f, "=ALI *{}", val_str)
             }
         }
     }
