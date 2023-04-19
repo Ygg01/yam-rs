@@ -109,7 +109,7 @@ pub trait Reader<B> {
 }
 
 #[inline]
-pub fn is_tab_space(pos: usize, chr: u8, allow_tab: bool) -> ControlFlow<usize, usize> {
+pub const fn is_tab_space(pos: usize, chr: u8, allow_tab: bool) -> ControlFlow<usize, usize> {
     if chr == b' ' || (allow_tab && chr == b'\t') {
         Continue(pos + 1)
     } else {
@@ -118,7 +118,7 @@ pub fn is_tab_space(pos: usize, chr: u8, allow_tab: bool) -> ControlFlow<usize, 
 }
 
 #[inline]
-pub(crate) fn is_white_tab_or_break(chr: u8) -> bool {
+pub(crate) const fn is_white_tab_or_break(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => true,
         _ => false,
@@ -126,7 +126,7 @@ pub(crate) fn is_white_tab_or_break(chr: u8) -> bool {
 }
 
 #[inline]
-pub(crate) fn ns_plain_safe(chr: u8, in_flow: bool) -> bool {
+pub(crate) const fn ns_plain_safe(chr: u8, in_flow: bool) -> bool {
     match chr {
         b'\0' | b' ' | b'\t' | b'\r' | b'\n' => false,
         b',' | b'[' | b']' | b'{' | b'}' if in_flow => false,
@@ -135,7 +135,7 @@ pub(crate) fn ns_plain_safe(chr: u8, in_flow: bool) -> bool {
 }
 
 #[inline]
-pub(crate) fn is_white_tab(chr: u8) -> bool {
+pub(crate) const fn is_white_tab(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' => true,
         _ => false,
@@ -143,7 +143,7 @@ pub(crate) fn is_white_tab(chr: u8) -> bool {
 }
 
 #[inline]
-pub(crate) fn is_newline(chr: u8) -> bool {
+pub(crate) const fn is_newline(chr: u8) -> bool {
     match chr {
         b'\r' | b'\n' => true,
         _ => false,
@@ -151,7 +151,7 @@ pub(crate) fn is_newline(chr: u8) -> bool {
 }
 
 #[inline]
-pub(crate) fn is_flow_indicator(chr: u8) -> bool {
+pub(crate) const fn is_flow_indicator(chr: u8) -> bool {
     match chr {
         b',' | b'[' | b']' | b'{' | b'}' => true,
         _ => false,
@@ -159,7 +159,7 @@ pub(crate) fn is_flow_indicator(chr: u8) -> bool {
 }
 
 #[inline]
-pub(crate) fn is_indicator(chr: u8) -> bool {
+pub(crate) const fn is_indicator(chr: u8) -> bool {
     match chr {
         b'-' | b'?' | b':' | b',' | b'[' | b']' | b'{' | b'}' | b'#' | b'&' | b'*' | b'!'
         | b'|' | b'>' | b'\'' | b'"' | b'%' | b'@' | b'`' => true,
