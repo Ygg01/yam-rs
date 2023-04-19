@@ -6,6 +6,7 @@ use std::hint::unreachable_unchecked;
 
 use ErrorType::ExpectedIndent;
 use LexerState::PreDocStart;
+use SeqState::BeforeFirstElem;
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::LexerState::{
@@ -14,33 +15,21 @@ use crate::tokenizer::spanner::LexerState::{
 };
 use crate::tokenizer::spanner::LexerToken::*;
 use crate::tokenizer::spanner::MapState::{AfterColon, BeforeColon, BeforeKey};
-use crate::tokenizer::spanner::SeqState::{BeforeSeq, InSeq};
+use crate::tokenizer::spanner::SeqState::{BeforeElem, InSeq};
 use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{is_flow_indicator, is_newline};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Lexer {
     pub stream_end: bool,
     pub(crate) tokens: VecDeque<usize>,
     pub(crate) errors: Vec<ErrorType>,
     pub(crate) tags: HashMap<Vec<u8>, (usize, usize)>,
     stack: Vec<LexerState>,
-}
-
-impl Default for Lexer {
-    fn default() -> Self {
-        let tags = HashMap::with_capacity(10);
-        Lexer {
-            stream_end: false,
-            tokens: VecDeque::with_capacity(10),
-            errors: vec![],
-            tags,
-            stack: vec![],
-        }
-    }
+    col_start: usize,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
@@ -256,8 +245,8 @@ impl Lexer {
                 let curr_state = self.curr_state();
                 let state_indent = curr_state.indent() as usize;
                 match reader.peek_byte() {
-                    Some(b'{') => self.fetch_flow_map(reader, state_indent),
-                    Some(b'[') => self.fetch_flow_seq(reader, state_indent),
+                    Some(b'{') => self.read_flow_map(reader, state_indent),
+                    Some(b'[') => self.read_flow_seq(reader, state_indent),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
@@ -307,8 +296,8 @@ impl Lexer {
             }
             BlockSeq(indent) => {
                 match reader.peek_byte() {
-                    Some(b'{') => self.fetch_flow_map(reader, indent as usize),
-                    Some(b'[') => self.fetch_flow_seq(reader, indent as usize),
+                    Some(b'{') => self.read_flow_map(reader, indent as usize),
+                    Some(b'[') => self.read_flow_seq(reader, indent as usize),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
@@ -392,8 +381,8 @@ impl Lexer {
         match reader.peek_byte() {
             Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
             Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
-            Some(b'[') => self.fetch_flow_seq(reader, (indent + 1) as usize),
-            Some(b'{') => self.fetch_flow_map(reader, (indent + 1) as usize),
+            Some(b'[') => self.read_flow_seq(reader, (indent + 1) as usize),
+            Some(b'{') => self.read_flow_map(reader, (indent + 1) as usize),
             Some(b']') => {}
             Some(b'-') if seq_state == BeforeFirstElem => {
                 reader.consume_bytes(1);
@@ -414,7 +403,7 @@ impl Lexer {
             }
             Some(b',') => {
                 reader.consume_bytes(1);
-                self.set_curr_state(FlowSeq(indent, BeforeSeq));
+                self.set_curr_state(FlowSeq(indent, BeforeElem));
             }
             Some(b'\'') => self.process_quote(reader),
             Some(b'"') => self.process_double_quote(reader),
@@ -438,11 +427,11 @@ impl Lexer {
             Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
             Some(b'[') => {
                 self.set_next_map_state();
-                self.fetch_flow_seq(reader, (indent + 1) as usize);
+                self.read_flow_seq(reader, (indent + 1) as usize);
             }
             Some(b'{') => {
                 self.set_next_map_state();
-                self.fetch_flow_map(reader, (indent + 1) as usize)
+                self.read_flow_map(reader, (indent + 1) as usize)
             }
             Some(b'}') => {
                 reader.consume_bytes(1);
@@ -550,9 +539,9 @@ impl Lexer {
         self.tokens.extend(tokens);
     }
 
-    fn fetch_flow_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
+    fn read_flow_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
-        let state = FlowSeq(indent as u32, BeforeSeq);
+        let state = FlowSeq(indent as u32, BeforeFirstElem);
         self.stack.push(state);
 
         let pos = self.tokens.len();
@@ -593,7 +582,7 @@ impl Lexer {
         }
     }
 
-    fn fetch_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
+    fn read_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
         reader.skip_space_tab(true);
 
