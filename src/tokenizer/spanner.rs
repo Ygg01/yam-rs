@@ -212,7 +212,8 @@ impl Lexer {
 
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.skip_separation_spaces(true);
-        match self.curr_state() {
+        let curr_state = self.curr_state();
+        match curr_state {
             PreDocStart => {
                 if reader.peek_byte_is(b'%') {
                     self.stack.push(DirectiveSection);
@@ -242,18 +243,17 @@ impl Lexer {
                 }
             }
             DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
-                let curr_state = self.curr_state();
-                let state_indent = curr_state.indent() as usize;
+                self.col_start = reader.col();
                 match reader.peek_byte() {
-                    Some(b'{') => self.read_flow_map(reader, state_indent),
-                    Some(b'[') => self.read_flow_seq(reader, state_indent),
+                    Some(b'{') => self.read_flow_map(reader, curr_state.indent() as usize),
+                    Some(b'[') => self.read_flow_seq(reader, curr_state.indent() as usize),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
-                        self.process_colon(reader);
+                        self.process_colon(reader, curr_state);
                     }
                     Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.process_seq(reader, state_indent);
+                        self.process_seq(reader, curr_state);
                     }
                     Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
                         self.fetch_exp_block_map_key(reader)
@@ -290,18 +290,21 @@ impl Lexer {
                         // comment
                         reader.read_line();
                     }
-                    Some(peek) => self.fetch_plain_scalar_block(reader, peek, state_indent),
+                    Some(peek) => {
+                        self.fetch_plain_scalar_block(reader, peek, curr_state.indent() as usize)
+                    }
                     None => self.stream_end = true,
                 }
             }
             BlockSeq(indent) => {
+                self.col_start = reader.col();
                 match reader.peek_byte() {
                     Some(b'{') => self.read_flow_map(reader, indent as usize),
                     Some(b'[') => self.read_flow_seq(reader, indent as usize),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.process_seq(reader, indent as usize);
+                        self.process_seq(reader, curr_state);
                     }
                     Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
                         self.fetch_exp_block_map_key(reader)
@@ -343,7 +346,7 @@ impl Lexer {
                     reader.read_line();
                     self.tokens.push_back(DOC_END);
                     self.tokens.push_back(ERROR_TOKEN);
-                    self.errors.push(ErrorType::UnexpectedSymbol(chr as char));
+                    self.errors.push(UnexpectedSymbol(chr as char));
                 }
                 self.set_curr_state(PreDocStart);
             }
@@ -487,8 +490,7 @@ impl Lexer {
         }
     }
 
-    fn process_colon<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let curr_state = self.curr_state();
+    fn process_colon<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let indent = curr_state.indent();
         let col = reader.col();
         reader.consume_bytes(1);
@@ -656,7 +658,7 @@ impl Lexer {
         let init_indent = match curr_state {
             BlockMapExp(ind, _) => ind as usize,
             BlockSeq(ind) => ind as usize,
-            _ => reader.col(),
+            _ => self.col_start,
         };
         let scalar_tokens = self.get_plain_scalar(
             reader,
@@ -746,9 +748,9 @@ impl Lexer {
         }
     }
 
-    fn process_seq<B, R: Reader<B>>(&mut self, reader: &mut R, expected_indent: usize) {
-        let curr_state = self.curr_state();
+    fn process_seq<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let indent = reader.col();
+        let expected_indent = curr_state.indent() as usize;
         reader.consume_bytes(1);
         match curr_state {
             DocBlock => {
@@ -1073,7 +1075,7 @@ pub enum LexerToken {
     ///   [a]: 3
     /// #^-- start of mapping
     /// ```
-    MappingStartImplict = MAP_START_BLOCK,
+    MappingStartImplicit = MAP_START_BLOCK,
     /// End of a map  token, e.g. `}` in
     /// ```yaml
     ///  { a: b}
@@ -1094,7 +1096,7 @@ impl LexerToken {
     ///
     /// This method transforms a [LexerToken] into a [DirectiveType]
     ///
-    /// It's UB to call on any [LexexToken] that isn't [DirectiveTag], [DirectiveYaml], or  [DirectiveReserved].
+    /// It's UB to call on any [LexerToken] that isn't [DirectiveTag], [DirectiveYaml], or  [DirectiveReserved].
     #[inline(always)]
     pub(crate) unsafe fn to_yaml_directive(self) -> DirectiveType {
         match self {
@@ -1108,7 +1110,7 @@ impl LexerToken {
     ///
     /// This method transforms a [LexerToken] into a [ScalarType]
     ///
-    /// It's UB to call on any [LexexToken] that isn't [ScalarPlain], [Mark], [ScalarFold], [ScalarLit],
+    /// It's UB to call on any [LexerToken] that isn't [ScalarPlain], [Mark], [ScalarFold], [ScalarLit],
     /// [ScalarSingleQuote], [ScalarDoubleQuote].
     #[inline(always)]
     pub(crate) unsafe fn to_scalar(self) -> ScalarType {
@@ -1134,7 +1136,7 @@ impl From<usize> for LexerToken {
             DOC_START_EXP => DocumentStartExplicit,
             MAP_END => MappingEnd,
             MAP_START => MappingStart,
-            MAP_START_BLOCK => MappingStartImplict,
+            MAP_START_BLOCK => MappingStartImplicit,
             SEQ_START_BLOCK => SequenceStartImplicit,
             SEQ_END => SequenceEnd,
             SEQ_START => SequenceStart,
