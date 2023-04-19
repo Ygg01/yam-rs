@@ -231,7 +231,6 @@ impl<'a> Display for Event<'a> {
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 write!(f, "=ALI {}", val_str)
             }
-            _ => Ok(()),
         }
     }
 }
