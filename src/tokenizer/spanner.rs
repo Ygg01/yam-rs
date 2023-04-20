@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use std::hint::unreachable_unchecked;
 
-use ErrorType::ExpectedIndent;
+use ErrorType::{ExpectedIndent, ExpectedMapBlock, ImplicitKeysNeedToBeInline};
 use LexerState::PreDocStart;
 use SeqState::BeforeFirstElem;
 
@@ -291,9 +291,7 @@ impl Lexer {
                         // comment
                         reader.read_line();
                     }
-                    Some(peek) => {
-                        self.fetch_plain_scalar_block(reader, peek, curr_state)
-                    }
+                    Some(peek) => self.fetch_plain_scalar_block(reader, peek, curr_state),
                     None => self.stream_end = true,
                 }
             }
@@ -329,9 +327,7 @@ impl Lexer {
                         // comment
                         reader.read_line();
                     }
-                    Some(peek_chr) => {
-                        self.fetch_plain_scalar_block(reader, peek_chr, curr_state)
-                    }
+                    Some(peek_chr) => self.fetch_plain_scalar_block(reader, peek_chr, curr_state),
                     None => self.stream_end = true,
                 }
             }
@@ -346,8 +342,7 @@ impl Lexer {
                     let chr = reader.peek_byte().unwrap_or(b'\0');
                     reader.read_line();
                     self.tokens.push_back(DOC_END);
-                    self.tokens.push_back(ERROR_TOKEN);
-                    self.errors.push(UnexpectedSymbol(chr as char));
+                    self.push_error(UnexpectedSymbol(chr as char));
                 }
                 self.set_curr_state(PreDocStart);
             }
@@ -390,8 +385,7 @@ impl Lexer {
             Some(b']') => {}
             Some(b'-') if seq_state == BeforeFirstElem => {
                 reader.consume_bytes(1);
-                self.tokens.push_back(ERROR_TOKEN);
-                self.errors.push(UnexpectedSymbol('-'));
+                self.push_error(UnexpectedSymbol('-'));
             }
             Some(b':') if seq_state != InSeq => {
                 self.tokens.push_back(MAP_START);
@@ -402,8 +396,7 @@ impl Lexer {
             }
             Some(b'}') => {
                 reader.consume_bytes(1);
-                self.tokens.push_back(ERROR_TOKEN);
-                self.errors.push(UnexpectedSymbol('}'));
+                self.push_error(UnexpectedSymbol('}'));
             }
             Some(b',') => {
                 reader.consume_bytes(1);
@@ -421,6 +414,12 @@ impl Lexer {
             }
             None => self.stream_end = true,
         }
+    }
+
+    #[inline(always)]
+    fn push_error(&mut self, error: ErrorType) {
+        self.tokens.push_back(ERROR_TOKEN);
+        self.errors.push(error);
     }
 
     fn parse_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) {
@@ -466,8 +465,7 @@ impl Lexer {
                     self.pop_state();
                 } else {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(ERROR_TOKEN);
-                    self.errors.push(UnexpectedSymbol(']'));
+                    self.push_error(UnexpectedSymbol(']'));
                 }
             }
             Some(b'?') => self.fetch_explicit_map(reader),
@@ -490,7 +488,6 @@ impl Lexer {
             None => self.stream_end = true,
         }
     }
-
 
     fn process_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
@@ -623,8 +620,7 @@ impl Lexer {
     ) {
         if peek_chr == b']' || peek_chr == b'}' && peek_chr == b'@' {
             reader.consume_bytes(1);
-            self.tokens.push_back(ERROR_TOKEN);
-            self.errors.push(UnexpectedSymbol(peek_chr as char));
+            self.push_error(UnexpectedSymbol(peek_chr as char));
             return;
         }
         self.col_start = reader.col();
@@ -650,7 +646,7 @@ impl Lexer {
         let chr = reader.peek_byte().unwrap_or(b'\0');
         if chr == b':' || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _)) {
             self.process_map(scalar_start, is_multiline, ends_with);
-        } else {            
+        } else {
             self.set_next_map_state();
         }
         self.tokens.extend(scalar_tokens);
@@ -670,34 +666,37 @@ impl Lexer {
             self.push_empty_token();
             self.set_map_state(AfterColon);
         } else if matches!(curr_state, BlockMapExp(_, _) if col != indent ) {
-            self.tokens.push_back(ERROR_TOKEN);
-            self.errors.push(ExpectedIndent {
+            self.push_error(ExpectedIndent {
                 actual: col,
-                expected: indent as usize,
+                expected: indent,
             });
             self.set_next_map_state();
+        } else if matches!(curr_state, BlockMapExp(ind, _) if col == ind as usize)
+            || matches!(curr_state, BlockMap(_, _) if col > indent)
+        {
+            self.set_next_map_state();
         } else {
-            self.unwind_nested_blocks(
-                indent,
-                indent,
+            if let Some(unwind) = self.find_matching_state(
+                self.col_start,
                 |state, indent| matches!(state, BlockMap(ind, _) | BlockMapExp(ind, _) if ind as usize == indent),
-            );
+            ) {
+                self.pop_states(unwind);
+            } else {
+                self.push_error(ExpectedIndent {
+                    actual: self.col_start,
+                    expected: indent,
+                });
+            }
             self.set_next_map_state();
         }
     }
 
-
-    fn process_map(
-        &mut self,
-        scalar_start: usize,
-        is_multiline: bool,
-        ends_with: u8,
-    ) {
+    fn process_map(&mut self, scalar_start: usize, is_multiline: bool, ends_with: u8) {
         match self.curr_state() {
             BlockMap(indent, BeforeKey) if scalar_start == indent as usize => {
                 self.set_next_map_state();
                 if ends_with != b':' {
-                    self.tokens.push_back(ERROR_TOKEN);
+                    self.push_error(ExpectedMapBlock);
                 }
             }
             BlockMapExp(indent, _) if scalar_start == indent as usize => {
@@ -734,17 +733,22 @@ impl Lexer {
                 let state1 = BlockMap(scalar_start as u32, BeforeColon);
                 self.stack.push(state1);
                 if is_multiline {
-                    self.tokens.push_back(ERROR_TOKEN);
-                    self.errors.push(ErrorType::ImplicitKeysNeedToBeInline);
+                    self.push_error(ImplicitKeysNeedToBeInline);
                 }
                 self.tokens.push_back(MAP_START_BLOCK);
             }
             _ => {
-                self.unwind_nested_blocks(
-                    scalar_start,
+                if let Some(unwind) = self.find_matching_state(
                     scalar_start,
                     |state, indent| matches!(state, BlockMap(ind, _) | BlockMapExp(ind, _) if ind as usize == indent),
-                );
+                ) {
+                    self.pop_states(unwind);
+                } else {
+                    self.push_error(ExpectedIndent {
+                        actual: scalar_start,
+                        expected: self.curr_state().indent() as usize,
+                    });
+                }
                 self.set_next_map_state();
             }
         }
@@ -767,47 +771,46 @@ impl Lexer {
             }
             BlockSeq(ind) if indent == ind as usize => {}
             _ => {
-                self.unwind_nested_blocks(
+                if let Some(unwind) = self.find_matching_state(
                     indent,
-                    expected_indent,
                     |state, indent| matches!(state, BlockSeq(ind) if ind as usize == indent),
-                );
+                ) {
+                    self.pop_states(unwind);
+                } else {
+                    self.push_error(ExpectedIndent {
+                        actual: indent,
+                        expected: expected_indent,
+                    });
+                }
             }
         }
     }
 
-    fn unwind_nested_blocks(
-        &mut self,
-        init_indent: usize,
-        expected_indent: usize,
+    fn find_matching_state(
+        &self,
+        matching_indent: usize,
         f: fn(LexerState, usize) -> bool,
-    ) {
-        if let Some(unwind) = self
-            .stack
+    ) -> Option<usize> {
+        self.stack
             .iter()
-            .rposition(|state| f(*state, init_indent))
+            .rposition(|state| f(*state, matching_indent))
             .map(|x| self.stack.len() - x - 1)
-        {
-            if unwind == 0 {
-                return;
-            }
-            for _ in 0..unwind {
-                match self.pop_state() {
-                    Some(BlockSeq(_)) => self.tokens.push_back(SEQ_END),
-                    Some(BlockMap(_, AfterColon) | BlockMapExp(_, AfterColon)) => {
-                        self.push_empty_token();
-                        self.tokens.push_back(MAP_END)
-                    }
-                    Some(BlockMap(_, _) | BlockMapExp(_, _)) => self.tokens.push_back(MAP_END),
-                    _ => {}
+    }
+
+    fn pop_states(&mut self, unwind: usize) {
+        if unwind == 0 {
+            return;
+        }
+        for _ in 0..unwind {
+            match self.pop_state() {
+                Some(BlockSeq(_)) => self.tokens.push_back(SEQ_END),
+                Some(BlockMap(_, AfterColon) | BlockMapExp(_, AfterColon)) => {
+                    self.push_empty_token();
+                    self.tokens.push_back(MAP_END)
                 }
+                Some(BlockMap(_, _) | BlockMapExp(_, _)) => self.tokens.push_back(MAP_END),
+                _ => {}
             }
-        } else {
-            self.tokens.push_back(ERROR_TOKEN);
-            self.errors.push(ExpectedIndent {
-                actual: init_indent,
-                expected: expected_indent,
-            });
         }
     }
 
