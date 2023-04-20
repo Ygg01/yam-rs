@@ -62,6 +62,7 @@ impl<'a> Iterator for LookAroundBytes<'a> {
 pub trait Reader<B> {
     fn eof(&self) -> bool;
     fn col(&self) -> usize;
+    fn line(&self) -> usize;
     fn pos(&self) -> usize;
     fn peek_byte(&self) -> Option<u8>;
     fn peek_byte2(&self) -> Option<u8>;
