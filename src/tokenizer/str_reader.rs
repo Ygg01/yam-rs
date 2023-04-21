@@ -185,7 +185,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     #[inline]
     fn line(&self) -> usize {
-        self.line    
+        self.line
     }
 
     #[inline]
@@ -600,16 +600,15 @@ impl<'r> Reader<()> for StrReader<'r> {
         num_breaks
     }
 
-    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token: LexerToken) {
+    fn consume_anchor_alias(&mut self, token: LexerToken) -> Vec<usize> {
         let start = self.consume_bytes(1);
+
         let amount = self.slice[self.pos..]
             .iter()
-            .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p))
+            .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p) || *p == b':')
             .unwrap_or(self.slice.len() - self.pos);
         self.consume_bytes(amount);
-        tokens.push_back(token as usize);
-        tokens.push_back(start);
-        tokens.push_back(start + amount);
+        vec![token as usize, start, start + amount]        
     }
 
     fn read_tag(&self) -> Result<(usize, usize), ErrorType> {
