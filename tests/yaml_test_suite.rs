@@ -134,7 +134,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let filter_list = vec![".git", "name", "tags"];
 
     let tests = collect_tests(
-        Path::new(r#"C:\projects\steel-yaml\tests\yaml-test-suite\yaml-test-suite"#),
+        Path::new(r#"C:\projects\steel_yaml\tests\yaml-test-suite"#),
         filter_list,
     )?;
 
