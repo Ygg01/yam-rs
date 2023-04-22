@@ -445,7 +445,7 @@ pub fn multiline_block_comment() {
     assert_eq_event(MULTILINE_COMMENT_BLOCK4, MULTILINE_COMMENT_BLOCK4_EXPECTED);
 }
 
-const EXPLICIT_BLOCK_MAP1: &str = r#"
+const EXP_BLOCK_MAP: &str = r#"
   ? test
   : value
 "#;
@@ -456,7 +456,7 @@ const EXPLICIT_BLOCK_MAP_MIX: &str = r#"
   tx: x
 "#;
 
-const EXPLICIT_BLOCK_MAP1_EXPECTED: &str = r#"
+const EXP_BLOCK_MAP_EVENTS: &str = r#"
  +DOC
   +MAP
    =VAL :test
@@ -464,7 +464,7 @@ const EXPLICIT_BLOCK_MAP1_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &str = r#"
+const EXPLICIT_BLOCK_MAP_MIX_EVENTS: &str = r#"
  +DOC
   +MAP
    =VAL :test
@@ -474,13 +474,13 @@ const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const EXP_MAP_COMBINATION: &str = r#"
+const EXP_BLOCK_MAP_FOLD: &str = r#"
  ? >
    test
  : x
 "#;
 
-const EXP_MAP_COMBINATION_EXPECTED: &str = r#"
+const EXP_BLOCK_MAP_FOLD_EVENTS: &str = r#"
  +DOC
   +MAP
    =VAL >test\n
@@ -490,9 +490,9 @@ const EXP_MAP_COMBINATION_EXPECTED: &str = r#"
 
 #[test]
 pub fn explicit_block_map() {
-    assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
-    assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
-    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
+    assert_eq_event(EXP_BLOCK_MAP, EXP_BLOCK_MAP_EVENTS);
+    assert_eq_event(EXP_BLOCK_MAP_FOLD, EXP_BLOCK_MAP_FOLD_EVENTS);
+    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EVENTS);
 }
 
 const EXPLICIT_BLOCK_MAP_ERR1: &str = r#"
@@ -608,24 +608,31 @@ pub fn test_map_scalar_and_ws() {
 }
 
 const NESTED_MAPS: &str = r#"
-'t1' : 
-  'k1' : &a1 sc1
-"t2" : 
-  *a1: &a2 sc2
+"top1" : 
+  "key1" : &alias1 scalar1
+'top2' : 
+  'key2' : &alias2 scalar2
+top3: &node3 
+  *alias1 : scalar3
 "#;
 
 const NESTED_MAPS_EVENTS: &str = r#"
  +DOC
   +MAP
-   =VAL 't1
+   =VAL "top1
    +MAP
-    =VAL 'k1
-    =VAL &a1 :sc1
+    =VAL "key1
+    =VAL &alias1 :scalar1
    -MAP
-   =VAL "t2
+   =VAL 'top2
    +MAP
-    =ALI *a1
-    =VAL &a2 :sc2
+    =VAL 'key2
+    =VAL &alias2 :scalar2
+   -MAP
+   =VAL :top3
+   +MAP &node3
+    =ALI *alias1
+    =VAL :scalar3
    -MAP
   -MAP
  -DOC"#;

@@ -250,7 +250,7 @@ impl Lexer {
                     Some(b'*') => {
                         let tok = reader.consume_anchor_alias( AnchorToken);
                         let chr = reader.peek_byte().unwrap_or(b'\0');
-                        let scalar_start = self.col_start.unwrap_or(reader.col());
+                        let scalar_start = reader.col();
                         if chr == b':' || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _)) {
                             self.process_map(scalar_start, false, chr);
                         } else {
