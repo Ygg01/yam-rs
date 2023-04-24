@@ -1,14 +1,14 @@
 pub use iterator::Event;
 pub use iterator::EventIterator;
-pub use reader::Reader;
 pub use lexer::Lexer;
 pub use lexer::LexerToken;
+pub use reader::Reader;
 use std::str::from_utf8;
 pub use str_reader::StrReader;
 
 mod iterator;
-mod reader;
 mod lexer;
+mod reader;
 mod str_reader;
 
 pub use iterator::assert_eq_event;
@@ -31,6 +31,7 @@ pub enum ErrorType {
     TagNotTerminated,
     UnexpectedEndOfScalar,
     DuplicateKey,
+    ExpectedChompBetween1and9,
 }
 
 pub trait Slicer<'a> {

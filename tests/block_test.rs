@@ -215,7 +215,7 @@ pub fn plain_block() {
     assert_eq_event(BLOCK_PLAIN2, BLOCK_PLAIN2_EXPECTED);
 }
 
-const BLOCK_FOLDED: &str = r#"
+const BLOCK_LITERAL: &str = r#"
 >
  a
  b
@@ -225,14 +225,57 @@ const BLOCK_FOLDED: &str = r#"
  
  d"#;
 
-const BLOCK_FOLDED_EVENTS: &str = r#"
+const BLOCK_LITERAL_EVENTS: &str = r#"
  +DOC
   =VAL >a b\nc\n\nd\n
  -DOC"#;
 
+const SIMPLE_LITERAL1: &str = r#"
+ --- >1+"#;
+
+const SIMPLE_LITERAL2: &str = r#"
+ --- >1-"#;
+
+const SIMPLE_LITERAL_EVENTS: &str = r#"
+ +DOC ---
+  =VAL >
+ -DOC"#;
+
+#[test]
+pub fn plain_literal() {
+    assert_eq_event(BLOCK_LITERAL, BLOCK_LITERAL_EVENTS);
+    assert_eq_event(SIMPLE_LITERAL1, SIMPLE_LITERAL_EVENTS);
+    assert_eq_event(SIMPLE_LITERAL2, SIMPLE_LITERAL_EVENTS);
+}
+
+const SIMPLE_FOLDED1: &str = r#"
+--- |1+ #tsts"#;
+
+const SIMPLE_FOLDED2: &str = r#"
+--- |1-"#;
+
+const SIMPLE_FOLDED_EVENTS: &str = r#"
+ +DOC ---
+  =VAL |
+ -DOC"#;
+
+const SIMPLE_FOLDED_ERR: &str = r#"
+--- |0"#;
+
+const SIMPLE_FOLDED_ERR2: &str = r#"
+--- |+10"#;
+
+const SIMPLE_FOLDED_ERR_EVENTS: &str = r#"
+ +DOC ---
+  ERR
+ -DOC"#;
+
 #[test]
 pub fn plain_fold() {
-    assert_eq_event(BLOCK_FOLDED, BLOCK_FOLDED_EVENTS);
+    assert_eq_event(SIMPLE_FOLDED1, SIMPLE_FOLDED_EVENTS);
+    assert_eq_event(SIMPLE_FOLDED2, SIMPLE_FOLDED_EVENTS);
+    assert_eq_event(SIMPLE_FOLDED_ERR, SIMPLE_FOLDED_ERR_EVENTS);
+    assert_eq_event(SIMPLE_FOLDED_ERR2, SIMPLE_FOLDED_ERR_EVENTS);
 }
 
 const BLOCK_PLAIN_MULTI: &str = r#"
