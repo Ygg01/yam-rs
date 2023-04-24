@@ -25,6 +25,7 @@ pub enum ErrorType {
     ExpectedNewlineInFolded,
     DirectiveEndMark,
     ImplicitKeysNeedToBeInline,
+    AliasAndAnchor,
     ExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
     TagNotTerminated,

@@ -85,7 +85,6 @@ pub trait Reader<B> {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self) -> (usize, usize);
     fn not_safe_char(&self) -> bool;
-    fn peek_non_space_byte(&self, needle: u8) -> Option<usize>;
     // Refactor
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn read_plain_one_line(
@@ -104,7 +103,7 @@ pub trait Reader<B> {
     fn read_double_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
-    fn consume_anchor_alias(&mut self, token_push: LexerToken)  -> Vec<usize>;
+    fn consume_anchor_alias(&mut self, token_push: LexerToken) -> Vec<usize>;
     fn read_tag(&self) -> Result<(usize, usize), ErrorType>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
 }

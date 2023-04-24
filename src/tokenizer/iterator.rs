@@ -206,7 +206,7 @@ impl<'a> Display for Event<'a> {
                 write!(f, "=VAL")?;
 
                 if let Some(cow) = anchor {
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
+                    let string: &str = unsafe { from_utf8_unchecked(cow.as_ref()) };
                     write!(f, " &{}", string)?;
                 };
                 if let Some(cow) = tag {

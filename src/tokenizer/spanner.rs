@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
+use std::fs::read;
 use std::hint::unreachable_unchecked;
 
 use ErrorType::{ExpectedIndent, ExpectedMapBlock, ImplicitKeysNeedToBeInline};
@@ -246,13 +247,18 @@ impl Lexer {
                 match reader.peek_byte() {
                     Some(b'{') => self.read_flow_map(reader, curr_state.indent() as usize),
                     Some(b'[') => self.read_flow_seq(reader, curr_state.indent() as usize),
-                    Some(b'&') => self.tokens.extend(reader.consume_anchor_alias(AliasToken)),
+                    Some(b'&') => {
+                        self.parse_anchor(reader);
+                    }
                     Some(b'*') => {
-                        let tok = reader.consume_anchor_alias( AnchorToken);
-                        let chr = reader.peek_byte().unwrap_or(b'\0');
+                        let tok = reader.consume_anchor_alias(AnchorToken);
+                        reader.skip_separation_spaces(true);
+
+                        let next_is_colon = reader.peek_byte_is(b':')
+                            || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _));
                         let scalar_start = reader.col();
-                        if chr == b':' || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _)) {
-                            self.process_map(scalar_start, false, chr);
+                        if next_is_colon {
+                            self.process_map(scalar_start, false, b':');
                         } else {
                             self.set_next_map_state();
                         }
@@ -386,6 +392,10 @@ impl Lexer {
         self.errors.push(error);
     }
 
+    fn parse_anchor<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        self.tokens.extend(reader.consume_anchor_alias(AnchorToken));
+    }
+
     fn parse_flow_seq<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -393,7 +403,7 @@ impl Lexer {
         seq_state: SeqState,
     ) {
         match reader.peek_byte() {
-            Some(b'&') => self.tokens.extend(reader.consume_anchor_alias(AnchorToken)),
+            Some(b'&') => self.parse_anchor(reader),
             Some(b'*') => self.tokens.extend(reader.consume_anchor_alias(AliasToken)),
             Some(b'[') => self.read_flow_seq(reader, (indent + 1) as usize),
             Some(b'{') => self.read_flow_map(reader, (indent + 1) as usize),
@@ -512,7 +522,8 @@ impl Lexer {
         let curr_state = self.curr_state();
         let tokens = reader.read_single_quote(curr_state.is_implicit());
 
-        if reader.peek_non_space_byte(b':').is_some() {
+        reader.skip_separation_spaces(true);
+        if reader.peek_byte_is(b':') {
             self.unwind_map(curr_state, self.col_start.unwrap_or(reader.col()));
             self.set_map_state(BeforeColon);
         }
@@ -524,7 +535,8 @@ impl Lexer {
         let curr_state = self.curr_state();
         let tokens = reader.read_double_quote(curr_state.is_implicit());
 
-        if reader.peek_non_space_byte(b':').is_some() {
+        reader.skip_separation_spaces(true);
+        if reader.peek_byte_is(b':') {
             self.unwind_map(curr_state, self.col_start.unwrap_or(reader.col()));
             self.set_map_state(BeforeColon);
         }
@@ -558,8 +570,9 @@ impl Lexer {
                 if matches!(curr_state, FlowSeq(_, _))
                     && !matches!(self.curr_state(), FlowKeyExp(_, _) | FlowMap(_, _))
                 {
-                    if let Some(amount) = reader.peek_non_space_byte(b':') {
-                        reader.consume_bytes(amount);
+                    reader.skip_separation_spaces(true);
+
+                    if reader.peek_byte_is(b':') {
                         let token = if self.curr_state().in_flow_collection() {
                             MAP_START
                         } else {
@@ -994,6 +1007,8 @@ impl Lexer {
             _ => false,
         }
     }
+
+
 }
 
 const DOC_END: usize = usize::MAX;
@@ -1180,8 +1195,8 @@ impl From<usize> for LexerToken {
             SCALAR_QUOTE => ScalarSingleQuote,
             SCALAR_DQUOTE => ScalarDoubleQuote,
             TAG_START => TagStart,
-            ANCHOR => AliasToken,
-            ALIAS => AnchorToken,
+            ANCHOR => AnchorToken,
+            ALIAS => AliasToken,
             DIR_RES => DirectiveReserved,
             DIR_TAG => DirectiveTag,
             DIR_YAML => DirectiveYaml,
