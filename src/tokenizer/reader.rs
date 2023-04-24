@@ -5,7 +5,7 @@ use std::ops::ControlFlow;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
-use super::spanner::LexerState;
+use super::lexer::LexerState;
 use super::{ErrorType, LexerToken};
 
 pub struct LookAroundBytes<'a> {

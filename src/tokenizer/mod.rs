@@ -1,14 +1,14 @@
 pub use iterator::Event;
 pub use iterator::EventIterator;
 pub use reader::Reader;
-pub use spanner::Lexer;
-pub use spanner::LexerToken;
+pub use lexer::Lexer;
+pub use lexer::LexerToken;
 use std::str::from_utf8;
 pub use str_reader::StrReader;
 
 mod iterator;
 mod reader;
-mod spanner;
+mod lexer;
 mod str_reader;
 
 pub use iterator::assert_eq_event;
