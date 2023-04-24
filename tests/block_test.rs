@@ -609,13 +609,10 @@ pub fn test_map_scalar_and_ws() {
 
 const NESTED_MAPS: &str = r#"
 "top1" : 
-  "key1" : &alias1 scalar1
-'top2' :  &alias2    
-  *alias1 :  scalar2
-top3: 
-  &node3  key : scalar3
-top4 :
-  &anchor6 'key6' : scalar4
+  'key1' : 
+    down : test
+'top2' :  
+  *x1 :  scalar2
 "#;
 
 const NESTED_MAPS_EVENTS: &str = r#"
@@ -623,23 +620,16 @@ const NESTED_MAPS_EVENTS: &str = r#"
   +MAP
    =VAL "top1
    +MAP
-    =VAL "key1
-    =VAL &alias1 :scalar1
+    =VAL 'key1
+    +MAP
+     =VAL :down
+     =VAL :test
+    -MAP
    -MAP
    =VAL 'top2
-   +MAP &alias2
-    =ALI *alias1
+   +MAP
+    =ALI *x1
     =VAL :scalar2
-   -MAP
-   =VAL :top3
-   +MAP
-    =VAL &node3 :key
-    =VAL :scalar3
-   -MAP
-   =VAL :top4
-   +MAP
-    =VAL &anchor6 'key6
-    =VAL :scalar4
    -MAP
   -MAP
  -DOC"#;
@@ -647,6 +637,54 @@ const NESTED_MAPS_EVENTS: &str = r#"
 #[test]
 pub fn test_nested_maps() {
     assert_eq_event(NESTED_MAPS, NESTED_MAPS_EVENTS);
+}
+
+const ALIAS_N_MAPS: &str = r#"
+"top1" : &node
+  &node2 'key1' : 'val'
+
+'top2' :  
+  *x1 :  scalar2
+"#;
+
+const ALIAS_N_MAPS_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL "top1
+   +MAP &node
+    =VAL &node2 'key1
+    =VAL 'val
+   -MAP
+   =VAL 'top2
+   +MAP
+    =ALI *x1
+    =VAL :scalar2
+   -MAP
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn test_alias() {
+    assert_eq_event(ALIAS_N_MAPS, ALIAS_N_MAPS_EVENTS);
+}
+
+const ANCHOR_COLON: &str = r#"
+&node3:  key : scalar3
+*node3: : x"#;
+
+const ANCHOR_COLON_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL &node3: :key
+   =VAL :scalar3
+   =ALI *node3:
+   =VAL :x
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn test_anchor() {
+    assert_eq_event(ANCHOR_COLON, ANCHOR_COLON_EVENTS);
 }
 
 const MIX_BLOCK: &str = r##"
