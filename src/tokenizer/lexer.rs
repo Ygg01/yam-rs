@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use std::hint::unreachable_unchecked;
+use std::mem::take;
 
 use ErrorType::{ExpectedIndent, ExpectedMapBlock, ImplicitKeysNeedToBeInline};
 use LexerState::PreDocStart;
@@ -29,6 +30,7 @@ pub struct Lexer {
     pub(crate) errors: Vec<ErrorType>,
     pub(crate) tags: HashMap<Vec<u8>, (usize, usize)>,
     stack: Vec<LexerState>,
+    prev_anchor: Option<(usize, usize)>,
     col_start: Option<usize>,
 }
 
@@ -246,23 +248,8 @@ impl Lexer {
                 match reader.peek_byte() {
                     Some(b'{') => self.read_flow_map(reader, curr_state.indent() as usize),
                     Some(b'[') => self.read_flow_seq(reader, curr_state.indent() as usize),
-                    Some(b'&') => {
-                        self.parse_anchor(reader);
-                    }
-                    Some(b'*') => {
-                        let tok = reader.consume_anchor_alias(AnchorToken);
-                        reader.skip_separation_spaces(true);
-
-                        let next_is_colon = reader.peek_byte_is(b':')
-                            || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _));
-                        let scalar_start = reader.col();
-                        if next_is_colon {
-                            self.process_map(scalar_start, false, b':');
-                        } else {
-                            self.set_next_map_state();
-                        }
-                        self.tokens.extend(tok);
-                    }
+                    Some(b'&') => self.parse_anchor(reader),
+                    Some(b'*') => self.parse_alias(reader),
                     Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
                         self.process_colon(reader, curr_state);
                     }
@@ -274,22 +261,12 @@ impl Lexer {
                     }
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => {
-                        reader.read_block_scalar(
-                            true,
-                            &self.curr_state(),
-                            &mut self.tokens,
-                            &mut self.errors,
-                        );
+                        self.process_block_literal(reader);
                         self.set_next_map_state();
                     }
 
                     Some(b'>') => {
-                        reader.read_block_scalar(
-                            false,
-                            &self.curr_state(),
-                            &mut self.tokens,
-                            &mut self.errors,
-                        );
+                        self.process_block_folded(reader);
                         self.set_next_map_state();
                     }
                     Some(b'\'') => {
@@ -314,8 +291,8 @@ impl Lexer {
                 match reader.peek_byte() {
                     Some(b'{') => self.read_flow_map(reader, indent as usize),
                     Some(b'[') => self.read_flow_seq(reader, indent as usize),
-                    Some(b'&') => self.tokens.extend(reader.consume_anchor_alias(AnchorToken)),
-                    Some(b'*') => self.tokens.extend(reader.consume_anchor_alias(AliasToken)),
+                    Some(b'&') => self.parse_anchor(reader),
+                    Some(b'*') => self.parse_alias(reader),
                     Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
                         self.process_seq(reader, curr_state);
                     }
@@ -323,18 +300,8 @@ impl Lexer {
                         self.fetch_exp_block_map_key(reader)
                     }
                     Some(b'!') => self.fetch_tag(reader),
-                    Some(b'|') => reader.read_block_scalar(
-                        true,
-                        &self.curr_state(),
-                        &mut self.tokens,
-                        &mut self.errors,
-                    ),
-                    Some(b'>') => reader.read_block_scalar(
-                        false,
-                        &self.curr_state(),
-                        &mut self.tokens,
-                        &mut self.errors,
-                    ),
+                    Some(b'|') => self.process_block_literal(reader),
+                    Some(b'>') => self.process_block_folded(reader),
                     Some(b'\'') => self.process_quote(reader),
                     Some(b'"') => self.process_double_quote(reader),
                     Some(b'#') => {
@@ -385,6 +352,24 @@ impl Lexer {
         }
     }
 
+    fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        reader.read_block_scalar(
+            true,
+            &self.curr_state(),
+            &mut self.tokens,
+            &mut self.errors,
+        )
+    }
+
+    fn process_block_folded<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        reader.read_block_scalar(
+            false,
+            &self.curr_state(),
+            &mut self.tokens,
+            &mut self.errors,
+        )
+    }
+
     #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
@@ -392,7 +377,37 @@ impl Lexer {
     }
 
     fn parse_anchor<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        self.tokens.extend(reader.consume_anchor_alias(AnchorToken));
+        let anchor = reader.consume_anchor_alias();
+    
+        let line = reader.skip_separation_spaces(true);
+        if line > 0 {
+            self.tokens.push_back(ANCHOR);
+            self.tokens.push_back(anchor.0);
+            self.tokens.push_back(anchor.1);
+        } else if line == 0 {
+            if reader.peek_byte_is(b'*') {
+                self.push_error(ErrorType::AliasAndAnchor);
+            }
+            self.prev_anchor = Some(anchor);
+        }
+    }
+
+    fn parse_alias<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        let curr_state = self.curr_state();
+        let alias = reader.consume_anchor_alias();
+        reader.skip_separation_spaces(true);
+
+        let next_is_colon = reader.peek_byte_is(b':')
+            || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _));
+        let scalar_start = reader.col();
+        if next_is_colon {
+            self.process_map(scalar_start, false, b':');
+        } else {
+            self.set_next_map_state();
+        }
+        self.tokens.push_back(ALIAS);
+        self.tokens.push_back(alias.0);
+        self.tokens.push_back(alias.1);
     }
 
     fn parse_flow_seq<B, R: Reader<B>>(
@@ -403,7 +418,7 @@ impl Lexer {
     ) {
         match reader.peek_byte() {
             Some(b'&') => self.parse_anchor(reader),
-            Some(b'*') => self.tokens.extend(reader.consume_anchor_alias(AliasToken)),
+            Some(b'*') => self.parse_alias(reader),
             Some(b'[') => self.read_flow_seq(reader, (indent + 1) as usize),
             Some(b'{') => self.read_flow_map(reader, (indent + 1) as usize),
             Some(b']') => {}
@@ -442,8 +457,8 @@ impl Lexer {
 
     fn parse_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) {
         match reader.peek_byte() {
-            Some(b'&') => self.tokens.extend(reader.consume_anchor_alias(AnchorToken)),
-            Some(b'*') => self.tokens.extend(reader.consume_anchor_alias(AliasToken)),
+            Some(b'&') => self.parse_anchor(reader),
+            Some(b'*') => self.parse_alias(reader),
             Some(b'[') => {
                 self.set_next_map_state();
                 self.read_flow_seq(reader, (indent + 1) as usize);
@@ -526,12 +541,13 @@ impl Lexer {
             self.unwind_map(curr_state, self.col_start.unwrap_or(reader.col()));
             self.set_map_state(BeforeColon);
         }
-
+        self.emit_prev_anchor();
         self.tokens.extend(tokens);
     }
 
     fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
+
         let tokens = reader.read_double_quote(curr_state.is_implicit());
 
         reader.skip_separation_spaces(true);
@@ -539,8 +555,17 @@ impl Lexer {
             self.unwind_map(curr_state, self.col_start.unwrap_or(reader.col()));
             self.set_map_state(BeforeColon);
         }
-
+        self.emit_prev_anchor();
         self.tokens.extend(tokens);
+    }
+
+    #[inline]
+    fn emit_prev_anchor(&mut self) {
+        if let Some(anchor) = take(&mut self.prev_anchor) {
+            self.tokens.push_back(ANCHOR);
+            self.tokens.push_back(anchor.0);
+            self.tokens.push_back(anchor.1);
+        };
     }
 
     fn read_flow_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
@@ -590,6 +615,7 @@ impl Lexer {
     fn read_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
         reader.skip_space_tab(true);
+        self.emit_prev_anchor();
 
         if reader.peek_byte_is(b'?') {
             let state = FlowKeyExp(indent as u32, BeforeKey);
@@ -622,6 +648,7 @@ impl Lexer {
         let indent = reader.col();
         reader.consume_bytes(1);
         reader.skip_space_tab(true);
+        self.emit_prev_anchor();
         let state = BlockMapExp(indent as u32, BeforeKey);
         self.stack.push(state);
         self.tokens.push_back(MAP_START_BLOCK);
@@ -676,6 +703,7 @@ impl Lexer {
         } else {
             self.set_next_map_state();
         }
+        self.emit_prev_anchor();
         self.tokens.extend(scalar_tokens);
     }
 
@@ -852,6 +880,7 @@ impl Lexer {
     ) {
         let mut is_multiline = false;
         let mut ends_with = b'\0';
+        self.emit_prev_anchor();
         let scalar = self.get_plain_scalar(
             reader,
             start_indent,

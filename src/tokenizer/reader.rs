@@ -6,7 +6,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
 use super::lexer::LexerState;
-use super::{ErrorType, LexerToken};
+use super::{ErrorType};
 
 pub struct LookAroundBytes<'a> {
     iter: &'a [u8],
@@ -103,7 +103,7 @@ pub trait Reader<B> {
     fn read_double_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
-    fn consume_anchor_alias(&mut self, token_push: LexerToken) -> Vec<usize>;
+    fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&self) -> Result<(usize, usize), ErrorType>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
 }
