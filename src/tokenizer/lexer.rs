@@ -98,14 +98,6 @@ impl LexerState {
     }
 
     #[inline]
-    pub(crate) fn wrong_exp_indent(&self, curr_indent: usize) -> bool {
-        match self {
-            BlockMapExp(ind, _) => *ind as usize != curr_indent,
-            _ => false,
-        }
-    }
-
-    #[inline]
     pub fn in_flow_collection(&self) -> bool {
         match &self {
             FlowKeyExp(_, _) | FlowSeq(_, _) | FlowMap(_, _) => true,
@@ -439,7 +431,7 @@ impl Lexer {
             }
             Some(b'\'') => self.process_quote(reader),
             Some(b'"') => self.process_double_quote(reader),
-            Some(b'?') => self.fetch_explicit_map(reader),
+            Some(b'?') => self.fetch_explicit_map(reader, self.curr_state()),
             Some(b'#') => {
                 // comment
                 reader.read_line();
@@ -495,7 +487,7 @@ impl Lexer {
                     self.push_error(UnexpectedSymbol(']'));
                 }
             }
-            Some(b'?') => self.fetch_explicit_map(reader),
+            Some(b'?') => self.fetch_explicit_map(reader, self.curr_state()),
             Some(b',') => {
                 reader.consume_bytes(1);
                 if self.is_prev_sequence() {
@@ -711,6 +703,7 @@ impl Lexer {
         };
         let scalar_tokens = self.get_plain_scalar(
             reader,
+            curr_state,
             state_indent,
             init_indent,
             &mut is_multiline,
@@ -901,6 +894,7 @@ impl Lexer {
         self.emit_prev_anchor();
         let scalar = self.get_plain_scalar(
             reader,
+            self.curr_state(),
             start_indent,
             init_indent,
             &mut is_multiline,
@@ -913,33 +907,26 @@ impl Lexer {
     fn get_plain_scalar<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
+        curr_state: LexerState,
         state_indent: usize,
         init_indent: usize,
         is_multiline: &mut bool,
         ends_with: &mut u8,
     ) -> Vec<usize> {
-        let mut curr_indent = self.curr_state().get_block_indent(reader.col());
+        let mut curr_indent = curr_state.get_block_indent(reader.col());
         let mut tokens = vec![ScalarPlain as usize];
         let mut offset_start = None;
-        let in_flow_collection = self.curr_state().in_flow_collection();
+        let in_flow_collection = curr_state.in_flow_collection();
         let mut had_comment = false;
         let mut num_newlines = 0;
 
         while !reader.eof() {
-            // In explicit key mapping change in indentation is always an error
-            if self.curr_state().wrong_exp_indent(curr_indent) && curr_indent != init_indent {
-                tokens.push(ErrorToken as usize);
-                self.errors.push(ExpectedIndent {
-                    actual: curr_indent,
-                    expected: init_indent,
-                });
-                break;
-            } else if curr_indent < init_indent {
+            if curr_indent < init_indent {
                 // if plain scalar is less indented than previous
                 // It can be
                 // a) Part of BlockMap so we must break
                 // b) An error outside of block map
-                if !matches!(self.curr_state(), BlockMap(_, _) | BlockMapExp(_, _)) {
+                if !matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _)) {
                     reader.read_line();
                     tokens.push(ErrorToken as usize);
                     self.errors.push(ExpectedIndent {
@@ -979,7 +966,7 @@ impl Lexer {
 
             if reader.peek_byte().map_or(false, is_newline) {
                 let folded_newline = self.skip_separation_spaces(reader, false);
-                if reader.col() >= self.curr_state().indent() as usize {
+                if reader.col() >= curr_state.indent() as usize {
                     num_newlines = folded_newline as u32;
                 }
                 curr_indent = reader.col();
@@ -989,14 +976,14 @@ impl Lexer {
             let chr = reader.peek_byte_at(0).unwrap_or(b'\0');
 
             if chr == b'-'
-                && matches!(self.curr_state(), BlockSeq(ind) if reader.col() > ind as usize)
+                && matches!(curr_state, BlockSeq(ind) if reader.col() > ind as usize)
             {
                 offset_start = Some(reader.pos());
             } else if (in_flow_collection && is_flow_indicator(chr)) || chr == b':' || chr == b'-' {
                 *ends_with = u8::min(*ends_with, chr);
                 break;
             } else if matches!(
-                self.curr_state(), BlockMap(ind,_) | BlockMapExp(ind, _) if ind as usize == curr_indent
+                curr_state, BlockMap(ind,_) | BlockMapExp(ind, _) if ind as usize == curr_indent
             ) {
                 break;
             }
@@ -1005,14 +992,14 @@ impl Lexer {
         tokens
     }
 
-    fn fetch_explicit_map<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn fetch_explicit_map<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         if !self.is_map() {
             self.tokens.push_back(MAP_START);
         }
 
         if !reader.peek_byte2().map_or(false, is_white_tab_or_break) {
             let scalar =
-                self.get_plain_scalar(reader, reader.col(), reader.col(), &mut true, &mut b'\0');
+                self.get_plain_scalar(reader, curr_state, reader.col(), reader.col(), &mut true, &mut b'\0');
             self.tokens.extend(scalar);
         } else {
             reader.consume_bytes(1);

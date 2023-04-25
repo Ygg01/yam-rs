@@ -411,8 +411,7 @@ const EMPTY_MAP_EXPECTED2: &str = r#"
   -MAP
  -DOC"#;
 
-
- const EMPTY_MAP_ELEMS: &str = r#"
+const EMPTY_MAP_ELEMS: &str = r#"
  a:
    x
    u
@@ -549,7 +548,6 @@ const EXP_MAP_WITH_EMPTY: &str = r#"
 ? c
 "#;
 
-
 const EXP_MAP_WITH_EMPTY_EVENTS: &str = r#"
  +DOC
   +MAP
@@ -562,9 +560,23 @@ const EXP_MAP_WITH_EMPTY_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const EXP_BLOCK_FAKE_EMPTY: &str = r#"
+  ? x
+   ? x
+"#;
+
+const EXP_BLOCK_FAKE_EMPTY_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :x ? x
+   =VAL :
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn explicit_block_empty_node_map() {
     assert_eq_event(EXP_MAP_WITH_EMPTY, EXP_MAP_WITH_EMPTY_EVENTS);
+    assert_eq_event(EXP_BLOCK_FAKE_EMPTY, EXP_BLOCK_FAKE_EMPTY_EVENTS);
 }
 
 const EXPLICIT_BLOCK_MAP_ERR1: &str = r#"
