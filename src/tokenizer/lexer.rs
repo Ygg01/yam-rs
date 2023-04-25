@@ -975,9 +975,7 @@ impl Lexer {
 
             let chr = reader.peek_byte_at(0).unwrap_or(b'\0');
 
-            if chr == b'-'
-                && matches!(curr_state, BlockSeq(ind) if reader.col() > ind as usize)
-            {
+            if chr == b'-' && matches!(curr_state, BlockSeq(ind) if reader.col() > ind as usize) {
                 offset_start = Some(reader.pos());
             } else if (in_flow_collection && is_flow_indicator(chr)) || chr == b':' || chr == b'-' {
                 *ends_with = u8::min(*ends_with, chr);
@@ -998,8 +996,14 @@ impl Lexer {
         }
 
         if !reader.peek_byte2().map_or(false, is_white_tab_or_break) {
-            let scalar =
-                self.get_plain_scalar(reader, curr_state, reader.col(), reader.col(), &mut true, &mut b'\0');
+            let scalar = self.get_plain_scalar(
+                reader,
+                curr_state,
+                reader.col(),
+                reader.col(),
+                &mut true,
+                &mut b'\0',
+            );
             self.tokens.extend(scalar);
         } else {
             reader.consume_bytes(1);
