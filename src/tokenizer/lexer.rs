@@ -665,13 +665,12 @@ impl Lexer {
                 self.stack.push(state);
                 self.tokens.push_back(MAP_START_BLOCK);
             }
-            BlockMapExp(prev_indent, BeforeColon ) if prev_indent as usize == indent  => {
+            BlockMapExp(prev_indent, BeforeColon) if prev_indent as usize == indent => {
                 self.push_empty_token();
                 self.set_map_state(BeforeKey);
             }
             _ => {}
         }
-        
     }
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {

@@ -317,7 +317,6 @@ pub fn seq_plain() {
     assert_eq_event(SEQ_PLAIN2, SEQ_PLAIN_EXPECTED);
 }
 
-
 const BLOCK_MAP_INPUT2: &str = r#"
 :
 a: b
