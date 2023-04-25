@@ -257,7 +257,7 @@ impl Lexer {
                         self.process_seq(reader, curr_state);
                     }
                     Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.fetch_exp_block_map_key(reader)
+                        self.fetch_exp_block_map_key(reader, curr_state)
                     }
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => {
@@ -295,7 +295,7 @@ impl Lexer {
                         self.process_seq(reader, curr_state);
                     }
                     Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.fetch_exp_block_map_key(reader)
+                        self.fetch_exp_block_map_key(reader, curr_state)
                     }
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => self.process_block_literal(reader),
@@ -332,7 +332,7 @@ impl Lexer {
             for state in self.stack.iter().rev() {
                 let x = match *state {
                     BlockSeq(_) => SequenceEnd,
-                    BlockMapExp(_, AfterColon) | BlockMap(_, AfterColon) => {
+                    BlockMapExp(_, AfterColon | BeforeColon) | BlockMap(_, AfterColon) => {
                         self.tokens.push_back(SCALAR_PLAIN);
                         self.tokens.push_back(SCALAR_END);
                         MappingEnd
@@ -654,14 +654,24 @@ impl Lexer {
         pop_state
     }
 
-    fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let indent = reader.col();
         reader.consume_bytes(1);
         reader.skip_space_tab(true);
         self.emit_prev_anchor();
-        let state = BlockMapExp(indent as u32, BeforeKey);
-        self.stack.push(state);
-        self.tokens.push_back(MAP_START_BLOCK);
+        match curr_state {
+            DocBlock => {
+                let state = BlockMapExp(indent as u32, BeforeKey);
+                self.stack.push(state);
+                self.tokens.push_back(MAP_START_BLOCK);
+            }
+            BlockMapExp(prev_indent, BeforeColon ) if prev_indent as usize == indent  => {
+                self.push_empty_token();
+                self.set_map_state(BeforeKey);
+            }
+            _ => {}
+        }
+        
     }
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
