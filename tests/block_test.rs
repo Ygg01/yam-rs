@@ -317,22 +317,6 @@ pub fn seq_plain() {
     assert_eq_event(SEQ_PLAIN2, SEQ_PLAIN_EXPECTED);
 }
 
-const BLOCK_MAP_INPUT: &str = r#"
-  a:
-    x
-    u
-  c :
-"#;
-
-const BLOCK_MAP_EXPECTED: &str = r#"
- +DOC
-  +MAP
-   =VAL :a
-   =VAL :x u
-   =VAL :c
-   =VAL :
-  -MAP
- -DOC"#;
 
 const BLOCK_MAP_INPUT2: &str = r#"
 :
@@ -399,7 +383,6 @@ pub fn block_map() {
     assert_eq_event(BLOCK_MAP_SIMPLE, BLOCK_MAP_SIMPLE_EXPECTED);
     assert_eq_event(BLOCK_MAP_SIMPLE2, BLOCK_MAP_SIMPLE_EXPECTED);
     assert_eq_event(BLOCK_MAP_INPUT2, BLOCK_MAP_EXPECTED2);
-    assert_eq_event(BLOCK_MAP_INPUT, BLOCK_MAP_EXPECTED);
     assert_eq_event(BLOCK_MAP_NESTED, BLOCK_MAP_NESTED_EXPECTED);
 }
 
@@ -429,11 +412,31 @@ const EMPTY_MAP_EXPECTED2: &str = r#"
   -MAP
  -DOC"#;
 
+
+ const EMPTY_MAP_ELEMS: &str = r#"
+ a:
+   x
+   u
+ c :
+"#;
+
+const EMPTY_MAP_ELEMS_EVENTS: &str = r#"
++DOC
+ +MAP
+  =VAL :a
+  =VAL :x u
+  =VAL :c
+  =VAL :
+ -MAP
+-DOC"#;
+
 #[test]
 pub fn empty_map() {
     assert_eq_event(EMPTY_MAP_INPUT1, EMPTY_MAP_EXPECTED1);
     assert_eq_event(EMPTY_MAP_INPUT2, EMPTY_MAP_EXPECTED2);
     assert_eq_event(EMPTY_MAP_INPUT2_1, EMPTY_MAP_EXPECTED2);
+    assert_eq_event(EMPTY_MAP_ELEMS, EMPTY_MAP_ELEMS_EVENTS);
+
 }
 
 const MULTILINE_COMMENT_BLOCK1: &str = r#"
