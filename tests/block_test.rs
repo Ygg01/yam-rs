@@ -831,3 +831,30 @@ const MULTI_LINE_VAL_EVENT: &str = r#"
 fn multi_line_value() {
     assert_eq_event(MULTI_LINE_VAL, MULTI_LINE_VAL_EVENT);
 }
+
+const MULTI_DOC: &str = r#"
+---
+? a
+: b
+---
+- c
+"#;
+
+const MULTI_DOC_EVENT: &str = r#"
+ +DOC ---
+  +MAP
+   =VAL :a
+   =VAL :b
+  -MAP
+ -DOC
+ +DOC ---
+  +SEQ
+   =VAL :c
+  -SEQ
+ -DOC
+"#;
+
+#[test]
+fn multi_doc() {
+    assert_eq_event(MULTI_DOC, MULTI_DOC_EVENT);
+}
