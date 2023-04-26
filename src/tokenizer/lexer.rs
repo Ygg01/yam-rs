@@ -31,6 +31,7 @@ pub struct Lexer {
     pub(crate) tags: HashMap<Vec<u8>, (usize, usize)>,
     stack: Vec<LexerState>,
     prev_anchor: Option<(usize, usize)>,
+    continue_processing: bool,
     col_start: Option<usize>,
 }
 
@@ -205,119 +206,23 @@ impl Lexer {
     }
 
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        self.skip_separation_spaces(reader, true);
-        let curr_state = self.curr_state();
-        match curr_state {
-            PreDocStart => {
-                if reader.peek_byte_is(b'%') {
-                    self.stack.push(DirectiveSection);
-                    return;
-                } else if reader.peek_byte_is(b'#') {
-                    reader.read_line();
-                } else if reader.try_read_slice_exact("---") {
-                    self.tokens.push_back(DOC_START_EXP);
-                    self.stack.push(DocBlock);
-                } else {
-                    self.tokens.push_back(DOC_START);
-                    self.stack.push(DocBlock);
-                }
-                return;
-            }
-            DirectiveSection => {
-                if !reader.try_read_yaml_directive(&mut self.tokens) {
-                    if reader.try_read_slice_exact("---") {
-                        self.tokens.push_back(DOC_START_EXP);
-                        self.set_curr_state(DocBlock);
-                        return;
-                    } else if reader.peek_byte_is(b'#') {
-                        reader.read_line();
-                    }
-                } else if reader.peek_byte_is(b'#') {
-                    reader.read_line();
-                }
-            }
-            DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
-                match reader.peek_byte() {
-                    Some(b'{') => self.read_flow_map(reader, curr_state.indent() as usize),
-                    Some(b'[') => self.read_flow_seq(reader, curr_state.indent() as usize),
-                    Some(b'&') => self.parse_anchor(reader),
-                    Some(b'*') => self.parse_alias(reader),
-                    Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
-                        self.process_colon(reader, curr_state);
-                    }
-                    Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.process_seq(reader, curr_state);
-                    }
-                    Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.fetch_exp_block_map_key(reader, curr_state)
-                    }
-                    Some(b'!') => self.fetch_tag(reader),
-                    Some(b'|') => {
-                        self.process_block_literal(reader);
-                        self.set_next_map_state();
-                    }
+        self.continue_processing = true;
 
-                    Some(b'>') => {
-                        self.process_block_folded(reader);
-                        self.set_next_map_state();
-                    }
-                    Some(b'\'') => {
-                        self.set_next_map_state();
-                        self.process_quote(reader);
-                    }
-                    Some(b'"') => {
-                        self.set_next_map_state();
-                        self.process_double_quote(reader);
-                    }
-                    Some(b'#') => {
-                        // comment
-                        reader.read_line();
-                    }
-                    Some(peek) => self.fetch_plain_scalar_block(reader, curr_state, peek),
-                    None => self.stream_end = true,
-                }
-            }
-            BlockSeq(indent) => {
-                match reader.peek_byte() {
-                    Some(b'{') => self.read_flow_map(reader, indent as usize),
-                    Some(b'[') => self.read_flow_seq(reader, indent as usize),
-                    Some(b'&') => self.parse_anchor(reader),
-                    Some(b'*') => self.parse_alias(reader),
-                    Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.process_seq(reader, curr_state);
-                    }
-                    Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
-                        self.fetch_exp_block_map_key(reader, curr_state)
-                    }
-                    Some(b'!') => self.fetch_tag(reader),
-                    Some(b'|') => self.process_block_literal(reader),
-                    Some(b'>') => self.process_block_folded(reader),
-                    Some(b'\'') => self.process_quote(reader),
-                    Some(b'"') => self.process_double_quote(reader),
-                    Some(b'#') => {
-                        // comment
-                        reader.read_line();
-                    }
-                    Some(peek_chr) => self.fetch_plain_scalar_block(reader, curr_state, peek_chr),
-                    None => self.stream_end = true,
-                }
-            }
-            FlowSeq(indent, seq_state) => self.parse_flow_seq(reader, indent, seq_state),
-            FlowMap(indent, _) | FlowKeyExp(indent, _) => self.parse_flow_map(reader, indent),
-            AfterDocEnd => {
-                if reader.eof() {
-                    self.tokens.push_back(DOC_END);
-                } else if reader.try_read_slice_exact("...") {
-                    self.tokens.push_back(DOC_END_EXP);
-                } else {
-                    let chr = reader.peek_byte().unwrap_or(b'\0');
-                    reader.read_line();
-                    self.tokens.push_back(DOC_END);
-                    self.push_error(UnexpectedSymbol(chr as char));
-                }
-                self.set_curr_state(PreDocStart);
+        while self.continue_processing && !reader.eof() {
+            let curr_state = self.curr_state();
+
+            self.skip_separation_spaces(reader, true);
+            match curr_state {
+                PreDocStart =>  self.fetch_pre_doc(reader),
+                DirectiveSection => self.fetch_directive_section(reader),
+                DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => self.fetch_map_like_block(reader, curr_state),
+                BlockSeq(indent) => self.fetch_block_seq(reader, curr_state, indent),
+                FlowSeq(indent, seq_state) => self.fetch_flow_seq(reader, indent, seq_state),
+                FlowMap(indent, _) | FlowKeyExp(indent, _) => self.fetch_flow_map(reader, indent),
+                AfterDocEnd => self.fetch_after_doc(reader)
             }
         }
+
 
         if reader.eof() {
             self.stream_end = true;
@@ -339,6 +244,122 @@ impl Lexer {
                 };
                 self.tokens.push_back(x as usize);
             }
+        }
+    }
+
+    fn fetch_after_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        if reader.eof() {
+            self.tokens.push_back(DOC_END);
+        } else if reader.try_read_slice_exact("...") {
+            self.tokens.push_back(DOC_END_EXP);
+        } else {
+            let chr = reader.peek_byte().unwrap_or(b'\0');
+            reader.read_line();
+            self.tokens.push_back(DOC_END);
+            self.push_error(UnexpectedSymbol(chr as char));
+        }
+        self.set_curr_state(PreDocStart);
+    }
+
+    fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState, indent: u32) {
+        self.continue_processing = false;
+        match reader.peek_byte() {
+            Some(b'{') => self.read_flow_map(reader, indent as usize),
+            Some(b'[') => self.read_flow_seq(reader, indent as usize),
+            Some(b'&') => self.parse_anchor(reader),
+            Some(b'*') => self.parse_alias(reader),
+            Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
+                self.process_seq(reader, curr_state);
+            }
+            Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
+                self.fetch_exp_block_map_key(reader, curr_state)
+            }
+            Some(b'!') => self.fetch_tag(reader),
+            Some(b'|') => self.process_block_literal(reader),
+            Some(b'>') => self.process_block_folded(reader),
+            Some(b'\'') => self.process_quote(reader),
+            Some(b'"') => self.process_double_quote(reader),
+            Some(b'#') => {
+                // comment
+                reader.read_line();
+            }
+            Some(peek_chr) => self.fetch_plain_scalar_block(reader, curr_state, peek_chr),
+            None => self.stream_end = true,
+        }
+    }
+
+    fn fetch_map_like_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+        self.continue_processing = false;
+        match reader.peek_byte() {
+            Some(b'{') => self.read_flow_map(reader, curr_state.indent() as usize),
+            Some(b'[') => self.read_flow_seq(reader, curr_state.indent() as usize),
+            Some(b'&') => self.parse_anchor(reader),
+            Some(b'*') => self.parse_alias(reader),
+            Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
+                self.process_colon(reader, curr_state);
+            }
+            Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
+                self.process_seq(reader, curr_state);
+            }
+            Some(b'?') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
+                self.fetch_exp_block_map_key(reader, curr_state)
+            }
+            Some(b'!') => self.fetch_tag(reader),
+            Some(b'|') => {
+                self.process_block_literal(reader);
+                self.set_next_map_state();
+            }
+
+            Some(b'>') => {
+                self.process_block_folded(reader);
+                self.set_next_map_state();
+            }
+            Some(b'\'') => {
+                self.set_next_map_state();
+                self.process_quote(reader);
+            }
+            Some(b'"') => {
+                self.set_next_map_state();
+                self.process_double_quote(reader);
+            }
+            Some(b'#') => {
+                // comment
+                reader.read_line();
+            }
+            Some(peek) => self.fetch_plain_scalar_block(reader, curr_state, peek),
+            None => self.stream_end = true,
+        }
+        
+    }
+
+    fn fetch_directive_section<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        self.continue_processing = false;
+        if !reader.try_read_yaml_directive(&mut self.tokens) {
+            if reader.try_read_slice_exact("---") {
+                self.tokens.push_back(DOC_START_EXP);
+                self.set_curr_state(DocBlock);
+                return;
+            } else if reader.peek_byte_is(b'#') {
+                reader.read_line();
+            }
+        } else if reader.peek_byte_is(b'#') {
+            reader.read_line();
+        }
+    }
+
+    fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        self.continue_processing = false;
+        if reader.peek_byte_is(b'%') {
+            self.stack.push(DirectiveSection);
+            return;
+        } else if reader.peek_byte_is(b'#') {
+            reader.read_line();
+        } else if reader.try_read_slice_exact("---") {
+            self.tokens.push_back(DOC_START_EXP);
+            self.stack.push(DocBlock);
+        } else {
+            self.tokens.push_back(DOC_START);
+            self.stack.push(DocBlock);
         }
     }
 
@@ -398,7 +419,7 @@ impl Lexer {
         self.tokens.push_back(alias.1);
     }
 
-    fn parse_flow_seq<B, R: Reader<B>>(
+    fn fetch_flow_seq<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
         indent: u32,
@@ -409,7 +430,27 @@ impl Lexer {
             Some(b'*') => self.parse_alias(reader),
             Some(b'[') => self.read_flow_seq(reader, (indent + 1) as usize),
             Some(b'{') => self.read_flow_map(reader, (indent + 1) as usize),
-            Some(b']') => {}
+            Some(b']') => {
+                reader.consume_bytes(1);
+                self.tokens.push_back(SEQ_END);
+                self.pop_state();
+                // could be `[a]: b` map
+                self.skip_separation_spaces(reader, false);
+                if reader.peek_byte_is(b':') && !matches!(self.curr_state(), FlowKeyExp(_, _) | FlowMap(_, _)){
+                    let token = if self.curr_state().in_flow_collection() {
+                        MAP_START
+                    } else {
+                        MAP_START_BLOCK
+                    };
+                    self.tokens.push_front(token);
+                    let state = FlowMap(indent as u32, AfterColon);
+                    self.stack.push(state);
+                    self.continue_processing = true;
+                } else {
+                    self.continue_processing = false;
+                }
+
+            }
             Some(b'-') if seq_state == BeforeFirstElem => {
                 reader.consume_bytes(1);
                 self.push_error(UnexpectedSymbol('-'));
@@ -443,7 +484,7 @@ impl Lexer {
         }
     }
 
-    fn parse_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) {
+    fn fetch_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) {
         match reader.peek_byte() {
             Some(b'&') => self.parse_anchor(reader),
             Some(b'*') => self.parse_alias(reader),
@@ -453,7 +494,7 @@ impl Lexer {
             }
             Some(b'{') => {
                 self.set_next_map_state();
-                self.read_flow_map(reader, (indent + 1) as usize)
+                self.read_flow_map(reader, (indent + 1) as usize);
             }
             Some(b'}') => {
                 reader.consume_bytes(1);
@@ -462,6 +503,7 @@ impl Lexer {
                 }
                 self.tokens.push_back(MAP_END);
                 self.pop_state();
+                self.continue_processing = false;
             }
             Some(b':') => {
                 reader.consume_bytes(1);
@@ -575,46 +617,11 @@ impl Lexer {
         let state = FlowSeq(indent as u32, BeforeFirstElem);
         self.stack.push(state);
 
-        let pos = self.tokens.len();
         self.tokens.push_back(SEQ_START);
-
-        while !reader.eof() {
-            self.skip_separation_spaces(reader, true);
-            let curr_state = self.curr_state();
-
-            match curr_state {
-                FlowSeq(indent, seq_state) => self.parse_flow_seq(reader, indent, seq_state),
-                FlowMap(indent, _) | FlowKeyExp(indent, _) => self.parse_flow_map(reader, indent),
-                _ => break,
-            }
-
-            if matches!(curr_state, FlowSeq(_, _)) && reader.peek_byte_is(b']') {
-                reader.consume_bytes(1);
-                self.tokens.push_back(SEQ_END);
-                self.pop_state();
-
-                if matches!(curr_state, FlowSeq(_, _))
-                    && !matches!(self.curr_state(), FlowKeyExp(_, _) | FlowMap(_, _))
-                {
-                    self.skip_separation_spaces(reader, true);
-
-                    if reader.peek_byte_is(b':') {
-                        let token = if self.curr_state().in_flow_collection() {
-                            MAP_START
-                        } else {
-                            MAP_START_BLOCK
-                        };
-                        self.tokens.insert(pos, token);
-                        let state = FlowMap(indent as u32, AfterColon);
-                        self.stack.push(state);
-                    }
-                }
-                break;
-            }
-        }
+        self.continue_processing = true;
     }
 
-    fn read_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
+        fn read_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
         reader.skip_space_tab(true);
         self.emit_prev_anchor();
