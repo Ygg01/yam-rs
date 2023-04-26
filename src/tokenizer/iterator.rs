@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::{fmt::Write, io, str::from_utf8_unchecked};
 
-use crate::escaper::escape_plain;
+use crate::escaper::{escape_plain, escape_quotes};
 use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
 use crate::Lexer;
@@ -377,6 +377,9 @@ where
                         let cow = match scalar_type {
                             ScalarType::Plain | ScalarType::Literal | ScalarType::Folded => {
                                 escape_plain(cow)
+                            }
+                            ScalarType::DoubleQuote => {
+                                escape_quotes(cow)
                             }
                             _ => cow,
                         };
