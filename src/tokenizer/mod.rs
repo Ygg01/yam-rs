@@ -26,6 +26,8 @@ pub enum ErrorType {
     DirectiveEndMark,
     ImplicitKeysNeedToBeInline,
     AliasAndAnchor,
+    ExpectedIndentDocStart { actual: usize, expected: usize },
+    ExpectedIndentDocEnd { actual: usize, expected: usize },
     ExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
     TagNotTerminated,
