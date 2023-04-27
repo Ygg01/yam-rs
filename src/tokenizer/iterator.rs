@@ -378,9 +378,7 @@ where
                             ScalarType::Plain | ScalarType::Literal | ScalarType::Folded => {
                                 escape_plain(cow)
                             }
-                            ScalarType::DoubleQuote => {
-                                escape_quotes(cow)
-                            }
+                            ScalarType::DoubleQuote => escape_quotes(cow),
                             _ => cow,
                         };
                         return Some((
