@@ -288,8 +288,8 @@ impl Lexer {
             Some(b'!') => self.fetch_tag(reader),
             Some(b'|') => self.process_block_literal(reader),
             Some(b'>') => self.process_block_folded(reader),
-            Some(b'\'') => self.process_quote(reader),
-            Some(b'"') => self.process_double_quote(reader),
+            Some(b'\'') => self.process_quote(reader, curr_state),
+            Some(b'"') => self.process_double_quote(reader, curr_state),
             Some(b'#') => {
                 // comment
                 reader.read_line();
@@ -354,11 +354,11 @@ impl Lexer {
             }
             [b'\'', ..] => {
                 self.set_next_map_state();
-                self.process_quote(reader);
+                self.process_quote(reader, curr_state);
             }
             [b'"', ..] => {
                 self.set_next_map_state();
-                self.process_double_quote(reader);
+                self.process_double_quote(reader, curr_state);
             }
             [b'#', ..] => {
                 // comment
@@ -508,8 +508,8 @@ impl Lexer {
                 reader.consume_bytes(1);
                 self.set_curr_state(FlowSeq(self.get_token_pos(), BeforeElem));
             }
-            Some(b'\'') => self.process_quote(reader),
-            Some(b'"') => self.process_double_quote(reader),
+            Some(b'\'') => self.process_quote(reader, self.curr_state()),
+            Some(b'"') => self.process_double_quote(reader, self.curr_state()),
             Some(b'?') => self.fetch_explicit_map(reader, self.curr_state()),
             Some(b'#') => {
                 // comment
@@ -575,8 +575,8 @@ impl Lexer {
                     self.pop_state();
                 }
             }
-            Some(b'\'') => self.process_quote(reader),
-            Some(b'"') => self.process_double_quote(reader),
+            Some(b'\'') => self.process_quote(reader, self.curr_state()),
+            Some(b'"') => self.process_double_quote(reader, self.curr_state()),
             Some(b'#') => {
                 // comment
                 reader.read_line();
@@ -600,8 +600,7 @@ impl Lexer {
         }
     }
 
-    fn process_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let curr_state = self.curr_state();
+    fn process_quote<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let scalar_start = self.update_col(reader);
         let tokens = reader.read_single_quote(curr_state.is_implicit());
 
@@ -614,8 +613,7 @@ impl Lexer {
         self.tokens.extend(tokens);
     }
 
-    fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let curr_state = self.curr_state();
+    fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let scalar_start = self.update_col(reader);
         let tokens = reader.read_double_quote(curr_state.is_implicit());
 
