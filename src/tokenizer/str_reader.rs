@@ -179,19 +179,18 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
+    fn line(&self) -> usize {
+        self.line
+    }
+
+    #[inline]
     fn pos(&self) -> usize {
         self.pos
     }
 
-    
     fn peek_chars(&self) -> &[u8] {
         let max = std::cmp::min(self.slice.len(), self.pos + 3);
-        &self.slice[self.pos.. max]
-    }
-
-    #[inline]
-    fn line(&self) -> usize {
-        self.line
+        &self.slice[self.pos..max]
     }
 
     #[inline]
@@ -450,7 +449,6 @@ impl<'r> Reader<()> for StrReader<'r> {
                 continue;
             } else {
                 match self.skip_n_spaces(indentation, curr_state.indent() as usize) {
-                    Flow::Break => break,
                     Flow::Error(actual) => {
                         tokens.push_back(ErrorToken as usize);
                         errors.push(ExpectedIndent {
@@ -498,47 +496,69 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_double_quote(&mut self, is_implicit: bool) -> Vec<usize> {
-        self.consume_bytes(1);
-        let mut tokens = Vec::new();
-        tokens.push(ScalarDoubleQuote as usize);
+    fn read_double_quote(
+        &mut self,
+        prev_indent: usize,
+        is_implicit: bool,
+        is_multiline: &mut bool,
+        errors: &mut Vec<ErrorType>,
+    ) -> Vec<usize> {
+        let start_str = self.consume_bytes(1);
+        let mut quote_token = (start_str, start_str);
+        let mut tokens = vec![ScalarDoubleQuote as usize];
+        let mut last_non_space = 0;
+        let mut newspaces = None;
+
 
         while !self.eof() {
             let (line_start, line_end, _) = self.get_line_offset();
-            let pos = memchr::memchr(b'"', &self.slice[line_start..line_end]);
-            match pos {
-                Some(len) if len > 1 => {
-                    // Check for `\` escape
-                    let offset = len - 1;
-                    if self.slice.get(self.pos + offset).copied() != Some(b'\\') {
-                        tokens.push(line_start);
-                        tokens.push(line_start + len);
-                        self.consume_bytes(len + 1);
-                        break;
-                    } else {
-                        tokens.push(line_start);
-                        tokens.push(line_start + len - 1);
-                        // we add the escaped `"` in `\"`
-                        tokens.push(line_start + len);
-                        tokens.push(line_start + len + 1);
-                        self.consume_bytes(len + 1);
-                        continue;
+            if line_start == line_end {
+                if *is_multiline {
+                    quote_token.0 = last_non_space;
+                } else {
+                    quote_token.1 = last_non_space;
+                }
+                
+                *is_multiline = true;
+
+                emit_token(&mut quote_token, &mut newspaces, &mut tokens);
+                newspaces = Some(self.skip_separation_spaces(true).saturating_sub(1));
+                quote_token.0 = self.pos;
+                continue;
+            }
+            let haystack = &self.slice[line_start..line_end];
+            if let Some(find_pos) = memchr::memchr3(b'"', b' ', b'\t', haystack) {
+                self.consume_bytes(find_pos.saturating_sub(1));
+                match self.peek_chars() {
+                    [b'\\', b'"', ..]  => {
+                        quote_token.1 = self.pos;
+                        emit_token(&mut quote_token, &mut newspaces, &mut tokens);
+                        quote_token.0 = self.pos + 1;
+                        self.consume_bytes(2);
                     }
+                    [_, b'"', ..] => {
+                        quote_token.1 = self.pos + 1;
+                        emit_token(&mut quote_token, &mut newspaces, &mut tokens);
+                        self.consume_bytes(2);
+                        break;
+                    }
+                    [_, b' ' | b'\t', ..] | [b' ' | b'\t']=> {
+                        if *is_multiline {
+                            last_non_space = self.pos;
+                            self.consume_bytes(1);
+                            self.skip_space_tab(true);
+                        } else {
+                            last_non_space = self.consume_bytes(1);
+                            self.skip_space_tab(true);
+                        }
+                        
+                        
+                    }
+                    _ => {}
                 }
-                Some(len) => {
-                    tokens.push(line_start);
-                    tokens.push(line_start + len);
-                    self.consume_bytes(len + 1);
-                    break;
-                }
-                None => {
-                    tokens.push(line_start);
-                    tokens.push(line_end);
-                    tokens.push(NewLine as usize);
-                    tokens.push(0);
-                    self.read_line();
-                    self.skip_space_tab(is_implicit);
-                }
+            } else {
+                let amount = line_end - line_start;
+                last_non_space = self.consume_bytes(amount);
             }
         }
         tokens.push(ScalarEnd as usize);
@@ -653,7 +673,18 @@ impl<'r> Reader<()> for StrReader<'r> {
             None
         }
     }
+}
 
+fn emit_token(quote_token: &mut (usize, usize), newspaces: &mut Option<usize>, tokens: &mut Vec<usize>) {
+    if quote_token.0 != quote_token.1 {
+        if let Some(newspace) = newspaces.take() {
+            tokens.push(NewLine as usize);
+            tokens.push(newspace);
+        }
+        tokens.push(quote_token.0);
+        tokens.push(quote_token.1);
+        quote_token.0 = quote_token.1;
+    }
 }
 
 #[test]

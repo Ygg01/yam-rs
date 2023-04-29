@@ -234,11 +234,11 @@ const DQUOTE_STR_ESCAPE_TAB_EVENTS: &str = r#"
 const DQUOTE_MULTI_INPUT: &str = r##"
  "test  
  
- tab" "##;
- 
+   tab" "##;
+
 const DQUOTE_MULTI_EVENTS: &str = r#"
  +DOC
-  =VAL "test\ttab
+  =VAL "test\ntab
  -DOC"#;
 
 #[test]
