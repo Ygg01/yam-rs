@@ -257,9 +257,8 @@ quote" "##;
 
 const DQUOTE_ERR_EVENTS: &str = r#"
  +DOC
-  ERR
   +SEQ
-   =VAL "double\ntab
+   =VAL "double\nquote
   -SEQ
  -DOC"#;
 

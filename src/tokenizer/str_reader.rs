@@ -9,7 +9,7 @@ use reader::{is_flow_indicator, ns_plain_safe};
 use ErrorType::ExpectedIndent;
 
 use crate::tokenizer::lexer::LexerState;
-use crate::tokenizer::lexer::LexerState::{BlockMapExp, BlockSeq};
+use crate::tokenizer::lexer::LexerState::{BlockMapExp, BlockSeq, BlockMap};
 use crate::tokenizer::reader::{
     is_indicator, is_uri_char, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
@@ -340,6 +340,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         &mut self,
         literal: bool,
         curr_state: &LexerState,
+        block_indent: usize,
         tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
     ) {
@@ -357,12 +358,12 @@ impl<'r> Reader<()> for StrReader<'r> {
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
-                indentation = curr_state.indent() as usize + (len - b'0') as usize;
+                indentation = block_indent + (len - b'0') as usize;
             }
             (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Keep;
-                indentation = curr_state.indent() as usize + (len - b'0') as usize;
+                indentation = block_indent + (len - b'0') as usize;
             }
             (b'-', _) => {
                 self.consume_bytes(1);
@@ -374,7 +375,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
-                indentation = curr_state.indent() as usize + (len - b'0') as usize;
+                indentation = block_indent + (len - b'0') as usize;
             }
             _ => {}
         }
@@ -411,14 +412,18 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
         while !self.eof() {
-            let curr_indent = curr_state.indent();
 
-            match (self.peek_byte_unwrap(curr_indent as usize), curr_state) {
+            
+
+            match (self.peek_byte_unwrap(block_indent), curr_state) {
                 (b'-', BlockSeq(ind)) | (b':', BlockMapExp(ind, _)) => {
-                    if self.col + curr_indent as usize == *ind as usize {
-                        self.consume_bytes((curr_indent) as usize);
+                    if self.col + block_indent == *ind as usize {
+                        self.consume_bytes((block_indent) as usize);
                         break;
                     }
+                }
+                (_, BlockMap(ind, _)) if *ind as usize == block_indent && block_indent < previous_indent => {
+                    break;
                 }
                 _ => {}
             }
@@ -448,7 +453,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 self.read_line();
                 continue;
             } else if let Flow::Error(actual) =
-                self.skip_n_spaces(indentation, curr_state.indent() as usize)
+                self.skip_n_spaces(indentation, block_indent)
             {
                 tokens.push_back(ErrorToken as usize);
                 errors.push(ExpectedIndent {
@@ -495,10 +500,10 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_double_quote(
         &mut self,
-        _prev_indent: usize,
+        prev_indent: usize,
         _is_implicit: bool,
         is_multiline: &mut bool,
-        _errors: &mut Vec<ErrorType>,
+        errors: &mut Vec<ErrorType>,
     ) -> Vec<usize> {
         let start_str = self.consume_bytes(1);
         let mut quote_token = (start_str, start_str);
@@ -520,6 +525,10 @@ impl<'r> Reader<()> for StrReader<'r> {
                 emit_token(&mut quote_token, &mut newspaces, &mut tokens);
                 newspaces = Some(self.skip_separation_spaces(true).saturating_sub(1));
                 quote_token.0 = self.pos;
+                if prev_indent != 0 && self.col < prev_indent  {
+                    tokens.insert(0, ErrorToken as usize);
+                    errors.push(ErrorType::ExpectedIndent { actual: self.col, expected: prev_indent })
+                }
                 continue;
             }
             let haystack = &self.slice[line_start..line_end];
