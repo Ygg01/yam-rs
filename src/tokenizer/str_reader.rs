@@ -532,10 +532,14 @@ impl<'r> Reader<()> for StrReader<'r> {
                 continue;
             }
             let haystack = &self.slice[line_start..line_end];
-            if let Some(find_pos) = memchr::memchr3(b'"', b' ', b'\t', haystack) {
+            if let Some(find_pos) = haystack
+                .iter()
+                .position(|x| *x == b'"' || *x == b' ' || *x == b'\t' || *x == b'\\')
+            {
                 self.consume_bytes(find_pos.saturating_sub(1));
-                match self.peek_chars() {
-                    [b'\\', b'"', ..] => {
+                let peek_chrs = self.peek_chars();
+                match peek_chrs {
+                    [b'\\', b'"', ..] | [_, b'\\', b'"', ..] => {
                         quote_token.1 = self.pos;
                         emit_token(&mut quote_token, &mut newspaces, &mut tokens);
                         quote_token.0 = self.pos + 1;
@@ -546,6 +550,15 @@ impl<'r> Reader<()> for StrReader<'r> {
                         emit_token(&mut quote_token, &mut newspaces, &mut tokens);
                         self.consume_bytes(2);
                         break;
+                    }
+                    [b'\\', b't', ..] | [_, b'\\', b't', ..] => {
+                        if *is_multiline {
+                            last_non_space = self.consume_bytes(2);
+                            self.skip_space_tab(true);
+                        } else {
+                            last_non_space = self.consume_bytes(2);
+                            self.skip_space_tab(true);
+                        }
                     }
                     [_, b' ' | b'\t', ..] | [b' ' | b'\t'] => {
                         if *is_multiline {

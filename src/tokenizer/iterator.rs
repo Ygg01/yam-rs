@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::{fmt::Write, io, str::from_utf8_unchecked};
 
-use crate::escaper::{escape_plain, escape_quotes};
+use crate::escaper::{escape_double_quotes, escape_plain};
 use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
 use crate::Lexer;
@@ -378,7 +378,7 @@ where
                             ScalarType::Plain | ScalarType::Literal | ScalarType::Folded => {
                                 escape_plain(cow)
                             }
-                            ScalarType::DoubleQuote => escape_quotes(cow),
+                            ScalarType::DoubleQuote => escape_double_quotes(cow),
                             _ => cow,
                         };
                         return Some((
