@@ -103,17 +103,6 @@ fn parse_nested_col() {
     assert_eq_event(NEST_COL2_INPUT, NESTED_COL_EVENTS);
 }
 
-const EMPTY_MAP_INPUT: &str = r#"
-{:}
-"#;
-const EMPTY_MAP_EVENTS: &str = r#"
- +DOC
-  +MAP {}
-   =VAL :
-   =VAL :
-  -MAP
- -DOC"#;
-
 const MAP_XY_INPUT: &str = r#"
 {x:y}
 "#;
@@ -160,11 +149,49 @@ const COMPLEX_MAP_EVENTS: &str = r#"
 
 #[test]
 fn parse_flow_map() {
-    assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
     assert_eq_event(MAP_XY_INPUT, MAP_XY_EVENTS);
     assert_eq_event(MAP_X_Y_INPUT, MAP_X_Y_EVENTS);
     assert_eq_event(MAP_X_Y2_INPUT, MAP_X_Y_EVENTS);
     assert_eq_event(MAP_X_Y3_INPUT, MAP_X_Y_EVENTS);
+}
+
+
+const EMPTY_MAP_INPUT: &str = r#"
+{:}
+"#;
+const EMPTY_MAP_EVENTS: &str = r#"
+ +DOC
+  +MAP {}
+   =VAL :
+   =VAL :
+  -MAP
+ -DOC"#;
+
+const EMPTY_NODES_INPUT: &str = r#"
+{
+    a: "b",
+    x,
+    y:,
+}
+"#;
+
+const  EMPTY_NODES_EVENTS: &str = r#"
+ +DOC
+  +MAP {}
+   =VAL :a
+   =VAL "b
+   =VAL :x
+   =VAL :
+   =VAL :y
+   =VAL :
+  -MAP
+ -DOC"#;
+
+
+#[test]
+fn parse_empty_nodes() {
+    assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
+    assert_eq_event(EMPTY_NODES_INPUT, EMPTY_NODES_EVENTS);
 }
 
 #[test]
