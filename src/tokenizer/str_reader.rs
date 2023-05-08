@@ -540,10 +540,10 @@ impl<'r> Reader<()> for StrReader<'r> {
                 let peek_chrs = self.peek_chars();
                 match peek_chrs {
                     [b'\\', b'"', ..] | [_, b'\\', b'"', ..] => {
-                        quote_token.1 = self.pos;
+                        quote_token.1 = self.pos + 1;
                         emit_token(&mut quote_token, &mut newspaces, &mut tokens);
-                        quote_token.0 = self.pos + 1;
-                        self.consume_bytes(2);
+                        quote_token.0 = self.pos + 2;
+                        self.consume_bytes(3);
                     }
                     [_, b'"', ..] => {
                         quote_token.1 = self.pos + 1;
@@ -552,13 +552,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                         break;
                     }
                     [b'\\', b't', ..] | [_, b'\\', b't', ..] => {
-                        if *is_multiline {
-                            last_non_space = self.consume_bytes(2);
-                            self.skip_space_tab(true);
-                        } else {
-                            last_non_space = self.consume_bytes(2);
-                            self.skip_space_tab(true);
-                        }
+                        last_non_space = self.consume_bytes(2);
+                        self.skip_space_tab(true);
                     }
                     [_, b' ' | b'\t', ..] | [b' ' | b'\t'] => {
                         if *is_multiline {
