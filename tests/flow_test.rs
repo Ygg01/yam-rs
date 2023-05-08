@@ -215,25 +215,6 @@ const DQUOTE_STR_EVENTS: &str = r#"
   =VAL "double quote
  -DOC"#;
 
-const DQUOTE_STR_ESC1_INPUT: &str = r#"
- "double quote (\")""#;
-
-const DQUOTE_STR_ESC_EVENTS: &str = r#"
- +DOC
-  =VAL "double quote (")
- -DOC"#;
-
-const DQUOTE_LEADING_TAB_INPUT: &str = r##""test
-    \	tab""##;
-
-const DQUOTE_LEADING_TAB2_INPUT: &str = r##"
-    "test
-      \ttab" "##;
-
-const DQUOTE_LEADING_TAB_EVENTS: &str = r#"
- +DOC
-  =VAL "test \ttab
- -DOC"#;
 
 const DQUOTE_MULTI_INPUT: &str = r##"
  "test  
@@ -247,12 +228,46 @@ const DQUOTE_MULTI_EVENTS: &str = r#"
 
 #[test]
 fn flow_double_quote() {
-    assert_eq_event(DQUOTE_LEADING_TAB_INPUT, DQUOTE_LEADING_TAB_EVENTS);
-    assert_eq_event(DQUOTE_LEADING_TAB2_INPUT, DQUOTE_LEADING_TAB_EVENTS);
     assert_eq_event(DQUOTE_STR1_INPUT, DQUOTE_STR_EVENTS);
     assert_eq_event(DQUOTE_STR2_INPUT, DQUOTE_STR_EVENTS);
-    assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
     assert_eq_event(DQUOTE_MULTI_INPUT, DQUOTE_MULTI_EVENTS);
+}
+
+const DQUOTE_LEADING_TAB_INPUT: &str = r##""test
+    \	tab""##;
+
+const DQUOTE_LEADING_TAB2_INPUT: &str = r##"
+    "test
+      \ttab" "##;
+
+const DQUOTE_LEADING_TAB_EVENTS: &str = r#"
+ +DOC
+  =VAL "test \ttab
+ -DOC"#;
+
+const DQUOTE_STR_ESC1_INPUT: &str = r#"
+ "double quote (\")""#;
+
+const DQUOTE_STR_ESC_EVENTS: &str = r#"
+ +DOC
+  =VAL "double quote (")
+ -DOC"#;
+
+const DQUOTE_ESC_INPUT: &str = r##"
+ "a\/b"
+"##;
+
+const DQUOTE_ESC_EVENTS: &str = r#"
+ +DOC
+  =VAL "a/b
+ -DOC"#;
+
+#[test]
+fn double_quote_escape() {
+    assert_eq_event(DQUOTE_ESC_INPUT, DQUOTE_ESC_EVENTS);
+    assert_eq_event(DQUOTE_LEADING_TAB_INPUT, DQUOTE_LEADING_TAB_EVENTS);
+    assert_eq_event(DQUOTE_LEADING_TAB2_INPUT, DQUOTE_LEADING_TAB_EVENTS);
+    assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
 }
 
 const DQUOTE_ERR_INPUT: &str = r##"
