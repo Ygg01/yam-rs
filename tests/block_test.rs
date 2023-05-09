@@ -857,3 +857,25 @@ const MULTI_DOC_EVENTS: &str = r#"
 fn multi_doc() {
     assert_eq_event(MULTI_DOC_INPUT, MULTI_DOC_EVENTS);
 }
+
+const INDENT_TAB_INPUT: &str = r#"
+a: 
+	b: c
+"#;
+
+const INDENT_TAB_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :a
+   ERR
+   +MAP
+    =VAL :b
+    =VAL :c
+   -MAP
+  -MAP
+ -DOC"#;
+
+#[test]
+fn invalid_tabs_in_map() {
+    assert_eq_event(INDENT_TAB_INPUT, INDENT_TAB_EVENTS)
+}

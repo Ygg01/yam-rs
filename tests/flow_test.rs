@@ -155,7 +155,6 @@ fn parse_flow_map() {
     assert_eq_event(MAP_X_Y3_INPUT, MAP_X_Y_EVENTS);
 }
 
-
 const EMPTY_MAP_INPUT: &str = r#"
 {:}
 "#;
@@ -175,7 +174,7 @@ const EMPTY_NODES_INPUT: &str = r#"
 }
 "#;
 
-const  EMPTY_NODES_EVENTS: &str = r#"
+const EMPTY_NODES_EVENTS: &str = r#"
  +DOC
   +MAP {}
    =VAL :a
@@ -186,7 +185,6 @@ const  EMPTY_NODES_EVENTS: &str = r#"
    =VAL :
   -MAP
  -DOC"#;
-
 
 #[test]
 fn parse_empty_nodes() {
@@ -241,7 +239,6 @@ const DQUOTE_STR_EVENTS: &str = r#"
  +DOC
   =VAL "double quote
  -DOC"#;
-
 
 const DQUOTE_MULTI_INPUT: &str = r##"
  "test  
