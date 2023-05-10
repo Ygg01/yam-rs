@@ -437,14 +437,14 @@ where
     }
 }
 
-pub fn assert_eq_event(input_yaml: &str, expect: &str) {
+pub fn assert_eq_event(input: &str, events: &str) {
     let mut line = String::new();
-    let scan: EventIterator<'_, StrReader> = EventIterator::from(input_yaml);
+    let scan: EventIterator<'_, StrReader> = EventIterator::from(input);
     scan.for_each(|(ev, indent)| {
         line.push('\n');
         line.push_str(&" ".repeat(indent));
         write!(line, "{:}", ev).unwrap();
     });
 
-    assert_eq!(expect, line, "Error in {input_yaml}");
+    assert_eq!(events, line, "Error in {input}");
 }
