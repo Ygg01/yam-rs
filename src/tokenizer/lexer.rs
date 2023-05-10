@@ -111,83 +111,6 @@ impl LexerState {
 }
 
 impl Lexer {
-    pub const fn get_default_namespace(namespace: &[u8]) -> Option<Cow<'static, [u8]>> {
-        match namespace {
-            b"!!str" => Some(Cow::Borrowed(b"tag:yaml.org,2002:str")),
-            b"!!int" => Some(Cow::Borrowed(b"tag:yaml.org,2002:int")),
-            b"!!null" => Some(Cow::Borrowed(b"tag:yaml.org,2002:null")),
-            b"!!bool" => Some(Cow::Borrowed(b"tag:yaml.org,2002:bool")),
-            b"!!float" => Some(Cow::Borrowed(b"tag:yaml.org,2002:float")),
-            b"!!map" => Some(Cow::Borrowed(b"tag:yaml.org,2002:map")),
-            b"!!seq" => Some(Cow::Borrowed(b"tag:yaml.org,2002:seq")),
-            b"!!set" => Some(Cow::Borrowed(b"tag:yaml.org,2002:set")),
-            _ => None,
-        }
-    }
-
-    #[inline(always)]
-    pub fn curr_state(&self) -> LexerState {
-        *self.stack.last().unwrap_or(&LexerState::default())
-    }
-
-    #[inline(always)]
-    pub fn set_curr_state(&mut self, state: LexerState) {
-        match self.stack.last_mut() {
-            Some(x) => *x = state,
-            None => self.push_state(state),
-        }
-    }
-
-    #[inline]
-    fn set_map_state(&mut self, map_state: MapState) {
-        match self.stack.last_mut() {
-            Some(FlowMap(_, state)) | Some(BlockMap(_, state)) | Some(BlockMapExp(_, state)) => {
-                *state = map_state
-            }
-            _ => {}
-        };
-    }
-
-    #[inline]
-    fn set_next_map_state(&mut self) {
-        let new_state = match self.stack.last() {
-            Some(FlowMap(ind, state)) => FlowMap(*ind, state.next_state()),
-            Some(FlowKeyExp(ind, state)) => FlowKeyExp(*ind, state.next_state()),
-            Some(BlockMap(ind, state)) => BlockMap(*ind, state.next_state()),
-            Some(BlockMapExp(ind, AfterColon)) => BlockMap(*ind, BeforeKey),
-            Some(BlockMapExp(ind, state)) => BlockMapExp(*ind, state.next_state()),
-            _ => return,
-        };
-        if let Some(x) = self.stack.last_mut() {
-            *x = new_state
-        };
-    }
-
-    #[inline(always)]
-    pub fn pop_token(&mut self) -> Option<usize> {
-        self.tokens.pop_front()
-    }
-
-    #[inline(always)]
-    pub fn tokens(self) -> VecDeque<usize> {
-        self.tokens
-    }
-
-    #[inline(always)]
-    pub fn peek_token(&mut self) -> Option<usize> {
-        self.tokens.front().copied()
-    }
-
-    #[inline(always)]
-    pub fn peek_token_next(&mut self) -> Option<usize> {
-        self.tokens.get(1).copied()
-    }
-
-    #[inline(always)]
-    pub fn is_empty(&self) -> bool {
-        self.tokens.is_empty()
-    }
-
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
         self.continue_processing = true;
 
@@ -1113,6 +1036,83 @@ impl Lexer {
             reader.consume_bytes(1);
             reader.skip_space_tab(true, &mut true);
         }
+    }
+
+    pub const fn get_default_namespace(namespace: &[u8]) -> Option<Cow<'static, [u8]>> {
+        match namespace {
+            b"!!str" => Some(Cow::Borrowed(b"tag:yaml.org,2002:str")),
+            b"!!int" => Some(Cow::Borrowed(b"tag:yaml.org,2002:int")),
+            b"!!null" => Some(Cow::Borrowed(b"tag:yaml.org,2002:null")),
+            b"!!bool" => Some(Cow::Borrowed(b"tag:yaml.org,2002:bool")),
+            b"!!float" => Some(Cow::Borrowed(b"tag:yaml.org,2002:float")),
+            b"!!map" => Some(Cow::Borrowed(b"tag:yaml.org,2002:map")),
+            b"!!seq" => Some(Cow::Borrowed(b"tag:yaml.org,2002:seq")),
+            b"!!set" => Some(Cow::Borrowed(b"tag:yaml.org,2002:set")),
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    pub fn curr_state(&self) -> LexerState {
+        *self.stack.last().unwrap_or(&LexerState::default())
+    }
+
+    #[inline(always)]
+    pub fn set_curr_state(&mut self, state: LexerState) {
+        match self.stack.last_mut() {
+            Some(x) => *x = state,
+            None => self.push_state(state),
+        }
+    }
+
+    #[inline]
+    fn set_map_state(&mut self, map_state: MapState) {
+        match self.stack.last_mut() {
+            Some(FlowMap(_, state)) | Some(BlockMap(_, state)) | Some(BlockMapExp(_, state)) => {
+                *state = map_state
+            }
+            _ => {}
+        };
+    }
+
+    #[inline]
+    fn set_next_map_state(&mut self) {
+        let new_state = match self.stack.last() {
+            Some(FlowMap(ind, state)) => FlowMap(*ind, state.next_state()),
+            Some(FlowKeyExp(ind, state)) => FlowKeyExp(*ind, state.next_state()),
+            Some(BlockMap(ind, state)) => BlockMap(*ind, state.next_state()),
+            Some(BlockMapExp(ind, AfterColon)) => BlockMap(*ind, BeforeKey),
+            Some(BlockMapExp(ind, state)) => BlockMapExp(*ind, state.next_state()),
+            _ => return,
+        };
+        if let Some(x) = self.stack.last_mut() {
+            *x = new_state
+        };
+    }
+
+    #[inline(always)]
+    pub fn pop_token(&mut self) -> Option<usize> {
+        self.tokens.pop_front()
+    }
+
+    #[inline(always)]
+    pub fn tokens(self) -> VecDeque<usize> {
+        self.tokens
+    }
+
+    #[inline(always)]
+    pub fn peek_token(&mut self) -> Option<usize> {
+        self.tokens.front().copied()
+    }
+
+    #[inline(always)]
+    pub fn peek_token_next(&mut self) -> Option<usize> {
+        self.tokens.get(1).copied()
+    }
+
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.tokens.is_empty()
     }
 
     #[inline]
