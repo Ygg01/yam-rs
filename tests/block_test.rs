@@ -35,14 +35,34 @@ const BLOCK_ERR_EVENTS: &str = r#"
  +DOC
   +SEQ
    =VAL :x
-   ERR
-   =VAL :y
   -SEQ
+  ERR
+ -DOC
+ ERR"#;
+
+const WRONG_SEQ_INDENT_INPUT: &str = r#"
+a: 
+  - b
+ - c
+"#;
+
+const WRONG_SEQ_INDENT_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :a
+   +SEQ
+    =VAL :b
+   -SEQ
+   ERR
+   ERR
+   =VAL :c
+  -MAP
  -DOC"#;
 
 #[test]
 pub fn block_seq_err() {
     assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS);
+    assert_eq_event(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS);
 }
 
 const BLOCK_NESTED_SEQ_INPUT: &str = r#"
@@ -877,5 +897,5 @@ const INDENT_TAB_EVENTS: &str = r#"
 
 #[test]
 fn invalid_tabs_in_map() {
-    assert_eq_event(INDENT_TAB_INPUT, INDENT_TAB_EVENTS)
+    assert_eq_event(INDENT_TAB_INPUT, INDENT_TAB_EVENTS);
 }

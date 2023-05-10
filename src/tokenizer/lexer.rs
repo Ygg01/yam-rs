@@ -345,14 +345,12 @@ impl Lexer {
                     self.tokens.push_back(reader.consume_bytes(3));
                     true
                 }
-                b"..." | b"---" => {
-                    false
-                }
+                b"..." | b"---" => false,
                 _ => {
                     reader.read_line();
                     false
                 }
-            }
+            };
         }
         false
     }
@@ -365,11 +363,8 @@ impl Lexer {
         self.continue_processing = false;
         // TODO actual tag handling
         directive_state.add_tag();
-        if reader.try_read_slice_exact("%TAG") {
-            reader.read_line();
-        } else {
-            reader.read_line();
-        };
+        reader.try_read_slice_exact("%TAG");
+        reader.read_line();
     }
 
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
@@ -969,16 +964,23 @@ impl Lexer {
             }
             BlockSeq(ind) if indent == ind as usize => {}
             _ => {
-                if let Some(unwind) = self.find_matching_state(
-                    indent,
-                    |state, indent| matches!(state, BlockSeq(ind) if ind as usize == indent),
-                ) {
-                    self.pop_block_states(unwind);
+                if let Some(last_seq) = self.stack.iter().rposition(|x| matches!(x, BlockSeq(_))) {
+                    if let Some(unwind) = self.find_matching_state(
+                        indent,
+                        |state, indent| matches!(state, BlockSeq(ind) if ind as usize == indent),
+                    ) {
+                        self.pop_block_states(unwind);
+                    } else {
+                        self.pop_block_states(self.stack.len() - last_seq);
+                        self.push_error(ExpectedIndent {
+                            actual: indent,
+                            expected: expected_indent,
+                        });
+                    }
                 } else {
-                    self.push_error(ExpectedIndent {
-                        actual: indent,
-                        expected: expected_indent,
-                    });
+                    self.set_next_map_state();
+                    self.stack.push(BlockSeq(indent as u32));
+                    self.tokens.push_back(SEQ_START_BLOCK);
                 }
             }
         }
