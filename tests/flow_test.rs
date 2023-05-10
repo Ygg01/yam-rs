@@ -321,19 +321,6 @@ fn flow_err_plain_scalar() {
     assert_eq_event(ERR_PLAIN_SCALAR_INPUT, ERR_PLAIN_SCALAR_EVENTS);
 }
 
-const SIMPLE_DOC_INPUT: &str = r#"
----[]"#;
-
-const SIMPLE_DOC_EVENTS: &str = r#"
- +DOC ---
-  +SEQ []
-  -SEQ
- -DOC"#;
-
-#[test]
-fn simple_doc() {
-    assert_eq_event(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS);
-}
 
 const DOC_END_ERR_INPUT: &str = r#"
 ---

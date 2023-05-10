@@ -10,8 +10,8 @@ use LexerState::PreDocStart;
 use SeqState::BeforeFirstElem;
 
 use crate::tokenizer::lexer::LexerState::{
-    AfterDocEnd, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, FlowKeyExp, FlowMap,
-    FlowSeq,
+    AfterDocEnd, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, EndOfDirective,
+    FlowKeyExp, FlowMap, FlowSeq,
 };
 use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::{AfterColon, BeforeColon, BeforeKey};
@@ -21,7 +21,7 @@ use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
 use super::iterator::{DirectiveType, ScalarType};
-use super::reader::{is_flow_indicator, is_newline};
+use super::reader::{is_flow_indicator, is_newline, is_not_whitespace};
 
 #[derive(Clone, Default)]
 pub struct Lexer {
@@ -68,6 +68,7 @@ pub enum LexerState {
     #[default]
     PreDocStart,
     DirectiveSection,
+    EndOfDirective,
     DocBlock,
     // u32 is the index of the token insertion point for flow nodes
     FlowSeq(u32, SeqState),
@@ -149,6 +150,7 @@ impl Lexer {
             match curr_state {
                 PreDocStart => self.fetch_pre_doc(reader),
                 DirectiveSection => self.fetch_directive_section(reader, &mut directive_state),
+                EndOfDirective => self.fetch_end_of_directive(reader, &mut directive_state),
                 DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                     self.fetch_map_like_block(reader, curr_state)
                 }
@@ -180,6 +182,11 @@ impl Lexer {
                     ERROR_TOKEN
                 }
                 DocBlock | AfterDocEnd => DOC_END,
+                EndOfDirective => {
+                    self.tokens.push_back(SCALAR_PLAIN);
+                    self.tokens.push_back(SCALAR_END);
+                    DOC_END
+                }
                 _ => continue,
             };
             self.tokens.push_back(token);
@@ -278,33 +285,20 @@ impl Lexer {
         }
     }
 
-    fn unwind_to_root_start<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let pos = reader.col();
-        reader.consume_bytes(3);
-        self.pop_block_states(self.stack.len().saturating_sub(1));
-        self.tokens.push_back(DOC_END);
-        if pos != 0 {
-            self.push_error(ErrorType::ExpectedIndentDocStart {
-                actual: pos,
-                expected: 0,
-            });
+    fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        if reader.peek_byte_is(b'%') {
+            self.push_state(DirectiveSection);
+        } else if reader.peek_byte_is(b'#') {
+            reader.read_line();
+        } else if reader.try_read_slice_exact("---") {
+            self.tokens.push_back(DOC_START_EXP);
+            self.push_state(DocBlock);
+        } else if reader.try_read_slice_exact("...") {
+            reader.skip_separation_spaces(true);
+        } else if !reader.eof() {
+            self.tokens.push_back(DOC_START);
+            self.push_state(DocBlock);
         }
-        self.tokens.push_back(DOC_START_EXP);
-        self.set_curr_state(DocBlock);
-    }
-
-    fn unwind_to_root_end<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let pos = reader.pos();
-        reader.consume_bytes(3);
-        self.pop_block_states(self.stack.len().saturating_sub(1));
-        self.tokens.push_back(DOC_END_EXP);
-        if pos != 0 {
-            self.push_error(ErrorType::ExpectedIndentDocEnd {
-                actual: pos,
-                expected: 0,
-            });
-        }
-        self.set_curr_state(AfterDocEnd);
     }
 
     fn fetch_directive_section<B, R: Reader<B>>(
@@ -331,12 +325,17 @@ impl Lexer {
             }
             [b'%', ..] => self.fetch_read_tag(reader, directive_state),
             b"..." => {
+                reader.consume_bytes(3);
+                self.tokens.push_back(DOC_START);
+                self.tokens.push_back(DOC_END_EXP);
                 self.prepend_error(ErrorType::UnexpectedEndOfStream);
                 self.set_curr_state(PreDocStart);
-                self.continue_processing = true;
+                self.continue_processing = false;
             }
             b"---" => {
-                self.set_curr_state(PreDocStart);
+                reader.consume_bytes(3);
+                self.tokens.push_back(DOC_START_EXP);
+                self.set_curr_state(EndOfDirective);
                 self.continue_processing = true;
             }
             _ => {
@@ -353,7 +352,12 @@ impl Lexer {
                     self.tokens.push_back(DIR_YAML);
                     self.tokens.push_back(reader.pos());
                     self.tokens.push_back(reader.consume_bytes(3));
-                    true
+                    let has_ws_break = reader.peek_byte().map_or(false, is_white_tab_or_break);
+                    if !has_ws_break {
+                        self.prepend_error(ErrorType::UnsupportedYamlVersion);
+                        reader.read_line();
+                    }
+                    has_ws_break
                 }
                 b"..." | b"---" => false,
                 _ => {
@@ -361,8 +365,10 @@ impl Lexer {
                     false
                 }
             };
+        } else {
+            reader.read_line();
+            false
         }
-        false
     }
 
     fn fetch_read_tag<B, R: Reader<B>>(
@@ -377,20 +383,31 @@ impl Lexer {
         reader.read_line();
     }
 
-    fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        if reader.peek_byte_is(b'%') {
-            self.push_state(DirectiveSection);
-        } else if reader.peek_byte_is(b'#') {
-            reader.read_line();
-        } else if reader.try_read_slice_exact("---") {
-            self.tokens.push_back(DOC_START_EXP);
-            self.push_state(DocBlock);
-        } else if reader.try_read_slice_exact("...") {
-            reader.skip_separation_spaces(true);
-        } else {
-            self.tokens.push_back(DOC_START);
-            self.push_state(DocBlock);
-        }
+    fn fetch_end_of_directive<B, R: Reader<B>>(&mut self, reader: &mut R, directive_state: &mut DirectiveState) {
+        let col = reader.col();
+        self.continue_processing = false;
+        match reader.peek_chars() {
+            b"..." => {
+                reader.consume_bytes(3);
+                if col != 0 {
+                    self.push_error(ErrorType::UnxpectedIndentDocEnd {
+                        actual: col,
+                        expected: 0,
+                    });
+                }
+                self.push_empty_token();
+                self.tokens.push_back(DOC_END_EXP);
+            }
+            [b'%', ..] => {
+                self.prepend_error(ErrorType::ExpectedDocumentEndOrContents);
+                self.tokens.push_back(DOC_END);
+                self.set_curr_state(DirectiveSection);
+            }
+            [x, ..] if is_not_whitespace(x) => {
+                self.set_curr_state(PreDocStart);
+            }
+            [..] => {}
+        };
     }
 
     fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R) {
@@ -478,6 +495,7 @@ impl Lexer {
                 // could be `[a]: b` map
                 self.skip_separation_spaces(reader, false);
                 let new_curr = self.curr_state();
+                // TODO deal with `: `
                 if reader.peek_byte_is(b':')
                     && !matches!(new_curr, FlowKeyExp(_, _) | FlowMap(_, _))
                 {
@@ -736,10 +754,10 @@ impl Lexer {
                 BlockMap(indent, _) | BlockMapExp(indent, _) | BlockSeq(indent) => {
                     self.last_block_indent = *indent as usize;
                 }
+                DocBlock => {
+                    *state = AfterDocEnd;
+                }
                 _ => {}
-            }
-            if state == &DocBlock {
-                *state = AfterDocEnd;
             }
         };
         pop_state
@@ -770,6 +788,35 @@ impl Lexer {
                 _ => {}
             }
         }
+    }
+
+    fn unwind_to_root_start<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        let pos = reader.col();
+        reader.consume_bytes(3);
+        self.pop_block_states(self.stack.len().saturating_sub(1));
+        self.tokens.push_back(DOC_END);
+        if pos != 0 {
+            self.push_error(ErrorType::ExpectedIndentDocStart {
+                actual: pos,
+                expected: 0,
+            });
+        }
+        self.tokens.push_back(DOC_START_EXP);
+        self.set_curr_state(DocBlock);
+    }
+
+    fn unwind_to_root_end<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        let pos = reader.pos();
+        reader.consume_bytes(3);
+        self.pop_block_states(self.stack.len().saturating_sub(1));
+        self.tokens.push_back(DOC_END_EXP);
+        if pos != 0 {
+            self.push_error(ErrorType::UnxpectedIndentDocEnd {
+                actual: pos,
+                expected: 0,
+            });
+        }
+        self.set_curr_state(AfterDocEnd);
     }
 
     fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
