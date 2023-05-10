@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::ops::ControlFlow::{Break, Continue};
-use std::ops::{RangeFrom, RangeInclusive};
+use std::ops::RangeInclusive;
 use std::usize;
 
 use memchr::{memchr, memchr3_iter};
@@ -11,7 +11,7 @@ use ErrorType::ExpectedIndent;
 use crate::tokenizer::lexer::LexerState;
 use crate::tokenizer::lexer::LexerState::{BlockMap, BlockMapExp, BlockSeq};
 use crate::tokenizer::reader::{
-    is_indicator, is_uri_char, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
+    is_uri_char, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
 use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
@@ -80,16 +80,8 @@ impl<'a> StrReader<'a> {
     }
 
     #[inline]
-    fn count_space_tab_range_from(
-        &self,
-        range: RangeFrom<usize>,
-        allow_tab: bool,
-        has_tab: &mut bool,
-    ) -> usize {
-        match self.slice[range].iter().try_fold(0usize, |pos, chr| {
-            if !*has_tab && *chr == b'\t' {
-                *has_tab = true
-            }
+    fn count_space_tab_range_from(&self, allow_tab: bool) -> usize {
+        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
             if *chr == b' ' || (allow_tab && *chr == b'\t') {
                 Continue(pos + 1)
             } else {
@@ -98,6 +90,35 @@ impl<'a> StrReader<'a> {
         }) {
             Continue(x) | Break(x) => x,
         }
+    }
+
+    #[inline]
+    fn count_spaces(&self) -> usize {
+        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+            if *chr == b' ' {
+                Continue(pos + 1)
+            } else {
+                Break(pos)
+            }
+        }) {
+            Continue(x) | Break(x) => x,
+        }
+    }
+
+    fn skip_detect_space_tab(&mut self, has_tab: &mut bool) {
+        let amount = match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+            if !*has_tab && *chr == b'\t' {
+                *has_tab = true;
+            }
+            if *chr == b' ' || *chr == b'\t' {
+                Continue(pos + 1)
+            } else {
+                Break(pos)
+            }
+        }) {
+            Continue(x) | Break(x) => x,
+        };
+        self.consume_bytes(amount);
     }
 
     fn skip_n_spaces(&mut self, num_spaces: usize, prev_indent: usize) -> Flow {
@@ -214,15 +235,10 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn skip_space_tab(&mut self, allow_tab: bool, has_tab: &mut bool) -> usize {
-        let amount = self.count_space_tab_range_from(self.pos.., allow_tab, has_tab);
+    fn skip_space_tab(&mut self) -> usize {
+        let amount = self.count_space_tab_range_from(true);
         self.consume_bytes(amount);
         amount
-    }
-
-    #[inline]
-    fn count_space_tab(&self, allow_tab: bool) -> usize {
-        self.count_space_tab_range_from(self.pos.., allow_tab, &mut true)
     }
 
     #[inline(always)]
@@ -251,16 +267,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end)
     }
 
-    fn not_safe_char(&self) -> bool {
-        match self.slice[self.pos..] {
-            [b'-', x, ..] => is_white_tab(x),
-            [b'?', x, ..] => is_white_tab_or_break(x),
-            [b':', x, ..] => is_white_tab_or_break(x),
-            [x, ..] if is_white_tab_or_break(x) || is_indicator(x) => true,
-            _ => false,
-        }
-    }
-
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool {
         fn find_next_whitespace(slice: &[u8]) -> Option<usize> {
             slice.iter().position(|p| is_white_tab_or_break(*p))
@@ -268,7 +274,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
         if self.peek_byte_is(b'%') {
             if self.try_read_slice_exact("%YAML") {
-                self.skip_space_tab(true, &mut true);
+                self.skip_space_tab();
                 if let Some(x) = find_next_whitespace(&self.slice[self.pos..]) {
                     tokens.push_back(DirectiveYaml as usize);
                     tokens.push_back(self.pos);
@@ -283,7 +289,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 } else {
                     DirectiveReserved
                 };
-                self.skip_space_tab(true, &mut true);
+                self.skip_space_tab();
                 let x = self.read_non_comment_line();
                 if x.0 != x.1 {
                     tokens.push_back(tag as usize);
@@ -403,7 +409,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         };
 
         // allow comment in first line of block scalar
-        self.skip_space_tab(true, &mut true);
+        self.skip_space_tab();
         match self.peek_byte() {
             Some(b'#' | b'\r' | b'\n') => {
                 self.read_line();
@@ -444,7 +450,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
 
             // count indents important for folded scalars
-            let newline_indent = self.count_space_tab(false);
+            let newline_indent = self.count_spaces();
 
             if !is_trailing_comment
                 && newline_indent < indentation
@@ -569,16 +575,16 @@ impl<'r> Reader<()> for StrReader<'r> {
                     }
                     [b'\\', b't', ..] | [_, b'\\', b't', ..] => {
                         last_non_space = self.consume_bytes(2);
-                        self.skip_space_tab(true, &mut true);
+                        self.skip_space_tab();
                     }
                     [_, b' ' | b'\t', ..] | [b' ' | b'\t'] => {
                         if *is_multiline {
                             last_non_space = self.pos;
                             self.consume_bytes(1);
-                            self.skip_space_tab(true, &mut true);
+                            self.skip_space_tab();
                         } else {
                             last_non_space = self.consume_bytes(1);
-                            self.skip_space_tab(true, &mut true);
+                            self.skip_space_tab();
                         }
                     }
                     [_, b'\\', x, ..] if *x != b' ' && *x != b'\t' => {
@@ -628,7 +634,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                     tokens.push(NewLine as usize);
                     tokens.push(0);
                     self.read_line();
-                    self.skip_space_tab(is_implicit, &mut true);
+                    let amount = self.count_space_tab_range_from(is_implicit);
+                    self.consume_bytes(amount);
                 }
             }
         }
@@ -641,7 +648,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut found_eol = true;
         let mut has_tab = false;
         while !self.eof() && self.peek_byte().map_or(false, is_white_tab_or_break) {
-            self.skip_space_tab(true, &mut has_tab);
+            self.skip_detect_space_tab(&mut has_tab);
 
             if allow_comments && self.peek_byte_is(b'#') {
                 self.read_line();
@@ -657,7 +664,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             if !found_eol {
                 break;
             } else {
-                self.skip_space_tab(false, &mut has_tab);
+                self.skip_detect_space_tab(&mut has_tab);
                 found_eol = false;
             }
         }

@@ -607,7 +607,7 @@ impl Lexer {
 
     fn process_flow_map_start<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.consume_bytes(1);
-        reader.skip_space_tab(true, &mut true);
+        reader.skip_space_tab();
         self.emit_prev_anchor();
 
         if reader.peek_byte_is(b'?') {
@@ -678,7 +678,7 @@ impl Lexer {
     fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let indent = reader.col();
         reader.consume_bytes(1);
-        reader.skip_space_tab(true, &mut true);
+        reader.skip_space_tab();
         self.emit_prev_anchor();
         match curr_state {
             DocBlock => {
@@ -989,7 +989,7 @@ impl Lexer {
             tokens.push(start);
             tokens.push(end);
 
-            reader.skip_space_tab(true, &mut true);
+            reader.skip_space_tab();
 
             if reader.peek_byte().map_or(false, is_newline) {
                 let folded_newline = self.skip_separation_spaces(reader, false);
@@ -1034,7 +1034,7 @@ impl Lexer {
             self.tokens.extend(scalar);
         } else {
             reader.consume_bytes(1);
-            reader.skip_space_tab(true, &mut true);
+            reader.skip_space_tab();
         }
     }
 
