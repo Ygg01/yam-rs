@@ -26,6 +26,23 @@ fn parse_empty_document() {
     assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS);
 }
 
+const ERR_DIRECTIVE_INPUT: &str = r#"
+%YAML 1.2
+...
+"#;
+
+const ERR_DIRECTIVE_EVENTS: &str = r#"
+ERR
+%YAML 1.2
+-DOC
+"#;
+
+#[test]
+fn parse_err_directive() {
+    assert_eq_event(ERR_DIRECTIVE_INPUT, ERR_DIRECTIVE_EVENTS);
+    assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS);
+}
+
 const NULL_YAML_INPUT: &str = r#"
 null
 "#;
