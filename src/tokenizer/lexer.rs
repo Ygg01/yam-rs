@@ -210,8 +210,9 @@ impl Lexer {
             [b'-', x, ..] if is_white_tab_or_break(*x) => {
                 self.process_block_seq(reader, curr_state);
             }
-            b"---" if reader.col() == 0 => self.unwind_to_root_state(reader),
-            [b'?', x, ..] if is_white_tab_or_break(*x)=> {
+            b"---" => self.unwind_to_root_start(reader),
+            b"..." => self.unwind_to_root_end(reader),
+            [b'?', x, ..] if is_white_tab_or_break(*x) => {
                 self.fetch_exp_block_map_key(reader, curr_state)
             }
             [b'!', ..] => self.fetch_tag(reader),
@@ -242,21 +243,11 @@ impl Lexer {
             [b'-', peek, ..] if is_white_tab_or_break(*peek) => {
                 self.process_block_seq(reader, curr_state);
             }
-            [b'.', b'.', b'.', ..] => {
-                let pos = reader.pos();
-                reader.consume_bytes(3);
-                self.pop_block_states(self.stack.len().saturating_sub(1));
-                self.tokens.push_back(DOC_END_EXP);
-                if pos != 0 {
-                    self.push_error(ErrorType::ExpectedIndentDocEnd {
-                        actual: pos,
-                        expected: 0,
-                    });
-                }
-                self.set_curr_state(AfterDocEnd);
+            b"..." => {
+                self.unwind_to_root_end(reader);
             }
-            b"---" if reader.col() == 0 => {
-                self.unwind_to_root_state(reader);
+            b"---" => {
+                self.unwind_to_root_start(reader);
             }
             [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
                 self.fetch_exp_block_map_key(reader, curr_state)
@@ -287,7 +278,7 @@ impl Lexer {
         }
     }
 
-    fn unwind_to_root_state<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn unwind_to_root_start<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let pos = reader.col();
         reader.consume_bytes(3);
         self.pop_block_states(self.stack.len().saturating_sub(1));
@@ -300,6 +291,20 @@ impl Lexer {
         }
         self.tokens.push_back(DOC_START_EXP);
         self.set_curr_state(DocBlock);
+    }
+
+    fn unwind_to_root_end<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        let pos = reader.pos();
+        reader.consume_bytes(3);
+        self.pop_block_states(self.stack.len().saturating_sub(1));
+        self.tokens.push_back(DOC_END_EXP);
+        if pos != 0 {
+            self.push_error(ErrorType::ExpectedIndentDocEnd {
+                actual: pos,
+                expected: 0,
+            });
+        }
+        self.set_curr_state(AfterDocEnd);
     }
 
     fn fetch_directive_section<B, R: Reader<B>>(
