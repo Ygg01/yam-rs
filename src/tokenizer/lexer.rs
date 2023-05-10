@@ -606,7 +606,8 @@ impl Lexer {
         self.tokens.extend(tokens);
     }
 
-    fn process_double_quote_flow<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    #[inline]
+    fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) -> (usize, Vec<usize>) {
         let scalar_start = self.update_col(reader);
         let mut is_multiline = false;
         let tokens = reader.read_double_quote(
@@ -615,23 +616,20 @@ impl Lexer {
             &mut is_multiline,
             &mut self.errors,
         );
-
         self.skip_separation_spaces(reader, true);
+        (scalar_start, tokens)
+    }
+
+    fn process_double_quote_flow<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+        let (_, tokens) = self.process_double_quote(reader, curr_state);
+
         self.emit_prev_anchor();
         self.tokens.extend(tokens);
     }
 
     fn process_double_quote_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
-        let scalar_start = self.update_col(reader);
-        let mut is_multiline = false;
-        let tokens = reader.read_double_quote(
-            self.last_block_indent,
-            curr_state.is_implicit(),
-            &mut is_multiline,
-            &mut self.errors,
-        );
+        let (scalar_start, tokens) = self.process_double_quote(reader, curr_state);
 
-        self.skip_separation_spaces(reader, true);
         if reader.peek_byte_is(b':') {
             self.unwind_map(curr_state, scalar_start);
             self.set_map_state(BeforeColon);
