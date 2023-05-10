@@ -87,10 +87,10 @@ impl<'a> StrReader<'a> {
         has_tab: &mut bool,
     ) -> usize {
         match self.slice[range].iter().try_fold(0usize, |pos, chr| {
-            if !*has_tab && *chr == b'\t'  {
+            if !*has_tab && *chr == b'\t' {
                 *has_tab = true
             }
-            if *chr == b' ' || (allow_tab && *chr == b'\t'){
+            if *chr == b' ' || (allow_tab && *chr == b'\t') {
                 Continue(pos + 1)
             } else {
                 Break(pos)
@@ -640,7 +640,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut num_breaks = 0;
         let mut found_eol = true;
         let mut has_tab = false;
-        while !self.eof() && self.peek_byte().map_or(false, is_white_tab_or_break){
+        while !self.eof() && self.peek_byte().map_or(false, is_white_tab_or_break) {
             self.skip_space_tab(true, &mut has_tab);
 
             if allow_comments && self.peek_byte_is(b'#') {
