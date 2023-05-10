@@ -110,9 +110,36 @@ impl LexerState {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DirectiveState {
+    NoContent,
+    Tag,
+    Directive,
+    DirectiveAndTag,
+}
+
+impl DirectiveState {
+    fn add_tag(&mut self) {
+        *self = match self {
+            Self::NoContent => Self::Tag,
+            Self::Directive => Self::DirectiveAndTag,
+            _ => *self,
+        }
+    }
+
+    fn add_directive(&mut self) {
+        *self = match self {
+            Self::NoContent => Self::Directive,
+            Self::Tag => Self::DirectiveAndTag,
+            _ => *self,
+        }
+    }
+}
+
 impl Lexer {
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
         self.continue_processing = true;
+        let mut directive_state = DirectiveState::NoContent;
 
         while self.continue_processing && !reader.eof() {
             let curr_state = self.curr_state();
@@ -121,7 +148,7 @@ impl Lexer {
             }
             match curr_state {
                 PreDocStart => self.fetch_pre_doc(reader),
-                DirectiveSection => self.fetch_directive_section(reader),
+                DirectiveSection => self.fetch_directive_section(reader, &mut directive_state),
                 DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                     self.fetch_map_like_block(reader, curr_state)
                 }
@@ -227,7 +254,7 @@ impl Lexer {
                 }
                 self.set_curr_state(AfterDocEnd);
             }
-            [b'-', b'-', b'-', ..] => {
+            b"---" => {
                 let pos = reader.col();
                 reader.consume_bytes(3);
                 self.pop_block_states(self.stack.len().saturating_sub(1));
@@ -270,18 +297,79 @@ impl Lexer {
         }
     }
 
-    fn fetch_directive_section<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        self.continue_processing = false;
-        if !reader.try_read_yaml_directive(&mut self.tokens) {
-            if reader.try_read_slice_exact("---") {
-                self.tokens.push_back(DOC_START_EXP);
-                self.set_curr_state(DocBlock);
-            } else if reader.peek_byte_is(b'#') {
-                reader.read_line();
+    fn fetch_directive_section<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        directive_state: &mut DirectiveState,
+    ) {
+        match reader.peek_chars() {
+            [b'%', b'Y', ..] => {
+                if matches!(
+                    directive_state,
+                    DirectiveState::NoContent | DirectiveState::Tag
+                ) {
+                    if self.try_read_yaml_directive(reader) {
+                        directive_state.add_directive();
+                    } else {
+                        directive_state.add_tag();
+                    }
+                } else {
+                    self.push_error(ErrorType::TwoDirectivesFound);
+                    reader.read_line();
+                    self.continue_processing = false;
+                }
             }
-        } else if reader.peek_byte_is(b'#') {
-            reader.read_line();
+            [b'%', ..] => self.fetch_read_tag(reader, directive_state),
+            b"..." => {
+                self.prepend_error(ErrorType::UnexpectedEndOfStream);
+                self.set_curr_state(PreDocStart);
+                self.continue_processing = true;
+            }
+            b"---" => {
+                self.set_curr_state(PreDocStart);
+                self.continue_processing = true;
+            }
+            _ => {
+                self.continue_processing = false;
+            }
         }
+    }
+
+    fn try_read_yaml_directive<B, R: Reader<B>>(&mut self, reader: &mut R) -> bool {
+        if reader.try_read_slice_exact("%YAML") {
+            reader.skip_space_tab();
+            return match reader.peek_chars() {
+                b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
+                    self.tokens.push_back(DIR_YAML);
+                    self.tokens.push_back(reader.pos());
+                    self.tokens.push_back(reader.consume_bytes(3));
+                    true
+                }
+                b"..." | b"---" => {
+                    false
+                }
+                _ => {
+                    reader.read_line();
+                    false
+                }
+            }
+        }
+        false
+    }
+
+    fn fetch_read_tag<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        directive_state: &mut DirectiveState,
+    ) {
+        self.continue_processing = false;
+        // TODO actual tag handling
+        directive_state.add_tag();
+        if reader.try_read_slice_exact("%TAG") {
+            reader.read_line();
+        } else {
+            reader.read_line();
+        };
     }
 
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
@@ -293,6 +381,8 @@ impl Lexer {
         } else if reader.try_read_slice_exact("---") {
             self.tokens.push_back(DOC_START_EXP);
             self.push_state(DocBlock);
+        } else if reader.try_read_slice_exact("...") {
+            reader.skip_separation_spaces(true);
         } else {
             self.tokens.push_back(DOC_START);
             self.push_state(DocBlock);
@@ -322,6 +412,12 @@ impl Lexer {
     #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
+        self.errors.push(error);
+    }
+
+    #[inline(always)]
+    fn prepend_error(&mut self, error: ErrorType) {
+        self.tokens.push_front(ERROR_TOKEN);
         self.errors.push(error);
     }
 

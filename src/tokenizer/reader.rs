@@ -78,7 +78,6 @@ pub trait Reader<B> {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self) -> (usize, usize);
     // Refactor
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn read_plain_one_line(
         &mut self,
         offset_start: Option<usize>,
@@ -125,14 +124,6 @@ pub(crate) const fn ns_plain_safe(chr: u8, in_flow: bool) -> bool {
 }
 
 #[inline]
-pub(crate) const fn is_white_tab(chr: u8) -> bool {
-    match chr {
-        b' ' | b'\t' => true,
-        _ => false,
-    }
-}
-
-#[inline]
 pub(crate) const fn is_newline(chr: u8) -> bool {
     match chr {
         b'\r' | b'\n' => true,
@@ -144,15 +135,6 @@ pub(crate) const fn is_newline(chr: u8) -> bool {
 pub(crate) const fn is_flow_indicator(chr: u8) -> bool {
     match chr {
         b',' | b'[' | b']' | b'{' | b'}' => true,
-        _ => false,
-    }
-}
-
-#[inline]
-pub(crate) const fn is_indicator(chr: u8) -> bool {
-    match chr {
-        b'-' | b'?' | b':' | b',' | b'[' | b']' | b'{' | b'}' | b'#' | b'&' | b'*' | b'!'
-        | b'|' | b'>' | b'\'' | b'"' | b'%' | b'@' | b'`' => true,
         _ => false,
     }
 }

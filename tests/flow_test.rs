@@ -21,7 +21,7 @@ const EMPTY_DOC_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn parse_empty_document() {
+fn flow_empty_document() {
     assert_eq_event(EMPTY_DOC_ERR_INPUT, EMPTY_DOC_ERR_EVENTS);
     assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS);
 }
@@ -32,13 +32,11 @@ const ERR_DIRECTIVE_INPUT: &str = r#"
 "#;
 
 const ERR_DIRECTIVE_EVENTS: &str = r#"
-ERR
-%YAML 1.2
--DOC
-"#;
+ ERR
+ %YAML 1.2"#;
 
 #[test]
-fn parse_err_directive() {
+fn flow_err_directive() {
     assert_eq_event(ERR_DIRECTIVE_INPUT, ERR_DIRECTIVE_EVENTS);
     assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS);
 }
@@ -70,7 +68,7 @@ const MULTILINE_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn parse_flow_scalars() {
+fn flow_scalars() {
     assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EVENTS);
     assert_eq_event(NULL_YAML2_INPUT, NULL_YAML_EVENTS);
     assert_eq_event(MULTI_WORD_INPUT, MULTI_WORD_EVENTS);
@@ -92,7 +90,7 @@ const SEQ_FLOW_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn parse_flow_seq() {
+fn flow_flow_seq() {
     assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EVENTS);
     assert_eq_event(SEQ_FLOW2_INPUT, SEQ_FLOW_EVENTS);
 }
@@ -115,7 +113,7 @@ const NESTED_COL_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn parse_nested_col() {
+fn flow_nested_col() {
     assert_eq_event(NEST_COL1_INPUT, NESTED_COL_EVENTS);
     assert_eq_event(NEST_COL2_INPUT, NESTED_COL_EVENTS);
 }
@@ -165,7 +163,7 @@ const COMPLEX_MAP_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn parse_flow_map() {
+fn flow_map() {
     assert_eq_event(MAP_XY_INPUT, MAP_XY_EVENTS);
     assert_eq_event(MAP_X_Y_INPUT, MAP_X_Y_EVENTS);
     assert_eq_event(MAP_X_Y2_INPUT, MAP_X_Y_EVENTS);
@@ -186,7 +184,7 @@ const FLOW_QUOTED_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn map_quoted() {
+fn flow_map_quoted() {
     assert_eq_event(FLOW_QUOTED_INPUT, FLOW_QUOTED_EVENTS);
 }
 
@@ -222,13 +220,13 @@ const EMPTY_NODES_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn parse_empty_nodes() {
+fn flow_empty_nodes() {
     assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
     assert_eq_event(EMPTY_NODES_INPUT, EMPTY_NODES_EVENTS);
 }
 
 #[test]
-fn parse_complex_map() {
+fn flow_complex_map() {
     assert_eq_event(COMPLEX_MAP_INPUT, COMPLEX_MAP_EVENTS);
 }
 
@@ -322,7 +320,7 @@ const DQUOTE_ESC_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn double_quote_escape() {
+fn flow_double_quote_escape() {
     assert_eq_event(DQUOTE_ESC_INPUT, DQUOTE_ESC_EVENTS);
     assert_eq_event(DQUOTE_LEADING_TAB_INPUT, DQUOTE_LEADING_TAB_EVENTS);
     assert_eq_event(DQUOTE_LEADING_TAB2_INPUT, DQUOTE_LEADING_TAB_EVENTS);
@@ -358,7 +356,7 @@ const ERR_PLAIN_SCALAR_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn err_plain_scalar() {
+fn flow_err_plain_scalar() {
     assert_eq_event(ERR_PLAIN_SCALAR_INPUT, ERR_PLAIN_SCALAR_EVENTS);
 }
 
@@ -460,7 +458,7 @@ const SEQ_KEY4_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn seq_as_key() {
+fn flow_seq_as_key() {
     assert_eq_event(SEQ_KEY_INPUT, SEQ_KEY_EVENTS);
     assert_eq_event(SEQ_KEY2_INPUT, SEQ_KEY2_EVENTS);
     assert_eq_event(SEQ_KEY3_INPUT, SEQ_KEY3_EVENTS);
@@ -478,6 +476,6 @@ const SEQ_ERR_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn seq_err() {
+fn flow_seq_err() {
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
 }
