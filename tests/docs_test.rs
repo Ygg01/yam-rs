@@ -48,11 +48,11 @@ const ERR_DIRECTIVE_EVENTS: &str = r#"
  +DOC
  -DOC ..."#;
 
- const ERR_DIRECTIVE2_INPUT: &str = r#"
- %YAML 1.2#err
- ...
- "#;
- 
+const ERR_DIRECTIVE2_INPUT: &str = r#"
+%YAML 1.2#err
+...
+"#;
+
  const ERR_DIRECTIVE2_EVENTS: &str = r#"
  ERR
  ERR
@@ -60,12 +60,12 @@ const ERR_DIRECTIVE_EVENTS: &str = r#"
  +DOC
  -DOC ..."#;
 
- const ERR_DIRECTIVE3_INPUT: &str = r#"
- %YAML 1.2 err
- ---
- "#;
- 
- const ERR_DIRECTIVE3_EVENTS: &str = r#"
+const ERR_DIRECTIVE3_INPUT: &str = r#"
+%YAML 1.2 err
+---
+"#;
+
+const ERR_DIRECTIVE3_EVENTS: &str = r#"
  ERR
  %YAML 1.2
  +DOC ---
@@ -121,10 +121,28 @@ const SIMPLE_DOC2_EVENTS: &str = r#"
   =VAL "test
  -DOC"#;
 
+ const EMPTY_INPUT: &str = r##"
+---
+...
+"##;
+
+const EMPTY_EVENTS: &str = r#"
+ +DOC ---
+  =VAL :
+ -DOC ..."#;
+
+const EMPTY2_INPUT: &str = r##"
+...
+"##;
+
+const EMPTY2_EVENTS: &str = r#""#;
+
 #[test]
 fn simple_doc() {
     assert_eq_event(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS);
     assert_eq_event(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS);
+    assert_eq_event(EMPTY_INPUT, EMPTY_EVENTS);
+    assert_eq_event(EMPTY2_INPUT, EMPTY2_EVENTS);
 }
 
 const FOOTER_INPUT: &str = r##"
@@ -142,3 +160,19 @@ fn doc_footer() {
     assert_eq_event(FOOTER_INPUT, FOOTER_EVENTS);
 }
 
+const POST_DOC_ERR_INPUT: &str = r##"
+---
+... invalid
+"##;
+
+const POST_DOC_ERR_EVENTS: &str = r#"
+ +DOC ---
+  =VAL :
+ -DOC ...
+ ERR"#;
+
+
+#[test]
+fn doc_after_stream() {
+    assert_eq_event(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS);
+}

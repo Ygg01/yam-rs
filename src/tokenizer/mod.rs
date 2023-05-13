@@ -22,6 +22,7 @@ pub enum ErrorType {
     UnexpectedSymbol(char),
     ExpectedDocumentStart,
     ExpectedDocumentEndOrContents,
+    ExpectedDocumentStartOrContents,
     ExpectedNewline,
     ExpectedNewlineInFolded,
     DirectiveEndMark,
