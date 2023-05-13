@@ -362,19 +362,18 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
         while !self.eof() {
-            match (self.peek_byte_unwrap(block_indent), curr_state) {
-                (b'-', BlockSeq(ind)) | (b':', BlockMapExp(ind, _)) => {
-                    if self.col + block_indent == *ind as usize {
-                        self.consume_bytes(block_indent);
-                        break;
-                    }
-                }
-                (_, BlockMap(ind, _))
-                    if *ind as usize == block_indent && block_indent < previous_indent =>
-                {
-                    break;
-                }
-                _ => {}
+            let map_indent = self.col + self.count_spaces();
+            let prefix_indent = self.col + block_indent;
+            let indent_has_reduced = map_indent <= block_indent && previous_indent != block_indent;
+            let check_block_indent = self.peek_byte_unwrap(block_indent);
+
+            if (check_block_indent == b'-' && matches!(curr_state, BlockSeq(ind) if prefix_indent == *ind as usize))
+                || (check_block_indent == b':' && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent == *ind as usize))
+            {
+                self.consume_bytes(block_indent);
+                break;
+            } else if indent_has_reduced && matches!(curr_state, BlockMap(ind, _) if *ind as usize == map_indent) {
+                break;
             }
 
             // count indents important for folded scalars

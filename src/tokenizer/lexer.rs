@@ -1258,6 +1258,7 @@ impl Lexer {
             b"!!map" => Some(Cow::Borrowed(b"tag:yaml.org,2002:map")),
             b"!!seq" => Some(Cow::Borrowed(b"tag:yaml.org,2002:seq")),
             b"!!set" => Some(Cow::Borrowed(b"tag:yaml.org,2002:set")),
+            b"!!binary" => Some(Cow::Borrowed(b"tag:yaml.org,2002:binary")),
             _ => None,
         }
     }
