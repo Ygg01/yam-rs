@@ -60,6 +60,18 @@ const ERR_DIRECTIVE_EVENTS: &str = r#"
  +DOC
  -DOC ..."#;
 
+ const ERR_DIRECTIVE3_INPUT: &str = r#"
+ %YAML 1.2 err
+ ---
+ "#;
+ 
+ const ERR_DIRECTIVE3_EVENTS: &str = r#"
+ ERR
+ %YAML 1.2
+ +DOC ---
+  =VAL :
+ -DOC"#;
+
  const ERR_MULTIDOC_INPUT: &str = r#"
  %YAML 1.2
  ---
@@ -82,6 +94,7 @@ const ERR_DIRECTIVE_EVENTS: &str = r#"
 fn doc_err_directive() {
     assert_eq_event(ERR_DIRECTIVE_INPUT, ERR_DIRECTIVE_EVENTS);
     assert_eq_event(ERR_DIRECTIVE2_INPUT, ERR_DIRECTIVE2_EVENTS);
+    assert_eq_event(ERR_DIRECTIVE3_INPUT, ERR_DIRECTIVE3_EVENTS);
     assert_eq_event(ERR_MULTIDOC_INPUT, ERR_MULTIDOC_EVENTS);
 }
 

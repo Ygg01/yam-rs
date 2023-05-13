@@ -39,6 +39,7 @@ pub enum ErrorType {
     TwoDirectivesFound,
     UnexpectedEndOfStream,
     UnsupportedYamlVersion,
+    YamlMustHaveOnePart,
 }
 
 pub trait Slicer<'a> {

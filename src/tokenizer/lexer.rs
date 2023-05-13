@@ -341,6 +341,10 @@ impl Lexer {
                 self.set_curr_state(EndOfDirective);
                 self.continue_processing = true;
             }
+            [x, ..] if !is_white_tab_or_break(*x) => {
+                self.prepend_error(ErrorType::YamlMustHaveOnePart);
+                reader.read_line();
+            }
             _ => {
                 self.continue_processing = false;
             }
