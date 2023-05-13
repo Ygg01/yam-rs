@@ -176,3 +176,30 @@ const POST_DOC_ERR_EVENTS: &str = r#"
 fn doc_after_stream() {
     assert_eq_event(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS);
 }
+
+const MULTI_DOC_INPUT: &str = r#"
+---
+? a
+: b
+---
+- c
+"#;
+
+
+const MULTI_DOC_EVENTS: &str = r#"
+ +DOC ---
+  +MAP
+   =VAL :a
+   =VAL :b
+  -MAP
+ -DOC
+ +DOC ---
+  +SEQ
+   =VAL :c
+  -SEQ
+ -DOC"#;
+
+#[test]
+fn doc_multi() {
+    assert_eq_event(MULTI_DOC_INPUT, MULTI_DOC_EVENTS);
+}
