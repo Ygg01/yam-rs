@@ -94,8 +94,23 @@ const SIMPLE_DOC_EVENTS: &str = r#"
   -SEQ
  -DOC"#;
 
+
+const SIMPLE_DOC2_INPUT: &str = r##"
+%YAML 1.3 #comment
+          #comment
+---
+"test"
+"##;
+
+const SIMPLE_DOC2_EVENTS: &str = r#"
+ %YAML 1.3
+ +DOC ---
+  =VAL "test
+ -DOC"#;
+
 #[test]
 fn simple_doc() {
     assert_eq_event(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS);
+    assert_eq_event(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS);
 }
 

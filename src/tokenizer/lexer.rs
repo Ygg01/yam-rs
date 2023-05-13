@@ -287,17 +287,17 @@ impl Lexer {
 
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
         if reader.peek_byte_is(b'%') {
-            self.push_state(DirectiveSection);
+            self.set_curr_state(DirectiveSection);
         } else if reader.peek_byte_is(b'#') {
             reader.read_line();
         } else if reader.try_read_slice_exact("---") {
             self.tokens.push_back(DOC_START_EXP);
-            self.push_state(DocBlock);
+            self.set_curr_state(DocBlock);
         } else if reader.try_read_slice_exact("...") {
             reader.skip_separation_spaces(true);
         } else if !reader.eof() {
             self.tokens.push_back(DOC_START);
-            self.push_state(DocBlock);
+            self.set_curr_state(DocBlock);
         }
     }
 
@@ -322,6 +322,9 @@ impl Lexer {
                     reader.read_line();
                     self.continue_processing = false;
                 }
+            }
+            [b'#', ..] => {
+                reader.read_line();
             }
             [b'%', ..] => self.fetch_read_tag(reader, directive_state),
             b"..." => {
@@ -383,7 +386,11 @@ impl Lexer {
         reader.read_line();
     }
 
-    fn fetch_end_of_directive<B, R: Reader<B>>(&mut self, reader: &mut R, directive_state: &mut DirectiveState) {
+    fn fetch_end_of_directive<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        _directive_state: &mut DirectiveState,
+    ) {
         let col = reader.col();
         self.continue_processing = false;
         match reader.peek_chars() {
@@ -404,7 +411,8 @@ impl Lexer {
                 self.set_curr_state(DirectiveSection);
             }
             [x, ..] if is_not_whitespace(x) => {
-                self.set_curr_state(PreDocStart);
+                self.set_curr_state(DocBlock);
+                self.continue_processing = true;
             }
             [..] => {}
         };
