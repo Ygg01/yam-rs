@@ -706,7 +706,7 @@ impl Lexer {
     fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R) -> (usize, Vec<usize>) {
         let scalar_start = self.update_col(reader);
         let mut is_multiline = false;
-        let tokens = reader.read_double_quote(&mut is_multiline);
+        let tokens = reader.read_double_quote(&mut is_multiline, &mut self.errors);
         self.skip_separation_spaces(reader, true);
         (scalar_start, tokens)
     }
