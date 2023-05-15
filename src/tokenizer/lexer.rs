@@ -11,7 +11,7 @@ use SeqState::BeforeFirstElem;
 
 use crate::tokenizer::lexer::LexerState::{
     AfterDocBlock, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, EndOfDirective,
-    FlowKeyExp, FlowMap, FlowSeq, InDocEnd
+    FlowKeyExp, FlowMap, FlowSeq, InDocEnd,
 };
 use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::{AfterColon, BeforeColon, BeforeKey};
@@ -190,16 +190,14 @@ impl Lexer {
                     self.tokens.push_back(SCALAR_END);
                     DOC_END
                 }
-                DocBlock | AfterDocBlock  => DOC_END,
+                DocBlock | AfterDocBlock => DOC_END,
                 _ => continue,
             };
             self.tokens.push_back(token);
         }
     }
 
-
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-
         match reader.peek_chars() {
             [b'%', ..] => {
                 self.set_curr_state(DirectiveSection);
@@ -214,7 +212,9 @@ impl Lexer {
                 reader.skip_separation_spaces(true);
                 self.set_curr_state(InDocEnd);
             }
-            [b'#',.. ] => {reader.read_line();},
+            [b'#', ..] => {
+                reader.read_line();
+            }
             [_, ..] => {
                 self.tokens.push_back(DOC_START);
                 self.set_curr_state(DocBlock);
@@ -337,7 +337,7 @@ impl Lexer {
                 self.tokens.push_back(DOC_END);
                 self.set_curr_state(DirectiveSection);
             }
-            [x, ..] if is_not_whitespace(x) => {
+            [x, ..] if is_not_whitespace(*x) => {
                 self.set_curr_state(DocBlock);
                 self.continue_processing = true;
             }
@@ -377,11 +377,10 @@ impl Lexer {
         }
     }
 
-
     fn fetch_end_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.skip_space_tab();
         if let Some(chr) = reader.peek_byte() {
-            if is_not_whitespace(&chr) {
+            if is_not_whitespace(chr) {
                 self.push_error(ErrorType::ExpectedDocumentStartOrContents);
             }
             reader.read_line();
@@ -468,7 +467,6 @@ impl Lexer {
             _ => self.stream_end = true,
         }
     }
-
 
     fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.read_block_scalar(
@@ -1377,7 +1375,6 @@ impl Lexer {
             _ => false,
         }
     }
-
 }
 
 const DOC_END: usize = usize::MAX;

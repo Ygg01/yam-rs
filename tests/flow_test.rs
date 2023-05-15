@@ -251,16 +251,16 @@ fn flow_double_quote() {
     assert_eq_event(DQUOTE_MULTI_INPUT, DQUOTE_MULTI_EVENTS);
 }
 
-const DQUOTE_LEADING_TAB_INPUT: &str = r##""test
+const DQUOTE_LEADING_TAB_INPUT: &str = r##""1 test
     \	tab""##;
 
 const DQUOTE_LEADING_TAB2_INPUT: &str = r##"
-    "test
+    "1 test
       \ttab" "##;
 
 const DQUOTE_LEADING_TAB_EVENTS: &str = r#"
  +DOC
-  =VAL "test \ttab
+  =VAL "1 test \ttab
  -DOC"#;
 
 const DQUOTE_STR_ESC1_INPUT: &str = r#"
@@ -320,7 +320,6 @@ const ERR_PLAIN_SCALAR_EVENTS: &str = r#"
 fn flow_err_plain_scalar() {
     assert_eq_event(ERR_PLAIN_SCALAR_INPUT, ERR_PLAIN_SCALAR_EVENTS);
 }
-
 
 const DOC_END_ERR_INPUT: &str = r#"
 ---
