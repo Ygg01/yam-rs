@@ -17,7 +17,7 @@ use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, Reader, Slicer};
 
-use super::reader::{is_newline, is_not_whitespace};
+use super::reader::is_newline;
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -170,11 +170,11 @@ impl<'a> StrReader<'a> {
 
     fn quote_start(
         &mut self,
-        mut start_str: &mut usize,
+        start_str: &mut usize,
         line_end: usize,
         is_multiline: &mut bool,
-        mut newspaces: &mut Option<usize>,
-        mut tokens: &mut Vec<usize>,
+        newspaces: &mut Option<usize>,
+        tokens: &mut Vec<usize>,
     ) -> QuoteState {
         if let Some(pos) = memchr2(b'\\', b'"', &self.slice[self.pos..line_end]) {
             let match_pos = self.consume_bytes(pos);
@@ -189,21 +189,21 @@ impl<'a> StrReader<'a> {
                 }
                 [b'\\', b'\r' | b'\n', ..] => {
                     *is_multiline = true;
-                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
                     self.consume_bytes(1);
-                    self.update_newlines(&mut None, &mut start_str);
+                    self.update_newlines(&mut None, start_str);
                 }
                 [b'\\', b'"', ..] => {
-                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
                     *start_str = self.pos + 1;
                     self.consume_bytes(2);
                 }
                 [b'\\', b'/', ..] => {
-                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
                     *start_str = self.consume_bytes(1);
                 }
                 [b'"', ..] => {
-                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
                     self.pos += 1;
                     return QuoteState::End;
                 }
@@ -225,10 +225,10 @@ impl<'a> StrReader<'a> {
         newspaces: &mut Option<usize>,
         tokens: &mut Vec<usize>,
     ) -> QuoteState {
-        let match_pos =  self.slice[self.pos..line_end]
+        let match_pos = self.slice[self.pos..line_end]
             .iter()
             .rev()
-            .position(|chr| *chr != b' ' && * chr != b'\t')
+            .position(|chr| *chr != b' ' && *chr != b'\t')
             .map_or(line_end, |find| line_end.saturating_sub(find));
         let len = match_pos.saturating_sub(*start_str);
         emit_token_mut(start_str, match_pos, newspaces, tokens);
@@ -239,7 +239,6 @@ impl<'a> StrReader<'a> {
         } else {
             QuoteState::Start
         }
-        
     }
 }
 
@@ -534,12 +533,13 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
+    //TODO error handling
     fn read_double_quote(
         &mut self,
-        prev_indent: usize,
+        _prev_indent: usize,
         _is_implicit: bool,
         is_multiline: &mut bool,
-        errors: &mut Vec<ErrorType>,
+        _errors: &mut Vec<ErrorType>,
     ) -> Vec<usize> {
         let mut start_str = self.consume_bytes(1);
         let mut tokens = vec![ScalarDoubleQuote as usize];
@@ -556,12 +556,9 @@ impl<'r> Reader<()> for StrReader<'r> {
                     &mut newspaces,
                     &mut tokens,
                 ),
-                QuoteState::Trim => self.quote_trim(
-                    &mut start_str,
-                    line_end,
-                    &mut newspaces,
-                    &mut tokens,
-                ),
+                QuoteState::Trim => {
+                    self.quote_trim(&mut start_str, line_end, &mut newspaces, &mut tokens)
+                }
                 QuoteState::End => break,
             };
         }
@@ -713,7 +710,6 @@ fn emit_token_mut(
 //         tokens.push(end);
 //     }
 // }
-
 
 #[test]
 pub fn test_plain_scalar() {

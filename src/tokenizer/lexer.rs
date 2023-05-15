@@ -1286,11 +1286,8 @@ impl Lexer {
 
     #[inline]
     fn set_seq_state(&mut self, seq_state: SeqState) {
-        match self.stack.last_mut() {
-            Some(FlowSeq(_, state)) => {
-                *state = seq_state;
-            }
-            _ => {}
+        if let Some(FlowSeq(_, state)) = self.stack.last_mut() {
+            *state = seq_state;
         };
     }
 
