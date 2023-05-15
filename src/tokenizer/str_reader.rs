@@ -17,7 +17,7 @@ use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, Reader, Slicer};
 
-use super::reader::is_newline;
+use super::reader::{is_newline, is_valid_escape};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -175,6 +175,7 @@ impl<'a> StrReader<'a> {
         is_multiline: &mut bool,
         newspaces: &mut Option<usize>,
         tokens: &mut Vec<usize>,
+        errors: &mut Vec<ErrorType>,
     ) -> QuoteState {
         if let Some(pos) = memchr2(b'\\', b'"', &self.slice[self.pos..line_end]) {
             let match_pos = self.consume_bytes(pos);
@@ -202,12 +203,23 @@ impl<'a> StrReader<'a> {
                     emit_token_mut(start_str, match_pos, newspaces, tokens);
                     *start_str = self.consume_bytes(1);
                 }
+                [b'\\', x, ..] => {
+                    if is_valid_escape(*x) {
+                        emit_token_mut(start_str, match_pos, newspaces, tokens);
+                        self.consume_bytes(2);
+                    } else {
+                        tokens.insert(0, ErrorToken as usize);
+                        errors.push(ErrorType::InvalidEscapeCharacter);
+                        self.consume_bytes(2);
+                    }
+                    
+                }
                 [b'"', ..] => {
                     emit_token_mut(start_str, match_pos, newspaces, tokens);
                     self.pos += 1;
                     return QuoteState::End;
                 }
-                [b'\\'] | [b'\\', ..] => {
+                [b'\\']  => {
                     self.pos += 1;
                 }
                 _ => {}
@@ -558,6 +570,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                     is_multiline,
                     &mut newspaces,
                     &mut tokens,
+                    errors,
                 ),
                 QuoteState::Trim => {
                     self.quote_trim(&mut start_str, &mut newspaces, errors, &mut tokens)
@@ -698,21 +711,7 @@ fn emit_token_mut(
     }
 }
 
-// fn emit_token(
-//     start: usize,
-//     end: usize,
-//     newspaces: &mut Option<usize>,
-//     tokens: &mut Vec<usize>,
-// ) {
-//     if end > start {
-//         if let Some(newspace) = newspaces.take() {
-//             tokens.push(NewLine as usize);
-//             tokens.push(newspace);
-//         }
-//         tokens.push(start);
-//         tokens.push(end);
-//     }
-// }
+
 
 #[test]
 pub fn test_plain_scalar() {

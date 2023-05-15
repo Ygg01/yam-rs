@@ -155,3 +155,17 @@ pub(crate) fn is_uri_char(chr: u8) -> bool {
         || (b'?'..=b'[').contains(&chr)
         || chr.is_ascii_lowercase()
 }
+
+#[inline]
+pub(crate) fn is_valid_escape(x: u8) -> bool {
+    x == b'0'
+        || x == b'n'
+        || x == b'b'
+        || x == b'\\'
+        || x == b'/'
+        || x == b'"'
+        || x == b'N'
+        || x == b'_'
+        || x == b'L'
+        || x == b'P'
+}

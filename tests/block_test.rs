@@ -900,13 +900,25 @@ const DQUOTE_END_INPUT: &str = r##"
 ---
 ""##;
 
+
 const DQUOTE_END_EVENTS: &str = r#"
  +DOC
   ERR
   =VAL "---
  -DOC"#;
 
+ const DQUOTE_ERR2_INPUT: &str = r##"
+"\c"
+"##;
+
+ const DQUOTE_ERR2_EVENTS: &str = r#"
+ +DOC
+  ERR
+  =VAL "\\c
+ -DOC"#;
+
 #[test]
-fn block_dquote_end_of_stream() {
+fn block_dquote_err() {
     assert_eq_event(DQUOTE_END_INPUT, DQUOTE_END_EVENTS);
+    assert_eq_event(DQUOTE_ERR2_INPUT, DQUOTE_ERR2_EVENTS);
 }

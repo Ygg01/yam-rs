@@ -41,6 +41,7 @@ pub enum ErrorType {
     UnexpectedEndOfStream,
     UnsupportedYamlVersion,
     YamlMustHaveOnePart,
+    InvalidEscapeCharacter,
 }
 
 pub trait Slicer<'a> {
