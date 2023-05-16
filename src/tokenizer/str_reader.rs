@@ -212,14 +212,13 @@ impl<'a> StrReader<'a> {
                         errors.push(ErrorType::InvalidEscapeCharacter);
                         self.consume_bytes(2);
                     }
-                    
                 }
                 [b'"', ..] => {
                     emit_token_mut(start_str, match_pos, newspaces, tokens);
                     self.pos += 1;
                     return QuoteState::End;
                 }
-                [b'\\']  => {
+                [b'\\'] => {
                     self.pos += 1;
                 }
                 _ => {}
@@ -710,8 +709,6 @@ fn emit_token_mut(
         *start = end;
     }
 }
-
-
 
 #[test]
 pub fn test_plain_scalar() {
