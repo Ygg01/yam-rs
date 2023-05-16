@@ -312,3 +312,19 @@ const SEQ_ERR_EVENTS: &str = r#"
 fn flow_seq_err() {
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
 }
+
+const MAP_ERR_INPUT: &str = r#"
+ {x: :x}"#;
+
+const MAP_ERR_EVENTS: &str = r#"
+ +DOC
+  +MAP {}
+   =VAL :x
+   =VAL ::x
+  -MAP
+ -DOC"#;
+
+#[test]
+fn flow_map_err() {
+    assert_eq_event(MAP_ERR_INPUT, MAP_ERR_EVENTS);
+}
