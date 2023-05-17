@@ -752,7 +752,7 @@ const ALIAS_N_MAPS_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn test_alias() {
+pub fn block_map_anchor_alias() {
     assert_eq_event(ALIAS_N_MAPS_INPUT, ALIAS_N_MAPS_EVENTS);
 }
 
@@ -770,10 +770,42 @@ const ANCHOR_COLON_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
-#[test]
-pub fn block_anchor() {
-    assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
-}
+const ANCHOR_MULTI_INPUT: &str = r#"
+top2: &node2
+  &v2 val: x"#;
+
+const ANCHOR_MULTI_EVENT: &str = r#"
+ +DOC
+  +MAP
+   =VAL :top2
+   +MAP &node2
+    =VAL &v2 :val
+    =VAL :x
+   -MAP
+  -MAP
+ -DOC"#;
+
+
+
+const ANCHOR_ERR_INPUT: &str = r#"
+top2: &node2
+  &v2 val"#;
+
+const ANCHOR_ERR_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :top2
+   ERR
+   =VAL &v2 :val
+  -MAP
+ -DOC"#;
+
+ #[test]
+ pub fn block_anchor() {
+     assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
+     assert_eq_event(ANCHOR_MULTI_INPUT, ANCHOR_MULTI_EVENT);
+     assert_eq_event(ANCHOR_ERR_INPUT, ANCHOR_ERR_EVENTS);
+ }
 
 const MIX_BLOCK_INPUT: &str = r##"
 -
