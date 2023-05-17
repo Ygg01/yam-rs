@@ -31,7 +31,7 @@ pub struct Lexer {
     pub(crate) tags: HashMap<Vec<u8>, (usize, usize)>,
     stack: Vec<LexerState>,
     last_block_indent: usize,
-    had_alias: bool,
+    had_anchor: bool,
     has_tab: bool,
     prev_anchor: Option<(usize, usize)>,
     continue_processing: bool,
@@ -489,7 +489,7 @@ impl Lexer {
         )
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
         self.errors.push(error);
@@ -514,7 +514,7 @@ impl Lexer {
                 self.tokens.push_back(ANCHOR);
                 self.tokens.push_back(anchor.0);
                 self.tokens.push_back(anchor.1);
-                self.had_alias = true;
+                self.had_anchor = true;
             }
         }
     }
@@ -528,6 +528,7 @@ impl Lexer {
 
         if next_is_colon {
             self.process_map(reader, self.curr_state(), scalar_start, false, b':');
+            self.had_anchor = false;
         } else {
             self.set_next_map_state();
         }
@@ -744,7 +745,7 @@ impl Lexer {
             self.tokens.push_back(anchor.0);
             self.tokens.push_back(anchor.1);
         };
-        self.had_alias = false;
+        self.had_anchor = false;
     }
 
     #[inline]
@@ -943,7 +944,7 @@ impl Lexer {
         } else {
             self.set_next_map_state();
         }
-        if chr != b':' && self.had_alias {
+        if chr != b':' && self.had_anchor {
             self.push_error(ErrorType::NodeWithTwoAnchors);
         }
         self.emit_prev_anchor();
@@ -1066,18 +1067,11 @@ impl Lexer {
         let indent = reader.col();
         let expected_indent = self.last_block_indent;
         reader.consume_bytes(1);
-        match curr_state {
-            DocBlock => {
-                let state = BlockSeq(indent as u32);
-                self.push_state(state);
-                self.tokens.push_back(SEQ_START_BLOCK);
-            }
-            BlockSeq(ind) if indent > ind as usize => {
-                let state = BlockSeq(indent as u32);
-                self.push_state(state);
-                self.tokens.push_back(SEQ_START_BLOCK);
-            }
-            BlockSeq(ind) if indent == ind as usize => {}
+        
+        let new_seq = match curr_state {
+            DocBlock => true,
+            BlockSeq(ind) if indent > ind as usize => true,
+            BlockSeq(ind) if indent == ind as usize => false,
             _ => {
                 if let Some(last_seq) = self.stack.iter().rposition(|x| matches!(x, BlockSeq(_))) {
                     if let Some(unwind) = self.find_matching_state(
@@ -1092,12 +1086,20 @@ impl Lexer {
                             expected: expected_indent,
                         });
                     }
+                    false
                 } else {
                     self.set_next_map_state();
-                    self.stack.push(BlockSeq(indent as u32));
-                    self.tokens.push_back(SEQ_START_BLOCK);
+                    true
                 }
             }
+        };
+        if new_seq {
+            if self.prev_anchor.is_some() && !self.had_anchor {
+                self.push_error(ErrorType::InvalidAnchorDeclaration);
+            } 
+            self.emit_prev_anchor();
+            self.push_state(BlockSeq(indent as u32));
+            self.tokens.push_back(SEQ_START_BLOCK);
         }
     }
 

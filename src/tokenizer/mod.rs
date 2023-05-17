@@ -43,6 +43,7 @@ pub enum ErrorType {
     UnsupportedYamlVersion,
     YamlMustHaveOnePart,
     InvalidEscapeCharacter,
+    InvalidAnchorDeclaration,
 }
 
 pub trait Slicer<'a> {
