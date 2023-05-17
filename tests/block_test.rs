@@ -693,7 +693,6 @@ const MAPS_WITH_QUOTES_EVENTS: &str = r#"
 #[test]
 pub fn block_map_scalar_and_ws() {
     assert_eq_event(MAPS_WITH_QUOTES_INPUT, MAPS_WITH_QUOTES_EVENTS);
-
 }
 
 const NESTED_MAPS_INPUT: &str = r#"
@@ -756,7 +755,7 @@ const ALIAS_N_MAPS2_INPUT: &str = r#"
 top3: &node3 
   *alias1 : scalar3
  "#;
- 
+
 const ALIAS_N_MAPS2_EVENTS: &str = r#"
  +DOC
   +MAP
@@ -808,7 +807,6 @@ const ALIAS_N_SEQ3_EVENTS: &str = r#"
    =VAL &node :a
   -SEQ
  -DOC"#;
- 
 
 #[test]
 pub fn block_seq_anchor_alias() {
@@ -816,7 +814,6 @@ pub fn block_seq_anchor_alias() {
     assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
     assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
 }
-
 
 const ANCHOR_COLON_INPUT: &str = r#"
 &node3:  key : scalar3
@@ -859,8 +856,6 @@ const ANCHOR_ERR_EVENTS: &str = r#"
    =VAL &v2 :val
   -MAP
  -DOC"#;
-
-
 
 #[test]
 pub fn block_anchor() {
