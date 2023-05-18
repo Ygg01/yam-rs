@@ -168,7 +168,7 @@ impl Lexer {
                 FlowMap(_, _) | FlowKeyExp(_, _) => self.fetch_flow_map(reader, curr_state),
                 AfterDocBlock => self.fetch_after_doc(reader),
                 InDocEnd => self.fetch_end_doc(reader),
-                PostSeq { index, in_flow } => self.process_post_seq(reader, index, in_flow,),
+                PostSeq { index, in_flow } => self.process_post_seq(reader, index, in_flow),
             }
         }
 
@@ -548,11 +548,7 @@ impl Lexer {
         // could be `[a]: b` map
         if reader.peek_byte_is(b':') {
             if !self.is_flow_map() {
-                let token = if in_flow {
-                    MAP_START
-                } else {
-                    MAP_START_BLOCK
-                };
+                let token = if in_flow { MAP_START } else { MAP_START_BLOCK };
                 self.tokens.insert(index as usize, token);
                 let state = FlowMap(self.get_token_pos(), AfterColon);
                 self.push_state(state);
@@ -575,7 +571,10 @@ impl Lexer {
                     FlowSeq(x, _) => x.saturating_sub(1),
                     _ => 0,
                 });
-                self.push_state(PostSeq { index , in_flow: self.curr_state().in_flow_collection()});
+                self.push_state(PostSeq {
+                    index,
+                    in_flow: self.curr_state().in_flow_collection(),
+                });
             }
             [b'-', ..] if seq_state == BeforeFirstElem => {
                 reader.consume_bytes(1);
@@ -636,20 +635,21 @@ impl Lexer {
                 self.pop_state();
                 self.continue_processing = false;
             }
-            [b':', peek, ..] => {
-                if !ns_plain_safe(*peek, true) {
-                    reader.consume_bytes(1);
-                    if matches!(curr_state, FlowMap(_, BeforeKey)) {
-                        self.push_empty_token();
-
-                        self.set_next_map_state();
-                    } else if matches!(curr_state, FlowMap(_, BeforeColon) | FlowKeyExp(_, _)) {
-                        self.set_next_map_state();
-                        self.tokens.push_back(SCALAR_END);
-                    }
-                } else {
-                    self.fetch_plain_scalar_flow(reader, curr_state);
+            [b':', peek, ..] if !ns_plain_safe(*peek, true) => {
+                reader.consume_bytes(1);
+                if matches!(curr_state, FlowMap(_, BeforeKey)) {
+                    self.push_empty_token();
+                    self.set_next_map_state();
+                } else if matches!(curr_state, FlowKeyExp(_, _)) {
+                    self.set_next_map_state();
+                    self.tokens.push_back(SCALAR_END);
                 }
+            }
+            [b':', peek, ..]
+                if ns_plain_safe(*peek, true) && matches!(curr_state, FlowMap(_, BeforeColon)) =>
+            {
+                reader.consume_bytes(1);
+                self.set_next_map_state();
             }
             [b']', ..] => {
                 if self.is_prev_sequence() {
