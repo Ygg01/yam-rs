@@ -149,16 +149,16 @@ impl<'a> StrReader<'a> {
         let start = self.pos;
         let remaining = slice.len().saturating_sub(start);
         let content = &slice[start..];
-        let (n, newline) = memchr::memchr2_iter(b'\r', b'\n', content).next().map_or(
-            (remaining, 0),
-            |p| {
-                if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
-                    (p, 2)
-                } else {
-                    (p, 1)
-                }
-            },
-        );
+        let (n, newline) =
+            memchr::memchr2_iter(b'\r', b'\n', content)
+                .next()
+                .map_or((remaining, 0), |p| {
+                    if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
+                        (p, 2)
+                    } else {
+                        (p, 1)
+                    }
+                });
         (start, start + n, start + n + newline)
     }
 
@@ -190,7 +190,6 @@ impl<'a> StrReader<'a> {
     fn quote_start(
         &mut self,
         start_str: &mut usize,
-        is_multiline: &mut bool,
         newspaces: &mut Option<usize>,
         tokens: &mut Vec<usize>,
         errors: &mut Vec<ErrorType>,
@@ -210,7 +209,6 @@ impl<'a> StrReader<'a> {
                     self.consume_bytes(2);
                 }
                 [b'\\', b'\r' | b'\n', ..] => {
-                    *is_multiline = true;
                     emit_token_mut(start_str, match_pos, newspaces, tokens);
                     self.consume_bytes(1);
                     self.update_newlines(&mut None, start_str);
@@ -582,7 +580,6 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_double_quote(
         &mut self,
-        is_multiline: &mut bool,
         errors: &mut Vec<ErrorType>,
     ) -> Vec<usize> {
         let mut start_str = self.consume_bytes(1);
@@ -594,7 +591,6 @@ impl<'r> Reader<()> for StrReader<'r> {
             state = match state {
                 QuoteState::Start => self.quote_start(
                     &mut start_str,
-                    is_multiline,
                     &mut newspaces,
                     &mut tokens,
                     errors,
