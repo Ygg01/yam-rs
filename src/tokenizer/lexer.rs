@@ -4,7 +4,6 @@ use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use std::hint::unreachable_unchecked;
 use std::mem::take;
-use std::ops::{AddAssign, SubAssign};
 
 use LexerState::PreDocStart;
 use SeqState::BeforeFirstElem;
@@ -1211,8 +1210,6 @@ impl Lexer {
 
     fn fetch_plain_scalar_flow<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let mut ends_with = b'\x7F';
-        let indent = reader.col();
-
         let scalar = self.get_plain_scalar(reader, curr_state, &mut ends_with);
 
         if ends_with == b':' {
@@ -1255,7 +1252,7 @@ impl Lexer {
                 // b) An error outside of block map
                 // However not important for first line.
                 match curr_state {
-                    DocBlock  => {
+                    DocBlock => {
                         reader.read_line();
                         tokens.push(ErrorToken as usize);
                         self.errors.push(ExpectedIndent {
@@ -1336,16 +1333,10 @@ impl Lexer {
     fn scalar_start(&mut self, curr_state: LexerState, curr_col: usize) -> usize {
         match curr_state {
             BlockMapExp(ind, _) => ind as usize,
-            BlockSeq(_) | BlockMap(_, BeforeColon | AfterColon) | DocBlock => self.col_start.unwrap_or(curr_col),
+            BlockSeq(_) | BlockMap(_, BeforeColon | AfterColon) | DocBlock => {
+                self.col_start.unwrap_or(curr_col)
+            }
             _ => curr_col,
-        }
-    }
-
-    fn init_indent(&mut self, curr_state: LexerState, curr_col: usize) -> usize {
-        match curr_state {
-            BlockMapExp(ind, _) => ind as usize,
-            BlockSeq(ind) => ind as usize,
-            _ => self.col_start.unwrap_or(curr_col),
         }
     }
 

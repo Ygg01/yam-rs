@@ -578,10 +578,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_double_quote(
-        &mut self,
-        errors: &mut Vec<ErrorType>,
-    ) -> Vec<usize> {
+    fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize> {
         let mut start_str = self.consume_bytes(1);
         let mut tokens = vec![ScalarDoubleQuote as usize];
         let mut newspaces = None;
@@ -589,12 +586,9 @@ impl<'r> Reader<()> for StrReader<'r> {
 
         loop {
             state = match state {
-                QuoteState::Start => self.quote_start(
-                    &mut start_str,
-                    &mut newspaces,
-                    &mut tokens,
-                    errors,
-                ),
+                QuoteState::Start => {
+                    self.quote_start(&mut start_str, &mut newspaces, &mut tokens, errors)
+                }
                 // QuoteState::SkipTabs => self.quote_skip(&mut start_str, is_multiline),
                 QuoteState::Trim => {
                     self.quote_trim(&mut start_str, &mut newspaces, errors, &mut tokens)
