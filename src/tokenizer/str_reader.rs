@@ -429,7 +429,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut chomp = ChompIndicator::Clip;
         let mut indentation: usize = 0;
         let mut tokens = Vec::with_capacity(8);
-        let mut auto_has_spaces = false;
 
         match (self.peek_byte_unwrap(0), self.peek_byte_unwrap(1)) {
             (_, b'0') | (b'0', _) => {
@@ -441,13 +440,11 @@ impl<'r> Reader<()> for StrReader<'r> {
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
-                auto_has_spaces = true;
                 indentation = block_indent + (len - b'0') as usize;
             }
             (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Keep;
-                auto_has_spaces = true;
                 indentation = block_indent + (len - b'0') as usize;
             }
             (b'-', _) => {
@@ -460,7 +457,6 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
-                auto_has_spaces = true;
                 indentation = block_indent + (len - b'0') as usize;
             }
             _ => {}
@@ -497,6 +493,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut trailing = vec![];
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
+        let mut max_prev_indent = 0;
 
         while !self.eof() {
             let map_indent = self.col + self.count_spaces();
@@ -533,15 +530,16 @@ impl<'r> Reader<()> for StrReader<'r> {
             let newline_is_empty = self.peek_byte_at(newline_indent).map_or(false, is_newline)
                 || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
 
-            if indentation == 0 && newline_indent > 0 {
-                if !auto_has_spaces && newline_is_empty {
-                    auto_has_spaces = true;
+            if newline_is_empty && max_prev_indent < newline_indent {
+                max_prev_indent = newline_indent;
+            }
+
+            if indentation == 0 && newline_indent > 0 && !newline_is_empty {
+                indentation = newline_indent;
+                if max_prev_indent > indentation {
                     tokens.insert(0, ErrorToken as usize);
                     errors.push(ErrorType::SpacesFoundAfterIndent);
                 }
-                else if !newline_is_empty {
-                    indentation = newline_indent;
-                } 
             }
 
             if newline_is_empty {
