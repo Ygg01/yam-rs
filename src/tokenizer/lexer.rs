@@ -435,8 +435,8 @@ impl Lexer {
                 self.fetch_exp_block_map_key(reader, curr_state)
             }
             [b'!', ..] => self.fetch_tag(reader),
-            [b'|', ..] => self.process_block_literal(reader),
-            [b'>', ..] => self.process_block_folded(reader),
+            [b'|', ..] => self.process_block_literal(reader, curr_state),
+            [b'>', ..] => self.process_block_folded(reader, curr_state),
             [b'\'', ..] => self.process_single_quote_block(reader, curr_state),
             [b'"', ..] => self.process_double_quote_block(reader, curr_state),
             [b'#', ..] => {
@@ -474,11 +474,11 @@ impl Lexer {
             [b'!', ..] => self.fetch_tag(reader),
             [b'|', ..] => {
                 self.next_map_state();
-                self.process_block_literal(reader);
+                self.process_block_literal(reader, curr_state);
             }
             [b'>', ..] => {
                 self.next_map_state();
-                self.process_block_folded(reader);
+                self.process_block_folded(reader, curr_state);
             }
             [b'\'', ..] => {
                 self.process_single_quote_block(reader, curr_state);
@@ -497,24 +497,58 @@ impl Lexer {
         }
     }
 
-    fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        reader.read_block_scalar(
+    fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+        let had_tab = self.has_tab;
+        let scalar_line = reader.line();
+        let scalar_start = reader.col();
+
+        let tokens = reader.read_block_scalar(
             true,
             &self.curr_state(),
             self.last_block_indent,
-            &mut self.tokens,
             &mut self.errors,
-        )
+        );
+        let is_multiline = reader.line() != scalar_line;
+        reader.skip_space_tab();
+
+        let is_key = reader.peek_byte().map_or(false, |chr| chr == b':');
+
+        self.process_block_scalar(
+            curr_state,
+            is_key,
+            scalar_start,
+            had_tab,
+            is_multiline,
+            tokens,
+            scalar_line,
+        );
     }
 
-    fn process_block_folded<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        reader.read_block_scalar(
+    fn process_block_folded<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+        let had_tab = self.has_tab;
+        let scalar_line = reader.line();
+        let scalar_start = reader.col();
+
+        let tokens = reader.read_block_scalar(
             false,
             &self.curr_state(),
             self.last_block_indent,
-            &mut self.tokens,
             &mut self.errors,
-        )
+        );
+        let is_multiline = reader.line() != scalar_line;
+        reader.skip_space_tab();
+
+        let is_key = reader.peek_byte().map_or(false, |chr| chr == b':');
+
+        self.process_block_scalar(
+            curr_state,
+            is_key,
+            scalar_start,
+            had_tab,
+            is_multiline,
+            tokens,
+            scalar_line,
+        );
     }
 
     // #[inline(always)]

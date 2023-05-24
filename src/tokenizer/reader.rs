@@ -1,6 +1,5 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use std::collections::VecDeque;
 use std::ops::RangeInclusive;
 
 use super::lexer::LexerState;
@@ -89,9 +88,8 @@ pub trait Reader<B> {
         literal: bool,
         curr_state: &LexerState,
         prev_indent: usize,
-        tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
-    );
+    ) -> Vec<usize>;
     fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool);

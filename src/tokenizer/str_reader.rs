@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 use std::usize;
@@ -87,6 +86,9 @@ impl<'a> StrReader<'a> {
 
     #[inline]
     fn count_space_tab_range_from(&self, allow_tab: bool) -> usize {
+        if self.pos >= self.slice.len() {
+            return 0;
+        }
         match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
             if *chr == b' ' || (allow_tab && *chr == b'\t') {
                 Continue(pos + 1)
@@ -421,28 +423,31 @@ impl<'r> Reader<()> for StrReader<'r> {
         literal: bool,
         curr_state: &LexerState,
         block_indent: usize,
-        tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
-    ) {
+    ) -> Vec<usize> {
         self.consume_bytes(1);
         let mut chomp = ChompIndicator::Clip;
         let mut indentation: usize = 0;
+        let mut tokens = Vec::with_capacity(8);
+        let mut auto_has_spaces = false;
 
         match (self.peek_byte_unwrap(0), self.peek_byte_unwrap(1)) {
             (_, b'0') | (b'0', _) => {
                 self.consume_bytes(2);
-                tokens.push_back(ErrorToken as usize);
+                tokens.push(ErrorToken as usize);
                 errors.push(ErrorType::ExpectedChompBetween1and9);
-                return;
+                return tokens;
             }
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
+                auto_has_spaces = true;
                 indentation = block_indent + (len - b'0') as usize;
             }
             (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Keep;
+                auto_has_spaces = true;
                 indentation = block_indent + (len - b'0') as usize;
             }
             (b'-', _) => {
@@ -455,6 +460,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
+                auto_has_spaces = true;
                 indentation = block_indent + (len - b'0') as usize;
             }
             _ => {}
@@ -474,23 +480,24 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             Some(chr) => {
                 self.read_line();
-                tokens.push_back(ErrorToken as usize);
+                tokens.push(ErrorToken as usize);
                 errors.push(ErrorType::UnexpectedSymbol(chr as char));
-                return;
+                return tokens;
             }
             _ => {}
         }
 
         let mut new_line_token = 0;
 
-        tokens.push_back(token);
+        tokens.push(token);
         if self.eof() {
-            tokens.push_back(ScalarEnd as usize);
-            return;
+            tokens.push(ScalarEnd as usize);
+            return tokens;
         }
         let mut trailing = vec![];
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
+
         while !self.eof() {
             let map_indent = self.col + self.count_spaces();
             let prefix_indent = self.col + block_indent;
@@ -526,8 +533,15 @@ impl<'r> Reader<()> for StrReader<'r> {
             let newline_is_empty = self.peek_byte_at(newline_indent).map_or(false, is_newline)
                 || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
 
-            if indentation == 0 && newline_indent > 0 && !newline_is_empty {
-                indentation = newline_indent;
+            if indentation == 0 && newline_indent > 0 {
+                if !auto_has_spaces && newline_is_empty {
+                    auto_has_spaces = true;
+                    tokens.insert(0, ErrorToken as usize);
+                    errors.push(ErrorType::SpacesFoundAfterIndent);
+                }
+                else if !newline_is_empty {
+                    indentation = newline_indent;
+                } 
             }
 
             if newline_is_empty {
@@ -535,7 +549,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 self.read_line();
                 continue;
             } else if let Flow::Error(actual) = self.skip_n_spaces(indentation, block_indent) {
-                tokens.push_back(ErrorToken as usize);
+                tokens.push(ErrorToken as usize);
                 errors.push(ExpectedIndent {
                     actual,
                     expected: indentation,
@@ -547,16 +561,16 @@ impl<'r> Reader<()> for StrReader<'r> {
             if start != end {
                 if new_line_token > 0 {
                     if !literal && previous_indent == newline_indent {
-                        tokens.push_back(NewLine as usize);
-                        tokens.push_back(new_line_token - 1);
+                        tokens.push(NewLine as usize);
+                        tokens.push(new_line_token - 1);
                     } else {
-                        tokens.push_back(NewLine as usize);
-                        tokens.push_back(new_line_token);
+                        tokens.push(NewLine as usize);
+                        tokens.push(new_line_token);
                     }
                 }
                 previous_indent = newline_indent;
-                tokens.push_back(start);
-                tokens.push_back(end);
+                tokens.push(start);
+                tokens.push(end);
                 new_line_token = 1;
             }
         }
@@ -576,6 +590,8 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             ChompIndicator::Strip => {}
         }
+        tokens.push(ScalarEnd as usize);
+        tokens
     }
 
     fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize> {

@@ -44,6 +44,7 @@ pub enum ErrorType {
     YamlMustHaveOnePart,
     InvalidEscapeCharacter,
     InvalidAnchorDeclaration,
+    SpacesFoundAfterIndent,
 }
 
 pub trait Slicer<'a> {
