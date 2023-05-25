@@ -1134,3 +1134,23 @@ const INDENT_TAB_EVENTS: &str = r#"
 fn block_invalid_map_tabs() {
     assert_eq_event(INDENT_TAB_INPUT, INDENT_TAB_EVENTS);
 }
+
+const SEQ_SAME_LINE_INPUT: &str = r#"
+  key: - a
+"#;
+
+const SEQ_SAME_LINE_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :key
+   ERR
+   +SEQ
+    =VAL :a
+   -SEQ
+  -MAP
+ -DOC"#;
+
+#[test]
+fn block_seq_and_map() {
+    assert_eq_event(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS);
+}
