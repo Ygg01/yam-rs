@@ -12,11 +12,11 @@ use crate::tokenizer::lexer::LexerState::{BlockMap, BlockMapExp, BlockSeq};
 use crate::tokenizer::reader::{
     is_uri_char, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
-use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
+use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, Reader, Slicer};
 
-use super::reader::{is_newline, is_valid_escape};
+use super::reader::{is_newline, is_tag_char, is_valid_escape};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -692,16 +692,92 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, start + amount)
     }
 
-    fn read_tag(&self) -> Result<(usize, usize), ErrorType> {
-        if let Some(mid) = memchr(b'!', &self.slice[self.pos..]) {
-            let mid = self.pos + mid + 1;
-            let end = self.slice[mid..]
+    fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize) {
+        match self.peek_chars() {
+            [b'!', b'<', ..] => {
+                let start = self.consume_bytes(2);
+                if let Some(end) = memchr(b'>', &self.slice[self.pos..]) {
+                    let err = if self.slice[self.pos + end + 1] != b'!' {
+                        Some(ErrorType::UnfinishedTag)
+                    } else {
+                        None
+                    };
+                    self.consume_bytes(end + 1);
+                    (err, start, end, 0)
+                } else {
+                    self.skip_space_tab();
+                    (Some(ErrorType::UnfinishedTag), 0, 0, 0)
+                }
+            }
+            [b'!', peek, ..] if is_white_tab_or_break(*peek) => {
+                let start = self.pos;
+                self.consume_bytes(1);
+                (None, start, start + 1, start + 1)
+            }
+            [b'!', ..] => {
+                let start = self.pos;
+                self.consume_bytes(1);
+                if let Some(find) = memchr(b'!', &self.slice[self.pos..]) {
+                    let mid = self.pos + find + 1;
+                    let amount = self.slice[mid..]
+                        .iter()
+                        .position(|c| !is_uri_char(*c))
+                        .unwrap_or(self.slice.len() - self.pos);
+                    let end = self.consume_bytes(find + 1 + amount);
+                    (None, start, mid, end)
+                } else {
+                    (Some(ErrorType::UnfinishedTag), 0, 0, 0)
+                }
+            }
+            _ => panic!("Tag must start with `!`"),
+        }
+    }
+
+    fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType> {
+        match self.peek_chars() {
+            [b'!', x, ..] if *x == b' ' || *x == b'\t' => {
+                self.consume_bytes(1);
+                self.skip_space_tab();
+                Ok(vec![b'!'])
+            }
+            [b'!', _x, ..] => {
+                let start = self.pos;
+                self.consume_bytes(1);
+                let amount: usize = self.slice[self.pos..]
+                    .iter()
+                    .position(|c: &u8| !is_tag_char(*c))
+                    .unwrap_or(self.slice.len() - self.pos);
+                self.consume_bytes(amount);
+                if self.peek_byte_is(b'!') {
+                    let bac = self.slice[start..start + amount + 2].to_vec();
+                    self.consume_bytes(1);
+                    Ok(bac)
+                } else {
+                    self.read_line();
+                    Err(ErrorType::TagNotTerminated)
+                }
+            }
+            [x, ..] => {
+                let err = Err(ErrorType::InvalidTagHandleCharacter { found: *x as char });
+                self.read_line();
+                err
+            }
+            &[] => Err(ErrorType::UnexpectedEndOfFile),
+        }
+    }
+
+    fn read_tag_uri(&mut self) -> Option<(usize, usize)> {
+        if self.peek_byte().map_or(false, is_uri_char) {
+            let start = self.pos;
+            let amount = self.slice[start..]
                 .iter()
                 .position(|c| !is_uri_char(*c))
                 .unwrap_or(self.slice.len() - self.pos);
-            return Ok((mid, mid + end));
+            let end = self.consume_bytes(amount);
+            Some((start, end))
+        } else {
+            None
         }
-        Err(TagNotTerminated)
     }
 
     fn read_break(&mut self) -> Option<(usize, usize)> {

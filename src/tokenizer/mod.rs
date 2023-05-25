@@ -45,6 +45,8 @@ pub enum ErrorType {
     InvalidEscapeCharacter,
     InvalidAnchorDeclaration,
     SpacesFoundAfterIndent,
+    UnfinishedTag,
+    InvalidTagHandleCharacter { found: char },
 }
 
 pub trait Slicer<'a> {

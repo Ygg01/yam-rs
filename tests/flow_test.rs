@@ -369,3 +369,18 @@ fn flow_map_edge() {
     assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
     assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);
 }
+const CUSTOM_TAG_INPUT: &str = r#"
+%TAG !m! !my-
+--- # Bulb here
+!m!light fluorescent
+..."#;
+
+const CUSTOM_TAG_EVENTS: &str = r#"
+ +DOC ---
+  =VAL <!my-light> :fluorescent
+ -DOC ..."#;
+
+#[test]
+fn flow_custom_tag() {
+    assert_eq_event(CUSTOM_TAG_INPUT, CUSTOM_TAG_EVENTS);
+}

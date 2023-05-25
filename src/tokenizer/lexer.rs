@@ -335,10 +335,16 @@ impl Lexer {
         directive_state: &mut DirectiveState,
     ) {
         self.continue_processing = false;
-        // TODO actual tag handling
         directive_state.add_tag();
         reader.try_read_slice_exact("%TAG");
-        reader.read_line();
+        reader.skip_space_tab();
+
+        if let Ok(key) = reader.read_tag_handle() {
+            reader.skip_space_tab();
+            if let Some(val) = reader.read_tag_uri() {
+                self.tags.insert(key, val);
+            }
+        }
     }
 
     fn fetch_end_of_directive<B, R: Reader<B>>(
@@ -408,14 +414,36 @@ impl Lexer {
 
     fn fetch_end_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.skip_space_tab();
-        if let Some(chr) = reader.peek_byte() {
-            if is_not_whitespace(chr) {
+        let read_line = reader.line();
+        match reader.peek_byte() {
+            Some(b'#') => {
+                reader.read_line();
+            }
+            Some(b'%') => {
+                self.set_curr_state(DirectiveSection, read_line);
+            }
+            Some(b'-') => {
+                if reader.peek_chars() == b"---" {
+                    reader.consume_bytes(3);
+                    self.tokens.push_back(DOC_START_EXP);
+                }
+            }
+            Some(b'.') => {
+                if reader.peek_chars() == b"..." {
+                    reader.consume_bytes(3);
+                    self.tokens.push_back(DOC_END_EXP);
+                }
+            }
+            Some(chr) if chr == b' ' || chr == b'\t' || chr == b'\r' || chr == b'\n' => {
+                self.set_curr_state(PreDocStart, read_line);
+            }
+            Some(_) => {
+                reader.read_line();
                 self.push_error(ErrorType::ExpectedDocumentStartOrContents);
             }
-            reader.read_line();
-        }
-        if reader.col() == 0 {
-            self.set_curr_state(PreDocStart, 0);
+            None => {
+                self.stream_end = true;
+            }
         }
     }
 
@@ -1040,6 +1068,7 @@ impl Lexer {
                 expected: 0,
             });
         }
+        self.tags.clear();
         self.set_curr_state(AfterDocBlock, reader.line());
     }
 
@@ -1065,15 +1094,14 @@ impl Lexer {
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
         pub use LexerToken::*;
-        let start = reader.pos();
-        reader.consume_bytes(1);
-        if let Ok((mid, end)) = reader.read_tag() {
+        let (err, start, mid, end) = reader.read_tag();
+        if let Some(err) = err {
+            self.push_error(err);
+        } else {
             self.tokens.push_back(TAG_START);
             self.tokens.push_back(start);
             self.tokens.push_back(mid);
             self.tokens.push_back(end);
-            // Dont consume the last character it could be newline
-            reader.consume_bytes(end - start - 1);
         }
     }
     fn fetch_plain_scalar_block<B, R: Reader<B>>(
@@ -1348,6 +1376,8 @@ impl Lexer {
             } else if (in_flow_collection && is_flow_indicator(chr)) || chr == b':' || chr == b'-' {
                 *ends_with = u8::min(*ends_with, chr);
                 break;
+            } else if reader.peek_chars() == b"..." {
+                break;
             } else if self.find_matching_state(
                 curr_indent,
                 |state, indent| matches!(state, BlockMap(ind, _)| BlockSeq(ind) | BlockMapExp(ind, _) if ind as usize == indent)
@@ -1391,15 +1421,8 @@ impl Lexer {
 
     pub const fn get_default_namespace(namespace: &[u8]) -> Option<Cow<'static, [u8]>> {
         match namespace {
-            b"!!str" => Some(Cow::Borrowed(b"tag:yaml.org,2002:str")),
-            b"!!int" => Some(Cow::Borrowed(b"tag:yaml.org,2002:int")),
-            b"!!null" => Some(Cow::Borrowed(b"tag:yaml.org,2002:null")),
-            b"!!bool" => Some(Cow::Borrowed(b"tag:yaml.org,2002:bool")),
-            b"!!float" => Some(Cow::Borrowed(b"tag:yaml.org,2002:float")),
-            b"!!map" => Some(Cow::Borrowed(b"tag:yaml.org,2002:map")),
-            b"!!seq" => Some(Cow::Borrowed(b"tag:yaml.org,2002:seq")),
-            b"!!set" => Some(Cow::Borrowed(b"tag:yaml.org,2002:set")),
-            b"!!binary" => Some(Cow::Borrowed(b"tag:yaml.org,2002:binary")),
+            b"!!" => Some(Cow::Borrowed(b"tag:yaml.org,2002:")),
+            b"!" => Some(Cow::Borrowed(b"!")),
             _ => None,
         }
     }
