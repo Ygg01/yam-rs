@@ -1224,7 +1224,7 @@ impl Lexer {
         let expected_indent = self.last_block_indent;
         reader.consume_bytes(1);
 
-        if self.last_map_line == Some(reader.line()) {
+        if self.last_map_line == Some(reader.line()) && !matches!(curr_state, BlockMapExp(_, _)) {
             self.push_error(ErrorType::SequenceOnSameLineAsKey);
         }
 
