@@ -359,6 +359,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     fn read_line(&mut self) -> (usize, usize) {
         let (start, end, consume) = self.get_line_offset();
         self.pos = consume;
+        self.line += 1;
         self.col = 0;
         (start, end)
     }
