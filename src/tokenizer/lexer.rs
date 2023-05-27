@@ -659,7 +659,7 @@ impl Lexer {
                 reader.consume_bytes(1);
                 self.tokens.push_back(SEQ_END);
                 let index = self.pop_state().map_or(0, |f| match f {
-                    FlowSeq(x, _) => x.saturating_sub(1),
+                    FlowSeq(x, _) => x,
                     _ => 0,
                 });
                 self.process_post_seq(reader, index, self.curr_state().in_flow_collection());
@@ -965,9 +965,13 @@ impl Lexer {
 
     fn process_flow_seq_start<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.consume_bytes(1);
+        let pos = self.get_token_pos();
+        self.had_anchor = false;
+        self.emit_prev_anchor();
         self.tokens.push_back(SEQ_START);
 
-        let state = FlowSeq(self.get_token_pos(), BeforeFirstElem);
+        let state = FlowSeq(pos, BeforeFirstElem);
+
         self.push_state(state, reader.line());
 
         self.continue_processing = true;
