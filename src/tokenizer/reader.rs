@@ -1,6 +1,6 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use std::ops::RangeInclusive;
+use std::ops::Range;
 
 use super::lexer::LexerState;
 use super::ErrorType;
@@ -12,8 +12,8 @@ pub struct LookAroundBytes<'a> {
 }
 
 impl<'a> LookAroundBytes<'a> {
-    pub(crate) fn new(iter: &'a [u8], range: RangeInclusive<usize>) -> LookAroundBytes<'a> {
-        let (&pos, &end) = (range.start(), range.end());
+    pub(crate) fn new(iter: &'a [u8], range: Range<usize>) -> LookAroundBytes<'a> {
+        let (pos, end) = (range.start, range.end);
 
         LookAroundBytes { iter, pos, end }
     }
@@ -143,11 +143,11 @@ pub(crate) const fn is_flow_indicator(chr: u8) -> bool {
 #[inline]
 pub(crate) fn is_uri_char(chr: u8) -> bool {
     chr == b'!'
-        || chr == b']'
-        || chr == b'_'
-        || (b'#'..=b'+').contains(&chr)
+        || (b'#'..=b',').contains(&chr)
         || (b'-'..=b';').contains(&chr)
         || (b'?'..=b'[').contains(&chr)
+        || chr == b'_'
+        || chr == b']'
         || chr.is_ascii_lowercase()
 }
 

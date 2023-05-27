@@ -1389,9 +1389,7 @@ impl Lexer {
             } else if (in_flow_collection && is_flow_indicator(chr)) || chr == b':' || chr == b'-' {
                 *ends_with = u8::min(*ends_with, chr);
                 break;
-            } else if reader.peek_chars() == b"..." {
-                break;
-            } else if self.find_matching_state(
+            } else if reader.peek_chars() == b"..." ||  self.find_matching_state(
                 curr_indent,
                 |state, indent| matches!(state, BlockMap(ind, _)| BlockSeq(ind) | BlockMapExp(ind, _) if ind as usize == indent)
             ).is_some() {
