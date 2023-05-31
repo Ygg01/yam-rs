@@ -525,8 +525,9 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token = 1;
             };
 
-            let newline_is_empty = self.peek_byte_at(newline_indent).map_or(false, is_newline)
-                || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
+            let newline_is_empty: bool = self.peek_byte_at(newline_indent).map_or(false, is_newline)
+                // || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
+                ;
 
             if newline_is_empty && max_prev_indent < newline_indent {
                 max_prev_indent = newline_indent;
@@ -544,6 +545,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token += 1;
                 self.read_line();
                 continue;
+            } else if self.peek_chars() == b"..." || self.peek_chars() == b"---" {
+                break;
             } else if let Flow::Error(actual) = self.skip_n_spaces(indentation, block_indent) {
                 tokens.push(ErrorToken as usize);
                 errors.push(ExpectedIndent {
