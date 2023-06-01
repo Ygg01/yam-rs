@@ -21,14 +21,14 @@ use super::reader::{is_newline, is_tag_char, is_valid_escape};
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
     pub(crate) pos: usize,
-    pub(crate) col: usize,
-    pub(crate) line: usize,
+    pub(crate) col: u32,
+    pub(crate) line: u32,
 }
 
 enum Flow {
     Continue,
     Break,
-    Error(usize),
+    Error(u32),
 }
 
 impl<'a> From<&'a str> for StrReader<'a> {
@@ -101,7 +101,7 @@ impl<'a> StrReader<'a> {
     }
 
     #[inline]
-    fn count_spaces(&self) -> usize {
+    fn count_spaces(&self) -> u32 {
         match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
             if *chr == b' ' {
                 Continue(pos + 1)
@@ -109,7 +109,7 @@ impl<'a> StrReader<'a> {
                 Break(pos)
             }
         }) {
-            Continue(x) | Break(x) => x,
+            Continue(x) | Break(x) => x as u32,
         }
     }
 
@@ -129,17 +129,17 @@ impl<'a> StrReader<'a> {
         self.consume_bytes(amount);
     }
 
-    fn skip_n_spaces(&mut self, num_spaces: usize, prev_indent: usize) -> Flow {
+    fn skip_n_spaces(&mut self, num_spaces: u32, prev_indent: u32) -> Flow {
         let count = self.slice[self.pos..]
             .iter()
             .enumerate()
-            .take_while(|&(count, &x)| x == b' ' && count < num_spaces)
+            .take_while(|&(count, &x)| x == b' ' && count < num_spaces as usize)
             .count();
 
-        if count == prev_indent {
+        if count == prev_indent as usize {
             Flow::Break
-        } else if count != num_spaces {
-            Flow::Error(count)
+        } else if count != num_spaces as usize {
+            Flow::Error(count as u32)
         } else {
             self.pos += count;
             Flow::Continue
@@ -293,12 +293,12 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn col(&self) -> usize {
+    fn col(&self) -> u32 {
         self.col
     }
 
     #[inline]
-    fn line(&self) -> usize {
+    fn line(&self) -> u32 {
         self.line
     }
 
@@ -337,7 +337,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     #[inline(always)]
     fn consume_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
-        self.col += amount;
+        self.col += TryInto::<u32>::try_into(amount).expect("Amount to not exceed u32");
         self.pos
     }
     #[inline(always)]
@@ -420,12 +420,12 @@ impl<'r> Reader<()> for StrReader<'r> {
         &mut self,
         literal: bool,
         curr_state: &LexerState,
-        block_indent: usize,
+        block_indent: u32,
         errors: &mut Vec<ErrorType>,
     ) -> Vec<usize> {
         self.consume_bytes(1);
         let mut chomp = ChompIndicator::Clip;
-        let mut indentation: usize = 0;
+        let mut indentation = 0;
         let mut tokens = Vec::with_capacity(8);
 
         match (self.peek_byte_unwrap(0), self.peek_byte_unwrap(1)) {
@@ -438,12 +438,12 @@ impl<'r> Reader<()> for StrReader<'r> {
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
-                indentation = block_indent + (len - b'0') as usize;
+                indentation = block_indent + (len - b'0') as u32;
             }
             (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Keep;
-                indentation = block_indent + (len - b'0') as usize;
+                indentation = block_indent + (len - b'0') as u32;
             }
             (b'-', _) => {
                 self.consume_bytes(1);
@@ -455,7 +455,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
-                indentation = block_indent + (len - b'0') as usize;
+                indentation = block_indent + (len - b'0') as u32;
             }
             _ => {}
         }
@@ -494,7 +494,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut max_prev_indent = 0;
 
         while !self.eof() {
-            let map_indent = self.col + self.count_spaces();
+      /*       let map_indent = self.col + self.count_spaces();
             let prefix_indent = self.col + block_indent;
             let indent_has_reduced = map_indent <= block_indent && previous_indent != block_indent;
             let check_block_indent = self.peek_byte_unwrap(block_indent);
@@ -510,14 +510,14 @@ impl<'r> Reader<()> for StrReader<'r> {
                 && matches!(curr_state, BlockMap(ind, _) if *ind as usize == map_indent)
             {
                 break;
-            }
+            }*/
 
             // count indents important for folded scalars
             let newline_indent = self.count_spaces();
 
             if !is_trailing_comment
                 && newline_indent < indentation
-                && self.peek_byte_unwrap(newline_indent) == b'#'
+                && self.peek_byte_unwrap(newline_indent as usize) == b'#'
             {
                 trailing.push(NewLine as usize);
                 trailing.push(new_line_token - 1);
@@ -525,7 +525,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token = 1;
             };
 
-            let newline_is_empty: bool = self.peek_byte_at(newline_indent).map_or(false, is_newline)
+            let newline_is_empty: bool = self.peek_byte_at(newline_indent as usize).map_or(false, is_newline)
                 // || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
                 ;
 
