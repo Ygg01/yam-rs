@@ -1,5 +1,6 @@
+use std::num::NonZeroU32;
 use std::ops::ControlFlow::{Break, Continue};
-use std::ops::{Range};
+use std::ops::Range;
 use std::usize;
 
 use memchr::{memchr, memchr2};
@@ -150,15 +151,17 @@ impl<'a> StrReader<'a> {
         let slice = self.slice;
         let start = self.pos;
         let haystack: &[u8] = &slice[start..];
-        memchr::memchr2_iter(b'\r', b'\n', haystack)
-            .next()
-            .map_or((start, self.slice.len(), self.slice.len()), |pos| {
-                if haystack[pos] == b'\r' && pos < haystack.len() - 1 && haystack[pos + 1] == b'\n' {
+        memchr::memchr2_iter(b'\r', b'\n', haystack).next().map_or(
+            (start, self.slice.len(), self.slice.len()),
+            |pos| {
+                if haystack[pos] == b'\r' && pos < haystack.len() - 1 && haystack[pos + 1] == b'\n'
+                {
                     (start, start + pos, start + pos + 2)
                 } else {
                     (start, start + pos, start + pos + 1)
                 }
-            })
+            },
+        )
     }
 
     fn get_quoteline_offset(&self, quote: u8) -> (usize, usize, usize) {
@@ -425,7 +428,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     ) -> Vec<usize> {
         self.consume_bytes(1);
         let mut chomp = ChompIndicator::Clip;
-        let mut indentation = 0;
+        let mut indentation: Option<NonZeroU32> = None;
         let mut tokens = Vec::with_capacity(8);
 
         match (self.peek_byte_unwrap(0), self.peek_byte_unwrap(1)) {
@@ -438,12 +441,12 @@ impl<'r> Reader<()> for StrReader<'r> {
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
-                indentation = block_indent + (len - b'0') as u32;
+                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
             }
             (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Keep;
-                indentation = block_indent + (len - b'0') as u32;
+                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
             }
             (b'-', _) => {
                 self.consume_bytes(1);
@@ -455,7 +458,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             (len, _) if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(1);
-                indentation = block_indent + (len - b'0') as u32;
+                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
             }
             _ => {}
         }
@@ -493,30 +496,30 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut previous_indent = 0;
         let mut max_prev_indent = 0;
 
-        while !self.eof() {
-      /*       let map_indent = self.col + self.count_spaces();
+        loop {
+            let map_indent = self.col + self.count_spaces();
             let prefix_indent = self.col + block_indent;
             let indent_has_reduced = map_indent <= block_indent && previous_indent != block_indent;
-            let check_block_indent = self.peek_byte_unwrap(block_indent);
+            let check_block_indent = self.peek_byte_unwrap(block_indent as usize);
 
             if (check_block_indent == b'-'
-                && matches!(curr_state, BlockSeq(ind) if prefix_indent == *ind as usize))
+                && matches!(curr_state, BlockSeq(ind) if prefix_indent <= *ind ))
                 || (check_block_indent == b':'
-                    && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent == *ind as usize))
+                    && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent <= *ind))
             {
-                self.consume_bytes(block_indent);
+                self.consume_bytes(block_indent as usize);
                 break;
             } else if indent_has_reduced
-                && matches!(curr_state, BlockMap(ind, _) if *ind as usize == map_indent)
+                && matches!(curr_state, BlockMap(ind, _) if *ind <= map_indent)
             {
                 break;
-            }*/
+            }
 
             // count indents important for folded scalars
             let newline_indent = self.count_spaces();
 
             if !is_trailing_comment
-                && newline_indent < indentation
+                && indentation.map_or(false, |x| newline_indent < x.into())
                 && self.peek_byte_unwrap(newline_indent as usize) == b'#'
             {
                 trailing.push(NewLine as usize);
@@ -525,36 +528,47 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token = 1;
             };
 
-            let newline_is_empty: bool = self.peek_byte_at(newline_indent as usize).map_or(false, is_newline)
-                // || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
-                ;
+            let newline_is_empty = self
+                .slice(self.pos, self.get_line_offset().1)
+                .iter()
+                .rev()
+                .all(|c| *c == b' ');
 
             if newline_is_empty && max_prev_indent < newline_indent {
                 max_prev_indent = newline_indent;
             }
 
-            if indentation == 0 && newline_indent > 0 && !newline_is_empty {
-                indentation = newline_indent;
-                if max_prev_indent > indentation {
+            if indentation.is_none() && newline_indent > 0 && !newline_is_empty {
+                indentation = NonZeroU32::new(newline_indent);
+                if max_prev_indent > newline_indent {
                     tokens.insert(0, ErrorToken as usize);
                     errors.push(ErrorType::SpacesFoundAfterIndent);
                 }
             }
 
-            if newline_is_empty {
-                new_line_token += 1;
-                self.read_line();
-                continue;
-            } else if self.peek_chars() == b"..." || self.peek_chars() == b"---" {
-                break;
-            } else if let Flow::Error(actual) = self.skip_n_spaces(indentation, block_indent) {
-                tokens.push(ErrorToken as usize);
-                errors.push(ExpectedIndent {
-                    actual,
-                    expected: indentation,
-                });
+            let num_spaces = match indentation {
+                None => newline_indent,
+                Some(x) => x.into(),
+            };
+
+            if self.peek_chars() == b"..." || self.peek_chars() == b"---" || self.eof() {
                 break;
             }
+            match self.skip_n_spaces(num_spaces, block_indent) {
+                Flow::Error(actual) if !newline_is_empty => {
+                    tokens.push(ErrorToken as usize);
+                    errors.push(ExpectedIndent {
+                        actual,
+                        expected: num_spaces,
+                    });
+                    break;
+                }
+                Flow::Error(amount) => {
+                    self.consume_bytes(amount as usize);
+                }
+                Flow::Break => {}
+                _ => {}
+            };
 
             let (start, end) = self.read_line();
             if start != end {
@@ -571,6 +585,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 tokens.push(start);
                 tokens.push(end);
                 new_line_token = 1;
+            } else {
+                new_line_token += 1;
             }
         }
         match chomp {
@@ -578,13 +594,13 @@ impl<'r> Reader<()> for StrReader<'r> {
                 if is_trailing_comment {
                     new_line_token = 1;
                 }
-                trailing.insert(0, NewLine as usize);
-                trailing.insert(1, new_line_token);
+                trailing.push(NewLine as usize);
+                trailing.push(new_line_token);
                 tokens.extend(trailing);
             }
             ChompIndicator::Clip => {
-                trailing.insert(0, NewLine as usize);
-                trailing.insert(1, 1);
+                trailing.push(NewLine as usize);
+                trailing.push(1);
                 tokens.extend(trailing);
             }
             ChompIndicator::Strip => {}

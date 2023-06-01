@@ -316,14 +316,30 @@ const LITERAL3_EVENTS: &str = r#"
   =VAL |ab\n\n \n
  -DOC ..."#;
 
+
+const LITERAL_CHOMP_INPUT: &str = r#"
+Chomping: |
+  Clipped
+ 
+"#;
+
+const LITERAL_CHOMP_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :Chomping
+   =VAL |Clipped\n
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn block_literal() {
-    // assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
-    // assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
+    assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
+    assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
     assert_eq_event(LITERAL3_INPUT, LITERAL3_EVENTS);
-    // assert_eq_event(LIT_STR2_INPUT, LIT_STR2_EVENTS);
-    // assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
-    // assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
+    assert_eq_event(LIT_STR2_INPUT, LIT_STR2_EVENTS);
+    assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
+    assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
+    assert_eq_event(LITERAL_CHOMP_INPUT, LITERAL_CHOMP_EVENTS);
 }
 const LITERAL_ERR_INPUT: &str = r#"
 --- |0"#;
@@ -697,8 +713,6 @@ const EXP_BLOCK_MAP_ERR2_EVENTS: &str = r#"
    =VAL :value
   -MAP
  -DOC"#;
-
-
 
 #[test]
 pub fn block_exp_map_err() {
