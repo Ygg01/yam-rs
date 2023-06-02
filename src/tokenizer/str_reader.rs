@@ -118,7 +118,7 @@ impl<'a> StrReader<'a> {
         )
     }
 
-    fn get_quoteline_offset(&self, quote: u8) -> (usize, usize, usize) {
+    pub(crate) fn get_quoteline_offset(&self, quote: u8) -> (usize, usize) {
         let slice = self.slice;
         let start = self.pos;
         let remaining = slice.len().saturating_sub(start);
@@ -134,7 +134,7 @@ impl<'a> StrReader<'a> {
                     (p, 1)
                 }
             });
-        (start, start + n, start + n + newline)
+        (start, start + n)
     }
 
     #[inline]
@@ -150,7 +150,7 @@ impl<'a> StrReader<'a> {
         tokens: &mut Vec<usize>,
         errors: &mut Vec<ErrorType>,
     ) -> QuoteState {
-        let (_, line_end, _) = self.get_quoteline_offset(b'"');
+        let (_, line_end) = self.get_quoteline_offset(b'"');
         if let Some(pos) = memchr2(b'\\', b'"', &self.slice[self.pos..line_end]) {
             let match_pos = self.consume_bytes(pos);
             match self.peek_chars() {
@@ -211,7 +211,7 @@ impl<'a> StrReader<'a> {
         errors: &mut Vec<ErrorType>,
         tokens: &mut Vec<usize>,
     ) -> QuoteState {
-        let (_, line_end, _) = self.get_quoteline_offset(b'"');
+        let (_, line_end) = self.get_quoteline_offset(b'"');
 
         if self.col == 0 && (matches!(self.peek_chars(), b"..." | b"---")) {
             errors.push(ErrorType::UnexpectedEndOfStream);
@@ -405,7 +405,6 @@ impl<'r> Reader<()> for StrReader<'r> {
                 QuoteState::Start => {
                     self.quote_start(&mut start_str, &mut newspaces, &mut tokens, errors)
                 }
-                // QuoteState::SkipTabs => self.quote_skip(&mut start_str, is_multiline),
                 QuoteState::Trim => {
                     self.quote_trim(&mut start_str, &mut newspaces, errors, &mut tokens)
                 }
@@ -422,7 +421,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         tokens.push(ScalarSingleQuote as usize);
 
         while !self.eof() {
-            let (line_start, line_end, _) = self.get_quoteline_offset(b'\'');
+            let (line_start, line_end) = self.get_quoteline_offset(b'\'');
             let pos = memchr::memchr(b'\'', &self.slice[line_start..line_end]);
             match pos {
                 Some(len) => {
