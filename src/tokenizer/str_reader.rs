@@ -6,10 +6,7 @@ use memchr::{memchr, memchr2};
 
 use reader::{is_flow_indicator, ns_plain_safe};
 
-
-use crate::tokenizer::reader::{
-    is_uri_char, is_white_tab_or_break, LookAroundBytes,
-};
+use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
 use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, Reader, Slicer};
@@ -100,7 +97,6 @@ impl<'a> StrReader<'a> {
         self.consume_bytes(amount);
     }
 
-
     pub(crate) fn get_line_offset(&self) -> (usize, usize, usize) {
         let slice = self.slice;
         let start = self.pos;
@@ -123,17 +119,9 @@ impl<'a> StrReader<'a> {
         let start = self.pos;
         let remaining = slice.len().saturating_sub(start);
         let content = &slice[start..];
-        let (n, newline) = memchr::memchr3_iter(b'\r', b'\n', quote, content)
+        let n = memchr::memchr3_iter(b'\r', b'\n', quote, content)
             .next()
-            .map_or((remaining, 0), |p| {
-                if content[p] == quote {
-                    (p + 1, 0)
-                } else if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
-                    (p, 2)
-                } else {
-                    (p, 1)
-                }
-            });
+            .map_or(remaining, |p| if content[p] == quote { p + 1 } else { p });
         (start, start + n)
     }
 
@@ -153,7 +141,7 @@ impl<'a> StrReader<'a> {
         let (_, line_end) = self.get_quoteline_offset(b'"');
         if let Some(pos) = memchr2(b'\\', b'"', &self.slice[self.pos..line_end]) {
             let match_pos = self.consume_bytes(pos);
-            match self.peek_chars() {
+            match self.peek_chars(&mut ()) {
                 [b'\\', b'\t', ..] => {
                     emit_token_mut(start_str, match_pos, newspaces, tokens);
                     emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);
@@ -213,7 +201,7 @@ impl<'a> StrReader<'a> {
     ) -> QuoteState {
         let (_, line_end) = self.get_quoteline_offset(b'"');
 
-        if self.col == 0 && (matches!(self.peek_chars(), b"..." | b"---")) {
+        if self.col == 0 && (matches!(self.peek_chars(&mut ()), b"..." | b"---")) {
             errors.push(ErrorType::UnexpectedEndOfStream);
             tokens.insert(0, ErrorToken as usize);
         };
@@ -264,7 +252,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos
     }
 
-    fn peek_chars(&self) -> &[u8] {
+
+    fn peek_chars(&self, _buf: &mut ()) -> &[u8] {
         let max = std::cmp::min(self.slice.len(), self.pos + 3);
         &self.slice[self.pos..max]
     }
@@ -275,22 +264,10 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn peek_byte2(&self) -> Option<u8> {
-        self.slice.get(self.pos + 1).copied()
-    }
-
-    #[inline]
     fn peek_byte_at(&self, offset: usize) -> Option<u8> {
         self.slice.get(self.pos + offset).copied()
     }
 
-    #[inline]
-    fn peek_byte_unwrap(&self, offset: usize) -> u8 {
-        match self.slice.get(self.pos + offset) {
-            Some(x) => *x,
-            _ => b'\0',
-        }
-    }
 
     #[inline]
     fn skip_space_tab(&mut self) -> usize {
@@ -494,7 +471,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize) {
-        match self.peek_chars() {
+        match self.peek_chars(&mut ()) {
             [b'!', b'<', ..] => {
                 let start = self.consume_bytes(2);
                 let (line_start, line_end, _) = self.get_line_offset();
@@ -539,7 +516,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType> {
-        match self.peek_chars() {
+        match self.peek_chars(&mut ()) {
             [b'!', x, ..] if *x == b' ' || *x == b'\t' => {
                 self.consume_bytes(1);
                 self.skip_space_tab();

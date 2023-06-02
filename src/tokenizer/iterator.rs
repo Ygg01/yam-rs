@@ -28,7 +28,7 @@ pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
     /// Reader type that usually implements a [Reader] trait which takes a Buffer type [B]
     pub(crate) reader: R,
     /// Lexer which controls current state of parsing
-    pub(crate) state: Lexer,
+    pub(crate) state: Lexer<B>,
     /// Current event indentation level
     pub indent: usize,
     /// Tag of current node,
@@ -39,12 +39,14 @@ pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
     phantom: PhantomData<(&'a B, S)>,
 }
 
-impl<'a, R, B, S> EventIterator<'a, R, B, S> {
-    #[inline]
-    pub fn new(reader: R) -> EventIterator<'a, R, B, S> {
+
+impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>>
+where
+{
+    fn from(value: &'a str) -> Self {
         EventIterator {
-            reader,
-            state: Lexer::default(),
+            reader: StrReader::from(value),
+            state: Lexer::new(),
             indent: 1,
             tag: None,
             anchor: None,
@@ -53,21 +55,31 @@ impl<'a, R, B, S> EventIterator<'a, R, B, S> {
     }
 }
 
-impl<'a, R, B> From<&'a str> for EventIterator<'a, R, B>
-where
-    R: Reader<B> + From<&'a str>,
+impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>>
 {
-    fn from(value: &'a str) -> Self {
-        EventIterator::new(From::from(value))
+    fn from(value: &'a [u8]) -> Self {
+        EventIterator {
+            reader: StrReader::from(value),
+            state: Lexer::new(),
+            indent: 1,
+            tag: None,
+            anchor: None,
+            phantom: PhantomData::default(),
+        }
     }
 }
 
-impl<'a, R, B> From<&'a [u8]> for EventIterator<'a, R, B>
-where
-    R: Reader<B> + From<&'a [u8]>,
-{
-    fn from(value: &'a [u8]) -> Self {
-        EventIterator::new(From::from(value))
+impl<'a, R, B, S> EventIterator<'a, R, B, S> {
+    #[inline]
+    pub fn new(reader: R, src: B) -> EventIterator<'a, R, B, S> {
+        EventIterator {
+            reader,
+            state: Lexer::new_from_buf(src),
+            indent: 1,
+            tag: None,
+            anchor: None,
+            phantom: PhantomData::default(),
+        }
     }
 }
 
@@ -75,19 +87,8 @@ impl<'a, R, B, S: BufRead> EventIterator<'a, R, B, S>
 where
     R: Reader<B> + From<S>,
 {
-    pub fn from_buf(value: S) -> Self {
-        EventIterator::new(From::from(value))
-    }
-}
-
-impl<'a, R, B> EventIterator<'a, R, B, BufReader<File>>
-where
-    R: Reader<B> + From<BufReader<File>>,
-{
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        Ok(EventIterator::new(From::from(reader)))
+    pub fn from_buf(value: S, buf: B) -> Self {
+        EventIterator::new(From::from(value), buf)
     }
 }
 

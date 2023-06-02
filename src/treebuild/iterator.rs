@@ -16,13 +16,13 @@ pub struct YamlParser<'a, R, B = (), TAG = ()> {
     pub(crate) _map: HashMap<String, &'a YamlToken<'a, TAG>>,
     buf: PhantomData<B>,
 }
-
+/*
 impl<'a, R, B, TAG: Default> YamlParser<'a, R, B, TAG>
 where
     R: Reader<B> + Slicer<'a>,
 {
     pub fn parse_doc(&'a mut self) -> YamlToken<'a, TAG> {
-        let mut lexer = Lexer::default();
+        let mut lexer = Lexer::new();
         while !lexer.stream_end {
             lexer.fetch_next_token(&mut self.reader);
         }
@@ -227,3 +227,4 @@ where
         }
     }
 }
+*/

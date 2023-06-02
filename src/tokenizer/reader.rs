@@ -51,9 +51,10 @@ pub trait Reader<B> {
     fn col(&self) -> u32;
     fn line(&self) -> u32;
     fn pos(&self) -> usize;
-    fn peek_chars(&self) -> &[u8];
-    fn peek_byte(&self) -> Option<u8>;
-    fn peek_byte2(&self) -> Option<u8>;
+    fn peek_chars(&self, buf: &mut B) -> &[u8];
+    fn peek_byte(&self) -> Option<u8> {
+        self.peek_byte_at(0)
+    }
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     #[inline]
     fn peek_byte_is(&self, needle: u8) -> bool {
@@ -62,7 +63,6 @@ pub trait Reader<B> {
             _ => false,
         }
     }
-    fn peek_byte_unwrap(&self, pos: usize) -> u8;
     fn skip_space_tab(&mut self) -> usize;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
