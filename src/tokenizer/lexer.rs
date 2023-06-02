@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use std::hint::unreachable_unchecked;
 use std::mem::take;
+use std::num::NonZeroU32;
 
 use LexerState::PreDocStart;
 use SeqState::BeforeFirstElem;
@@ -97,6 +98,15 @@ pub enum LexerState {
     BlockSeq(u32),
     BlockMap(u32, MapState),
     BlockMapExp(u32, MapState),
+}
+
+pub(crate) enum ChompIndicator {
+    /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
+    Strip,
+    ///  `` final line break character is preserved in the scalar’s content
+    Clip,
+    /// `+` final line break and any trailing empty lines are considered to be part of the scalar’s content
+    Keep,
 }
 
 impl LexerState {
@@ -463,8 +473,8 @@ impl Lexer {
                 self.fetch_exp_block_map_key(reader, curr_state)
             }
             [b'!', ..] => self.fetch_tag(reader),
-            [b'|', ..] => self.process_block_literal(reader, curr_state),
-            [b'>', ..] => self.process_block_folded(reader, curr_state),
+            [b'|', ..] => self.process_block_literal(reader, curr_state, true),
+            [b'>', ..] => self.process_block_literal(reader, curr_state, false),
             [b'\'', ..] => self.process_single_quote_block(reader, curr_state),
             [b'"', ..] => self.process_double_quote_block(reader, curr_state),
             [b'#', ..] => {
@@ -502,11 +512,11 @@ impl Lexer {
             [b'!', ..] => self.fetch_tag(reader),
             [b'|', ..] => {
                 self.next_map_state();
-                self.process_block_literal(reader, curr_state);
+                self.process_block_literal(reader, curr_state, true);
             }
             [b'>', ..] => {
                 self.next_map_state();
-                self.process_block_folded(reader, curr_state);
+                self.process_block_literal(reader, curr_state, false);
             }
             [b'\'', ..] => {
                 self.process_single_quote_block(reader, curr_state);
@@ -525,44 +535,18 @@ impl Lexer {
         }
     }
 
-    fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    fn process_block_literal<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        curr_state: LexerState,
+        literal: bool,
+    ) {
         let had_tab = self.has_tab;
         let scalar_line = reader.line();
         let scalar_start = reader.col();
 
-        let tokens = reader.read_block_scalar(
-            true,
-            &self.curr_state(),
-            self.last_block_indent,
-            &mut self.errors,
-        );
-        let is_multiline = reader.line() != scalar_line;
-        reader.skip_space_tab();
-
-        let is_key = reader.peek_byte().map_or(false, |chr| chr == b':');
-
-        self.process_block_scalar(
-            curr_state,
-            is_key,
-            scalar_start,
-            had_tab,
-            is_multiline,
-            tokens,
-            scalar_line,
-        );
-    }
-
-    fn process_block_folded<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
-        let had_tab = self.has_tab;
-        let scalar_line = reader.line();
-        let scalar_start = reader.col();
-
-        let tokens = reader.read_block_scalar(
-            false,
-            &self.curr_state(),
-            self.last_block_indent,
-            &mut self.errors,
-        );
+        let tokens =
+            self.read_block_scalar(reader, literal, &self.curr_state(), self.last_block_indent);
         let is_multiline = reader.line() != scalar_line;
         reader.skip_space_tab();
 
@@ -1578,6 +1562,195 @@ impl Lexer {
             tokens,
             scalar_line,
         );
+    }
+
+    fn read_block_scalar<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        literal: bool,
+        curr_state: &LexerState,
+        block_indent: u32,
+    ) -> Vec<usize> {
+        reader.consume_bytes(1);
+        let mut chomp = ChompIndicator::Clip;
+        let mut indentation: Option<NonZeroU32> = None;
+        let mut tokens = Vec::with_capacity(8);
+
+        let amount = match reader.peek_chars() {
+            [_, b'0', ..] | [b'0', _, ..] => {
+                reader.consume_bytes(2);
+                self.push_error(ErrorType::ExpectedChompBetween1and9);
+                return tokens;
+            }
+            [b'-', len, ..] | [len, b'-', ..] if matches!(len, b'1'..=b'9') => {
+                
+                chomp = ChompIndicator::Strip;
+                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
+                2
+            }
+            [b'+', len, ..] | [len, b'+', ..] if matches!(len, b'1'..=b'9') => {
+                chomp = ChompIndicator::Keep;
+                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
+                2
+            }
+            [b'-', ..] => {
+                chomp = ChompIndicator::Strip;
+                1
+            }
+            [b'+', ..] => {
+                chomp = ChompIndicator::Keep;
+                1
+            }
+            [len, ..] if matches!(len, b'1'..=b'9') => {
+                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
+                1
+            }
+            _ => 0,
+        };
+        reader.consume_bytes(amount);
+
+        let token = if literal {
+            ScalarLit as usize
+        } else {
+            ScalarFold as usize
+        };
+
+        // allow comment in first line of block scalar
+        reader.skip_space_tab();
+        match reader.peek_byte() {
+            Some(b'#' | b'\r' | b'\n') => {
+                reader.read_line();
+            }
+            Some(chr) => {
+                reader.read_line();
+                self.push_error(ErrorType::UnexpectedSymbol(chr as char));
+                return tokens;
+            }
+            _ => {}
+        }
+
+        let mut new_line_token = 0;
+
+        tokens.push(token);
+        if reader.eof() {
+            tokens.push(ScalarEnd as usize);
+            return tokens;
+        }
+        let mut trailing = vec![];
+        let mut is_trailing_comment = false;
+        let mut previous_indent = 0;
+        let mut max_prev_indent = 0;
+
+        loop {
+            let map_indent = reader.col() + reader.count_spaces();
+            let prefix_indent = reader.col() + block_indent;
+            let indent_has_reduced = map_indent <= block_indent && previous_indent != block_indent;
+            let check_block_indent = reader.peek_byte_unwrap(block_indent as usize);
+
+            if (check_block_indent == b'-'
+                && matches!(curr_state, BlockSeq(ind) if prefix_indent <= *ind ))
+                || (check_block_indent == b':'
+                    && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent <= *ind))
+            {
+                reader.consume_bytes(block_indent as usize);
+                break;
+            } else if indent_has_reduced
+                && matches!(curr_state, BlockMap(ind, _) if *ind <= map_indent)
+            {
+                break;
+            }
+
+            // count indents important for folded scalars
+            let newline_indent = reader.count_spaces();
+
+            if !is_trailing_comment
+                && indentation.map_or(false, |x| newline_indent < x.into())
+                && reader.peek_byte_unwrap(newline_indent as usize) == b'#'
+            {
+                trailing.push(NewLine as usize);
+                trailing.push(new_line_token - 1);
+                is_trailing_comment = true;
+                new_line_token = 1;
+            };
+
+            let newline_is_empty = reader.is_empty_newline();
+
+            if newline_is_empty && max_prev_indent < newline_indent {
+                max_prev_indent = newline_indent;
+            }
+
+            if indentation.is_none() && newline_indent > 0 && !newline_is_empty {
+                indentation = NonZeroU32::new(newline_indent);
+                if max_prev_indent > newline_indent {
+                    tokens.insert(0, ErrorToken as usize);
+                    self.errors.push(ErrorType::SpacesFoundAfterIndent);
+                }
+            }
+
+            let num_spaces = match indentation {
+                None => newline_indent,
+                Some(x) => x.into(),
+            };
+
+            if reader.peek_chars() == b"..." || reader.peek_chars() == b"---" || reader.eof() {
+                break;
+            }
+            match reader.count_spaces_till(num_spaces) {
+                count if count == block_indent as usize => {}
+                count if count != num_spaces as usize => {
+                    if newline_is_empty {
+                        reader.consume_bytes(count);
+                    } else {
+                        self.push_error(ExpectedIndent {
+                            actual: count as u32,
+                            expected: num_spaces,
+                        });
+
+                        break;
+                    }
+                }
+                count => {
+                    reader.consume_bytes(count);
+                }
+            };
+
+            let (start, end) = reader.read_line();
+            if start != end {
+                if new_line_token > 0 {
+                    if !literal && previous_indent == newline_indent {
+                        tokens.push(NewLine as usize);
+                        tokens.push(new_line_token - 1);
+                    } else {
+                        tokens.push(NewLine as usize);
+                        tokens.push(new_line_token);
+                    }
+                }
+                previous_indent = newline_indent;
+                tokens.push(start);
+                tokens.push(end);
+                new_line_token = 1;
+            } else {
+                new_line_token += 1;
+            }
+        }
+        match chomp {
+            ChompIndicator::Keep => {
+                if is_trailing_comment {
+                    new_line_token = 1;
+                }
+                trailing.push(NewLine as usize);
+                trailing.push(new_line_token);
+                tokens.extend(trailing);
+            }
+            ChompIndicator::Clip => {
+                trailing.push(NewLine as usize);
+                trailing.push(1);
+                tokens.extend(trailing);
+            }
+            ChompIndicator::Strip => {}
+        }
+        tokens.push(ScalarEnd as usize);
+        tokens
     }
 }
 
