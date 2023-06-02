@@ -252,7 +252,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos
     }
 
-
     fn peek_chars(&self, _buf: &mut ()) -> &[u8] {
         let max = std::cmp::min(self.slice.len(), self.pos + 3);
         &self.slice[self.pos..max]
@@ -267,7 +266,6 @@ impl<'r> Reader<()> for StrReader<'r> {
     fn peek_byte_at(&self, offset: usize) -> Option<u8> {
         self.slice.get(self.pos + offset).copied()
     }
-
 
     #[inline]
     fn skip_space_tab(&mut self) -> usize {

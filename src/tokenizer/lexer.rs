@@ -23,7 +23,7 @@ use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{is_flow_indicator, is_newline, is_not_whitespace, ns_plain_safe};
 use crate::tokenizer::ErrorType;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Lexer<B = ()> {
     pub stream_end: bool,
     pub(crate) tokens: VecDeque<usize>,
@@ -39,27 +39,6 @@ pub struct Lexer<B = ()> {
     prev_scalar: Scalar,
     last_map_line: Option<u32>,
     col_start: Option<u32>,
-}
-
-impl Lexer {
-    pub fn new() -> Self {
-        Lexer {
-            stream_end: false,
-            tokens: VecDeque::default(),
-            errors: Vec::default(),
-            tags: HashMap::default(),
-            buf: (),
-            stack: Vec::default(),
-            last_block_indent: 0,
-            had_anchor: false,
-            has_tab: false,
-            prev_anchor: None,
-            continue_processing: false,
-            prev_scalar: Scalar::default(),
-            last_map_line: None,
-            col_start: None,
-        }
-    }
 }
 
 impl<S> Lexer<S> {
@@ -82,7 +61,6 @@ impl<S> Lexer<S> {
         }
     }
 }
-
 
 #[derive(Clone, Default)]
 pub(crate) struct Scalar {
@@ -835,11 +813,7 @@ impl<B> Lexer<B> {
         }
     }
 
-    fn process_single_quote_flow<R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        curr_state: LexerState,
-    ) {
+    fn process_single_quote_flow<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let scalar_start = self.update_col(reader);
         let tokens = reader.read_single_quote(curr_state.is_implicit());
 
@@ -891,11 +865,7 @@ impl<B> Lexer<B> {
         }
     }
 
-    fn process_double_quote_block<R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        curr_state: LexerState,
-    ) {
+    fn process_double_quote_block<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let had_tab = self.has_tab;
         let scalar_line = reader.line();
         let Scalar {
@@ -1581,11 +1551,7 @@ impl<B> Lexer<B> {
         }
     }
 
-    fn process_single_quote_block<R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        curr_state: LexerState,
-    ) {
+    fn process_single_quote_block<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let has_tab = self.has_tab;
         let scalar_line = reader.line();
         let Scalar {
@@ -1708,7 +1674,9 @@ impl<B> Lexer<B> {
 
             if !is_trailing_comment
                 && indentation.map_or(false, |x| newline_indent < x.into())
-                && reader.peek_byte_at(newline_indent as usize).map_or(false, |c| c == b'#')
+                && reader
+                    .peek_byte_at(newline_indent as usize)
+                    .map_or(false, |c| c == b'#')
             {
                 trailing.push(NewLine as usize);
                 trailing.push(new_line_token - 1);
@@ -1735,7 +1703,10 @@ impl<B> Lexer<B> {
                 Some(x) => x.into(),
             };
 
-            if reader.peek_chars(&mut self.buf) == b"..." || reader.peek_chars(&mut self.buf) == b"---" || reader.eof() {
+            if reader.peek_chars(&mut self.buf) == b"..."
+                || reader.peek_chars(&mut self.buf) == b"---"
+                || reader.eof()
+            {
                 break;
             }
             match reader.count_spaces_till(num_spaces) {

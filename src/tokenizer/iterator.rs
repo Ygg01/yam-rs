@@ -39,14 +39,11 @@ pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
     phantom: PhantomData<(&'a B, S)>,
 }
 
-
-impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>>
-where
-{
+impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>> {
     fn from(value: &'a str) -> Self {
         EventIterator {
             reader: StrReader::from(value),
-            state: Lexer::new(),
+            state: Lexer::default(),
             indent: 1,
             tag: None,
             anchor: None,
@@ -55,12 +52,11 @@ where
     }
 }
 
-impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>>
-{
+impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>> {
     fn from(value: &'a [u8]) -> Self {
         EventIterator {
             reader: StrReader::from(value),
-            state: Lexer::new(),
+            state: Lexer::default(),
             indent: 1,
             tag: None,
             anchor: None,
