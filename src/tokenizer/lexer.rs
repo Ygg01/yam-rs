@@ -585,13 +585,13 @@ impl<B> Lexer<B> {
         );
     }
 
-    // #[inline(always)]
+    #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
         self.errors.push(error);
     }
 
-    // #[inline(always)]
+    #[inline(always)]
     fn prepend_error(&mut self, error: ErrorType) {
         self.tokens.push_front(ERROR_TOKEN);
         self.errors.push(error);
