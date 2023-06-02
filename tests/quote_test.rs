@@ -6,18 +6,18 @@ const DQUOTE_STR_ESC1_INPUT: &str = r#"
  "double quote (\")""#;
 
 const DQUOTE_STR_ESC_EVENTS: &str = r#"
- +DOC
-  =VAL "double quote (")
- -DOC"#;
++DOC
+=VAL "double quote (")
+-DOC"#;
 
 const DQUOTE_ESC_INPUT: &str = r##"
  "a\/b"
 "##;
 
 const DQUOTE_ESC_EVENTS: &str = r#"
- +DOC
-  =VAL "a/b
- -DOC"#;
++DOC
+=VAL "a/b
+-DOC"#;
 
 #[test]
 fn dquote_escape() {
@@ -35,17 +35,17 @@ const SQUOTE_STR2_INPUT: &str = r#"
   quote'"#;
 
 const SQUOTE_STR_EVENTS: &str = r#"
- +DOC
-  =VAL 'single quote
- -DOC"#;
++DOC
+=VAL 'single quote
+-DOC"#;
 
 const SQUOTE_ESCAPE_INPUT: &str = r#"'for single quote, use '' two of them'"#;
 const SQUOTE_ESCAPE2_INPUT: &str = r#"'for single quote, use
 '' two of them'"#;
 const SQUOTE_ESCAPE_EVENTS: &str = r#"
- +DOC
-  =VAL 'for single quote, use ' two of them
- -DOC"#;
++DOC
+=VAL 'for single quote, use ' two of them
+-DOC"#;
 
 #[test]
 fn quote_single() {
@@ -65,9 +65,9 @@ const DQUOTE_STR2_INPUT: &str = r#"
 "#;
 
 const DQUOTE_STR_EVENTS: &str = r#"
- +DOC
-  =VAL "double quote
- -DOC"#;
++DOC
+=VAL "double quote
+-DOC"#;
 
 const DQUOTE_MULTI_INPUT: &str = r##"
  "test  
@@ -75,9 +75,9 @@ const DQUOTE_MULTI_INPUT: &str = r##"
    tab" "##;
 
 const DQUOTE_MULTI_EVENTS: &str = r#"
- +DOC
-  =VAL "test\ntab
- -DOC"#;
++DOC
+=VAL "test\ntab
+-DOC"#;
 
 #[test]
 fn dquote_solo() {
@@ -94,12 +94,12 @@ const DQUOTE_MULTI1_INPUT: &str = r##"
 "##;
 
 const DQUOTE_MULTI1_EVENTS: &str = r#"
- +DOC
-  +MAP
-   =VAL :gen
-   =VAL "foobar baz 
-  -MAP
- -DOC"#;
++DOC
++MAP
+=VAL :gen
+=VAL "foobar baz 
+-MAP
+-DOC"#;
 
 const DQUOTE_MULTI2_INPUT: &str = r##"
  - "double   
@@ -107,11 +107,11 @@ const DQUOTE_MULTI2_INPUT: &str = r##"
  quote" "##;
 
 const DQUOTE_MULTI2_EVENTS: &str = r#"
- +DOC
-  +SEQ
-   =VAL "double\nquote
-  -SEQ
- -DOC"#;
++DOC
++SEQ
+=VAL "double\nquote
+-SEQ
+-DOC"#;
 
 #[test]
 fn dquote_multiline() {
@@ -125,20 +125,20 @@ const DQUOTE_END_INPUT: &str = r##"
 ""##;
 
 const DQUOTE_END_EVENTS: &str = r#"
- +DOC
-  ERR
-  =VAL " ---
- -DOC"#;
++DOC
+ERR
+=VAL " ---
+-DOC"#;
 
 const DQUOTE_ERR2_INPUT: &str = r##"
 "\c"
 "##;
 
 const DQUOTE_ERR2_EVENTS: &str = r#"
- +DOC
-  ERR
-  =VAL "\\c
- -DOC"#;
++DOC
+ERR
+=VAL "\\c
+-DOC"#;
 
 #[test]
 fn dquote_err() {
@@ -166,14 +166,14 @@ const DQUOTE_LEADING_TAB5_INPUT: &str = r##"
         tab"   "##;
 
 const DQUOTE_LEADING_TAB_EVENTS: &str = r#"
- +DOC
-  =VAL "1 test \ttab
- -DOC"#;
++DOC
+=VAL "1 test \ttab
+-DOC"#;
 
 const DQUOTE_LEADING_TAB2_EVENTS: &str = r#"
- +DOC
-  =VAL "1 test\t tab
- -DOC"#;
++DOC
+=VAL "1 test\t tab
+-DOC"#;
 
 #[test]
 fn dquote_trailing() {

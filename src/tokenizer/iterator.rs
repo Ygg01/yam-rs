@@ -3,8 +3,7 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::marker::PhantomData;
-use std::ops::Index;
-use std::path::Path;
+
 use std::{fmt::Write, io, str::from_utf8_unchecked};
 
 use urlencoding::decode_binary;
@@ -25,14 +24,12 @@ use super::StrReader;
 /// [R] - Reader
 /// [RB] - Reader Buffer
 /// [I] - Input Buffer (optional)
-pub struct EventIterator<'a, R, RB = &'a [u8], I = (), > {
+pub struct EventIterator<'a, R, RB = &'a [u8], I = ()> {
     /// Reader type that usually implements a [Reader] trait which takes a Buffer type [B]
     pub(crate) reader: R,
     pub(crate) buffer: RB,
     /// Lexer which controls current state of parsing
     pub(crate) state: Lexer<I>,
-    /// Current event indentation level
-    pub indent: usize,
     /// Tag of current node,
     pub(crate) tag: Option<Cow<'a, [u8]>>,
     /// Alias of current node,
@@ -47,7 +44,6 @@ impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
             reader: StrReader::from(value),
             state: Lexer::new_from_buf(()),
             buffer: value.as_bytes(),
-            indent: 1,
             tag: None,
             anchor: None,
             phantom: PhantomData::default(),
@@ -61,7 +57,6 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
             reader: StrReader::from(value),
             state: Lexer::new_from_buf(()),
             buffer: value,
-            indent: 1,
             tag: None,
             anchor: None,
             phantom: PhantomData::default(),
@@ -76,7 +71,6 @@ impl<'a, R, RB, B> EventIterator<'a, R, RB, B> {
             reader,
             buffer,
             state: Lexer::new_from_buf(src),
-            indent: 1,
             tag: None,
             anchor: None,
             phantom: PhantomData::default(),
@@ -241,7 +235,7 @@ where
     R: Reader<B>,
     RB: Slicer<'a>,
 {
-    type Item = (Event<'a>, usize);
+    type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         pub use crate::tokenizer::iterator::Event::*;
@@ -252,94 +246,70 @@ where
                 self.state.fetch_next_token(&mut self.reader);
             }
 
-            let curr_indent = self.indent;
             if let Some(x) = self.state.pop_token() {
                 let token = x.into();
                 let tag = self.tag.take();
                 let anchor = self.anchor.take();
                 match token {
                     SequenceStart => {
-                        self.indent += 1;
-                        return Some((
-                            SeqStart {
-                                flow: true,
-                                tag,
-                                anchor,
-                            },
-                            curr_indent,
-                        ));
+                        return Some(SeqStart {
+                            flow: true,
+                            tag,
+                            anchor,
+                        });
                     }
                     SequenceStartImplicit => {
-                        self.indent += 1;
-                        return Some((
-                            SeqStart {
-                                flow: false,
-                                tag,
-                                anchor,
-                            },
-                            curr_indent,
-                        ));
+                        return Some(SeqStart {
+                            flow: false,
+                            tag,
+                            anchor,
+                        });
                     }
                     MappingStart => {
-                        self.indent += 1;
-                        return Some((
-                            MapStart {
-                                flow: true,
-                                tag,
-                                anchor,
-                            },
-                            curr_indent,
-                        ));
+                        return Some(MapStart {
+                            flow: true,
+                            tag,
+                            anchor,
+                        });
                     }
                     MappingStartImplicit => {
-                        self.indent += 1;
-                        return Some((
-                            MapStart {
-                                flow: false,
-                                tag,
-                                anchor,
-                            },
-                            curr_indent,
-                        ));
+                        return Some(MapStart {
+                            flow: false,
+                            tag,
+                            anchor,
+                        });
                     }
                     DocumentStart => {
-                        self.indent += 1;
-                        return Some((DocStart { explicit: false }, curr_indent));
+                        return Some(DocStart { explicit: false });
                     }
                     DocumentStartExplicit => {
-                        self.indent += 1;
-                        return Some((DocStart { explicit: true }, curr_indent));
+                        return Some(DocStart { explicit: true });
                     }
                     SequenceEnd => {
-                        self.indent -= 1;
-                        return Some((SeqEnd, self.indent));
+                        return Some(SeqEnd);
                     }
                     MappingEnd => {
-                        self.indent -= 1;
-                        return Some((MapEnd, self.indent));
+                        return Some(MapEnd);
                     }
                     DocumentEnd => {
-                        self.indent -= 1;
-                        return Some((DocEnd { explicit: false }, self.indent));
+                        return Some(DocEnd { explicit: false });
                     }
                     DocumentEndExplicit => {
-                        self.indent -= 1;
-                        return Some((DocEnd { explicit: true }, self.indent));
+                        return Some(DocEnd { explicit: true });
                     }
-                    ErrorToken => return Some((ErrorEvent, curr_indent)),
+                    ErrorToken => return Some(ErrorEvent),
                     DirectiveReserved | DirectiveTag | DirectiveYaml => {
                         let directive_type = unsafe { token.to_yaml_directive() };
                         return if let (Some(start), Some(end)) =
                             (self.state.pop_token(), self.state.pop_token())
                         {
                             let slice = Cow::Borrowed(self.buffer.slice(start, end));
-                            Some((
+                            Some(
                                 Directive {
                                     directive_type,
                                     value: slice,
                                 },
-                                curr_indent,
-                            ))
+                        )
                         } else {
                             panic!("Error in processing YAML file");
                         };
@@ -383,24 +353,22 @@ where
                             ScalarType::DoubleQuote => escape_double_quotes(cow),
                             _ => cow,
                         };
-                        return Some((
+                        return Some(
                             Scalar {
                                 scalar_type,
                                 value: cow,
                                 tag,
                                 anchor,
-                            },
-                            curr_indent,
-                        ));
+                            }
+                        );
                     }
                     AliasToken => {
                         if let (Some(start), Some(end)) =
                             (self.state.pop_token(), self.state.pop_token())
                         {
-                            return Some((
+                            return Some(
                                 Alias(Cow::Borrowed(self.buffer.slice(start, end))),
-                                curr_indent,
-                            ));
+                            );
                         }
                     }
                     AnchorToken => {
@@ -416,7 +384,6 @@ where
                             self.state.pop_token(),
                             self.state.pop_token(),
                         ) {
-                            
                             let namespace = self.buffer.slice(start, mid);
                             let extension = self.buffer.slice(mid, end);
                             self.tag = if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
@@ -453,9 +420,8 @@ where
 pub fn assert_eq_event(input: &str, events: &str) {
     let mut line = String::new();
     let scan: EventIterator<'_, StrReader, _> = EventIterator::from(input);
-    scan.for_each(|(ev, indent)| {
+    scan.for_each(|ev| {
         line.push('\n');
-        line.push_str(&" ".repeat(indent));
         write!(line, "{:}", ev).unwrap();
     });
 

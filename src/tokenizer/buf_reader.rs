@@ -72,13 +72,6 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn read_double_quote(&mut self, _errors: &mut Vec<super::ErrorType>) -> Vec<usize> {
-        todo!()
-    }
-
-    fn read_single_quote(&mut self, _is_implicit: bool) -> Vec<usize> {
-        todo!()
-    }
 
     fn skip_separation_spaces(&mut self, _allow_comments: bool) -> (u32, bool) {
         todo!()
@@ -101,6 +94,22 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
     }
 
     fn read_break(&mut self) -> Option<(usize, usize)> {
+        todo!()
+    }
+
+    fn get_double_quote(&self, buf: &mut S) -> Option<usize> {
+        todo!()
+    }
+
+    fn get_double_quote_trim(&self, buf: &mut S, start_str: usize) -> Option<(usize, usize)> {
+        todo!()
+    }
+
+    fn get_single_quote(&self, buf: &mut S) -> Option<usize> {
+        todo!()
+    }
+
+    fn get_single_quote_trim(&self, buf: &mut S, start_str: usize) -> Option<(usize, usize)> {
         todo!()
     }
 }

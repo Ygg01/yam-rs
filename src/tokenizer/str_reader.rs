@@ -9,6 +9,7 @@ use reader::{is_flow_indicator, ns_plain_safe};
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
 use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::LexerToken::*;
+use crate::tokenizer::Slicer;
 use crate::tokenizer::{reader, ErrorType, Reader};
 
 use super::reader::{is_newline, is_tag_char, is_valid_escape};
@@ -29,12 +30,6 @@ impl<'a> From<&'a str> for StrReader<'a> {
             line: 0,
         }
     }
-}
-
-pub(crate) enum QuoteState {
-    Start,
-    Trim,
-    End,
 }
 
 impl<'a> From<&'a [u8]> for StrReader<'a> {
@@ -117,111 +112,6 @@ impl<'a> StrReader<'a> {
             .next()
             .map_or(remaining, |p| if content[p] == quote { p + 1 } else { p });
         (start, start + n)
-    }
-
-    #[inline]
-    fn update_newlines(&mut self, newspaces: &mut Option<usize>, start_str: &mut usize) {
-        *newspaces = Some(self.skip_separation_spaces(true).0.saturating_sub(1) as usize);
-        *start_str = self.pos;
-    }
-
-    fn quote_start(
-        &mut self,
-        start_str: &mut usize,
-        newspaces: &mut Option<usize>,
-        tokens: &mut Vec<usize>,
-        errors: &mut Vec<ErrorType>,
-    ) -> QuoteState {
-        let (_, line_end) = self.get_quoteline_offset(b'"');
-        if let Some(pos) = memchr2(b'\\', b'"', &self.slice[self.pos..line_end]) {
-            let match_pos = self.consume_bytes(pos);
-            match self.peek_chars(&mut ()) {
-                [b'\\', b'\t', ..] => {
-                    emit_token_mut(start_str, match_pos, newspaces, tokens);
-                    emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);
-                    self.consume_bytes(2);
-                    *start_str = self.pos;
-                }
-                [b'\\', b't', ..] => {
-                    emit_token_mut(start_str, match_pos + 2, newspaces, tokens);
-                    self.consume_bytes(2);
-                }
-                [b'\\', b'\r' | b'\n', ..] => {
-                    emit_token_mut(start_str, match_pos, newspaces, tokens);
-                    self.consume_bytes(1);
-                    self.update_newlines(&mut None, start_str);
-                }
-                [b'\\', b'"', ..] => {
-                    emit_token_mut(start_str, match_pos, newspaces, tokens);
-                    *start_str = self.pos + 1;
-                    self.consume_bytes(2);
-                }
-                [b'\\', b'/', ..] => {
-                    emit_token_mut(start_str, match_pos, newspaces, tokens);
-                    *start_str = self.consume_bytes(1);
-                }
-                [b'\\', x, ..] => {
-                    if is_valid_escape(*x) {
-                        emit_token_mut(start_str, match_pos, newspaces, tokens);
-                        self.consume_bytes(2);
-                    } else {
-                        tokens.insert(0, ErrorToken as usize);
-                        errors.push(ErrorType::InvalidEscapeCharacter);
-                        self.consume_bytes(2);
-                    }
-                }
-                [b'"', ..] => {
-                    emit_token_mut(start_str, match_pos, newspaces, tokens);
-                    self.pos += 1;
-                    return QuoteState::End;
-                }
-                [b'\\'] => {
-                    self.pos += 1;
-                }
-                _ => {}
-            }
-            QuoteState::Start
-        } else {
-            QuoteState::Trim
-        }
-    }
-
-    fn quote_trim(
-        &mut self,
-        start_str: &mut usize,
-        newspaces: &mut Option<usize>,
-        errors: &mut Vec<ErrorType>,
-        tokens: &mut Vec<usize>,
-    ) -> QuoteState {
-        let (_, line_end) = self.get_quoteline_offset(b'"');
-
-        if self.col == 0 && (matches!(self.peek_chars(&mut ()), b"..." | b"---")) {
-            errors.push(ErrorType::UnexpectedEndOfStream);
-            tokens.insert(0, ErrorToken as usize);
-        };
-
-        if let Some((match_pos, len)) = self.slice[*start_str..line_end]
-            .iter()
-            .rposition(|chr| *chr != b' ' && *chr != b'\t')
-            .map(|find| (*start_str + find + 1, find + 1))
-        {
-            emit_token_mut(start_str, match_pos, newspaces, tokens);
-            self.consume_bytes(len);
-        } else {
-            self.update_newlines(newspaces, start_str);
-        }
-
-        match self.peek_byte() {
-            Some(b'\n') => {
-                self.update_newlines(newspaces, start_str);
-                QuoteState::Start
-            }
-            Some(b'"') | None => {
-                self.consume_bytes(1);
-                QuoteState::End
-            }
-            Some(_) => QuoteState::Start,
-        }
     }
 }
 
@@ -363,64 +253,29 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end_of_str, None)
     }
 
-    fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize> {
-        let mut start_str = self.consume_bytes(1);
-        let mut tokens = vec![ScalarDoubleQuote as usize];
-        let mut newspaces = None;
-        let mut state = QuoteState::Start;
 
-        loop {
-            state = match state {
-                QuoteState::Start => {
-                    self.quote_start(&mut start_str, &mut newspaces, &mut tokens, errors)
-                }
-                QuoteState::Trim => {
-                    self.quote_trim(&mut start_str, &mut newspaces, errors, &mut tokens)
-                }
-                QuoteState::End => break,
-            };
-        }
-        tokens.push(ScalarEnd as usize);
-        tokens
+    fn get_double_quote(&self, _buf: &mut ()) -> Option<usize> {
+        let (line_start, line_end) = self.get_quoteline_offset(b'"');
+        memchr2(b'\\', b'"', &self.slice[line_start..line_end])
     }
 
-    fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize> {
-        self.consume_bytes(1);
-        let mut tokens = Vec::new();
-        tokens.push(ScalarSingleQuote as usize);
-
-        while !self.eof() {
-            let (line_start, line_end) = self.get_quoteline_offset(b'\'');
-            let pos = memchr::memchr(b'\'', &self.slice[line_start..line_end]);
-            match pos {
-                Some(len) => {
-                    // Converts double '' to ' hence why we consume one extra char
-                    let offset = len + 1;
-                    if self.slice.get(self.pos + offset).copied() == Some(b'\'') {
-                        tokens.push(line_start);
-                        tokens.push(line_start + len + 1);
-                        self.consume_bytes(len + 2);
-                        continue;
-                    } else {
-                        tokens.push(line_start);
-                        tokens.push(line_start + len);
-                        self.consume_bytes(len + 1);
-                        break;
-                    }
-                }
-                None => {
-                    tokens.push(line_start);
-                    tokens.push(line_end);
-                    tokens.push(NewLine as usize);
-                    tokens.push(0);
-                    self.read_line();
-                    let amount = self.count_space_tab_range_from(is_implicit);
-                    self.consume_bytes(amount);
-                }
-            }
-        }
-        tokens.push(ScalarEnd as usize);
-        tokens
+    fn get_double_quote_trim(&self, _buf: &mut (), start_str: usize) -> Option<(usize, usize)> {
+        let (_, line_end) = self.get_quoteline_offset(b'"');
+        self.slice[start_str..line_end]
+            .iter()
+            .rposition(|chr| *chr != b' ' && *chr != b'\t')
+            .map(|find| (start_str + find + 1, find + 1))
+    }
+    fn get_single_quote(&self, _buf: &mut ()) -> Option<usize>{
+        let (line_start, line_end) = self.get_quoteline_offset(b'\'');
+        memchr(b'\'', &self.slice[line_start..line_end])
+    }
+    fn get_single_quote_trim(&self, _buf: &mut (), start_str: usize) -> Option<(usize, usize)> {
+        let (_, line_end) = self.get_quoteline_offset(b'\'');
+        self.slice[start_str..line_end]
+            .iter()
+            .rposition(|chr| *chr != b' ' && *chr != b'\t')
+            .map(|find| (start_str + find + 1, find + 1))
     }
 
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool) {
@@ -591,23 +446,6 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 }
 
-fn emit_token_mut(
-    start: &mut usize,
-    end: usize,
-    newspaces: &mut Option<usize>,
-    tokens: &mut Vec<usize>,
-) {
-    if end > *start {
-        if let Some(newspace) = newspaces.take() {
-            tokens.push(NewLine as usize);
-            tokens.push(newspace);
-        }
-        tokens.push(*start);
-        tokens.push(end);
-        *start = end;
-    }
-}
-
 #[test]
 pub fn test_plain_scalar() {
     let mut reader = StrReader::from("ab  \n xyz ");
@@ -619,26 +457,25 @@ pub fn test_plain_scalar() {
     assert_eq!("xyz".as_bytes(), &reader.slice[start..end]);
 }
 
-/*
 #[test]
 pub fn test_offset() {
-    let mut reader = StrReader::from("\n  rst\n");
+    let input = "\n  rst\n".as_bytes();
+    let mut reader = StrReader::from(input);
     let (start, end, consume) = reader.get_line_offset();
     assert_eq!(start, 0);
     assert_eq!(end, 0);
-    assert_eq!(b"", reader.slice(start, end));
+    assert_eq!(b"", input.slice(start, end));
     assert_eq!(consume, 1);
     reader.read_line();
     let (start, end, consume) = reader.get_line_offset();
     assert_eq!(start, 1);
     assert_eq!(end, 6);
-    assert_eq!(b"  rst", reader.slice(start, end));
+    assert_eq!(b"  rst", input.slice(start, end));
     assert_eq!(consume, 7);
     reader.read_line();
     let (start, end, consume) = reader.get_line_offset();
     assert_eq!(start, 7);
     assert_eq!(end, 7);
-    assert_eq!(b"", reader.slice(start, end));
+    assert_eq!(b"", input.slice(start, end));
     assert_eq!(consume, 7);
 }
- */
