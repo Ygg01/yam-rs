@@ -23,7 +23,7 @@ use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{is_flow_indicator, is_newline, is_not_whitespace, ns_plain_safe};
 use crate::tokenizer::ErrorType;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Lexer<B = ()> {
     pub stream_end: bool,
     pub(crate) tokens: VecDeque<usize>,

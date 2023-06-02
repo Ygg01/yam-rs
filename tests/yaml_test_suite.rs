@@ -25,7 +25,7 @@ struct TestData {
 fn perform_test(data: TestData) -> Result<(), Failed> {
     let input_yaml = fs::read_to_string(data.input_yaml)?;
     let mut actual_event = String::with_capacity(input_yaml.len());
-    let ev_iterator: EventIterator<StrReader> = EventIterator::from(&*input_yaml);
+    let ev_iterator = EventIterator::from(&*input_yaml);
     actual_event.push_str("+STR\r\n");
     let mut is_error = false;
     for (ev, _) in ev_iterator {
