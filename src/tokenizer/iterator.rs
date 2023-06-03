@@ -1,10 +1,8 @@
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::marker::PhantomData;
 
-use std::{fmt::Write, io, str::from_utf8_unchecked};
+use std::{fmt::Write, str::from_utf8_unchecked};
 
 use urlencoding::decode_binary;
 

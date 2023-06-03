@@ -142,14 +142,6 @@ impl LexerState {
         }
     }
 
-    #[inline]
-    pub(crate) fn is_implicit(&self) -> bool {
-        match &self {
-            FlowKeyExp(_, _) => true,
-            _ => false,
-        }
-    }
-
     fn get_map(&self, scalar_start: u32) -> LexerState {
         match *self {
             BlockSeq(_) | BlockMap(_, _) | BlockMapExp(_, _) | DocBlock => {
@@ -221,7 +213,7 @@ macro_rules! impl_quote {
                     QuoteState::Trim => {
                         self.$trim(reader, &mut start_str, &mut newspaces, &mut tokens)
                     }
-                    QuoteState::End => break,
+                    QuoteState::End | QuoteState::Error => break,
                 };
             }
             tokens.push(ScalarEnd as usize);
@@ -243,6 +235,9 @@ macro_rules! impl_quote {
             if let Some(pos) = reader.$quote_fn(&mut self.buf) {
                 let match_pos = reader.consume_bytes(pos);
                 self.$match_fn(reader, match_pos, start_str, newspaces, tokens)
+            } else if reader.eof() {
+                self.prepend_error(ErrorType::UnexpectedEndOfFile);
+                QuoteState::Error
             } else {
                 QuoteState::Trim
             }
@@ -272,11 +267,19 @@ macro_rules! impl_quote {
                     update_newlines(reader, newspaces, start_str);
                     QuoteState::Start
                 }
-                Some($lit) | None => {
+                Some($lit) => {
+                    if let Some(x) = newspaces {
+                        tokens.push(NewLine as usize);
+                        tokens.push(*x as usize);
+                    }
                     reader.consume_bytes(1);
                     QuoteState::End
                 }
                 Some(_) => QuoteState::Start,
+                None => {
+                    self.prepend_error(ErrorType::UnexpectedEndOfFile);
+                    QuoteState::Error
+                }
             }
         }
     };
@@ -1912,6 +1915,7 @@ pub(crate) enum QuoteState {
     Start,
     Trim,
     End,
+    Error,
 }
 
 fn emit_token_mut(

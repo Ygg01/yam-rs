@@ -8,11 +8,9 @@ use reader::{is_flow_indicator, ns_plain_safe};
 
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
 use crate::tokenizer::ErrorType::UnexpectedComment;
-use crate::tokenizer::LexerToken::*;
-use crate::tokenizer::Slicer;
 use crate::tokenizer::{reader, ErrorType, Reader};
 
-use super::reader::{is_newline, is_tag_char, is_valid_escape};
+use super::reader::{is_newline, is_tag_char};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -459,6 +457,8 @@ pub fn test_plain_scalar() {
 
 #[test]
 pub fn test_offset() {
+    use crate::tokenizer::{Slicer};
+
     let input = "\n  rst\n".as_bytes();
     let mut reader = StrReader::from(input);
     let (start, end, consume) = reader.get_line_offset();
