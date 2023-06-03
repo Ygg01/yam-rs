@@ -1074,7 +1074,11 @@ impl<B> Lexer<B> {
             {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
-            self.next_map_state();
+            if self.last_map_line == Some(scalar_line) && matches!(curr_state, BlockMap(_, BeforeKey)) {
+                self.push_error(ErrorType::UnexpectedScalarAtMapEnd);
+            } else {
+                self.next_map_state();
+            }
             self.emit_prev_anchor();
             self.tokens.extend(tokens);
         }

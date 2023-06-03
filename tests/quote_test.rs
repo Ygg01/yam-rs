@@ -153,7 +153,7 @@ ERR
 
 const DQUOTE_MISS_EOF_INPUT: &str = r##"
 ---
-key: "missing closing quote
+key: "missing
 
 "##;
 
@@ -162,7 +162,7 @@ const DQUOTE_MISS_EOF_EVENTS: &str = r#"
 +MAP
 =VAL :key
 ERR
-=VAL "missing closing quote
+=VAL "missing
 -MAP
 -DOC"#;
 

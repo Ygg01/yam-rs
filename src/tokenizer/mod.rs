@@ -49,6 +49,7 @@ pub enum ErrorType {
     UnfinishedTag,
     InvalidTagHandleCharacter { found: char },
     SequenceOnSameLineAsKey,
+    UnexpectedScalarAtMapEnd,
 }
 
 pub trait Slicer<'a> {
