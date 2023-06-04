@@ -1126,7 +1126,8 @@ impl<B> Lexer<B> {
             let mut found_eol = true;
             let mut has_tab = false;
 
-            if reader.peek_byte_is(b'#') {
+            // 
+            if reader.col() > 0 && reader.peek_byte_is(b'#') {
                 self.push_error(ErrorType::MissingWhitespaceBeforeComment);
             }
             loop {
