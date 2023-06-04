@@ -1,6 +1,6 @@
 extern crate steel_yaml;
 
-use std::{fmt::Write, };
+use std::fmt::Write;
 
 use steel_yaml::tokenizer::{EventIterator, StrReader};
 

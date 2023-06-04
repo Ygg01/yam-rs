@@ -80,7 +80,7 @@ pub trait Reader<B> {
         had_comment: &mut bool,
         in_flow_collection: bool,
     ) -> (usize, usize, Option<ErrorType>);
-    fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool);
+    fn skip_detect_space_tab(&mut self, has_tab: &mut bool);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
     fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType>;

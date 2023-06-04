@@ -72,8 +72,7 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-
-    fn skip_separation_spaces(&mut self, _allow_comments: bool) -> (u32, bool) {
+    fn skip_detect_space_tab(&mut self, _has_tab: &mut bool) {
         todo!()
     }
 
