@@ -51,6 +51,7 @@ pub enum ErrorType {
     SequenceOnSameLineAsKey,
     UnexpectedScalarAtMapEnd,
     InvalidQuoteIndent { actual: u32, expected: u32 },
+    MissingWhitespaceBeforeComment,
 }
 
 pub trait Slicer<'a> {
