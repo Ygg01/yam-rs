@@ -9,14 +9,14 @@ const IN1: &'static str = r#"
 "#;
 
 const IN1_EXPECTED: &'static str = r#"
- +DOC
-  +SEQ []
-   +MAP {}
-    =VAL :
-    =VAL :
-   -MAP
-  -SEQ
- -DOC"#;
++DOC
++SEQ []
++MAP {}
+=VAL :
+=VAL :
+-MAP
+-SEQ
+-DOC"#;
 
 fn bench_str_iter(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-yaml");
