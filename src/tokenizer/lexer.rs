@@ -254,6 +254,9 @@ macro_rules! impl_quote {
                 self.errors.push(ErrorType::UnexpectedEndOfStream);
                 tokens.insert(0, ErrorToken as usize);
             };
+            if !matches!(self.curr_state(), DocBlock) && reader.col() <= self.last_block_indent {
+                self.push_error(ErrorType::InvalidQuoteIndent { actual: reader.col(), expected: self.last_block_indent});
+            }
 
             if let Some((match_pos, len)) = reader.$trim_fn(&mut self.buf, *start_str) {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
@@ -263,7 +266,7 @@ macro_rules! impl_quote {
             }
 
             match reader.peek_byte() {
-                Some(b'\n') => {
+                Some(b'\n') | Some(b'\r')=> {
                     update_newlines(reader, newspaces, start_str);
                     QuoteState::Start
                 }
