@@ -509,6 +509,18 @@ impl<B> Lexer<B> {
         let col = reader.col();
         self.continue_processing = false;
         match reader.peek_chars(&mut self.buf) {
+            b"---" => {
+                reader.consume_bytes(3);
+                if col != 0 {
+                    self.push_error(ErrorType::UnxpectedIndentDocEnd {
+                        actual: col,
+                        expected: 0,
+                    });
+                }
+                self.push_empty_token();
+                self.tokens.push_back(DOC_END);
+                self.tokens.push_back(DOC_START_EXP);
+            }
             b"..." => {
                 reader.consume_bytes(3);
                 if col != 0 {
@@ -2037,8 +2049,6 @@ impl<B> Lexer<B> {
     }
 }
 
-
-
 pub(crate) enum QuoteState {
     Start,
     Trim,
@@ -2063,7 +2073,7 @@ fn emit_token_mut(
     }
 }
 
-fn emit_newspace(tokens:  &mut Vec<usize>, newspaces: &mut Option<usize>) {
+fn emit_newspace(tokens: &mut Vec<usize>, newspaces: &mut Option<usize>) {
     if let Some(newspace) = newspaces.take() {
         tokens.push(NewLine as usize);
         tokens.push(newspace);

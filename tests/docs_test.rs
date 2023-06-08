@@ -215,8 +215,21 @@ const MULTI_DOC2_EVENTS: &str = r#"
 =VAL :
 -DOC ..."#;
 
+const MULTI_DOC3_INPUT: &str = r"
+---
+---";
+
+const MULTI_DOC3_EVENTS: &str = r"
++DOC ---
+=VAL :
+-DOC
++DOC ---
+=VAL :
+-DOC";
+
 #[test]
 fn doc_multi() {
     assert_eq_event(MULTI_DOC_INPUT, MULTI_DOC_EVENTS);
     assert_eq_event(MULTI_DOC2_INPUT, MULTI_DOC2_EVENTS);
+    assert_eq_event(MULTI_DOC3_INPUT, MULTI_DOC3_EVENTS);
 }
