@@ -359,6 +359,7 @@ pub fn block_literal() {
     assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
     assert_eq_event(LITERAL_CHOMP_INPUT, LITERAL_CHOMP_EVENTS);
 }
+
 const LITERAL_ERR_INPUT: &str = r"
 --- |0";
 
@@ -374,6 +375,43 @@ ERR
 pub fn block_literal_err() {
     assert_eq_event(LITERAL_ERR_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
     assert_eq_event(LITERAL_ERR2_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
+}
+
+const X1_6VJK_INPUT: &str = r"
+|
+ XX
+ X1
+
+   Y1
+   Y2
+
+ Z3
+";
+
+const X1_6VJK_EVENT: &str = r"
++DOC
+=VAL |XX\nX1\n\n  Y1\n  Y2\n\nZ3\n
+-DOC";
+
+const X2_6VJK_INPUT: &str = r"
+>
+ X1
+
+   Y1
+   Y2
+
+ Z3
+";
+
+const X2_6VJK_EVENT: &str = r"
++DOC
+=VAL >X1\n\n  Y1\n  Y2\n\nZ3\n
+-DOC";
+
+#[test]
+pub fn block_indent_lit_fold() {
+    assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENT);
+    assert_eq_event(X2_6VJK_INPUT, X2_6VJK_EVENT);
 }
 
 const PLAIN_MULTI_INPUT: &str = r"
