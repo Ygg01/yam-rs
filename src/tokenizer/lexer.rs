@@ -521,6 +521,9 @@ impl<B> Lexer<B> {
                 self.tokens.push_back(DOC_END_EXP);
                 self.set_curr_state(InDocEnd, 0);
             }
+            [b'#', ..] => {
+                reader.read_line();
+            }
             [b'%', ..] => {
                 self.prepend_error(ErrorType::ExpectedDocumentEndOrContents);
                 self.tokens.push_back(DOC_END);
@@ -1304,7 +1307,6 @@ impl<B> Lexer<B> {
 
     fn unwind_to_root_start<R: Reader<B>>(&mut self, reader: &mut R) {
         let pos = reader.col();
-        reader.consume_bytes(3);
         self.pop_block_states(self.stack.len().saturating_sub(1));
         self.tokens.push_back(DOC_END);
         if pos != 0 {
@@ -1313,8 +1315,8 @@ impl<B> Lexer<B> {
                 expected: 0,
             });
         }
-        self.tokens.push_back(DOC_START_EXP);
-        self.set_curr_state(DocBlock, reader.line());
+        self.tags.clear();
+        self.set_curr_state(PreDocStart, reader.line());
     }
 
     fn unwind_to_root_end<R: Reader<B>>(&mut self, reader: &mut R) {
