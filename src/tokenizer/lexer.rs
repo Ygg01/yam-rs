@@ -104,6 +104,14 @@ pub enum SeqState {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
+pub enum BlockSeqState {
+    #[default]
+    BeforeMinus,
+    AfterMinus,
+}
+
+
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum LexerState {
     #[default]
     PreDocStart,
@@ -119,7 +127,7 @@ pub enum LexerState {
     // Blocks nodes
     // u32 is the indent of block node
     DocBlock,
-    BlockSeq(u32),
+    BlockSeq(u32, BlockSeqState),
     BlockMap(u32, MapState),
     BlockMapExp(u32, MapState),
 }
@@ -163,7 +171,7 @@ impl LexerState {
 
     fn get_map(&self, scalar_start: u32) -> LexerState {
         match *self {
-            BlockSeq(_) | BlockMap(_, _) | BlockMapExp(_, _) | DocBlock => {
+            BlockSeq(_, _) | BlockMap(_, _) | BlockMapExp(_, _) | DocBlock => {
                 BlockMap(scalar_start, BeforeColon)
             }
             _ => panic!("Unexpected state {:?}", self),
@@ -173,7 +181,7 @@ impl LexerState {
     pub(crate) fn is_map_start(&self, scalar_start: u32) -> bool {
         match self {
             DocBlock => true,
-            BlockSeq(ind) | BlockMap(ind, _) if scalar_start > *ind => true,
+            BlockSeq(ind, _) | BlockMap(ind, _) if scalar_start > *ind => true,
             _ => false,
         }
     }
@@ -181,7 +189,7 @@ impl LexerState {
     fn is_incorrectly_indented(&self, scalar_start: u32) -> bool {
         match &self {
             BlockMapExp(ind, _) => scalar_start < *ind,
-            BlockMap(ind, _) | BlockSeq(ind) => scalar_start < *ind,
+            BlockMap(ind, _) | BlockSeq(ind, _) => scalar_start < *ind,
             _ => false,
         }
     }
@@ -328,7 +336,7 @@ impl<B> Lexer<B> {
                 DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                     self.fetch_block_map(reader, curr_state);
                 }
-                BlockSeq(_) => self.fetch_block_seq(reader, curr_state),
+                BlockSeq(_, seq_state) => self.fetch_block_seq(reader, curr_state, seq_state),
                 FlowSeq(_, seq_state) => self.fetch_flow_seq(reader, seq_state),
                 FlowMap(_, _) | FlowKeyExp(_, _) => self.fetch_flow_map(reader, curr_state),
                 AfterDocBlock => self.fetch_after_doc(reader),
@@ -345,7 +353,7 @@ impl<B> Lexer<B> {
     fn finish_eof(&mut self) {
         for state in self.stack.iter().rev() {
             let token = match *state {
-                BlockSeq(_) => SEQ_END,
+                BlockSeq(_, _) => SEQ_END,
                 BlockMapExp(_, AfterColon | BeforeColon) | BlockMap(_, AfterColon) => {
                     self.tokens.push_back(SCALAR_PLAIN);
                     self.tokens.push_back(SCALAR_END);
@@ -594,7 +602,7 @@ impl<B> Lexer<B> {
         }
     }
 
-    fn fetch_block_seq<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    fn fetch_block_seq<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState, seq_state: BlockSeqState) {
         self.continue_processing = false;
         match reader.peek_chars(&mut self.buf) {
             [b'{', ..] => self.process_flow_map_start(reader),
@@ -603,6 +611,7 @@ impl<B> Lexer<B> {
             [b'*', ..] => self.parse_alias(reader),
             [b'-', x, ..] if is_white_tab_or_break(*x) => {
                 self.process_block_seq(reader, curr_state);
+                self.set_block_seq_state(BlockSeqState::AfterMinus);
             }
             b"---" => self.unwind_to_root_start(reader),
             b"..." => self.unwind_to_root_end(reader),
@@ -622,7 +631,9 @@ impl<B> Lexer<B> {
                 // comment
                 reader.read_line();
             }
-            [peek_chr, ..] => self.fetch_plain_scalar_block(reader, curr_state, *peek_chr),
+            [peek_chr, ..] => {
+                self.fetch_plain_scalar_block(reader, curr_state, *peek_chr);
+            }
             [] => self.stream_end = true,
         }
     }
@@ -1123,13 +1134,13 @@ impl<B> Lexer<B> {
             {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
-            if matches!(curr_state, BlockMap(ind, BeforeKey) if ind == scalar_start)
-                || (self.last_map_line == Some(scalar_line)
-                    && matches!(curr_state, BlockMap(_, BeforeKey)))
-            {
-                self.push_error(ErrorType::UnexpectedScalarAtMapEnd);
-            } else {
-                self.next_map_state();
+            match curr_state {
+                BlockMap(ind, BeforeKey) if ind == scalar_start => self.push_error(ErrorType::UnexpectedScalarAtMapEnd),
+                BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => self.push_error(ErrorType::UnexpectedScalarAtMapEnd),
+                BlockMapExp(_, _) | BlockMap(_, _) => self.next_map_state(),
+                BlockSeq(_, BlockSeqState::BeforeMinus) => self.push_error(ErrorType::UnexpectedScalarAtSeqEnd),
+                BlockSeq(_, _) => self.set_block_seq_state(BlockSeqState::BeforeMinus),
+                _ => {},
             }
             self.emit_prev_anchor();
             self.tokens.extend(tokens);
@@ -1240,7 +1251,7 @@ impl<B> Lexer<B> {
         let pop_state = self.stack.pop();
         if let Some(state) = self.stack.last_mut() {
             match state {
-                BlockMap(indent, _) | BlockMapExp(indent, _) | BlockSeq(indent) => {
+                BlockMap(indent, _) | BlockMapExp(indent, _) | BlockSeq(indent, _) => {
                     self.last_block_indent = *indent;
                 }
                 DocBlock => {
@@ -1259,7 +1270,7 @@ impl<B> Lexer<B> {
                 self.had_anchor = false;
                 self.last_map_line = Some(read_line);
             }
-            BlockSeq(indent) => {
+            BlockSeq(indent, _) => {
                 self.last_block_indent = indent;
                 self.had_anchor = false;
             }
@@ -1274,7 +1285,7 @@ impl<B> Lexer<B> {
         }
         for _ in 0..unwind {
             match self.pop_state() {
-                Some(BlockSeq(_)) => self.tokens.push_back(SEQ_END),
+                Some(BlockSeq(_, _)) => self.tokens.push_back(SEQ_END),
                 Some(BlockMap(_, AfterColon) | BlockMapExp(_, AfterColon)) => {
                     self.push_empty_token();
                     self.tokens.push_back(MAP_END)
@@ -1372,10 +1383,10 @@ impl<B> Lexer<B> {
         let is_key = ends_with == ScalarEnd::Map
             || (ends_with != ScalarEnd::Plain
                 && matches!(reader.peek_chars(&mut self.buf), [b':', x, ..] if is_white_tab_or_break(*x)))
-                && matches!(curr_state, BlockMap(_, BeforeKey) | BlockSeq(_) | DocBlock);
+                && matches!(curr_state, BlockMap(_, BeforeKey) | BlockSeq(_, _) | DocBlock);
 
         let scalar_start = match curr_state {
-            BlockSeq(ind) if !is_key => ind,
+            BlockSeq(ind, _) if !is_key => ind,
             _ => scalar_start,
         };
         self.pop_other_states(is_key, curr_state, scalar_start);
@@ -1392,14 +1403,14 @@ impl<B> Lexer<B> {
     }
 
     fn pop_other_states(&mut self, is_key: bool, curr_state: LexerState, scalar_start: u32) {
-        let find_unwind = if is_key && matches!(curr_state, BlockSeq(_)) {
+        let find_unwind = if is_key && matches!(curr_state, BlockSeq(_, _)) {
             self.find_matching_state(scalar_start,
                 |curr_state, curr_indent| { matches!(curr_state, BlockMap(ind,_) if ind  == curr_indent)
             })
         } else if !is_key && !matches!(curr_state, BlockMap(_, _)) {
             self.find_matching_state(
                 scalar_start,
-                |curr_state, curr_indent| matches!(curr_state, BlockSeq(ind) if ind == curr_indent),
+                |curr_state, curr_indent| matches!(curr_state, BlockSeq(ind, _) if ind == curr_indent),
             )
         } else {
             None
@@ -1475,13 +1486,13 @@ impl<B> Lexer<B> {
 
         let new_seq = match curr_state {
             DocBlock => true,
-            BlockSeq(ind) if indent > ind => true,
-            BlockSeq(ind) if indent == ind => false,
+            BlockSeq(ind, _) if indent > ind => true,
+            BlockSeq(ind, _) if indent == ind => false,
             _ => {
-                if let Some(last_seq) = self.stack.iter().rposition(|x| matches!(x, BlockSeq(_))) {
+                if let Some(last_seq) = self.stack.iter().rposition(|x| matches!(x, BlockSeq(_, _))) {
                     if let Some(unwind) = self.find_matching_state(
                         indent,
-                        |state, indent| matches!(state, BlockSeq(ind) if ind == indent),
+                        |state, indent| matches!(state, BlockSeq(ind, _) if ind == indent),
                     ) {
                         self.pop_block_states(unwind);
                     } else {
@@ -1503,9 +1514,10 @@ impl<B> Lexer<B> {
                 self.push_error(ErrorType::InvalidAnchorDeclaration);
             }
             self.emit_prev_anchor();
-            self.push_state(BlockSeq(indent), reader.line());
+            self.push_state(BlockSeq(indent, BlockSeqState::AfterMinus), reader.line());
             self.tokens.push_back(SEQ_START_BLOCK);
         }
+        self.set_block_seq_state(BlockSeqState::AfterMinus);
     }
 
     fn find_matching_state(
@@ -1551,7 +1563,7 @@ impl<B> Lexer<B> {
         let mut num_newlines = 0;
         let scalar_start = self.scalar_start(curr_state, reader.col());
         let scalar_limit = match curr_state {
-            BlockSeq(x) => x,
+            BlockSeq(x, _) => x,
             _ => scalar_start,
         };
 
@@ -1592,7 +1604,7 @@ impl<B> Lexer<B> {
             let chr = reader.peek_byte_at(0).unwrap_or(b'\0');
             let same_line = reader.line() == end_line;
 
-            if chr == b'-' && matches!(curr_state, BlockSeq(ind) if reader.col() > ind) {
+            if chr == b'-' && matches!(curr_state, BlockSeq(ind, _) if reader.col() > ind) {
                 offset_start = Some(reader.pos());
             } else if (in_flow_collection && is_flow_indicator(chr)) || chr == b':' || chr == b'-' {
                 if chr == b':' && same_line {
@@ -1601,7 +1613,7 @@ impl<B> Lexer<B> {
                 break;
             } else if reader.eof() || reader.peek_chars(&mut self.buf) == b"..." || self.find_matching_state(
                 curr_indent,
-                |state, indent| matches!(state, BlockMap(ind, _)| BlockSeq(ind) | BlockMapExp(ind, _) if ind == indent)
+                |state, indent| matches!(state, BlockMap(ind, _)| BlockSeq(ind, _) | BlockMapExp(ind, _) if ind == indent)
             ).is_some() {
                 break;
             } else if curr_indent < scalar_limit && start_line != reader.line() {
@@ -1644,7 +1656,7 @@ impl<B> Lexer<B> {
     fn scalar_start(&mut self, curr_state: LexerState, curr_col: u32) -> u32 {
         match curr_state {
             BlockMapExp(ind, _) => ind,
-            BlockSeq(_) | BlockMap(_, BeforeColon | AfterColon) | DocBlock => {
+            BlockSeq(_, _) | BlockMap(_, BeforeColon | AfterColon) | DocBlock => {
                 self.col_start.unwrap_or(curr_col)
             }
             _ => curr_col,
@@ -1701,6 +1713,13 @@ impl<B> Lexer<B> {
     fn set_seq_state(&mut self, seq_state: SeqState) {
         if let Some(FlowSeq(_, state)) = self.stack.last_mut() {
             *state = seq_state;
+        };
+    }
+
+    #[inline]
+    fn set_block_seq_state(&mut self, block_seq_state: BlockSeqState) {
+        if let Some(BlockSeq(_, state)) = self.stack.last_mut() {
+            *state = block_seq_state;
         };
     }
 
@@ -1892,7 +1911,7 @@ impl<B> Lexer<B> {
             let check_block_indent = reader.peek_byte_at(block_indent as usize).unwrap_or(b'\0');
 
             if (check_block_indent == b'-'
-                && matches!(curr_state, BlockSeq(ind) if prefix_indent <= *ind ))
+                && matches!(curr_state, BlockSeq(ind, _) if prefix_indent <= *ind ))
                 || (check_block_indent == b':'
                     && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent <= *ind))
             {
