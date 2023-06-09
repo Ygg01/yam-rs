@@ -491,12 +491,31 @@ const MAP_SIMPLE_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const MAP_AND_COMMENT_INPUT: &str = r"
+hr:
+  - aaa
+  # comment
+  - &xx bbb
+";
+
+const MAP_AND_COMMENT_EVENTS: &str = r"
++DOC
++MAP
+=VAL :hr
++SEQ
+=VAL :aaa
+=VAL &xx :bbb
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 pub fn block_map() {
     assert_eq_event(MAP_SIMPLE_INPUT, MAP_SIMPLE_EVENTS);
     assert_eq_event(MAP_SIMPLE2_INPUT, MAP_SIMPLE_EVENTS);
     assert_eq_event(MAP2_INPUT, MAP2_EVENTS);
     assert_eq_event(MAP_NESTED_INPUT, MAP_NESTED_EVENTS);
+    assert_eq_event(MAP_AND_COMMENT_INPUT, MAP_AND_COMMENT_EVENTS)
 }
 
 const DQUOTE_MAP_INPUT: &str = r#"

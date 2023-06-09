@@ -80,7 +80,7 @@ pub trait Reader<B> {
         had_comment: &mut bool,
         in_flow_collection: bool,
     ) -> (usize, usize, Option<ErrorType>);
-    fn skip_detect_space_tab(&mut self, has_tab: &mut bool);
+    fn count_detect_space_tab(&mut self, has_tab: &mut bool) -> usize;
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
     fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType>;
@@ -92,6 +92,22 @@ pub trait Reader<B> {
 pub(crate) const fn is_white_tab_or_break(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) const fn is_valid_skip_char(chr: u8) -> bool {
+    match chr {
+        b' ' | b'\t' | b'\r' | b'\n' | b'#' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) const fn is_white_tab(chr: u8) -> bool {
+    match chr {
+        b' ' | b'\t' => true,
         _ => false,
     }
 }
