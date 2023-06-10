@@ -1144,10 +1144,23 @@ const TAG_DEF_EVENT: &str = r"
 =VAL <!> :test
 -DOC";
 
+const EXP_TAG_INPUT: &str = r"
+!<tag:yaml.org,2002:str> foo :
+  !<!bar> baz";
+
+const EXP_TAG_EVENTS: &str = r"
++DOC
++MAP
+=VAL <tag:yaml.org,2002:str> :foo
+=VAL <!bar> :baz
+-MAP
+-DOC";
+
 #[test]
 pub fn block_col_tags() {
     assert_eq_event(SEQ_AND_TAG_INPUT, SEQ_AND_TAG_EVENTS);
     assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENT);
+    assert_eq_event(EXP_TAG_INPUT, EXP_TAG_EVENTS);
 }
 
 const ANCHOR_COLON_INPUT: &str = r"
