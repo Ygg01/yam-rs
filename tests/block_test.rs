@@ -242,10 +242,10 @@ const BLOCK_FOLD_EVENTS: &str = r"
 -DOC";
 
 const SIMPLE_LITERAL1_INPUT: &str = r"
- --- >1+";
+--- >1+";
 
 const SIMPLE_LITERAL2_INPUT: &str = r"
- --- >1-";
+--- >1-";
 
 const SIMPLE_LITERAL_EVENTS: &str = r"
 +DOC ---
@@ -1101,7 +1101,6 @@ const X_7ZZ5_EVENTS: &str = r"
 -MAP
 -MAP
 -DOC";
-
 
 #[test]
 pub fn block_map_complex() {

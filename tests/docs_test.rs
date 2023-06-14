@@ -72,11 +72,11 @@ ERR
 -DOC";
 
 const ERR_MULTIDOC_INPUT: &str = r"
- %YAML 1.2
- ---
- %YAML 1.2
- ---
- ";
+%YAML 1.2
+---
+%YAML 1.2
+---
+";
 
 const ERR_MULTIDOC_EVENTS: &str = r"
 ERR
