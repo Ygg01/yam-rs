@@ -1297,7 +1297,9 @@ impl<B> Lexer<B> {
     fn process_flow_map_start<R: Reader<B>>(&mut self, reader: &mut R) {
         reader.consume_bytes(1);
         reader.skip_space_tab();
+        self.had_anchor = false;
         self.emit_meta_nodes();
+        self.next_map_state();
 
         if reader.peek_byte_is(b'?') {
             let state = FlowKeyExp(self.get_token_pos(), BeforeKey);
