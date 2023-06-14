@@ -2093,6 +2093,9 @@ impl<B> Lexer<B> {
     ) -> LiteralStringState {
         let mut max_prev_indent = 0;
         loop {
+            if reader.eof() {
+                return LiteralStringState::End;
+            }
             let newline_indent = reader.count_spaces();
             let newline_is_empty = reader.is_empty_newline();
             if newline_is_empty && max_prev_indent < newline_indent {
