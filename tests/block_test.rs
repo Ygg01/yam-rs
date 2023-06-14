@@ -1102,12 +1102,39 @@ const X_7ZZ5_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_87E4_INPUT: &str = r"
+'key1': [
+  'key2': value,
+ ]
+";
+
+const X2_87E4_INPUT: &str = r"
+'key1': [
+  'key2': value
+ ]
+";
+
+const X_87E4_EVENTS: &str = r"
++DOC
++MAP
+=VAL 'key1
++SEQ []
++MAP {}
+=VAL 'key2
+=VAL :value
+-MAP
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 pub fn block_map_complex() {
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
     assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
     assert_eq_event(NESTED_INPUT, NESTED_EVENTS);
     assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
+    assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
+    assert_eq_event(X2_87E4_INPUT, X_87E4_EVENTS);
 }
 
 const MAPS_WITH_QUOTES_INPUT: &str = r#"
@@ -1465,7 +1492,7 @@ const X_74H7_EVENTS: &str = r"
 -DOC";
 
 #[test]
-fn parse_tag() {
+fn block_tag() {
     assert_eq_event(TAG1_INPUT, TAG1_EVENTS);
     assert_eq_event(COMPLEX_TAG2_INPUT, COMPLEX_TAG2_EVENTS);
     assert_eq_event(X_74H7_INPUT, X_74H7_EVENTS);
@@ -1499,7 +1526,7 @@ const MULTI_LINE_SEQ_EVENTS: &str = r"
 -DOC";
 
 #[test]
-fn multi_line_value() {
+fn block_multi_line() {
     assert_eq_event(MULTI_LINE_INPUT, MULTI_LINE_EVENTS);
     assert_eq_event(MULTI_LINE_SEQ_INPUT, MULTI_LINE_SEQ_EVENTS);
 }
