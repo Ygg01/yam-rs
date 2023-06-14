@@ -353,11 +353,11 @@ const LITERAL_CHOMP_EVENTS: &str = r"
 pub fn block_literal() {
     assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
     assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
+    assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
+    assert_eq_event(LITERAL_CHOMP_INPUT, LITERAL_CHOMP_EVENTS);
     assert_eq_event(LITERAL3_INPUT, LITERAL3_EVENTS);
     assert_eq_event(LIT_STR2_INPUT, LIT_STR2_EVENTS);
     assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
-    assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
-    assert_eq_event(LITERAL_CHOMP_INPUT, LITERAL_CHOMP_EVENTS);
 }
 
 const LITERAL_ERR_INPUT: &str = r"
@@ -369,6 +369,7 @@ const LITERAL_ERR2_INPUT: &str = r"
 const SIMPLE_FOLDED_ERR_EVENTS: &str = r"
 +DOC ---
 ERR
+=VAL |
 -DOC";
 
 #[test]
@@ -388,7 +389,7 @@ const X1_6VJK_INPUT: &str = r"
  Z3
 ";
 
-const X1_6VJK_EVENT: &str = r"
+const X1_6VJK_EVENTS: &str = r"
 +DOC
 =VAL |XX\nX1\n\n  Y1\n  Y2\n\nZ3\n
 -DOC";
@@ -403,15 +404,57 @@ const X2_6VJK_INPUT: &str = r"
  Z3
 ";
 
-const X2_6VJK_EVENT: &str = r"
+const X2_6VJK_EVENTS: &str = r"
 +DOC
 =VAL >X1\n\n  Y1\n  Y2\n\nZ3\n
 -DOC";
 
+const X1_7T8X_INPUT: &str = r"
+>
+ line
+
+ # Comment
+";
+
+const X1_7T8X_EVENTS: &str = r"
++DOC
+=VAL >line\n# Comment\n
+-DOC";
+
+const X2_7T8X_INPUT: &str = r"
+>
+ line
+
+# Comment
+";
+
+const X2_7T8X_EVENTS: &str = r"
++DOC
+=VAL >line\n
+-DOC";
+
+const X3_7T8X_INPUT: &str = r"
+>
+ line
+
+ERROR
+";
+
+const X3_7T8X_EVENTS: &str = r"
++DOC
+=VAL >line\n
+ERR
+=VAL :
+=VAL :ERROR
+-DOC";
+
 #[test]
 pub fn block_indent_lit_fold() {
-    assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENT);
-    assert_eq_event(X2_6VJK_INPUT, X2_6VJK_EVENT);
+    assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENTS);
+    assert_eq_event(X2_6VJK_INPUT, X2_6VJK_EVENTS);
+    assert_eq_event(X1_7T8X_INPUT, X1_7T8X_EVENTS);
+    assert_eq_event(X2_7T8X_INPUT, X2_7T8X_EVENTS);
+    assert_eq_event(X3_7T8X_INPUT, X3_7T8X_EVENTS);
 }
 
 const PLAIN_MULTI_INPUT: &str = r"
@@ -920,11 +963,11 @@ ERR
 
 #[test]
 pub fn block_map_err() {
-  assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
-  assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
-  assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
-  assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
-  assert_eq_event(ERR_INVALID_KEY3_INPUT, ERR_INVALID_KEY3_EVENTS);
+    assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
+    assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY3_INPUT, ERR_INVALID_KEY3_EVENTS);
 }
 
 const COMPLEX_KEYS_INPUT: &str = r##"
@@ -971,7 +1014,6 @@ hr: # 1998 hr ranking
   - Mark McGwire
   - Sammy Sosa
 ";
-
 
 const NESTED_EVENTS: &str = r"
 +DOC ---
