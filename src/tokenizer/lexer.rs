@@ -1925,6 +1925,7 @@ impl<B> Lexer<B> {
 
             let map_indent = reader.col() + reader.count_spaces();
             let prefix_indent = reader.col() + block_indent;
+            let is_line_empty = reader.is_empty_newline();
             let indent_has_reduced = map_indent <= block_indent && prev_indent != block_indent;
             let check_block_indent = reader.peek_byte_at(block_indent as usize).unwrap_or(b'\0');
 
@@ -1936,7 +1937,7 @@ impl<B> Lexer<B> {
                 reader.consume_bytes(block_indent as usize);
                 break;
             } else if indent_has_reduced
-                && matches!(curr_state, BlockMap(ind, _) if *ind <= map_indent)
+                && matches!(curr_state, BlockMap(ind, _) if *ind <= map_indent && !is_line_empty)
             {
                 break;
             }
@@ -2160,9 +2161,9 @@ impl<B> Lexer<B> {
                 } else {
                     tokens.push(NewLine as usize);
                     tokens.push(*new_lines as usize);
-                    *prev_indent = curr_indent;
                 }
             }
+            *prev_indent = curr_indent;
             tokens.push(start);
             tokens.push(end);
             *new_lines = 1;

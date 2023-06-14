@@ -459,6 +459,36 @@ const X1_JEF9_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_F6MC_INPUT: &str = r"
+a: >2
+   more
+  normal
+";
+
+const X2_F6MC_INPUT: &str = r"
+b: >2
+
+
+   more
+  normal
+";
+
+const X1_F6MC_EVENTS: &str = r"
++DOC
++MAP
+=VAL :a
+=VAL > more\nnormal\n
+-MAP
+-DOC";
+
+const X2_F6MC_EVENTS: &str = r"
++DOC
++MAP
+=VAL :b
+=VAL >\n\n more\nnormal\n
+-MAP
+-DOC";
+
 #[test]
 pub fn block_indent_lit_fold() {
     assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENTS);
@@ -467,6 +497,8 @@ pub fn block_indent_lit_fold() {
     assert_eq_event(X2_7T8X_INPUT, X2_7T8X_EVENTS);
     assert_eq_event(X3_7T8X_INPUT, X3_7T8X_EVENTS);
     assert_eq_event(X1_JEF9_INPUT, X1_JEF9_EVENTS);
+    assert_eq_event(X1_F6MC_INPUT, X1_F6MC_EVENTS);
+    assert_eq_event(X2_F6MC_INPUT, X2_F6MC_EVENTS);
 }
 
 const PLAIN_MULTI_INPUT: &str = r"
