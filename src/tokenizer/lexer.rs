@@ -34,7 +34,7 @@ pub struct Lexer<B = ()> {
     buf: B,
     continue_processing: bool,
     col_start: Option<u32>,
-    last_block_indent: u32,
+    last_block_indent: Option<u32>,
     last_map_line: Option<u32>,
     had_anchor: bool,
     has_tab: bool,
@@ -54,7 +54,7 @@ impl<S> Lexer<S> {
             buf: src,
             continue_processing: false,
             col_start: None,
-            last_block_indent: 0,
+            last_block_indent: None,
             last_map_line: None,
             had_anchor: false,
             has_tab: false,
@@ -309,10 +309,12 @@ macro_rules! impl_quote {
                 self.errors.push(ErrorType::UnexpectedEndOfStream);
                 tokens.insert(0, ErrorToken as usize);
             };
-            if !matches!(self.curr_state(), DocBlock) && reader.col() <= self.last_block_indent {
+            //TODO test
+            let indent = self.indent();
+            if !matches!(self.curr_state(), DocBlock) && reader.col() <= indent {
                 self.push_error(ErrorType::InvalidQuoteIndent {
                     actual: reader.col(),
-                    expected: self.last_block_indent,
+                    expected: indent,
                 });
             }
 
@@ -772,8 +774,9 @@ impl<B> Lexer<B> {
         let scalar_line = reader.line();
         let scalar_start = reader.col();
 
+        let block_indent = self.indent();
         let tokens =
-            self.read_block_scalar(reader, literal, &self.curr_state(), self.last_block_indent);
+            self.read_block_scalar(reader, literal, &self.curr_state(), block_indent);
         let is_multiline = reader.line() != scalar_line;
         reader.skip_space_tab();
 
@@ -803,6 +806,7 @@ impl<B> Lexer<B> {
         self.tokens.push_front(ERROR_TOKEN);
         self.errors.push(error);
     }
+
 
     fn parse_anchor<R: Reader<B>>(&mut self, reader: &mut R) {
         self.update_col(reader);
@@ -887,7 +891,12 @@ impl<B> Lexer<B> {
                 reader.consume_bytes(1);
                 self.tokens.push_back(MAP_START_EXP);
                 let indent = self.get_token_pos();
-                self.push_empty_token();
+                if self.prev_scalar.is_empty() {
+                    self.push_empty_token();
+                } else {
+                    self.tokens.extend(take(&mut self.prev_scalar.tokens));
+                }
+                
                 self.set_curr_state(FlowSeq(indent, InSeq), reader.line());
                 let indent = self.get_token_pos();
                 let state = FlowMap(indent, AfterColon);
@@ -1351,7 +1360,7 @@ impl<B> Lexer<B> {
         if let Some(state) = self.stack.last_mut() {
             match state {
                 BlockMap(indent, _) | BlockMapExp(indent, _) | BlockSeq(indent, _) => {
-                    self.last_block_indent = *indent;
+                    self.last_block_indent = Some(*indent);
                 }
                 DocBlock => {
                     *state = AfterDocBlock;
@@ -1365,12 +1374,12 @@ impl<B> Lexer<B> {
     fn push_state(&mut self, state: LexerState, read_line: u32) {
         match state {
             BlockMap(indent, _) | BlockMapExp(indent, _) => {
-                self.last_block_indent = indent;
+                self.last_block_indent = Some(indent);
                 self.had_anchor = false;
                 self.last_map_line = Some(read_line);
             }
             BlockSeq(indent, _) => {
-                self.last_block_indent = indent;
+                self.last_block_indent = Some(indent);
                 self.had_anchor = false;
             }
             _ => {}
@@ -1521,7 +1530,7 @@ impl<B> Lexer<B> {
     }
 
     fn process_colon_block<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
-        let indent = self.last_block_indent;
+        let indent = self.indent();
         let colon_pos = reader.col();
         let col = self.col_start.unwrap_or(colon_pos);
         reader.consume_bytes(1);
@@ -1577,7 +1586,7 @@ impl<B> Lexer<B> {
 
     fn process_block_seq<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let indent = reader.col();
-        let expected_indent = self.last_block_indent;
+        let expected_indent = self.indent();
         reader.consume_bytes(1);
 
         if !matches!(curr_state, BlockMapExp(_, _)) && self.last_map_line == Some(reader.line()) {
@@ -1670,6 +1679,7 @@ impl<B> Lexer<B> {
             BlockSeq(x, _) => x,
             _ => scalar_start,
         };
+        let last_indent = self.indent();
 
         loop {
             let (start, end, error) =
@@ -1699,7 +1709,7 @@ impl<B> Lexer<B> {
 
             if reader.peek_byte().map_or(false, is_newline) {
                 let folded_newline = self.skip_separation_spaces(reader);
-                if reader.col() >= self.last_block_indent {
+                if reader.col() >= last_indent {
                     num_newlines = folded_newline.0 as usize;
                 }
                 curr_indent = reader.col();
@@ -1743,7 +1753,7 @@ impl<B> Lexer<B> {
                             expected: ind,
                         });
                     }
-                    FlowMap(_, _) | FlowSeq(_, _) | FlowKeyExp(_, _) if self.last_block_indent + 1 < reader.col() => {
+                    FlowMap(_, _) | FlowSeq(_, _) | FlowKeyExp(_, _) if last_indent < reader.col() => {
                         continue;
                     }
                     _ => {}
@@ -1855,6 +1865,15 @@ impl<B> Lexer<B> {
     #[inline(always)]
     pub fn pop_token(&mut self) -> Option<usize> {
         self.tokens.pop_front()
+    }
+
+    #[inline]
+    pub fn indent(&self) -> u32 {
+        match self.last_block_indent {
+            None => 0,
+            Some(x) if self.curr_state().in_flow_collection() => x + 1,
+            Some(x) => x,
+        }
     }
 
     #[inline(always)]
