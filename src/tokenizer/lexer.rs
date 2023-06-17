@@ -160,7 +160,7 @@ pub(crate) enum ChompIndicator {
     Keep,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub(crate) enum ScalarEnd {
     /// Scalar ends with `-`
     Seq,
@@ -169,6 +169,7 @@ pub(crate) enum ScalarEnd {
     /// Other cases
     Plain,
 }
+
 impl ScalarEnd {
     fn set_to(&mut self, chr: u8) {
         match chr {
@@ -219,6 +220,17 @@ impl LexerState {
         match &self {
             FlowKeyExp(_, _) | FlowMap(_, _) | FlowSeq(_, _) => MAP_START_EXP,
             _ => MAP_START,
+        }
+    }
+
+    fn matches(&self, scalar_start: u32, scalar_type: ScalarEnd) -> bool {
+        match (self, scalar_type) {
+            (BlockMapExp(ind, _) | BlockMap(ind, _), ScalarEnd::Map) 
+            | (BlockSeq(ind, _) | BlockMapExp(ind, _), ScalarEnd::Seq) 
+            | (BlockMap(ind, _) | BlockMapExp(ind, _) | BlockSeq(ind, _), ScalarEnd::Plain) if *ind == scalar_start => {
+                true
+            }
+            _ => false,
         }
     }
 }
@@ -775,8 +787,7 @@ impl<B> Lexer<B> {
         let scalar_start = reader.col();
 
         let block_indent = self.indent();
-        let tokens =
-            self.read_block_scalar(reader, literal, &self.curr_state(), block_indent);
+        let tokens = self.read_block_scalar(reader, literal, &self.curr_state(), block_indent);
         let is_multiline = reader.line() != scalar_line;
         reader.skip_space_tab();
 
@@ -806,7 +817,6 @@ impl<B> Lexer<B> {
         self.tokens.push_front(ERROR_TOKEN);
         self.errors.push(error);
     }
-
 
     fn parse_anchor<R: Reader<B>>(&mut self, reader: &mut R) {
         self.update_col(reader);
@@ -896,7 +906,7 @@ impl<B> Lexer<B> {
                 } else {
                     self.tokens.extend(take(&mut self.prev_scalar.tokens));
                 }
-                
+
                 self.set_curr_state(FlowSeq(indent, InSeq), reader.line());
                 let indent = self.get_token_pos();
                 let state = FlowMap(indent, AfterColon);
@@ -1178,7 +1188,7 @@ impl<B> Lexer<B> {
         curr_state: LexerState,
         is_key: bool,
         scalar: Scalar,
-        had_tab: bool,
+        has_tab: bool,
         scalar_line: u32,
     ) {
         if is_key {
@@ -1199,7 +1209,7 @@ impl<B> Lexer<B> {
                 self.had_anchor = false;
                 self.next_map_state();
                 self.continue_processing = true;
-                if had_tab {
+                if has_tab {
                     self.push_error(ErrorType::TabsNotAllowedAsIndentation);
                 }
                 self.tokens.push_back(MAP_START);
@@ -1210,7 +1220,7 @@ impl<B> Lexer<B> {
                 );
             } else if matches!(curr_state, BlockMapExp(ind, _) if ind == self.prev_scalar.scalar_start)
             {
-                if had_tab {
+                if has_tab {
                     self.push_error(ErrorType::TabsNotAllowedAsIndentation);
                 }
 
@@ -1263,11 +1273,12 @@ impl<B> Lexer<B> {
         self.had_anchor = false;
     }
 
-    fn skip_separation_spaces<R: Reader<B>>(&mut self, reader: &mut R) -> (u32, bool) {
-        let lines = {
+    fn skip_separation_spaces<R: Reader<B>>(&mut self, reader: &mut R) -> (u32, bool, bool) {
+        let lines: (u32, bool, bool) = {
             let mut num_breaks = 0u32;
             let mut found_eol = true;
             let mut has_tab = false;
+            let mut has_comment = false;
 
             loop {
                 if !reader.peek_byte().map_or(false, is_valid_skip_char) || reader.eof() {
@@ -1276,7 +1287,11 @@ impl<B> Lexer<B> {
                 let amount = reader.count_detect_space_tab(&mut has_tab);
                 let is_comment = reader.peek_byte_at(amount).map_or(false, |c| c == b'#');
 
+                if has_comment && !is_comment {
+                    break;
+                }
                 if is_comment {
+                    has_comment = true;
                     if amount > 0
                         && !reader
                             .peek_byte_at(amount.saturating_sub(1))
@@ -1303,7 +1318,7 @@ impl<B> Lexer<B> {
                     found_eol = false;
                 }
             }
-            (num_breaks, has_tab)
+            (num_breaks, has_tab, has_comment)
         };
         if lines.0 > 0 {
             self.reset_col();
@@ -1497,33 +1512,28 @@ impl<B> Lexer<B> {
                     BlockMap(_, BeforeKey) | BlockSeq(_, _) | DocBlock
                 );
 
-        let scalar_start = match curr_state {
-            BlockSeq(ind, _) if !is_key => ind,
-            _ => scalar.scalar_start,
+        let scalar_type = if is_key {
+            ScalarEnd::Map
+        } else if matches!(curr_state, BlockSeq(_, BlockSeqState::AfterMinus)) {
+            ScalarEnd::Seq
+        } else {
+            ScalarEnd::Plain
         };
-        self.pop_other_states(is_key, curr_state, scalar_start);
+        self.pop_other_states(scalar.scalar_start, scalar_type);
 
         self.process_block_scalar(curr_state, is_key, scalar, has_tab, scalar_line);
     }
 
-    fn pop_other_states(&mut self, is_key: bool, curr_state: LexerState, scalar_start: u32) {
-        let pop_map = match curr_state {
-            BlockSeq(_, _) if is_key => true,
-            BlockMap(_, BeforeKey) => true,
-            _ => false,
-        };
-        let find_unwind = if pop_map {
-            self.find_matching_state(scalar_start,
-                |curr_state, curr_indent| { matches!(curr_state, BlockMap(ind,_) if ind  == curr_indent)
-            })
-        } else if !is_key && matches!(curr_state, BlockSeq(_, _) | BlockMapExp(_, _)) {
-            self.find_matching_state(
-                scalar_start,
-                |curr_state, curr_indent| matches!(curr_state, BlockSeq(ind, _) if ind == curr_indent),
-            )
-        } else {
-            None
-        };
+    fn pop_other_states(
+        &mut self,
+        scalar_start: u32,
+        scalar_type: ScalarEnd,
+    ) {
+        let find_unwind = self
+            .stack
+            .iter()
+            .rposition(|state| state.matches(scalar_start, scalar_type))
+            .map(|x| self.stack.len() - x - 1);
         if let Some(unwind) = find_unwind {
             self.pop_block_states(unwind);
         }
@@ -1652,6 +1662,11 @@ impl<B> Lexer<B> {
             self.prev_scalar = scalar;
             self.continue_processing = true;
         } else {
+            let actual = scalar.scalar_start.clone();
+            let expected = self.indent();
+            if actual < expected {
+                self.push_error(ExpectedIndent { actual, expected });
+            }
             self.emit_meta_nodes();
             self.tokens.extend(scalar.tokens);
         }
@@ -1706,9 +1721,12 @@ impl<B> Lexer<B> {
             tokens.push(end);
             end_line = reader.line();
             reader.skip_space_tab();
+            let mut multliline_comment = false;
 
             if reader.peek_byte().map_or(false, is_newline) {
                 let folded_newline = self.skip_separation_spaces(reader);
+                multliline_comment = folded_newline.2;
+
                 if reader.col() >= last_indent {
                     num_newlines = folded_newline.0 as usize;
                 }
@@ -1725,7 +1743,7 @@ impl<B> Lexer<B> {
                     ends_with.set_to(chr);
                 }
                 break;
-            } else if reader.eof() || reader.peek_chars(&mut self.buf) == b"..." || self.find_matching_state(
+            } else if reader.eof() || reader.peek_chars(&mut self.buf) == b"..." || !multliline_comment && self.find_matching_state(
                 curr_indent,
                 |state, indent| matches!(state, BlockMap(ind, _)| BlockSeq(ind, _) | BlockMapExp(ind, _) if ind == indent)
             ).is_some() {
@@ -1735,6 +1753,7 @@ impl<B> Lexer<B> {
                 // It can be
                 // a) Part of BlockMap so we must break
                 // b) An error outside of block map
+                // c) Flow state
                 // However not important for first line.
                 match curr_state {
                     DocBlock => {
@@ -1758,6 +1777,10 @@ impl<B> Lexer<B> {
                     }
                     _ => {}
                 }
+                break;
+            } else if multliline_comment {
+                tokens.push(ERROR_TOKEN);
+                self.errors.push(ErrorType::InvalidCommentInScalar);
                 break;
             }
         }
