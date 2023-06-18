@@ -104,6 +104,15 @@ pub enum SeqState {
     BeforeElem,
     InSeq,
 }
+impl SeqState {
+    fn next_state(&self) -> SeqState {
+        match self {
+            BeforeFirstElem => BeforeElem,
+            BeforeElem => InSeq,
+            InSeq => BeforeElem,
+        }
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum BlockSeqState {
@@ -897,8 +906,7 @@ impl<B> Lexer<B> {
             if !self.is_flow_map() {
                 let token = if in_flow { MAP_START_EXP } else { MAP_START };
                 self.tokens.insert(index as usize, token);
-                let state = FlowMap(self.get_token_pos(), AfterColon);
-                self.push_state(state, reader.line());
+                self.push_state(FlowMap(self.get_token_pos(), AfterColon), reader.line());
                 self.continue_processing = true;
             }
             reader.consume_bytes(1);
@@ -909,7 +917,10 @@ impl<B> Lexer<B> {
         match reader.peek_chars(&mut self.buf) {
             [b'&', ..] => self.parse_anchor(reader),
             [b'*', ..] => self.parse_alias(reader),
-            [b'[', ..] => self.process_flow_seq_start(reader),
+            [b'[', ..] => {
+                self.next_seq_state();
+                self.process_flow_seq_start(reader)
+            },
             [b'{', ..] => self.process_flow_map_start(reader),
             [b']', ..] => {
                 reader.consume_bytes(1);
@@ -944,11 +955,20 @@ impl<B> Lexer<B> {
                 self.push_error(UnexpectedSymbol('}'));
             }
             [b',', ..] => {
+                if seq_state == BeforeFirstElem {
+                    self.push_error(ErrorType::UnexpectedSymbol(','));
+                }
                 reader.consume_bytes(1);
                 self.set_seq_state(BeforeElem);
             }
-            [b'\'', ..] => self.process_single_quote_flow(reader, self.curr_state()),
-            [b'"', ..] => self.process_double_quote_flow(reader),
+            [b'\'', ..] => {
+                self.next_seq_state();
+                self.process_single_quote_flow(reader, self.curr_state());
+            },
+            [b'"', ..] => {
+                self.next_seq_state();
+                self.process_double_quote_flow(reader);
+            },
             [b'?', chr, ..] if !ns_plain_safe(*chr) => {
                 self.fetch_explicit_map(reader, self.curr_state())
             }
@@ -965,6 +985,7 @@ impl<B> Lexer<B> {
                 self.has_tab = self.skip_separation_spaces(reader).1;
             }
             [_, ..] => {
+                self.next_seq_state();
                 self.fetch_plain_scalar_flow(reader, self.curr_state());
             }
             [] => self.stream_end = true,
@@ -1695,6 +1716,10 @@ impl<B> Lexer<B> {
         if ends_with == ScalarEnd::Map {
             self.prev_scalar = scalar;
             self.continue_processing = true;
+            if !self.is_flow_map() {
+                self.tokens.push_back(MAP_START_EXP);
+                self.push_state(FlowMap(self.get_token_pos(), BeforeColon), reader.line());
+            }
         } else {
             let actual = scalar.scalar_start.clone();
             let expected = self.indent();
@@ -1901,6 +1926,17 @@ impl<B> Lexer<B> {
     fn set_block_seq_state(&mut self, block_seq_state: BlockSeqState) {
         if let Some(BlockSeq(_, state)) = self.stack.last_mut() {
             *state = block_seq_state;
+        };
+    }
+
+    #[inline]
+    fn next_seq_state(&mut self) {
+        let new_state = match self.stack.last() {
+            Some(FlowSeq(ind, state)) => FlowSeq(*ind, state.next_state()),
+            _ => return,
+        };
+        if let Some(x) = self.stack.last_mut() {
+            *x = new_state
         };
     }
 

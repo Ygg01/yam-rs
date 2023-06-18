@@ -271,12 +271,27 @@ const X_9JBA_EVENTS: &str = r"
 ERR
 -DOC";
 
+const X_9MAG_INPUT: &str = r"
+[ , a , b, c] ";
+
+const X_9MAG_EVENTS: &str = r"
++DOC
++SEQ []
+ERR
+=VAL :a
+=VAL :b
+=VAL :c
+-SEQ
+-DOC";
+
+
 #[test]
 fn flow_seq_err() {
     assert_eq_event(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS);
     assert_eq_event(FLOW_ERR2_INPUT, FLOW_ERR2_EVENTS);
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
     assert_eq_event(X_9JBA_INPUT, X_9JBA_EVENTS);
+    assert_eq_event(X_9MAG_INPUT, X_9MAG_EVENTS);
 }
 
 const SEQ_KEY1_INPUT: &str = r"
@@ -362,9 +377,42 @@ const SEQ_EDGE_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_8UDB_INPUT: &str = r"
+[
+single: pair,
+]";
+
+const X1_8UDB_EVENTS: &str = r#"
++DOC
++SEQ []
++MAP {}
+=VAL :single
+=VAL :pair
+-MAP
+-SEQ
+-DOC"#;
+
+const X2_8UDB_INPUT: &str = r"
+[[ ],
+single: pair,]";
+
+const X2_8UDB_EVENTS: &str = r"
++DOC
++SEQ []
++SEQ []
+-SEQ
++MAP {}
+=VAL :single
+=VAL :pair
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn flow_seq_edge() {
     assert_eq_event(SEQ_EDGE_INPUT, SEQ_EDGE_EVENTS);
+    assert_eq_event(X1_8UDB_INPUT, X1_8UDB_EVENTS);
+    assert_eq_event(X2_8UDB_INPUT, X2_8UDB_EVENTS);
 }
 
 const MAP_EDGE1_INPUT: &str = r"
