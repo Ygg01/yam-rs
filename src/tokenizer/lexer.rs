@@ -833,7 +833,7 @@ impl<B> Lexer<B> {
         );
     }
 
-    // #[inline(always)]
+    #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
         self.errors.push(error);
@@ -1514,6 +1514,7 @@ impl<B> Lexer<B> {
             if lines.0 == 0 {
                 self.prev_tag = Some((start, mid, end));
             } else {
+                self.emit_meta_nodes();
                 self.tokens.push_back(TAG_START);
                 self.tokens.push_back(start);
                 self.tokens.push_back(mid);
