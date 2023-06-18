@@ -373,7 +373,7 @@ impl<B> Lexer<B> {
             match curr_state {
                 PreDocStart => self.fetch_pre_doc(reader),
                 DirectiveSection => self.fetch_directive_section(reader, &mut directive_state),
-                EndOfDirective => self.fetch_end_of_directive(reader, &mut directive_state),
+                EndOfDirective => self.fetch_end_of_directive(reader),
                 DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                     self.fetch_block_map(reader, curr_state);
                 }
@@ -431,6 +431,7 @@ impl<B> Lexer<B> {
             }
             b"---" if is_stream_ending => {
                 reader.consume_bytes(3);
+                self.last_map_line = Some(reader.line());
                 self.tokens.push_back(DOC_START_EXP);
                 self.set_curr_state(EndOfDirective, 0);
             }
@@ -558,7 +559,6 @@ impl<B> Lexer<B> {
     fn fetch_end_of_directive<R: Reader<B>>(
         &mut self,
         reader: &mut R,
-        _directive_state: &mut DirectiveState,
     ) {
         self.continue_processing = false;
         self.skip_separation_spaces(reader);
