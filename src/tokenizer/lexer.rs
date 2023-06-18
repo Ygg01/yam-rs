@@ -225,9 +225,11 @@ impl LexerState {
 
     fn matches(&self, scalar_start: u32, scalar_type: ScalarEnd) -> bool {
         match (self, scalar_type) {
-            (BlockMapExp(ind, _) | BlockMap(ind, _), ScalarEnd::Map) 
-            | (BlockSeq(ind, _) | BlockMapExp(ind, _), ScalarEnd::Seq) 
-            | (BlockMap(ind, _) | BlockMapExp(ind, _) | BlockSeq(ind, _), ScalarEnd::Plain) if *ind == scalar_start => {
+            (BlockMapExp(ind, _) | BlockMap(ind, _), ScalarEnd::Map)
+            | (BlockSeq(ind, _) | BlockMapExp(ind, _), ScalarEnd::Seq)
+            | (BlockMap(ind, _) | BlockMapExp(ind, _) | BlockSeq(ind, _), ScalarEnd::Plain)
+                if *ind == scalar_start =>
+            {
                 true
             }
             _ => false,
@@ -704,6 +706,19 @@ impl<B> Lexer<B> {
             [b'>', ..] => self.process_block_literal(reader, curr_state, false),
             [b'\'', ..] => self.process_single_quote_block(reader, curr_state),
             [b'"', ..] => self.process_double_quote_block(reader, curr_state),
+            [peek, b'#', ..] if is_white_tab(*peek) => {
+                // comment
+                self.read_line(reader);
+            }
+            [b'#', ..] if reader.col() > 0 => {
+                // comment that doesnt
+                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                self.read_line(reader);
+            }
+            [b'%', ..] => {
+                self.push_error(ErrorType::UnexpectedDirective);
+                self.read_line(reader);
+            }
             [peek, ..] if is_white_tab_or_break(*peek) => {
                 self.has_tab = self.skip_separation_spaces(reader).1;
                 self.continue_processing = true;
@@ -732,6 +747,7 @@ impl<B> Lexer<B> {
             [b'-', peek, ..] if !ns_plain_safe(*peek) => {
                 self.process_block_seq(reader, curr_state);
             }
+
             b"..." if is_stream_ending => {
                 self.unwind_to_root_end(reader);
             }
@@ -763,6 +779,10 @@ impl<B> Lexer<B> {
             [b'#', ..] if reader.col() > 0 => {
                 // comment that doesnt
                 self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                self.read_line(reader);
+            }
+            [b'%', ..] => {
+                self.push_error(ErrorType::UnexpectedDirective);
                 self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
@@ -1524,11 +1544,7 @@ impl<B> Lexer<B> {
         self.process_block_scalar(curr_state, is_key, scalar, has_tab, scalar_line);
     }
 
-    fn pop_other_states(
-        &mut self,
-        scalar_start: u32,
-        scalar_type: ScalarEnd,
-    ) {
+    fn pop_other_states(&mut self, scalar_start: u32, scalar_type: ScalarEnd) {
         let find_unwind = self
             .stack
             .iter()
