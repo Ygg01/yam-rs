@@ -609,7 +609,6 @@ impl<B> Lexer<B> {
 
     fn fetch_after_doc<R: Reader<B>>(&mut self, reader: &mut R) {
         let mut consume_line = false;
-        self.skip_separation_spaces(reader);
 
         let is_stream_ending = self.is_stream_ending(reader);
         let chars = reader.peek_chars(&mut self.buf);
@@ -626,9 +625,17 @@ impl<B> Lexer<B> {
                 self.tokens.push_back(DOC_END_EXP);
                 self.set_curr_state(InDocEnd, 0);
             }
-            [b'#', ..] => {
-                consume_line = true;
-                self.set_curr_state(PreDocStart, 0);
+            [peek, b'#', ..] if is_white_tab(*peek) => {
+                // comment
+                self.read_line(reader);
+            }
+            [b'#', ..] if reader.col() > 0 => {
+                // comment that doesnt
+                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                self.read_line(reader);
+            }
+            [chr, ..] if is_white_tab_or_break(*chr) => {
+                self.skip_separation_spaces(reader);
             }
             [chr, ..] => {
                 consume_line = true;
@@ -945,8 +952,13 @@ impl<B> Lexer<B> {
             [b'?', chr, ..] if !ns_plain_safe(*chr) => {
                 self.fetch_explicit_map(reader, self.curr_state())
             }
-            [b'#', ..] => {
+            [peek, b'#', ..] if is_white_tab(*peek) => {
                 // comment
+                self.read_line(reader);
+            }
+            [b'#', ..] if reader.col() > 0 => {
+                // comment that doesnt
+                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
                 self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
@@ -1027,8 +1039,13 @@ impl<B> Lexer<B> {
                 self.next_map_state();
                 self.process_double_quote_flow(reader);
             }
-            [b'#', ..] => {
+            [peek, b'#', ..] if is_white_tab(*peek) => {
                 // comment
+                self.read_line(reader);
+            }
+            [b'#', ..] if reader.col() > 0 => {
+                // comment that doesnt
+                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
                 self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
