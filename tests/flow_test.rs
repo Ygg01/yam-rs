@@ -123,9 +123,41 @@ const COMPLEX_MAP_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_9MMW_INPUT: &str = r#"
+[ "JSON like":adjacent ]"#;
+
+const X1_9MMW_EVENTS: &str = r#"
++DOC
++SEQ []
++MAP {}
+=VAL "JSON like
+=VAL :adjacent
+-MAP
+-SEQ
+-DOC"#;
+
+
+const X2_9MMW_INPUT: &str = r#"
+[ {JSON: like}:adjacent ]"#;
+
+const X2_9MMW_EVENTS: &str = r"
++DOC
++SEQ []
++MAP {}
++MAP {}
+=VAL :JSON
+=VAL :like
+-MAP
+=VAL :adjacent
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn flow_complex_map() {
     assert_eq_event(COMPLEX_MAP_INPUT, COMPLEX_MAP_EVENTS);
+    assert_eq_event(X1_9MMW_INPUT, X1_9MMW_EVENTS);
+    assert_eq_event(X2_9MMW_INPUT, X2_9MMW_EVENTS);
 }
 
 #[test]

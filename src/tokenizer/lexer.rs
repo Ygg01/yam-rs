@@ -6,7 +6,6 @@ use std::hint::unreachable_unchecked;
 use std::mem::take;
 
 use LexerState::PreDocStart;
-use SeqState::BeforeFirstElem;
 
 use crate::tokenizer::lexer::LexerState::{
     AfterDocBlock, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, EndOfDirective,
@@ -14,7 +13,7 @@ use crate::tokenizer::lexer::LexerState::{
 };
 use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::{AfterColon, BeforeColon, BeforeKey};
-use crate::tokenizer::lexer::SeqState::{BeforeElem, InSeq};
+use crate::tokenizer::lexer::SeqState::{BeforeElem, InSeq, BeforeFirstElem, MapLikeSeq};
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::ErrorType::*;
 
@@ -100,6 +99,7 @@ impl MapState {
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum SeqState {
     BeforeFirstElem,
+    MapLikeSeq,
     #[default]
     BeforeElem,
     InSeq,
@@ -110,6 +110,7 @@ impl SeqState {
             BeforeFirstElem => BeforeElem,
             BeforeElem => InSeq,
             InSeq => BeforeElem,
+            MapLikeSeq => BeforeElem,
         }
     }
 }
@@ -195,6 +196,14 @@ impl LexerState {
         match &self {
             FlowKeyExp(_, _) | FlowSeq(_, _) | FlowMap(_, _) => true,
             _ => false,
+        }
+    }
+
+    #[inline]
+    pub (crate) fn token_pos(&self) -> u32 {
+        match &self {
+            FlowKeyExp(x, _) | FlowMap(x, _) | FlowSeq(x, _) => x + 1,
+            _ => 0,
         }
     }
 
@@ -714,7 +723,7 @@ impl<B> Lexer<B> {
                 self.fetch_exp_block_map_key(reader, curr_state)
             }
             [b':'] => self.process_colon_block(reader, curr_state),
-            [b':', peek, ..] if !ns_plain_safe(*peek) => {
+            [b':', peek, ..] if ns_plain_safe(*peek) => {
                 self.process_colon_block(reader, curr_state)
             }
             [b'!', ..] => self.fetch_tag(reader),
@@ -757,10 +766,10 @@ impl<B> Lexer<B> {
             [b'&', ..] => self.parse_anchor(reader),
             [b'*', ..] => self.parse_alias(reader),
             [b':'] => self.process_colon_block(reader, curr_state),
-            [b':', peek, ..] if !ns_plain_safe(*peek) => {
+            [b':', peek, ..] if ns_plain_safe(*peek) => {
                 self.process_colon_block(reader, curr_state)
             }
-            [b'-', peek, ..] if !ns_plain_safe(*peek) => {
+            [b'-', peek, ..] if ns_plain_safe(*peek) => {
                 self.process_block_seq(reader, curr_state);
             }
 
@@ -770,7 +779,7 @@ impl<B> Lexer<B> {
             b"---" if is_stream_ending => {
                 self.unwind_to_root_start(reader);
             }
-            [b'?', peek, ..] if !ns_plain_safe(*peek) => {
+            [b'?', peek, ..] if ns_plain_safe(*peek) => {
                 self.fetch_exp_block_map_key(reader, curr_state)
             }
             [b'!', ..] => self.fetch_tag(reader),
@@ -921,7 +930,10 @@ impl<B> Lexer<B> {
                 self.next_seq_state();
                 self.process_flow_seq_start(reader)
             },
-            [b'{', ..] => self.process_flow_map_start(reader),
+            [b'{', ..] => {
+                self.set_seq_state(MapLikeSeq);
+                self.process_flow_map_start(reader);
+            }
             [b']', ..] => {
                 reader.consume_bytes(1);
                 self.tokens.push_back(SEQ_END);
@@ -935,8 +947,9 @@ impl<B> Lexer<B> {
                 reader.consume_bytes(1);
                 self.push_error(UnexpectedSymbol('-'));
             }
-            [b':', chr, ..] if seq_state != InSeq && !ns_plain_safe(*chr) => {
+            [b':', chr, ..] if ns_plain_safe(*chr) || !self.prev_scalar.is_empty() => {
                 reader.consume_bytes(1);
+                self.set_seq_state(MapLikeSeq);
                 self.tokens.push_back(MAP_START_EXP);
                 let indent = self.get_token_pos();
                 if self.prev_scalar.is_empty() {
@@ -949,6 +962,13 @@ impl<B> Lexer<B> {
                 let indent = self.get_token_pos();
                 let state = FlowMap(indent, AfterColon);
                 self.push_state(state, reader.line());
+                self.continue_processing = true;
+            }
+            [b':', chr, ..] if !ns_plain_safe(*chr) && seq_state == MapLikeSeq => {
+                reader.consume_bytes(1);
+                let indent = self.curr_state().token_pos();
+                self.tokens.insert(indent as usize, MAP_START_EXP);
+                self.push_state(FlowMap(indent , AfterColon), reader.line());
             }
             [b'}', ..] => {
                 reader.consume_bytes(1);
@@ -969,7 +989,7 @@ impl<B> Lexer<B> {
                 self.next_seq_state();
                 self.process_double_quote_flow(reader);
             },
-            [b'?', chr, ..] if !ns_plain_safe(*chr) => {
+            [b'?', chr, ..] if ns_plain_safe(*chr) => {
                 self.fetch_explicit_map(reader, self.curr_state())
             }
             [peek, b'#', ..] if is_white_tab(*peek) => {
@@ -1011,17 +1031,13 @@ impl<B> Lexer<B> {
                 }
                 self.tokens.push_back(MAP_END);
                 self.pop_state();
-                self.continue_processing = false;
             }
-            [b':', peek, ..] if !ns_plain_safe(*peek) => {
+            [b':', chr, ..] if (matches!(curr_state, FlowMap(_, BeforeKey | BeforeColon)) && ns_plain_safe(*chr)) || !self.prev_scalar.is_empty() => {
                 reader.consume_bytes(1);
                 self.process_colon_flow(curr_state);
             }
-            [b':', peek, ..]
-                if ns_plain_safe(*peek) && matches!(curr_state, FlowMap(_, BeforeColon)) =>
-            {
+            [b':', chr, ..] if matches!(curr_state, FlowMap(_, | BeforeColon)) && !ns_plain_safe(*chr) => {
                 reader.consume_bytes(1);
-                self.process_colon_flow(curr_state);
             }
             [b']', ..] => {
                 if self.is_prev_sequence() {
@@ -1035,7 +1051,7 @@ impl<B> Lexer<B> {
                     self.push_error(UnexpectedSymbol(']'));
                 }
             }
-            [b'?', peek, ..] if !ns_plain_safe(*peek) => {
+            [b'?', peek, ..] if ns_plain_safe(*peek) => {
                 self.fetch_explicit_map(reader, curr_state)
             }
             [b',', ..] => {
