@@ -194,10 +194,23 @@ const FLOW_QUOTED2_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 
+const X_C2DT_INPUT: &str = r#"
+{
+"empty":
+} "#;
+const X_C2DT_EVENTS: &str = r#"
++DOC
++MAP {}
+=VAL "empty
+=VAL :
+-MAP
+-DOC"#;
+
 #[test]
 fn flow_map_quoted() {
     assert_eq_event(FLOW_QUOTED1_INPUT, FLOW_QUOTED1_EVENTS);
     assert_eq_event(FLOW_QUOTED2_INPUT, FLOW_QUOTED2_EVENTS);
+    assert_eq_event(X_C2DT_INPUT, X_C2DT_EVENTS);
 }
 
 const EMPTY_MAP_INPUT: &str = r"
