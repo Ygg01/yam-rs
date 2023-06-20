@@ -54,8 +54,7 @@ pub enum ErrorType {
     UnexpectedSymbol(char),
     UnsupportedYamlVersion,
     UnfinishedTag,
-    UnexpectedScalarAtMapEnd,
-    UnexpectedScalarAtSeqEnd,
+    UnexpectedScalarAtNodeEnd,
     YamlMustHaveOnePart,
 }
 
