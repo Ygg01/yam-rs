@@ -1666,8 +1666,8 @@ fn block_multi_line() {
 }
 
 const INDENT_TAB_INPUT: &str = r"
-a: 
-    b: c
+a:
+	b: c
 ";
 
 const INDENT_TAB_EVENTS: &str = r"
