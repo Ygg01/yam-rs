@@ -124,12 +124,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn peek_byte(&self) -> Option<u8> {
-        self.slice.get(self.pos).copied()
-    }
-
-    #[inline]
-    fn peek_byte_at(&self, offset: usize) -> Option<u8> {
+    fn peek_byte_at(&self, _buf: &mut (), offset: usize) -> Option<u8> {
         self.slice.get(self.pos + offset).copied()
     }
 
@@ -325,8 +320,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType> {
-        match self.peek_chars(&mut ()) {
+    fn read_tag_handle(&mut self, _buf: &mut ()) -> Result<Vec<u8>, ErrorType> {
+        match self.peek_chars(_buf) {
             [b'!', x, ..] if *x == b' ' || *x == b'\t' => {
                 self.consume_bytes(1);
                 self.skip_space_tab();
@@ -340,7 +335,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                     .position(|c: &u8| !is_tag_char(*c))
                     .unwrap_or(self.slice.len() - self.pos);
                 self.consume_bytes(amount);
-                if self.peek_byte_is(b'!') {
+                if self.peek_byte_is(_buf, b'!') {
                     let bac = self.slice[start..start + amount + 2].to_vec();
                     self.consume_bytes(1);
                     Ok(bac)
@@ -358,8 +353,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_tag_uri(&mut self) -> Option<(usize, usize)> {
-        if self.peek_byte().map_or(false, is_uri_char) {
+    fn read_tag_uri(&mut self, _buf: &mut ()) -> Option<(usize, usize)> {
+        if self.peek_byte_at(_buf, 0).map_or(false, is_uri_char) {
             let start = self.pos;
             let amount = self.slice[start..]
                 .iter()
@@ -374,12 +369,12 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_break(&mut self) -> Option<(usize, usize)> {
         let start = self.pos;
-        if self.peek_byte_is(b'\n') {
+        if self.peek_byte_is(&mut (), b'\n') {
             self.pos += 1;
             self.col = 0;
             self.line += 1;
             Some((start, start + 1))
-        } else if self.peek_byte_is(b'\r') {
+        } else if self.peek_byte_is(&mut (), b'\r') {
             let amount = match self.slice.get(start + 1) {
                 Some(b'\n') => 2,
                 _ => 1,

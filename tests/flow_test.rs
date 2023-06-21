@@ -136,7 +136,6 @@ const X1_9MMW_EVENTS: &str = r#"
 -SEQ
 -DOC"#;
 
-
 const X2_9MMW_INPUT: &str = r#"
 [ {JSON: like}:adjacent ]"#;
 
@@ -328,7 +327,6 @@ ERR
 =VAL :c
 -SEQ
 -DOC";
-
 
 #[test]
 fn flow_seq_err() {
