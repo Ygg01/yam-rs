@@ -23,6 +23,7 @@ pub enum ErrorType {
     ExpectedChompBetween1and9,
     ExpectedDocumentStart,
     ExpectedDocumentStartOrContents,
+    ExpectedDocumentEnd,
     ExpectedDocumentEndOrContents,
     ExpectedNewline,
     ExpectedIndent { actual: u32, expected: u32 },

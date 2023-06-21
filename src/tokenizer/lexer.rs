@@ -8,8 +8,8 @@ use std::mem::take;
 use LexerState::PreDocStart;
 
 use crate::tokenizer::lexer::LexerState::{
-    AfterDocBlock, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, EndOfDirective,
-    FlowKeyExp, FlowMap, FlowSeq, InDocEnd,
+    AfterDocBlock, BlockMap, BlockMapExp, BlockSeq, DocBlock, FlowKeyExp, FlowMap, FlowSeq,
+    InDocEnd,
 };
 use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::{AfterColon, BeforeColon, BeforeKey};
@@ -19,7 +19,7 @@ use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{
-    is_flow_indicator, is_newline, is_not_whitespace, is_valid_escape, is_valid_skip_char,
+    is_flow_indicator, is_newline, is_valid_escape, is_valid_skip_char,
     is_white_tab, ns_plain_safe,
 };
 use crate::tokenizer::ErrorType;
@@ -143,8 +143,8 @@ impl LiteralStringState {
 pub enum LexerState {
     #[default]
     PreDocStart,
-    DirectiveSection,
-    EndOfDirective,
+    // DirectiveSection,
+    // EndOfDirective,
     AfterDocBlock,
     InDocEnd,
     // Flow nodes
@@ -249,27 +249,25 @@ impl LexerState {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum DirectiveState {
-    NoContent,
-    Tag,
-    Directive,
-    DirectiveAndTag,
-    Error,
+    NoDirective,
+    OneDirective,
+    TwoDirectiveError,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum HeaderState {
+    Bare,
+    Directive(DirectiveState),
+    HeaderStart,
+    HeaderEnd,
 }
 
 impl DirectiveState {
-    fn add_tag(&mut self) {
-        *self = match self {
-            Self::NoContent => Self::Tag,
-            Self::Directive => Self::DirectiveAndTag,
-            _ => *self,
-        }
-    }
-
     fn add_directive(&mut self) {
         *self = match self {
-            Self::NoContent => Self::Directive,
-            Self::Tag => Self::DirectiveAndTag,
-            Self::Directive | Self::DirectiveAndTag | Self::Error => Self::Error,
+            Self::NoDirective => Self::OneDirective,
+            Self::OneDirective => Self::TwoDirectiveError,
+            Self::TwoDirectiveError => Self::TwoDirectiveError,
         }
     }
 }
@@ -376,15 +374,12 @@ macro_rules! impl_quote {
 impl<B> Lexer<B> {
     pub fn fetch_next_token<R: Reader<B>>(&mut self, reader: &mut R) {
         self.continue_processing = true;
-        let mut directive_state = DirectiveState::NoContent;
 
         while self.continue_processing && !reader.eof() {
             let curr_state = self.curr_state();
 
             match curr_state {
                 PreDocStart => self.fetch_pre_doc(reader),
-                DirectiveSection => self.fetch_directive_section(reader, &mut directive_state),
-                EndOfDirective => self.fetch_end_of_directive(reader),
                 DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                     self.fetch_block_map(reader, curr_state);
                 }
@@ -412,15 +407,6 @@ impl<B> Lexer<B> {
                     MAP_END
                 }
                 BlockMapExp(_, _) | BlockMap(_, _) | FlowMap(_, _) => MAP_END,
-                DirectiveSection => {
-                    self.errors.push(ErrorType::DirectiveEndMark);
-                    ERROR_TOKEN
-                }
-                EndOfDirective => {
-                    self.tokens.push_back(SCALAR_PLAIN);
-                    self.tokens.push_back(SCALAR_END);
-                    DOC_END
-                }
                 FlowSeq(_, _) => {
                     self.tokens.push_back(ERROR_TOKEN);
                     self.errors.push(ErrorType::MissingFlowClosingBracket);
@@ -434,110 +420,163 @@ impl<B> Lexer<B> {
     }
 
     fn fetch_pre_doc<R: Reader<B>>(&mut self, reader: &mut R) {
-        let is_stream_ending = self.is_stream_ending(reader);
-        let chars = reader.peek_chars(&mut self.buf);
-        match chars {
-            [b'%', ..] => {
-                self.set_block_state(DirectiveSection, 0);
+        use DirectiveState::NoDirective;
+        use HeaderState::{Bare, Directive, HeaderEnd, HeaderStart};
+
+        let mut header_state = Bare;
+
+        loop {
+            let chr = match reader.peek_byte(&mut self.buf) {
+                None => {
+                    match header_state {
+                        Directive(_) => self.push_error(ErrorType::ExpectedDocumentEndOrContents),
+                        HeaderStart => {
+                            self.push_empty_token();
+                            self.tokens.push_back(DOC_END);
+                        },
+                        _ => {}
+                    }
+                    self.stream_end = true;
+                    return;
+                }
+                Some(b'#') => {
+                    self.read_line(reader);
+                    continue;
+                }
+                Some(x) if is_white_tab_or_break(x) => {
+                    self.skip_separation_spaces(reader);
+                    continue;
+                }
+                Some(x) => x,
+            };
+
+            match (header_state, chr) {
+                (Bare, b'%') => {
+                    let mut directive_state = NoDirective;
+                    if !self.try_read_yaml_directive(reader, &mut directive_state)
+                        && !self.try_read_tag(reader)
+                    {}
+                    header_state = Directive(directive_state);
+                }
+                (Bare, b'.') => {
+                    if self.is_stream_ending(reader) {
+                        reader.consume_bytes(3);
+                    }
+                }
+                (Directive(mut directive_state), b'%') => {
+                    if !self.try_read_yaml_directive(reader, &mut directive_state)
+                        && !self.try_read_tag(reader)
+                    {}
+                }
+                (HeaderEnd, b'%') => {
+                    header_state = Directive(NoDirective);
+                }
+                (Directive(_) | Bare, b'-') => {
+                    if self.is_stream_ending(reader) {
+                        reader.consume_bytes(3);
+                        self.last_map_line = Some(reader.line());
+                        self.tokens.push_back(DOC_START_EXP);
+                        header_state = HeaderStart;
+                    } else {
+                        self.tokens.push_back(DOC_START);
+                        self.set_state(DocBlock);
+                        break;
+                    }
+                }
+                (Directive(_), b'.') => {
+                    self.tokens.push_back(DOC_START);
+                    if self.is_stream_ending(reader) {
+                        reader.consume_bytes(3);
+                        self.tokens.push_front(ERROR_TOKEN);
+                        self.errors.push(ErrorType::UnexpectedEndOfStream);
+                        self.tokens.push_back(DOC_END_EXP);
+                    } else {
+                        self.push_error(ErrorType::UnexpectedSymbol('.'));
+                    }
+                    break;
+                }
+                (HeaderEnd , b'.') => {
+                    if self.is_stream_ending(reader) {
+                        reader.consume_bytes(3);
+                        self.push_empty_token();
+                        self.tokens.push_back(DOC_END_EXP);
+                        header_state = Bare;
+                    } else {
+                        self.tokens.push_back(DOC_START);
+                        self.set_state(DocBlock);
+                        break;
+                    }
+                }
+                (HeaderStart, b'.') => {
+                    if self.is_stream_ending(reader) {
+                        reader.consume_bytes(3);
+                        self.push_empty_token();
+                        self.tokens.push_back(DOC_END_EXP);
+                        header_state = HeaderEnd;
+                    } else {
+                        self.tokens.push_back(DOC_START);
+                        self.set_state(DocBlock);
+                        break;
+                    }
+                }
+                (HeaderEnd | HeaderStart, b'-') => {
+                    if self.is_stream_ending(reader) {
+                        reader.consume_bytes(3);
+                        self.push_empty_token();
+                        self.tokens.push_back(DOC_END);
+                        self.tokens.push_back(DOC_START_EXP);
+                    } else {
+                        self.set_state(DocBlock);
+                        break;
+                    }
+                }
+                (Bare | Directive(_), _) => {
+                    self.tokens.push_back(DOC_START);
+                    self.set_state(DocBlock);
+                    break;
+                }
+                (HeaderStart, _) => {
+                    self.set_state(DocBlock);
+                    break;
+                }
+                (HeaderEnd, _) => {
+                    reader.skip_space_tab();
+                    if reader.peek_byte(&mut self.buf).map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#') {
+                        self.push_error(ErrorType::ExpectedDocumentEnd);
+                    }
+                    self.set_state(DocBlock);
+                    break;
+                }
             }
-            b"---" if is_stream_ending => {
-                reader.consume_bytes(3);
-                self.last_map_line = Some(reader.line());
-                self.tokens.push_back(DOC_START_EXP);
-                self.set_block_state(EndOfDirective, 0);
-            }
-            b"..." if is_stream_ending => {
-                reader.consume_bytes(3);
-                self.skip_separation_spaces(reader);
-                self.set_block_state(InDocEnd, 0);
-            }
-            [b'#', ..] => {
-                self.read_line(reader);
-            }
-            [peek, ..] if is_white_tab_or_break(*peek) => {
-                self.skip_separation_spaces(reader);
-            }
-            [_, ..] => {
-                self.tokens.push_back(DOC_START);
-                self.set_block_state(DocBlock, 0);
-            }
-            [] => {}
         }
     }
 
-    fn fetch_directive_section<R: Reader<B>>(
+    fn try_read_yaml_directive<R: Reader<B>>(
         &mut self,
         reader: &mut R,
         directive_state: &mut DirectiveState,
-    ) {
-        let is_stream_ending = self.is_stream_ending(reader);
-        let chars = reader.peek_chars(&mut self.buf);
-        match chars {
-            [b'%', b'Y', ..] => {
-                if matches!(
-                    directive_state,
-                    DirectiveState::NoContent | DirectiveState::Tag
-                ) {
-                    if self.try_read_yaml_directive(reader) {
-                        directive_state.add_directive();
-                    } else {
-                        directive_state.add_tag();
-                    }
-                } else {
-                    self.push_error(ErrorType::TwoDirectivesFound);
-                    self.read_line(reader);
-                    self.continue_processing = false;
-                }
-            }
-            [b'#', ..] => {
-                self.read_line(reader);
-            }
-            [b'%', ..] => self.fetch_read_tag(reader, directive_state),
-            b"..." if is_stream_ending => {
-                reader.consume_bytes(3);
-                self.tokens.push_back(DOC_START);
-                self.tokens.push_back(DOC_END_EXP);
-                self.prepend_error(ErrorType::UnexpectedEndOfStream);
-                self.set_block_state(PreDocStart, 0);
-                self.continue_processing = false;
-            }
-            b"---" if is_stream_ending => {
-                reader.consume_bytes(3);
-                self.tokens.push_back(DOC_START_EXP);
-                self.set_block_state(EndOfDirective, 0);
-                self.continue_processing = true;
-            }
-            [peek, ..] if is_white_tab_or_break(*peek) => {
-                self.skip_separation_spaces(reader);
-                self.continue_processing = true;
-            }
-            [peek, ..] if !is_white_tab_or_break(*peek) => {
-                self.prepend_error(ErrorType::YamlMustHaveOnePart);
-                self.read_line(reader);
-            }
-            _ => {
-                self.continue_processing = false;
-            }
-        }
-    }
-
-    fn try_read_yaml_directive<R: Reader<B>>(&mut self, reader: &mut R) -> bool {
-        self.skip_separation_spaces(reader);
-        if reader.try_read_slice_exact("%YAML") {
+    ) -> bool {
+        if reader.col() == 0 && reader.try_read_slice_exact("%YAML") {
             reader.skip_space_tab();
             return match reader.peek_chars(&mut self.buf) {
                 b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
+                    directive_state.add_directive();
+                    if *directive_state == DirectiveState::TwoDirectiveError {
+                        self.tokens.push_back(ERROR_TOKEN);
+                        self.errors.push(ErrorType::TwoDirectivesFound);
+                    }
                     self.tokens.push_back(DIR_YAML);
                     self.tokens.push_back(reader.pos());
                     self.tokens.push_back(reader.consume_bytes(3));
-                    let has_ws_break = reader
+                    reader.skip_space_tab();
+                    let invalid_char = reader
                         .peek_byte(&mut self.buf)
-                        .map_or(false, is_white_tab_or_break);
-                    if !has_ws_break {
-                        self.prepend_error(ErrorType::UnsupportedYamlVersion);
+                        .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#');
+                    if invalid_char {
+                        self.prepend_error(ErrorType::InvalidAnchorDeclaration);
                         self.read_line(reader);
                     }
-                    has_ws_break
+                    true
                 }
                 b"..." | b"---" => false,
                 _ => {
@@ -546,18 +585,12 @@ impl<B> Lexer<B> {
                 }
             };
         } else {
-            self.read_line(reader);
             false
         }
     }
 
-    fn fetch_read_tag<R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        directive_state: &mut DirectiveState,
-    ) {
+    fn try_read_tag<R: Reader<B>>(&mut self, reader: &mut R) -> bool {
         self.continue_processing = false;
-        directive_state.add_tag();
         reader.try_read_slice_exact("%TAG");
         reader.skip_space_tab();
 
@@ -566,55 +599,10 @@ impl<B> Lexer<B> {
             if let Some(val) = reader.read_tag_uri(&mut self.buf) {
                 self.tags.insert(key, val);
             }
+            true
+        } else {
+            false
         }
-    }
-
-    fn fetch_end_of_directive<R: Reader<B>>(&mut self, reader: &mut R) {
-        self.continue_processing = false;
-        self.skip_separation_spaces(reader);
-        let col = reader.col();
-
-        let is_stream_ending = self.is_stream_ending(reader);
-        let chars = reader.peek_chars(&mut self.buf);
-        match chars {
-            b"---" if is_stream_ending => {
-                reader.consume_bytes(3);
-                if col != 0 {
-                    self.push_error(ErrorType::UnxpectedIndentDocEnd {
-                        actual: col,
-                        expected: 0,
-                    });
-                }
-                self.push_empty_token();
-                self.tokens.push_back(DOC_END);
-                self.tokens.push_back(DOC_START_EXP);
-            }
-            b"..." if is_stream_ending => {
-                reader.consume_bytes(3);
-                if col != 0 {
-                    self.push_error(ErrorType::UnxpectedIndentDocEnd {
-                        actual: col,
-                        expected: 0,
-                    });
-                }
-                self.push_empty_token();
-                self.tokens.push_back(DOC_END_EXP);
-                self.set_block_state(InDocEnd, 0);
-            }
-            [b'#', ..] => {
-                self.read_line(reader);
-            }
-            [b'%', ..] => {
-                self.prepend_error(ErrorType::ExpectedDocumentEndOrContents);
-                self.tokens.push_back(DOC_END);
-                self.set_block_state(DirectiveSection, 0);
-            }
-            [x, ..] if is_not_whitespace(*x) => {
-                self.set_block_state(DocBlock, reader.line());
-                self.continue_processing = true;
-            }
-            [..] => {}
-        };
     }
 
     fn fetch_after_doc<R: Reader<B>>(&mut self, reader: &mut R) {
@@ -662,13 +650,12 @@ impl<B> Lexer<B> {
 
     fn fetch_end_doc<R: Reader<B>>(&mut self, reader: &mut R) {
         reader.skip_space_tab();
-        let read_line = reader.line();
         match reader.peek_byte(&mut self.buf) {
             Some(b'#') => {
                 self.read_line(reader);
             }
             Some(b'%') => {
-                self.set_block_state(DirectiveSection, read_line);
+                self.set_state(PreDocStart);
             }
             Some(b'-') => {
                 if self.is_stream_ending(reader) {
@@ -683,7 +670,7 @@ impl<B> Lexer<B> {
                 }
             }
             Some(chr) if chr == b' ' || chr == b'\t' || chr == b'\r' || chr == b'\n' => {
-                self.set_block_state(PreDocStart, read_line);
+                self.set_state(PreDocStart);
             }
             Some(_) => {
                 self.read_line(reader);
