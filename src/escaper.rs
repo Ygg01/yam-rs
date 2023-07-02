@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::Deref};
+use std::borrow::Cow;
 
 struct Escape<'a, F, M> {
     find_fn: F,
@@ -66,12 +66,13 @@ where
     }
 }
 
+#[must_use]
 pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     _escape(
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n',
         |input| match input {
-            [b'\\', b't', ..] | [b'\\', b'r', ..] | [b'\\', b'n', ..] => EscapeControl::Skip(2),
+            [b'\\', b't' | b'r' | b'n', ..] => EscapeControl::Skip(2),
             [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
             [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
             [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
@@ -81,12 +82,13 @@ pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     )
 }
 
+#[must_use]
 pub fn escape_double_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     _escape(
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n' || chr == b'\r',
         |input| match input {
-            [b'\\', b't', ..] | [b'\\', b'r', ..] | [b'\\', b'n', ..] => EscapeControl::Skip(2),
+            [b'\\', b't' | b'r' | b'n', ..] => EscapeControl::Skip(2),
             [b'\\', b'\t', ..] => EscapeControl::Append([2, 2, b'\\', b't', 0, 0, 0, 0]),
             [b'\\', b'/', ..] => EscapeControl::Append([2, 1, b'/', 0, 0, 0, 0, 0]),
             [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
@@ -98,6 +100,7 @@ pub fn escape_double_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     )
 }
 
+#[must_use]
 pub fn escape_single_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     _escape(
         input,
@@ -118,11 +121,10 @@ where
     F: Fn(&u8) -> bool,
     M: Fn(&[u8]) -> EscapeControl,
 {
-    let raw = input.deref();
+    let raw = &*input;
     let escape_iter = Escape::new(raw, find_fn, match_fn);
     let mut old_pos = 0;
     let mut escaped: Option<Vec<u8>> = None;
-    let mut _cont = true;
 
     for NewPos {
         pos,

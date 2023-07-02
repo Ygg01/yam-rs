@@ -24,11 +24,11 @@ pub enum YamlToken<'a, TAG = ()> {
 impl<'a, TAG> Display for YamlToken<'a, TAG> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Scalar(val, _) => write!(f, "SCAL: {:?}", val),
+            Scalar(val, _) => write!(f, "SCAL: {val:?}"),
             Self::Sequence(val, _) => {
                 write!(f, "SEQ:")?;
                 for el in val {
-                    write!(f, "{}", el)?;
+                    write!(f, "{el}")?;
                 }
                 Ok(())
             }
