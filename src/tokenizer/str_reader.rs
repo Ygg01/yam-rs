@@ -4,7 +4,7 @@ use std::usize;
 
 use memchr::{memchr, memchr2};
 
-use reader::{is_flow_indicator, ns_plain_safe};
+use reader::{is_flow_indicator, is_plain_unsafe};
 
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
 use crate::tokenizer::ErrorType::UnexpectedComment;
@@ -148,13 +148,13 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn consume_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
         self.col += TryInto::<u32>::try_into(amount).expect("Amount to not exceed u32");
         self.pos
     }
-    #[inline(always)]
+    #[inline]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         if self.slice.len() < self.pos + needle.len() {
             return false;
@@ -204,7 +204,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
             // ns-plain-char prevent `: `
             // or `:{`  in flow collections
-            if curr == b':' && ns_plain_safe(next) {
+            if curr == b':' && is_plain_unsafe(next) {
                 pos_end = end_of_str;
                 break;
             }
@@ -320,8 +320,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_tag_handle(&mut self, _buf: &mut ()) -> Result<Vec<u8>, ErrorType> {
-        match self.peek_chars(_buf) {
+    fn read_tag_handle(&mut self, buf: &mut ()) -> Result<Vec<u8>, ErrorType> {
+        match self.peek_chars(buf) {
             [b'!', x, ..] if *x == b' ' || *x == b'\t' => {
                 self.consume_bytes(1);
                 self.skip_space_tab();
@@ -335,7 +335,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                     .position(|c: &u8| !is_tag_char(*c))
                     .unwrap_or(self.slice.len() - self.pos);
                 self.consume_bytes(amount);
-                if self.peek_byte_is(_buf, b'!') {
+                if self.peek_byte_is(buf, b'!') {
                     let bac = self.slice[start..start + amount + 2].to_vec();
                     self.consume_bytes(1);
                     Ok(bac)
@@ -353,8 +353,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_tag_uri(&mut self, _buf: &mut ()) -> Option<(usize, usize)> {
-        if self.peek_byte_at(_buf, 0).map_or(false, is_uri_char) {
+    fn read_tag_uri(&mut self, buf: &mut ()) -> Option<(usize, usize)> {
+        if self.peek_byte_at(buf, 0).map_or(false, is_uri_char) {
             let start = self.pos;
             let amount = self.slice[start..]
                 .iter()
