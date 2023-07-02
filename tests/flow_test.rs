@@ -162,8 +162,8 @@ fn flow_complex_map() {
 #[test]
 fn flow_map() {
     assert_eq_event(MAP_XY_INPUT, MAP_XY_EVENTS);
-    assert_eq_event(MAP_X_Y_INPUT, MAP_X_Y_EVENTS);
     assert_eq_event(MAP_X_Y2_INPUT, MAP_X_Y_EVENTS);
+    assert_eq_event(MAP_X_Y_INPUT, MAP_X_Y_EVENTS);
     assert_eq_event(MAP_X_Y3_INPUT, MAP_X_Y_EVENTS);
 }
 
@@ -207,14 +207,19 @@ const X_C2DT_EVENTS: &str = r#"
 
 #[test]
 fn flow_map_quoted() {
-    assert_eq_event(FLOW_QUOTED1_INPUT, FLOW_QUOTED1_EVENTS);
     assert_eq_event(FLOW_QUOTED2_INPUT, FLOW_QUOTED2_EVENTS);
+    assert_eq_event(FLOW_QUOTED1_INPUT, FLOW_QUOTED1_EVENTS);
     assert_eq_event(X_C2DT_INPUT, X_C2DT_EVENTS);
 }
 
-const EMPTY_MAP_INPUT: &str = r"
+const EMPTY_MAP1_INPUT: &str = r"
 {:}
 ";
+
+const EMPTY_MAP2_INPUT: &str = r"
+{ : }
+";
+
 const EMPTY_MAP_EVENTS: &str = r"
 +DOC
 +MAP {}
@@ -243,9 +248,25 @@ const EMPTY_NODES_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 
+const TWO_EMPTY_INPUT: &str = r"
+{:, :}
+";
+
+const TWO_EMPTY_EVENTS: &str = r"
++DOC
++MAP {}
+=VAL :
+=VAL :
+=VAL :
+=VAL :
+-MAP
+-DOC";
+
 #[test]
 fn flow_empty_nodes() {
-    assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
+    assert_eq_event(EMPTY_MAP1_INPUT, EMPTY_MAP_EVENTS);
+    assert_eq_event(EMPTY_MAP2_INPUT, EMPTY_MAP_EVENTS);
+    assert_eq_event(TWO_EMPTY_INPUT, TWO_EMPTY_EVENTS);
     assert_eq_event(EMPTY_NODES_INPUT, EMPTY_NODES_EVENTS);
 }
 
@@ -330,8 +351,8 @@ ERR
 
 #[test]
 fn flow_seq_err() {
-    assert_eq_event(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS);
     assert_eq_event(FLOW_ERR2_INPUT, FLOW_ERR2_EVENTS);
+    assert_eq_event(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS);
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
     assert_eq_event(X_9JBA_INPUT, X_9JBA_EVENTS);
     assert_eq_event(X_9MAG_INPUT, X_9MAG_EVENTS);
@@ -454,8 +475,8 @@ const X2_8UDB_EVENTS: &str = r"
 #[test]
 fn flow_seq_edge() {
     assert_eq_event(SEQ_EDGE_INPUT, SEQ_EDGE_EVENTS);
-    assert_eq_event(X1_8UDB_INPUT, X1_8UDB_EVENTS);
     assert_eq_event(X2_8UDB_INPUT, X2_8UDB_EVENTS);
+    assert_eq_event(X1_8UDB_INPUT, X1_8UDB_EVENTS);
 }
 
 const MAP_EDGE1_INPUT: &str = r"
@@ -500,4 +521,37 @@ const CUSTOM_TAG_EVENTS: &str = r"
 #[test]
 fn flow_custom_tag() {
     assert_eq_event(CUSTOM_TAG_INPUT, CUSTOM_TAG_EVENTS);
+}
+
+const FLOW_ALIAS_INPUT: &str = r"
+&seq [ &item 'a']
+";
+
+const FLOW_ALIAS_EVENTS: &str = r"
++DOC
++SEQ [] &seq
+=VAL &item 'a
+-SEQ
+-DOC";
+
+const ALIAS_N_COMP_MAP_INPUT: &str = r"
+&map
+&key [ &item a, b]: value
+";
+
+const ALIAS_N_COMP_MAP_EVENTS: &str = r"
++DOC
++MAP &map
++SEQ [] &key
+=VAL &item :a
+=VAL :b
+-SEQ
+=VAL :value
+-MAP
+-DOC";
+
+#[test]
+fn flow_alias() {
+    assert_eq_event(FLOW_ALIAS_INPUT, FLOW_ALIAS_EVENTS);
+    assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
 }
