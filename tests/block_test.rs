@@ -1192,24 +1192,24 @@ const X_7ZZ5_EVENTS: &str = r"
 -DOC";
 
 const X1_87E4_INPUT: &str = r"
-'key1': [
-  'key2': value,
+'implicit block key' : [
+  'implicit flow key' : value,
  ]
 ";
 
 const X2_87E4_INPUT: &str = r"
-'key1': [
-  'key2': value
+'implicit block key' : [
+  'implicit flow key' : value
  ]
 ";
 
 const X_87E4_EVENTS: &str = r"
 +DOC
 +MAP
-=VAL 'key1
+=VAL 'implicit block key
 +SEQ []
 +MAP {}
-=VAL 'key2
+=VAL 'implicit flow key
 =VAL :value
 -MAP
 -SEQ
@@ -1257,11 +1257,12 @@ const X1_6HB6_EVENTS: &str = r"
 -MAP
 -DOC";
 
+
 #[test]
 pub fn block_flow_mix() {
+    assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
     assert_eq_event(X1_6HB6_INPUT, X1_6HB6_EVENTS);
     assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
-    assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
     assert_eq_event(X2_87E4_INPUT, X_87E4_EVENTS);
     assert_eq_event(X_8KB6_INPUT, X_8KB6_EVENTS);
 }
