@@ -1233,8 +1233,33 @@ const X_8KB6_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_6HB6_INPUT: &str = r"
+Not indented:
+ Flow style: [    
+   By two,        
+  Also by two,    
+  	Still by two   
+    ]      # comment
+";
+
+const X1_6HB6_EVENTS: &str = r"
++DOC
++MAP
+=VAL :Not indented
++MAP
+=VAL :Flow style
++SEQ []
+=VAL :By two
+=VAL :Also by two
+=VAL :Still by two
+-SEQ
+-MAP
+-MAP
+-DOC";
+
 #[test]
 pub fn block_flow_mix() {
+    assert_eq_event(X1_6HB6_INPUT, X1_6HB6_EVENTS);
     assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
     assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
     assert_eq_event(X2_87E4_INPUT, X_87E4_EVENTS);

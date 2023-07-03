@@ -148,6 +148,26 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
+    fn count_spaces_till(&self, num_spaces: u32) -> usize {
+        self.slice[self.pos..]
+            .iter()
+            .enumerate()
+            .take_while(|&(count, &x)| x == b' ' && count < num_spaces as usize)
+            .count()
+    }
+
+    fn count_whitespace(&self, _buf: &mut ()) -> usize {
+        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+            if *chr == b' ' || *chr == b'\t' || *chr == b'\r' || *chr == b'\n' {
+                Continue(pos + 1)
+            } else {
+                Break(pos)
+            }
+        }) {
+            Continue(x) | Break(x) => x,
+        }
+    }
+
     #[inline]
     fn consume_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
@@ -393,14 +413,6 @@ impl<'r> Reader<()> for StrReader<'r> {
             .iter()
             .rev()
             .all(|c| *c == b' ')
-    }
-
-    fn count_spaces_till(&self, num_spaces: u32) -> usize {
-        self.slice[self.pos..]
-            .iter()
-            .enumerate()
-            .take_while(|&(count, &x)| x == b' ' && count < num_spaces as usize)
-            .count()
     }
 }
 

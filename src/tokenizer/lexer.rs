@@ -919,16 +919,16 @@ impl<B> Lexer<B> {
             self.check_flow_indent(scalar.col_start, &mut scalar.spans);
             scalar
         };
-        reader.skip_space_tab();
+        let offset = reader.count_whitespace(&mut self.buf);
         let curr_state = self.curr_state();
-        if reader.peek_byte(&mut self.buf) == Some(b':')
+        if reader.peek_byte_at(&mut self.buf, offset) == Some(b':')
             && matches!(curr_state, FlowSeq | DocBlock)
             && (skip_spaces
                 || reader
                     .peek_byte_at(&mut self.buf, 1)
                     .map_or(true, is_white_tab_or_break))
         {
-            reader.consume_bytes(1);
+            reader.consume_bytes(1+ offset);
             reader.skip_space_tab();
             if node.is_multiline {
                 self.push_error_token(ErrorType::ImplicitKeysNeedToBeInline, &mut node.spans);
@@ -1080,9 +1080,12 @@ impl<B> Lexer<B> {
             } else {
                 let node = self.get_flow_node(reader);
                 let skip_colon_space = is_skip_colon_space(&node);
-                self.skip_separation_spaces(reader);
-                if reader.peek_byte_is(&mut self.buf, b':') {
-                    reader.consume_bytes(1);
+                let offset = reader.count_whitespace(&mut self.buf);
+                if reader
+                    .peek_byte_at(&mut self.buf, offset)
+                    .map_or(false, |c| c == b':')
+                {
+                    reader.consume_bytes(offset + 1);
                     if !skip_colon_space && reader.skip_space_tab() > 0 {
                         self.push_error_token(ErrorType::MissingWhitespaceAfterColon, &mut spans);
                     }
