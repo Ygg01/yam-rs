@@ -266,8 +266,22 @@ const BLOCK_PLAIN2_EVENTS: &str = r"
 =VAL :a b c d\ne
 -DOC";
 
+const BLOCK_MULTI_INPUT: &str = r"
+    word1
+    # comment
+    word2
+";
+
+const BLOCK_MULTI_EVENTS: &str = r"
++DOC
+=VAL :word1
+ERR
+=VAL :word2
+-DOC";
+
 #[test]
 pub fn block_plain_scalar() {
+    assert_eq_event(BLOCK_MULTI_INPUT, BLOCK_MULTI_EVENTS);
     assert_eq_event(BLOCK_PLAIN_INPUT, BLOCK_PLAIN_EVENTS);
     assert_eq_event(BLOCK_PLAIN2_INPUT, BLOCK_PLAIN2_EVENTS);
 }
