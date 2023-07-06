@@ -366,8 +366,34 @@ ERR
 -MAP
 -DOC";
 
+const X1_CVW2_INPUT: &str = r"
+[a,#comment
+]";
+
+const X1_CVW2_EVENTS: &str = r"
++DOC
++SEQ []
+=VAL :a
+ERR
+-SEQ
+-DOC";
+
+const X2_CVW2_INPUT: &str = r"
+[a, #comment
+]";
+
+const X2_CVW2_EVENTS: &str = r"
++DOC
++SEQ []
+=VAL :a
+-SEQ
+-DOC";
+
+
 #[test]
 fn flow_seq_err() {
+    assert_eq_event(X2_CVW2_INPUT, X2_CVW2_EVENTS);
+    assert_eq_event(X1_CVW2_INPUT, X1_CVW2_EVENTS);
     assert_eq_event(X_CML9_INPUT, X_CML9_EVENTS);
     assert_eq_event(FLOW_ERR2_INPUT, FLOW_ERR2_EVENTS);
     assert_eq_event(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS);
@@ -547,8 +573,22 @@ const X_CT4Q_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X_DFF7_INPUT: &str = r"
+{
+?
+}";
+const X_DFF7_EVENTS: &str = r"
++DOC
++MAP {}
+=VAL :
+=VAL :
+-MAP
+-DOC";
+
+
 #[test]
 fn flow_map_edge() {
+    assert_eq_event(X_DFF7_INPUT, X_DFF7_EVENTS);
     assert_eq_event(X_CT4Q_INPUT, X_CT4Q_EVENTS);
     assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
     assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);

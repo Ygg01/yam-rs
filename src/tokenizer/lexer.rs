@@ -1004,6 +1004,9 @@ impl<B> Lexer<B> {
                 reader.consume_bytes(1);
                 end_found = true;
                 break;
+            } else if chr == b'#' {
+                self.push_error_token(ErrorType::InvalidCommentStart, &mut spans);
+                self.read_line(reader);
             } else if chr == b',' {
                 reader.consume_bytes(1);
                 if matches!(seq_state, BeforeElem | BeforeFirstElem) {
@@ -1172,8 +1175,13 @@ impl<B> Lexer<B> {
                 reader.skip_space_tab();
 
                 let node_spans = self.get_flow_node(reader);
+                if node_spans.is_empty() {
+                    push_empty(&mut spans);
+                }else {
+                    spans.extend(node_spans.spans);
+                }
                 map_state.set_next_state();
-                spans.extend(node_spans.spans);
+                
             } else {
                 let scalar_spans = self.get_flow_node(reader);
                 skip_colon_space = is_skip_colon_space(&scalar_spans);
