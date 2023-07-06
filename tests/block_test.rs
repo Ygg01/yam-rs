@@ -1271,7 +1271,6 @@ const X1_6HB6_EVENTS: &str = r"
 -MAP
 -DOC";
 
-
 #[test]
 pub fn block_flow_mix() {
     assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);

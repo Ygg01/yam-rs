@@ -389,7 +389,6 @@ const X2_CVW2_EVENTS: &str = r"
 -SEQ
 -DOC";
 
-
 #[test]
 fn flow_seq_err() {
     assert_eq_event(X2_CVW2_INPUT, X2_CVW2_EVENTS);
@@ -585,9 +584,35 @@ const X_DFF7_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_DK4H_INPUT: &str = r"
+[ key
+  : value]";
+const X1_DK4H_EVENTS: &str = r"
++DOC
++SEQ []
+=VAL :key
+ERR
+=VAL :value
+-SEQ
+-DOC";
+
+const X2_DK4H_INPUT: &str = r"
+[ ? key
+  : value]";
+const X2_DK4H_EVENTS: &str = r"
++DOC
++SEQ []
++MAP {}
+=VAL :key
+=VAL :value
+-MAP
+-SEQ
+-DOC";
 
 #[test]
 fn flow_map_edge() {
+    assert_eq_event(X1_DK4H_INPUT, X1_DK4H_EVENTS);
+    assert_eq_event(X2_DK4H_INPUT, X2_DK4H_EVENTS);
     assert_eq_event(X_DFF7_INPUT, X_DFF7_EVENTS);
     assert_eq_event(X_CT4Q_INPUT, X_CT4Q_EVENTS);
     assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
