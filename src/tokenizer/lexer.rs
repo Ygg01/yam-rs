@@ -302,7 +302,7 @@ macro_rules! impl_quote {
             newspaces: &mut Option<usize>,
             tokens: &mut Vec<usize>,
         ) -> QuoteState {
-            if self.is_stream_ending(reader) {
+            if self.stream_is_ending(reader) {
                 self.errors.push(ErrorType::UnexpectedEndOfStream);
                 tokens.insert(0, ErrorToken as usize);
             };
@@ -381,7 +381,7 @@ impl<B> Lexer<B> {
                 BlockMapExp(_, _) | BlockMap(_, _) | FlowMap => MAP_END,
                 FlowSeq => {
                     self.tokens.push_back(ERROR_TOKEN);
-                    self.errors.push(ErrorType::MissingFlowClosingBracket);
+                    self.errors.push(MissingFlowClosingBracket);
                     SEQ_END
                 }
                 DocBlock | AfterDocBlock => DOC_END,
@@ -401,7 +401,7 @@ impl<B> Lexer<B> {
             let chr = match reader.peek_byte(&mut self.buf) {
                 None => {
                     match header_state {
-                        Directive(_) => self.push_error(ErrorType::ExpectedDocumentEndOrContents),
+                        Directive(_) => self.push_error(ExpectedDocumentEndOrContents),
                         HeaderStart => {
                             self.push_empty_token();
                             self.tokens.push_back(DOC_END);
@@ -431,7 +431,7 @@ impl<B> Lexer<B> {
                     header_state = Directive(directive_state);
                 }
                 (Bare, b'.') => {
-                    if self.is_stream_ending(reader) {
+                    if self.stream_is_ending(reader) {
                         reader.consume_bytes(3);
                     }
                 }
@@ -444,7 +444,7 @@ impl<B> Lexer<B> {
                     header_state = Directive(NoDirective);
                 }
                 (Directive(_) | Bare, b'-') => {
-                    if self.is_stream_ending(reader) {
+                    if self.stream_is_ending(reader) {
                         reader.consume_bytes(3);
                         self.last_map_line = Some(reader.line());
                         self.tokens.push_back(DOC_START_EXP);
@@ -457,34 +457,25 @@ impl<B> Lexer<B> {
                 }
                 (Directive(_), b'.') => {
                     self.tokens.push_back(DOC_START);
-                    if self.is_stream_ending(reader) {
+                    if self.stream_is_ending(reader) {
                         reader.consume_bytes(3);
                         self.tokens.push_front(ERROR_TOKEN);
-                        self.errors.push(ErrorType::UnexpectedEndOfStream);
+                        self.errors.push(UnexpectedEndOfStream);
                         self.tokens.push_back(DOC_END_EXP);
                     } else {
-                        self.push_error(ErrorType::UnexpectedSymbol('.'));
+                        self.push_error(UnexpectedSymbol('.'));
                     }
                     break;
                 }
-                (HeaderEnd, b'.') => {
-                    if self.is_stream_ending(reader) {
+                (HeaderEnd | HeaderStart , b'.') => {
+                    if self.stream_is_ending(reader) {
                         reader.consume_bytes(3);
                         self.push_empty_token();
                         self.tokens.push_back(DOC_END_EXP);
-                        header_state = Bare;
-                    } else {
-                        self.tokens.push_back(DOC_START);
-                        self.set_state(DocBlock);
-                        break;
-                    }
-                }
-                (HeaderStart, b'.') => {
-                    if self.is_stream_ending(reader) {
-                        reader.consume_bytes(3);
-                        self.push_empty_token();
-                        self.tokens.push_back(DOC_END_EXP);
-                        header_state = HeaderEnd;
+                        header_state = match header_state {
+                            HeaderStart => HeaderEnd,
+                            _ => Bare,
+                        };
                     } else {
                         self.tokens.push_back(DOC_START);
                         self.set_state(DocBlock);
@@ -492,7 +483,7 @@ impl<B> Lexer<B> {
                     }
                 }
                 (HeaderEnd | HeaderStart, b'-') => {
-                    if self.is_stream_ending(reader) {
+                    if self.stream_is_ending(reader) {
                         reader.consume_bytes(3);
                         self.push_empty_token();
                         self.tokens.push_back(DOC_END);
@@ -517,7 +508,7 @@ impl<B> Lexer<B> {
                         .peek_byte(&mut self.buf)
                         .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#')
                     {
-                        self.push_error(ErrorType::ExpectedDocumentEnd);
+                        self.push_error(ExpectedDocumentEnd);
                     }
                     self.set_state(DocBlock);
                     break;
@@ -538,7 +529,7 @@ impl<B> Lexer<B> {
                     directive_state.add_directive();
                     if *directive_state == DirectiveState::TwoDirectiveError {
                         self.tokens.push_back(ERROR_TOKEN);
-                        self.errors.push(ErrorType::TwoDirectivesFound);
+                        self.errors.push(TwoDirectivesFound);
                     }
                     self.tokens.push_back(DIR_YAML);
                     self.tokens.push_back(reader.pos());
@@ -548,7 +539,7 @@ impl<B> Lexer<B> {
                         .peek_byte(&mut self.buf)
                         .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#');
                     if invalid_char {
-                        self.prepend_error(ErrorType::InvalidAnchorDeclaration);
+                        self.prepend_error(InvalidAnchorDeclaration);
                         self.read_line(reader);
                     }
                     true
@@ -582,14 +573,14 @@ impl<B> Lexer<B> {
     fn fetch_after_doc<R: Reader<B>>(&mut self, reader: &mut R) {
         let mut consume_line = false;
 
-        let is_stream_ending = self.is_stream_ending(reader);
+        let is_stream_ending = self.stream_is_ending(reader);
         let chars = reader.peek_chars(&mut self.buf);
         match chars {
             b"..." if is_stream_ending => {
                 let col = reader.col();
                 reader.consume_bytes(3);
                 if col != 0 {
-                    self.push_error(ErrorType::UnxpectedIndentDocEnd {
+                    self.push_error(UnexpectedIndentDocEnd {
                         actual: col,
                         expected: 0,
                     });
@@ -603,7 +594,7 @@ impl<B> Lexer<B> {
             }
             [b'#', ..] if reader.col() > 0 => {
                 // comment that doesnt
-                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                self.push_error(MissingWhitespaceBeforeComment);
                 self.read_line(reader);
             }
             [chr, ..] if is_white_tab_or_break(*chr) => {
@@ -632,13 +623,13 @@ impl<B> Lexer<B> {
                 self.set_state(PreDocStart);
             }
             Some(b'-') => {
-                if self.is_stream_ending(reader) {
+                if self.stream_is_ending(reader) {
                     reader.consume_bytes(3);
                     self.tokens.push_back(DOC_START_EXP);
                 }
             }
             Some(b'.') => {
-                if self.is_stream_ending(reader) {
+                if self.stream_is_ending(reader) {
                     reader.consume_bytes(3);
                     self.tokens.push_back(DOC_END_EXP);
                 }
@@ -648,7 +639,7 @@ impl<B> Lexer<B> {
             }
             Some(_) => {
                 self.read_line(reader);
-                self.push_error(ErrorType::ExpectedDocumentStartOrContents);
+                self.push_error(ExpectedDocumentStartOrContents);
             }
             None => {
                 self.stream_end = true;
@@ -658,7 +649,7 @@ impl<B> Lexer<B> {
 
     fn fetch_block_seq<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         self.continue_processing = false;
-        let is_stream_ending = self.is_stream_ending(reader);
+        let is_stream_ending = self.stream_is_ending(reader);
         let chars = reader.peek_chars(&mut self.buf);
 
         match chars {
@@ -689,11 +680,11 @@ impl<B> Lexer<B> {
             }
             [b'#', ..] if reader.col() > 0 => {
                 // comment that doesnt
-                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                self.push_error(MissingWhitespaceBeforeComment);
                 self.read_line(reader);
             }
             [b'%', ..] => {
-                self.push_error(ErrorType::UnexpectedDirective);
+                self.push_error(UnexpectedDirective);
                 self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
@@ -709,7 +700,7 @@ impl<B> Lexer<B> {
 
     fn fetch_block_map<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         self.continue_processing = false;
-        let is_stream_ending = self.is_stream_ending(reader);
+        let is_stream_ending = self.stream_is_ending(reader);
 
         let chars = reader.peek_chars(&mut self.buf);
         match chars {
@@ -757,11 +748,11 @@ impl<B> Lexer<B> {
             }
             [b'#', ..] if reader.col() > 0 => {
                 // comment that doesnt
-                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                self.push_error(MissingWhitespaceBeforeComment);
                 self.read_line(reader);
             }
             [b'%', ..] => {
-                self.push_error(ErrorType::UnexpectedDirective);
+                self.push_error(UnexpectedDirective);
                 self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
@@ -889,7 +880,7 @@ impl<B> Lexer<B> {
         let tokens = self.get_flow_node(reader);
         self.tokens.extend(tokens.spans);
         if matches!(self.curr_state(), DocBlock) {
-            self.set_state(LexerState::AfterDocBlock);
+            self.set_state(AfterDocBlock);
         }
     }
 
@@ -952,7 +943,7 @@ impl<B> Lexer<B> {
                 .map_or(false, is_plain_unsafe)
         {
             reader.consume_bytes(1);
-            self.push_error_token(ErrorType::InvalidScalarStart, &mut scal_spans);
+            self.push_error_token(InvalidScalarStart, &mut scal_spans);
             NodeSpans {
                 col_start: 0,
                 is_multiline: false,
@@ -991,7 +982,7 @@ impl<B> Lexer<B> {
     fn get_flow_seq<R: Reader<B>>(&mut self, reader: &mut R) -> NodeSpans {
         let line_begin = reader.line();
         let col_start = reader.col();
-        let mut seq_state = SeqState::BeforeFirstElem;
+        let mut seq_state = BeforeFirstElem;
         let mut spans = self.prepend_tags_n_anchor();
         let mut end_found = false;
 
@@ -1016,7 +1007,7 @@ impl<B> Lexer<B> {
                 reader.consume_bytes(1);
                 if matches!(seq_state, BeforeElem | BeforeFirstElem) {
                     self.push_error_token(
-                        ErrorType::ExpectedNodeButFound { found: ',' },
+                        ExpectedNodeButFound { found: ',' },
                         &mut spans,
                     );
                 }
@@ -1030,7 +1021,7 @@ impl<B> Lexer<B> {
                 match peek_next {
                     b'[' | b'{' | b'}' => {
                         self.push_error_token(
-                            ErrorType::UnexpectedSymbol(peek_next as char),
+                            UnexpectedSymbol(peek_next as char),
                             &mut spans,
                         );
                         reader.consume_bytes(2);
@@ -1055,7 +1046,7 @@ impl<B> Lexer<B> {
                 {
                     reader.consume_bytes(offset + 1);
                     if !skip_colon_space && reader.skip_space_tab() == 0 {
-                        self.push_error_token(ErrorType::MissingWhitespaceAfterColon, &mut spans);
+                        self.push_error_token(MissingWhitespaceAfterColon, &mut spans);
                     }
                     let map_start = if self.curr_state().in_flow_collection() {
                         MAP_START_EXP
@@ -1085,7 +1076,7 @@ impl<B> Lexer<B> {
             reader.consume_bytes(1 + offset);
             reader.skip_space_tab();
             if line_begin != reader.line() {
-                self.push_error_token(ErrorType::ImplicitKeysNeedToBeInline, &mut spans);
+                self.push_error_token(ImplicitKeysNeedToBeInline, &mut spans);
             } else {
                 let map_start = if self.prev_state().in_flow_collection() {
                     MAP_START_EXP
@@ -1095,7 +1086,7 @@ impl<B> Lexer<B> {
                 self.push_state(FlowMap);
                 spans.insert(0, map_start);
                 spans.push(SEQ_END);
-                spans.extend(self.get_flow_map(reader, MapState::AfterColon).spans);
+                spans.extend(self.get_flow_map(reader, AfterColon).spans);
                 self.pop_state();
             }
         } else if end_found {
@@ -1117,7 +1108,7 @@ impl<B> Lexer<B> {
 
         let start_begin = reader.line();
         let col_start = reader.col();
-        let is_nested = init_state == MapState::AfterColon;
+        let is_nested = init_state == AfterColon;
 
         if reader.peek_byte_is(&mut self.buf, b'{') {
             reader.consume_bytes(1);
@@ -1281,7 +1272,7 @@ impl<B> Lexer<B> {
                     reader.consume_bytes(2);
                 } else {
                     tokens.insert(0, ErrorToken as usize);
-                    self.errors.push(ErrorType::InvalidEscapeCharacter);
+                    self.errors.push(InvalidEscapeCharacter);
                     reader.consume_bytes(2);
                 }
             }
@@ -1328,7 +1319,7 @@ impl<B> Lexer<B> {
                     if is_prev_map {
                         false
                     } else {
-                        self.push_error(ErrorType::UnexpectedScalarAtNodeEnd);
+                        self.push_error(UnexpectedScalarAtNodeEnd);
                         true
                     }
                 }
@@ -1339,10 +1330,10 @@ impl<B> Lexer<B> {
             self.prev_scalar = scalar_start;
             if !matches!(curr_state, BlockMapExp(_, _)) {
                 if self.last_map_line == Some(scalar_line) {
-                    self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
+                    self.push_error(ImplicitKeysNeedToBeInline);
                 }
                 if self.prev_scalar.is_multiline {
-                    self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
+                    self.push_error(ImplicitKeysNeedToBeInline);
                 }
             }
             self.last_map_line = Some(scalar_line);
@@ -1351,7 +1342,7 @@ impl<B> Lexer<B> {
                 self.next_map_state();
                 self.continue_processing = true;
                 if has_tab {
-                    self.push_error(ErrorType::TabsNotAllowedAsIndentation);
+                    self.push_error(TabsNotAllowedAsIndentation);
                 }
                 self.tokens.push_back(MAP_START);
                 self.emit_meta_nodes();
@@ -1362,7 +1353,7 @@ impl<B> Lexer<B> {
             } else if matches!(curr_state, BlockMapExp(ind, _) if ind == self.prev_scalar.col_start)
             {
                 if has_tab {
-                    self.push_error(ErrorType::TabsNotAllowedAsIndentation);
+                    self.push_error(TabsNotAllowedAsIndentation);
                 }
 
                 if let BlockMapExp(indent, BeforeColon) = curr_state {
@@ -1374,18 +1365,18 @@ impl<B> Lexer<B> {
             if self.last_map_line != Some(scalar_line)
                 && curr_state.is_incorrectly_indented(scalar.col_start)
             {
-                self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
+                self.push_error(ImplicitKeysNeedToBeInline);
             }
             match curr_state {
                 BlockMap(ind, BeforeKey) if ind == scalar.col_start => {
-                    self.push_error(ErrorType::UnexpectedScalarAtNodeEnd);
+                    self.push_error(UnexpectedScalarAtNodeEnd);
                 }
                 BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => {
-                    self.push_error(ErrorType::UnexpectedScalarAtNodeEnd);
+                    self.push_error(UnexpectedScalarAtNodeEnd);
                 }
                 BlockMapExp(_, _) | BlockMap(_, _) => self.next_map_state(),
                 BlockSeq(_, BlockSeqState::BeforeMinus) => {
-                    self.push_error(ErrorType::UnexpectedScalarAtNodeEnd);
+                    self.push_error(UnexpectedScalarAtNodeEnd);
                 }
                 BlockSeq(_, _) => self.set_block_seq_state(BlockSeqState::BeforeMinus),
                 _ => {}
@@ -1399,7 +1390,7 @@ impl<B> Lexer<B> {
     fn emit_meta_nodes(&mut self) {
         if let Some(anchor) = take(&mut self.prev_anchor) {
             if self.had_anchor {
-                self.push_error(ErrorType::NodeWithTwoAnchors);
+                self.push_error(NodeWithTwoAnchors);
             }
             self.tokens.push_back(ANCHOR);
             self.tokens.push_back(anchor.0);
@@ -1418,7 +1409,7 @@ impl<B> Lexer<B> {
         let mut tokens: Vec<usize> = Vec::with_capacity(10);
         if let Some(anchor) = take(&mut self.prev_anchor) {
             if self.had_anchor {
-                self.push_error_token(ErrorType::NodeWithTwoAnchors, &mut tokens);
+                self.push_error_token(NodeWithTwoAnchors, &mut tokens);
             }
             tokens.push(ANCHOR);
             tokens.push(anchor.0);
@@ -1464,7 +1455,7 @@ impl<B> Lexer<B> {
                             .peek_byte_at(&mut self.buf, amount.saturating_sub(1))
                             .map_or(false, |c| c == b' ' || c == b'\t' || c == b'\n')
                     {
-                        self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                        self.push_error(MissingWhitespaceBeforeComment);
                     }
                     self.read_line(reader);
                     found_eol = true;
@@ -1559,7 +1550,7 @@ impl<B> Lexer<B> {
         self.pop_block_states(self.stack.len().saturating_sub(1));
         self.tokens.push_back(DOC_END);
         if pos != 0 {
-            self.push_error(ErrorType::ExpectedIndentDocStart {
+            self.push_error(ExpectedIndentDocStart {
                 actual: pos,
                 expected: 0,
             });
@@ -1572,7 +1563,7 @@ impl<B> Lexer<B> {
         let col = reader.col();
         self.pop_block_states(self.stack.len().saturating_sub(1));
         if col != 0 {
-            self.push_error(ErrorType::UnxpectedIndentDocEnd {
+            self.push_error(UnexpectedIndentDocEnd {
                 actual: col,
                 expected: 0,
             });
@@ -1688,11 +1679,10 @@ impl<B> Lexer<B> {
         } else if matches!(curr_state, BlockMap(ind, AfterColon) if colon_pos == ind )
             && !self.prev_scalar.is_empty()
         {
-            if !self.prev_scalar.is_empty() {
-                self.emit_meta_nodes();
-                self.set_map_state(AfterColon);
-                self.tokens.extend(take(&mut self.prev_scalar.spans));
-            }
+
+            self.emit_meta_nodes();
+            self.set_map_state(AfterColon);
+            self.tokens.extend(take(&mut self.prev_scalar.spans));
             self.push_empty_token();
         } else if matches!(curr_state, BlockMapExp(_, _) if colon_pos != indent ) {
             self.push_error(ExpectedIndent {
@@ -1732,7 +1722,7 @@ impl<B> Lexer<B> {
         reader.consume_bytes(1);
 
         if !matches!(curr_state, BlockMapExp(_, _)) && self.last_map_line == Some(reader.line()) {
-            self.push_error(ErrorType::SequenceOnSameLineAsKey);
+            self.push_error(SequenceOnSameLineAsKey);
         }
 
         let new_seq = match curr_state {
@@ -1763,7 +1753,7 @@ impl<B> Lexer<B> {
         };
         if new_seq {
             if self.prev_anchor.is_some() && !self.had_anchor {
-                self.push_error(ErrorType::InvalidAnchorDeclaration);
+                self.push_error(InvalidAnchorDeclaration);
             }
             self.emit_meta_nodes();
             self.push_block_state(
@@ -1823,11 +1813,11 @@ impl<B> Lexer<B> {
                     tokens.push(SCALAR_PLAIN);
                     tokens.push(start);
                     tokens.push(end);
-                    self.errors.push(ErrorType::UnexpectedScalarAtNodeEnd);
+                    self.errors.push(UnexpectedScalarAtNodeEnd);
                     self.set_block_state(AfterDocBlock, reader.line());
                     break;
                 } else {
-                    self.push_error_token(ErrorType::UnexpectedCommentInScalar, &mut tokens);
+                    self.push_error_token(UnexpectedCommentInScalar, &mut tokens);
                     tokens.push(SCALAR_PLAIN);
                     num_newlines = 0;
                 }
@@ -2098,7 +2088,7 @@ impl<B> Lexer<B> {
             return tokens;
         }
         loop {
-            if reader.eof() || self.is_stream_ending(reader) {
+            if reader.eof() || self.stream_is_ending(reader) {
                 break;
             }
 
@@ -2169,7 +2159,7 @@ impl<B> Lexer<B> {
     }
 
     #[inline]
-    fn is_stream_ending<R: Reader<B>>(&mut self, reader: &mut R) -> bool {
+    fn stream_is_ending<R: Reader<B>>(&mut self, reader: &mut R) -> bool {
         let chars = reader.peek_chars(&mut self.buf);
         (chars == b"..." || chars == b"---")
             && reader.peek_byte_at(&mut self.buf, 3).map_or(true, |c| {
@@ -2236,7 +2226,7 @@ impl<B> Lexer<B> {
     ) -> LiteralStringState {
         let (amount, state) = match reader.peek_chars(&mut self.buf) {
             [_, b'0', ..] | [b'0', _, ..] => {
-                self.push_error(ErrorType::ExpectedChompBetween1and9);
+                self.push_error(ExpectedChompBetween1and9);
                 reader.consume_bytes(2);
                 return LiteralStringState::End;
             }
@@ -2281,7 +2271,7 @@ impl<B> Lexer<B> {
             }
             Some(chr) => {
                 self.read_line(reader);
-                self.push_error(ErrorType::UnexpectedSymbol(chr as char));
+                self.push_error(UnexpectedSymbol(chr as char));
                 return LiteralStringState::End;
             }
             _ => {}
@@ -2309,7 +2299,7 @@ impl<B> Lexer<B> {
             }
             if max_prev_indent > newline_indent {
                 tokens.insert(0, ErrorToken as usize);
-                self.errors.push(ErrorType::SpacesFoundAfterIndent);
+                self.errors.push(SpacesFoundAfterIndent);
             }
             if !newline_is_empty {
                 *prev_indent = newline_indent;
@@ -2349,7 +2339,7 @@ impl<B> Lexer<B> {
             }
             *new_lines = 0;
             tokens.push(ERROR_TOKEN);
-            self.errors.push(ErrorType::ExpectedIndent {
+            self.errors.push(ExpectedIndent {
                 actual: curr_indent,
                 expected: indent,
             });

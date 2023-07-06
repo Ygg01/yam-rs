@@ -136,44 +136,12 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn count_spaces(&self) -> u32 {
-        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
-            if *chr == b' ' {
-                Continue(pos + 1)
-            } else {
-                Break(pos)
-            }
-        }) {
-            Continue(x) | Break(x) => x as u32,
-        }
-    }
-
-    fn count_spaces_till(&self, num_spaces: u32) -> usize {
-        self.slice[self.pos..]
-            .iter()
-            .enumerate()
-            .take_while(|&(count, &x)| x == b' ' && count < num_spaces as usize)
-            .count()
-    }
-
-    fn count_whitespace(&self, _buf: &mut ()) -> usize {
-        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
-            if *chr == b' ' || *chr == b'\t' || *chr == b'\r' || *chr == b'\n' {
-                Continue(pos + 1)
-            } else {
-                Break(pos)
-            }
-        }) {
-            Continue(x) | Break(x) => x,
-        }
-    }
-
-    #[inline]
     fn consume_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
         self.col += TryInto::<u32>::try_into(amount).expect("Amount to not exceed u32");
         self.pos
     }
+
     #[inline]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         if self.slice.len() < self.pos + needle.len() {
@@ -193,6 +161,69 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.line += 1;
         self.col = 0;
         (start, end)
+    }
+
+    #[inline]
+    fn count_spaces(&self) -> u32 {
+        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+            if *chr == b' ' {
+                Continue(pos + 1)
+            } else {
+                Break(pos)
+            }
+        }) {
+            Continue(x) | Break(x) => x as u32,
+        }
+    }
+    fn count_whitespace(&self, _buf: &mut ()) -> usize {
+        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+            if *chr == b' ' || *chr == b'\t' || *chr == b'\r' || *chr == b'\n' {
+                Continue(pos + 1)
+            } else {
+                Break(pos)
+            }
+        }) {
+            Continue(x) | Break(x) => x,
+        }
+    }
+
+    fn count_spaces_till(&self, num_spaces: u32) -> usize {
+        self.slice[self.pos..]
+            .iter()
+            .enumerate()
+            .take_while(|&(count, &x)| x == b' ' && count < num_spaces as usize)
+            .count()
+    }
+
+    fn is_empty_newline(&self) -> bool {
+        self.slice[self.pos..self.get_line_offset().1]
+            .iter()
+            .rev()
+            .all(|c| *c == b' ')
+    }
+
+    fn get_double_quote(&self, _buf: &mut ()) -> Option<usize> {
+        let (line_start, line_end) = self.get_quoteline_offset(b'"');
+        memchr2(b'\\', b'"', &self.slice[line_start..line_end])
+    }
+
+    fn get_double_quote_trim(&self, _buf: &mut (), start_str: usize) -> Option<(usize, usize)> {
+        let (_, line_end) = self.get_quoteline_offset(b'"');
+        self.slice[start_str..line_end]
+            .iter()
+            .rposition(|chr| *chr != b' ' && *chr != b'\t')
+            .map(|find| (start_str + find + 1, find + 1))
+    }
+    fn get_single_quote(&self, _buf: &mut ()) -> Option<usize> {
+        let (line_start, line_end) = self.get_quoteline_offset(b'\'');
+        memchr(b'\'', &self.slice[line_start..line_end])
+    }
+    fn get_single_quote_trim(&self, _buf: &mut (), start_str: usize) -> Option<(usize, usize)> {
+        let (_, line_end) = self.get_quoteline_offset(b'\'');
+        self.slice[start_str..line_end]
+            .iter()
+            .rposition(|chr| *chr != b' ' && *chr != b'\t')
+            .map(|find| (start_str + find + 1, find + 1))
     }
 
     fn read_plain_one_line(
@@ -248,30 +279,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
         self.pos = pos_end;
         (start, end_of_str, None)
-    }
-
-    fn get_double_quote(&self, _buf: &mut ()) -> Option<usize> {
-        let (line_start, line_end) = self.get_quoteline_offset(b'"');
-        memchr2(b'\\', b'"', &self.slice[line_start..line_end])
-    }
-
-    fn get_double_quote_trim(&self, _buf: &mut (), start_str: usize) -> Option<(usize, usize)> {
-        let (_, line_end) = self.get_quoteline_offset(b'"');
-        self.slice[start_str..line_end]
-            .iter()
-            .rposition(|chr| *chr != b' ' && *chr != b'\t')
-            .map(|find| (start_str + find + 1, find + 1))
-    }
-    fn get_single_quote(&self, _buf: &mut ()) -> Option<usize> {
-        let (line_start, line_end) = self.get_quoteline_offset(b'\'');
-        memchr(b'\'', &self.slice[line_start..line_end])
-    }
-    fn get_single_quote_trim(&self, _buf: &mut (), start_str: usize) -> Option<(usize, usize)> {
-        let (_, line_end) = self.get_quoteline_offset(b'\'');
-        self.slice[start_str..line_end]
-            .iter()
-            .rposition(|chr| *chr != b' ' && *chr != b'\t')
-            .map(|find| (start_str + find + 1, find + 1))
     }
 
     fn count_detect_space_tab(&mut self, has_tab: &mut bool) -> usize {
@@ -406,13 +413,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         } else {
             None
         }
-    }
-
-    fn is_empty_newline(&self) -> bool {
-        self.slice[self.pos..self.get_line_offset().1]
-            .iter()
-            .rev()
-            .all(|c| *c == b' ')
     }
 }
 
