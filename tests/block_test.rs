@@ -1785,3 +1785,59 @@ fn block_tag_anchor() {
     assert_eq_event(X2_9KAX_INPUT, X1_9KAX_EVENTS);
     assert_eq_event(X3_9KAX_INPUT, X3_9KAX_EVENTS);
 }
+
+const X1_DK95_INPUT: &str = r"
+foo: 'bar
+	baz'";
+
+const X1_DK95_EVENTS: &str = r"
++DOC
++MAP
+=VAL :foo
+ERR
+=VAL 'bar baz
+-MAP
+-DOC";
+
+const X2_DK95_INPUT: &str = r"
+foo: 
+	bar: baz";
+
+const X2_DK95_EVENTS: &str = r"
++DOC
++MAP
+=VAL :foo
+ERR
++MAP
+=VAL :bar
+=VAL :baz
+-MAP
+-MAP
+-DOC";
+
+const X3_DK95_INPUT: &str = r"
+foo:
+  a: 1
+  	b: 2";
+const X3_DK95_EVENTS: &str = r"
++DOC
++MAP
+=VAL :foo
++MAP
+=VAL :a
+=VAL :1
+ERR
+-MAP
++MAP
+=VAL :b
+=VAL :2
+-MAP
+-MAP
+-DOC";
+
+#[test]
+fn block_tab() {
+    assert_eq_event(X3_DK95_INPUT, X3_DK95_EVENTS);
+    assert_eq_event(X1_DK95_INPUT, X1_DK95_EVENTS);
+    assert_eq_event(X2_DK95_INPUT, X2_DK95_EVENTS);
+}
