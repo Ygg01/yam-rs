@@ -1604,6 +1604,19 @@ impl<B> Lexer<B> {
         }
     }
 
+    fn pop_states_in_err(&mut self, unwind: usize, tokens: &mut Vec<usize>) {
+        if unwind == 0 || self.curr_state() == DocBlock {
+            return;
+        }
+        for _ in 0..unwind {
+            match self.pop_state() {
+                Some(BlockSeq(_, _)) =>  tokens.push(SEQ_END),
+                Some(BlockMap(_, _) | BlockMapExp(_, _)) => tokens.push(MAP_END),
+                _ => {}
+            }
+        }
+    }
+
     fn unwind_to_root_start<R: Reader<B>>(&mut self, reader: &mut R) {
         let pos = reader.col();
         self.pop_block_states(self.stack.len().saturating_sub(1));
@@ -1860,6 +1873,7 @@ impl<B> Lexer<B> {
         };
         let last_indent = self.indent();
         let key_type = curr_state.get_key_type();
+        let mut error = None;
 
         loop {
             let had_comm = had_comment;
@@ -1968,17 +1982,17 @@ impl<B> Lexer<B> {
                 match curr_state {
                     DocBlock => {
                         self.read_line(reader);
-                        self.push_error_token(ExpectedIndent {
+                        error = Some(ExpectedIndent {
                             actual: curr_indent,
                             expected: scalar_start,
-                        }, &mut tokens);
+                        });
                     }
                     BlockMap(indent, _) | BlockMapExp(indent, _) => {
                         self.read_line(reader);
-                        self.push_error_token(ExpectedIndent {
+                        error = Some(ExpectedIndent {
                             actual: curr_indent,
                             expected: indent,
-                        }, &mut tokens);
+                        });
                     }
                     FlowMap(_) | FlowSeq  if last_indent < reader.col() => {
                         continue;
@@ -1989,6 +2003,10 @@ impl<B> Lexer<B> {
             }
         }
         let is_multiline = end_line != start_line;
+        if let Some(err) = error {
+            self.pop_states_in_err(1, &mut tokens);
+            self.push_error_token(err, &mut tokens);
+        }
         tokens.push(ScalarEnd as usize);
         NodeSpans {
             col_start: scalar_start,
