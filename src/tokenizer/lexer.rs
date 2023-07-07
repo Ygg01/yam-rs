@@ -19,8 +19,7 @@ use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{
-    self, is_flow_indicator, is_newline, is_plain_unsafe, is_valid_escape, is_valid_skip_char,
-    is_white_tab,
+    is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
 };
 use crate::tokenizer::ErrorType;
 
@@ -160,13 +159,34 @@ pub enum LexerState {
     // Flow nodes
     // u32 is the index of the token insertion point for flow nodes
     FlowSeq,
-    FlowMap,
+    FlowMap(MapState),
     // Blocks nodes
     // u32 is the indent of block node
     DocBlock,
     BlockSeq(u32, BlockSeqState),
     BlockMap(u32, MapState),
     BlockMapExp(u32, MapState),
+}
+
+#[derive(PartialEq, Clone, Copy)]
+pub(crate) enum KeyType {
+    NotKey,
+    KeyCandidate,
+    ComplexKey,
+}
+
+impl LexerState {
+    pub(crate) fn get_key_type(self) -> KeyType {
+        match self {
+            DocBlock
+            | FlowMap(BeforeFirstKey | BeforeKey)
+            | BlockMap(_, BeforeFirstKey | BeforeKey) => KeyType::KeyCandidate,
+            FlowMap(BeforeComplexKey) | BlockMapExp(_, _) | BlockMap(_, BeforeComplexKey) => {
+                KeyType::ComplexKey
+            }
+            _ => KeyType::NotKey,
+        }
+    }
 }
 
 #[derive(PartialEq)]
@@ -203,7 +223,7 @@ impl LexerState {
     #[inline]
     pub fn in_flow_collection(self) -> bool {
         match &self {
-            FlowSeq | FlowMap => true,
+            FlowSeq | FlowMap(_) => true,
             _ => false,
         }
     }
@@ -373,7 +393,7 @@ impl<B> Lexer<B> {
                     self.fetch_block_map(reader, curr_state);
                 }
                 BlockSeq(_, _) => self.fetch_block_seq(reader, curr_state),
-                FlowSeq | FlowMap => self.fetch_flow_node(reader),
+                FlowSeq | FlowMap(_) => self.fetch_flow_node(reader),
                 AfterDocBlock => self.fetch_after_doc(reader),
                 InDocEnd => self.fetch_end_doc(reader),
             }
@@ -394,7 +414,7 @@ impl<B> Lexer<B> {
                     self.tokens.push_back(SCALAR_END);
                     MAP_END
                 }
-                BlockMapExp(_, _) | BlockMap(_, _) | FlowMap => MAP_END,
+                BlockMapExp(_, _) | BlockMap(_, _) | FlowMap(_) => MAP_END,
                 FlowSeq => {
                     self.tokens.push_back(ERROR_TOKEN);
                     self.errors.push(MissingFlowClosingBracket);
@@ -915,7 +935,6 @@ impl<B> Lexer<B> {
             self.had_anchor = false;
             self.get_flow_seq(reader)
         } else if chr == b'{' {
-            self.push_state(FlowMap);
             self.had_anchor = false;
             self.get_flow_map(reader, MapState::default())
         } else {
@@ -989,7 +1008,7 @@ impl<B> Lexer<B> {
             }
         } else {
             let mut spans = self.prepend_tags_n_anchor();
-            let scal = self.get_plain_scalar(reader, FlowMap, &mut ScalarEnd::Plain);
+            let scal = self.get_plain_scalar(reader, self.curr_state(), &mut ScalarEnd::Plain);
             spans.extend(scal.spans);
             NodeSpans {
                 col_start: scal.col_start,
@@ -1034,7 +1053,6 @@ impl<B> Lexer<B> {
                 seq_state = BeforeElem;
             } else if chr == b'?' && is_white_tab_or_break(peek_next) {
                 spans.push(MAP_START_EXP);
-                self.push_state(FlowMap);
                 spans.extend(self.get_flow_map(reader, MapState::BeforeComplexKey).spans);
             } else if chr == b':'
                 && matches!(
@@ -1055,7 +1073,6 @@ impl<B> Lexer<B> {
                 spans.push(MAP_START_EXP);
                 spans.push(SCALAR_PLAIN);
                 spans.push(SCALAR_END);
-                self.push_state(FlowMap);
                 spans.extend(self.get_flow_map(reader, AfterColon).spans);
             } else {
                 let node = self.get_flow_node(reader);
@@ -1081,7 +1098,6 @@ impl<B> Lexer<B> {
                         };
                         spans.push(map_start);
                         spans.extend(node.spans);
-                        self.push_state(FlowMap);
                         spans.extend(self.get_flow_map(reader, AfterColon).spans);
                     }
                     seq_state.next_state();
@@ -1110,7 +1126,6 @@ impl<B> Lexer<B> {
                 } else {
                     MAP_START
                 };
-                self.push_state(FlowMap);
                 spans.insert(0, map_start);
                 spans.push(SEQ_END);
                 spans.extend(self.get_flow_map(reader, AfterColon).spans);
@@ -1136,6 +1151,8 @@ impl<B> Lexer<B> {
         let start_begin = reader.line();
         let col_start = reader.col();
         let is_nested = init_state != MapState::default();
+
+        self.push_state(FlowMap(map_state));
 
         if reader.peek_byte_is(&mut self.buf, b'{') {
             reader.consume_bytes(&mut self.buf, 1);
@@ -1458,7 +1475,6 @@ impl<B> Lexer<B> {
         tokens
     }
 
-    //TODO finish leading spaces
     fn skip_separation_spaces<R: Reader<B>>(&mut self, reader: &mut R) -> SeparationSpaceInfo {
         let lines = {
             let mut num_breaks = 0u32;
@@ -1843,15 +1859,15 @@ impl<B> Lexer<B> {
             _ => scalar_start,
         };
         let last_indent = self.indent();
+        let key_type = curr_state.get_key_type();
 
         loop {
             let had_comm = had_comment;
-            let (start, end, err) = reader.read_plain_one_line(
+            let (start, end, consume) = reader.read_plain_one_line(
                 &mut self.buf,
                 offset_start,
                 &mut had_comment,
                 in_flow_collection,
-                false,
             );
 
             if had_comm {
@@ -1864,10 +1880,21 @@ impl<B> Lexer<B> {
                     self.errors.push(UnexpectedScalarAtNodeEnd);
                     self.set_block_state(AfterDocBlock, reader.line());
                     break;
-                } else {
-                    self.push_error_token(UnexpectedCommentInScalar, &mut tokens);
-                    tokens.push(SCALAR_PLAIN);
-                    num_newlines = 0;
+                }
+
+                self.push_error_token(UnexpectedCommentInScalar, &mut tokens);
+                tokens.push(SCALAR_PLAIN);
+                num_newlines = 0;
+            }
+
+            if key_type == KeyType::NotKey && start_line != reader.line() {
+                let offset = reader.count_whitespace_from(&mut self.buf, consume);
+                if reader
+                    .peek_byte_at(&mut self.buf, offset)
+                    .map_or(false, |c| c == b':')
+                {
+                    *ends_with = ScalarEnd::Plain;
+                    break;
                 }
             }
 
@@ -1885,12 +1912,15 @@ impl<B> Lexer<B> {
 
             tokens.push(start);
             tokens.push(end);
+            reader.consume_bytes(&mut self.buf, consume);
 
             end_line = reader.line();
-            reader.skip_space_tab(&mut self.buf);
             let mut multliline_comment = false;
 
-            if reader.peek_byte(&mut self.buf).map_or(false, is_newline) {
+            if reader
+                .peek_byte(&mut self.buf)
+                .map_or(false, is_white_tab_or_break)
+            {
                 let folded_newline = self.skip_separation_spaces(reader);
                 multliline_comment = folded_newline.has_comment;
 
@@ -1901,12 +1931,21 @@ impl<B> Lexer<B> {
                 if multliline_comment {
                     had_comment = true;
                 }
+                if folded_newline.has_tab {
+                    self.has_tab = true;
+                }
                 curr_indent = reader.col();
             }
 
             let chr = reader.peek_byte_at(&mut self.buf, 0).unwrap_or(b'\0');
             let same_line = reader.line() == end_line;
 
+            if chr == b'?'
+                && matches!(key_type, KeyType::ComplexKey)
+                && matches!(curr_state, BlockMapExp(indent, _) if reader.col() == indent)
+            {
+                break;
+            }
             if chr == b'-' && matches!(curr_state, BlockSeq(indent, _) if reader.col() > indent) {
                 offset_start = Some(reader.pos());
             } else if (in_flow_collection && is_flow_indicator(chr)) || chr == b':' || chr == b'-' {
@@ -1941,14 +1980,11 @@ impl<B> Lexer<B> {
                             expected: indent,
                         }, &mut tokens);
                     }
-                    FlowMap | FlowSeq  if last_indent < reader.col() => {
+                    FlowMap(_) | FlowSeq  if last_indent < reader.col() => {
                         continue;
                     }
                     _ => {}
                 }
-                break;
-            } else if multliline_comment {
-                self.push_error_token(InvalidCommentInScalar, &mut tokens);
                 break;
             }
         }

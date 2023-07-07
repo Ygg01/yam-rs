@@ -275,9 +275,11 @@ const BLOCK_MULTI_INPUT: &str = r"
 const BLOCK_MULTI_EVENTS: &str = r"
 +DOC
 =VAL :word1
+-DOC
 ERR
 =VAL :word2
--DOC";
+-DOC
+ERR";
 
 #[test]
 pub fn block_plain_scalar() {
@@ -902,8 +904,26 @@ const X_7W2P_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X_5WE3_INPUT: &str = r"
+
+? explicit key # Empty value
+? |
+  block key";
+
+const X_5WE3_EVENTS: &str = r"
++DOC
++MAP
+=VAL :explicit key
+=VAL :
+=VAL |block key\n
+=VAL :
+-MAP
+-DOC";
+
 #[test]
 pub fn block_exp_map() {
+    assert_eq_event(X_5WE3_INPUT, X_5WE3_EVENTS);
+
     assert_eq_event(EXP_MAP_INPUT, EXP_MAP_EVENTS);
     assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_MIX_INPUT, EXP_BLOCK_MAP_MIX_EVENTS);
@@ -1678,7 +1698,8 @@ const X_BS4K_EVENTS: &str = r"
 -DOC
 ERR
 =VAL :line2
--DOC";
+-DOC
+ERR";
 
 #[test]
 fn block_multi_line() {
@@ -1827,10 +1848,10 @@ const X3_DK95_EVENTS: &str = r"
 =VAL :a
 =VAL :1
 ERR
--MAP
 +MAP
 =VAL :b
 =VAL :2
+-MAP
 -MAP
 -MAP
 -DOC";
