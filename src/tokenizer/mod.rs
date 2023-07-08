@@ -40,6 +40,7 @@ pub enum ErrorType {
     MissingWhitespaceAfterColon,
     MissingWhitespaceBeforeComment,
     MissingFlowClosingBracket,
+    NestedMappingsNotAllowed,
     NoDocStartAfterTag,
     NodeWithTwoAnchors,
     StartedBlockInFlow,

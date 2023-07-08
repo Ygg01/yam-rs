@@ -847,6 +847,11 @@ impl<B> Lexer<B> {
         self.errors.push(error);
     }
 
+    fn prepend_error_token(&mut self, error: ErrorType, spans: &mut Vec<usize>) {
+        spans.insert(0, ERROR_TOKEN);
+        self.errors.push(error);
+    }
+
     // TODO Uncomment once all test pass
     // #[inline]
     fn prepend_error(&mut self, error: ErrorType) {
@@ -1877,6 +1882,7 @@ impl<B> Lexer<B> {
 
         loop {
             let had_comm = had_comment;
+            
             let (start, end, consume) = reader.read_plain_one_line(
                 &mut self.buf,
                 offset_start,
@@ -1907,6 +1913,9 @@ impl<B> Lexer<B> {
                     .peek_byte_at(&mut self.buf, offset)
                     .map_or(false, |c| c == b':')
                 {
+                    if !self.has_tab && reader.col() > self.last_block_indent.unwrap_or(0) {
+                        self.prepend_error_token(ErrorType::NestedMappingsNotAllowed, &mut tokens);
+                    }
                     *ends_with = ScalarEnd::Plain;
                     break;
                 }
