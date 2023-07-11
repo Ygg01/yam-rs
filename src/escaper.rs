@@ -72,7 +72,7 @@ pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n',
         |input| match input {
-            [b'\\', b't' | b'r' | b'n', ..] => EscapeControl::Skip(2),
+            [b'\\', b't' | b'r' , ..] => EscapeControl::Skip(2),
             [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
             [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
             [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
