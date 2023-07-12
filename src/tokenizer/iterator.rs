@@ -27,7 +27,7 @@ pub struct EventIterator<'a, R, RB = &'a [u8], I = ()> {
     pub(crate) reader: R,
     pub(crate) buffer: RB,
     /// Lexer which controls current state of parsing
-    pub(crate) state: Lexer<I>,
+    pub(crate) state: Lexer,
     /// Tag of current node,
     pub(crate) tag: Option<Cow<'a, [u8]>>,
     /// Alias of current node,
@@ -40,7 +40,7 @@ impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
     fn from(value: &'a str) -> Self {
         EventIterator {
             reader: StrReader::from(value),
-            state: Lexer::new_from_buf(()),
+            state: Lexer::default(),
             buffer: value.as_bytes(),
             tag: None,
             anchor: None,
@@ -53,7 +53,7 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
     fn from(value: &'a [u8]) -> Self {
         EventIterator {
             reader: StrReader::from(value),
-            state: Lexer::new_from_buf(()),
+            state: Lexer::default(),
             buffer: value,
             tag: None,
             anchor: None,
@@ -64,11 +64,11 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
 
 impl<'a, R, RB, B> EventIterator<'a, R, RB, B> {
     #[inline]
-    pub fn new(reader: R, buffer: RB, src: B) -> EventIterator<'a, R, RB, B> {
+    pub fn new(reader: R, buffer: RB, _src: B) -> EventIterator<'a, R, RB, B> {
         EventIterator {
             reader,
             buffer,
-            state: Lexer::new_from_buf(src),
+            state: Lexer::default(),
             tag: None,
             anchor: None,
             phantom: PhantomData::default(),

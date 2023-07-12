@@ -51,44 +51,43 @@ pub trait Reader<B> {
     fn col(&self) -> u32;
     fn line(&self) -> u32;
     fn pos(&self) -> usize;
-    fn peek_chars(&self, buf: &mut B) -> &[u8];
-    fn peek_byte_at(&self, buf: &mut B, offset: usize) -> Option<u8>;
+    fn peek_chars(&self) -> &[u8];
+    fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     #[inline]
-    fn peek_byte(&self, buf: &mut B) -> Option<u8> {
-        self.peek_byte_at(buf, 0)
+    fn peek_byte(&self) -> Option<u8> {
+        self.peek_byte_at(0)
     }
     #[inline]
-    fn peek_byte_is(&self, buf: &mut B, needle: u8) -> bool {
-        match self.peek_byte_at(buf, 0) {
+    fn peek_byte_is(&self, needle: u8) -> bool {
+        match self.peek_byte_at(0) {
             Some(x) if x == needle => true,
             _ => false,
         }
     }
-    fn skip_space_tab(&mut self, buf: &mut B) -> usize;
-    fn consume_bytes(&mut self, buf: &mut B, amount: usize) -> usize;
+    fn skip_space_tab(&mut self) -> usize;
+    fn consume_bytes(&mut self, amount: usize) -> usize;
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
-    fn read_line(&mut self, buf: &mut B) -> (usize, usize);
-    fn count_spaces(&self, buf: &mut B) -> u32;
+    fn read_line(&mut self) -> (usize, usize);
+    fn count_spaces(&self) -> u32;
 
-    fn count_whitespace(&self, buf: &mut B) -> usize {
-        self.count_whitespace_from(buf, 0)
+    fn count_whitespace(&self) -> usize {
+        self.count_whitespace_from(0)
     }
-    fn count_whitespace_from(&self, buf: &mut B, offset: usize) -> usize;
+    fn count_whitespace_from(&self, offset: usize) -> usize;
     fn count_spaces_till(&self, indent: u32) -> usize;
-    fn is_empty_newline(&self, buf: &mut B) -> bool;
-    fn get_double_quote(&self, buf: &mut B) -> Option<usize>;
-    fn get_double_quote_trim(&self, buf: &mut B, start_str: usize) -> Option<(usize, usize)>;
-    fn get_single_quote(&self, buf: &mut B) -> Option<usize>;
-    fn get_single_quote_trim(&self, buf: &mut B, start_str: usize) -> Option<(usize, usize)>;
+    fn is_empty_newline(&self) -> bool;
+    fn get_double_quote(&self) -> Option<usize>;
+    fn get_double_quote_trim(&self, start_str: usize) -> Option<(usize, usize)>;
+    fn get_single_quote(&self) -> Option<usize>;
+    fn get_single_quote_trim(&self, start_str: usize) -> Option<(usize, usize)>;
     fn count_detect_space_tab(&mut self, has_tab: &mut bool) -> usize;
-    fn consume_anchor_alias(&mut self, buf: &mut B) -> (usize, usize);
-    fn read_tag(&mut self, buf: &mut B) -> (Option<ErrorType>, usize, usize, usize);
-    fn read_tag_handle(&mut self, buf: &mut B) -> Result<Vec<u8>, ErrorType>;
-    fn read_tag_uri(&mut self, buf: &mut B) -> Option<(usize, usize)>;
-    fn read_break(&mut self, buf: &mut B) -> Option<(usize, usize)>;
+    fn consume_anchor_alias(&mut self) -> (usize, usize);
+    fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
+    fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType>;
+    fn read_tag_uri(&mut self) -> Option<(usize, usize)>;
+    fn read_break(&mut self) -> Option<(usize, usize)>;
     fn read_plain_one_line(
         &mut self,
-        buf: &mut B,
         offset_start: Option<usize>,
         had_comment: &mut bool,
         in_flow_collection: bool,
