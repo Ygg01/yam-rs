@@ -1952,14 +1952,12 @@ const SEQ_EMPTY2_EVENTS: &str = r"
 -SEQ
 -DOC";
 
-
 #[test]
 pub fn block_seq_empty() {
     assert_eq_event(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS);
     assert_eq_event(SEQ_EMPTY2_INPUT, SEQ_EMPTY2_EVENTS);
     assert_eq_event(X1_Y79Y_004_INPUT, X1_Y79Y_004_EVENTS);
 }
-
 
 const X2_Y79Y_004_INPUT: &str = r"
 -	-";
@@ -1974,7 +1972,22 @@ ERR
 -SEQ
 -DOC";
 
+const X1_DC7X_INPUT: &str = r"
+seq:	
+  - a	";
+
+const X1_DC7X_EVENTS: &str = r"
++DOC
++MAP
+=VAL :seq
++SEQ
+=VAL :a
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 fn block_tab_indents() {
+    assert_eq_event(X1_DC7X_INPUT, X1_DC7X_EVENTS);
     assert_eq_event(X2_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
 }
