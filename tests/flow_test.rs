@@ -689,3 +689,27 @@ fn flow_alias() {
     assert_eq_event(FLOW_ALIAS_INPUT, FLOW_ALIAS_EVENTS);
     assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
 }
+
+const X1_Y79Y_003_INPUT: &str = r"
+- [
+ foo,
+ 	foo,
+	 foo,
+ ]";
+
+const X1_Y79Y_003_EVENTS: &str = r"
++DOC
++SEQ
++SEQ []
+=VAL :foo
+=VAL :foo
+ERR
+=VAL :foo
+-SEQ
+-SEQ
+-DOC";
+
+#[test]
+fn flow_in_seq_alias() {
+    assert_eq_event(X1_Y79Y_003_INPUT, X1_Y79Y_003_EVENTS);
+}
