@@ -67,23 +67,6 @@ impl<'a> StrReader<'a> {
         }
     }
 
-    pub(crate) fn get_line_offset(&self) -> (usize, usize, usize) {
-        let slice = self.slice;
-        let start = self.pos;
-        let haystack: &[u8] = &slice[start..];
-        memchr::memchr2_iter(b'\r', b'\n', haystack).next().map_or(
-            (start, self.slice.len(), self.slice.len()),
-            |pos| {
-                if haystack[pos] == b'\r' && pos < haystack.len() - 1 && haystack[pos + 1] == b'\n'
-                {
-                    (start, start + pos, start + pos + 2)
-                } else {
-                    (start, start + pos, start + pos + 1)
-                }
-            },
-        )
-    }
-
     pub(crate) fn get_quoteline_offset(&self, quote: u8) -> (usize, usize) {
         let slice = self.slice;
         let start = self.pos;
@@ -153,9 +136,26 @@ impl<'r> Reader<()> for StrReader<'r> {
         false
     }
 
+    fn get_read_line(&self) -> (usize, usize, usize) {
+        let slice = self.slice;
+        let start = self.pos;
+        let haystack: &[u8] = &slice[start..];
+        memchr::memchr2_iter(b'\r', b'\n', haystack).next().map_or(
+            (start, self.slice.len(), self.slice.len()),
+            |pos| {
+                if haystack[pos] == b'\r' && pos < haystack.len() - 1 && haystack[pos + 1] == b'\n'
+                {
+                    (start, start + pos, start + pos + 2)
+                } else {
+                    (start, start + pos, start + pos + 1)
+                }
+            },
+        )
+    }
+
     #[inline]
     fn read_line(&mut self) -> (usize, usize) {
-        let (start, end, consume) = self.get_line_offset();
+        let (start, end, consume) = self.get_read_line();
         self.pos = consume;
         self.line += 1;
         self.col = 0;
@@ -198,7 +198,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     fn is_empty_newline(&self) -> bool {
-        self.slice[self.pos..self.get_line_offset().1]
+        self.slice[self.pos..self.get_read_line().1]
             .iter()
             .rev()
             .all(|c| *c == b' ')
@@ -235,7 +235,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         in_flow_collection: bool,
     ) -> (usize, usize, usize) {
         let start = offset_start.unwrap_or(self.pos);
-        let (_, line_end, _) = self.get_line_offset();
+        let (_, line_end, _) = self.get_read_line();
         let end = self.pos + 1;
         let line_end = StrReader::eof_or_pos(self, line_end);
         let mut end_of_str = end;
@@ -304,7 +304,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         match self.peek_chars() {
             [b'!', b'<', ..] => {
                 let start = self.consume_bytes(2);
-                let (line_start, line_end, _) = self.get_line_offset();
+                let (line_start, line_end, _) = self.get_read_line();
                 let haystack = &self.slice[line_start..line_end];
                 if let Some(end) = memchr(b'>', haystack) {
                     self.consume_bytes(end + 1);
@@ -322,7 +322,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             [b'!', ..] => {
                 let start = self.pos;
                 self.consume_bytes(1);
-                let (_, line_end, _) = self.get_line_offset();
+                let (_, line_end, _) = self.get_read_line();
                 let haystack = &self.slice[self.pos..line_end];
                 let find_pos = match memchr(b'!', haystack) {
                     Some(find) => find + 1,
@@ -415,19 +415,19 @@ pub fn test_offset() {
 
     let input = "\n  rst\n".as_bytes();
     let mut reader = StrReader::from(input);
-    let (start, end, consume) = reader.get_line_offset();
+    let (start, end, consume) = reader.get_read_line();
     assert_eq!(start, 0);
     assert_eq!(end, 0);
     assert_eq!(b"", input.slice(start, end));
     assert_eq!(consume, 1);
     reader.read_line();
-    let (start, end, consume) = reader.get_line_offset();
+    let (start, end, consume) = reader.get_read_line();
     assert_eq!(start, 1);
     assert_eq!(end, 6);
     assert_eq!(b"  rst", input.slice(start, end));
     assert_eq!(consume, 7);
     reader.read_line();
-    let (start, end, consume) = reader.get_line_offset();
+    let (start, end, consume) = reader.get_read_line();
     assert_eq!(start, 7);
     assert_eq!(end, 7);
     assert_eq!(b"", input.slice(start, end));
