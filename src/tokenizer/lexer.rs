@@ -165,12 +165,14 @@ impl LexerState {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub(crate) enum ChompIndicator {
     /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
     Strip,
     ///  `` final line break character is preserved in the scalar’s content
     Clip,
+    ///  `` final line break character is preserved in the scalar’s content but only containing whitespaces
+    // ClipEmpty,
     /// `+` final line break and any trailing empty lines are considered to be part of the scalar’s content
     Keep,
 }
@@ -356,7 +358,7 @@ macro_rules! impl_quote {
     };
 }
 
-impl Lexer  {
+impl Lexer {
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
         self.continue_processing = true;
 
@@ -1246,7 +1248,11 @@ impl Lexer  {
         QuoteState::Start
     }
 
-    fn process_double_quote_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    fn process_double_quote_block<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        curr_state: LexerState,
+    ) {
         let had_tab = self.has_tab;
         let scalar_line: u32 = reader.line();
         let scalar = self.process_double_quote(reader, false);
@@ -1503,9 +1509,9 @@ impl Lexer  {
             }
             SeparationSpaceInfo {
                 num_breaks,
-                has_leading_tab,
-                has_tab,
                 has_comment,
+                has_tab,
+                has_leading_tab,
             }
         };
         if lines.num_breaks > 0 {
@@ -2123,7 +2129,11 @@ impl Lexer  {
         self.col_start = None;
     }
 
-    fn process_single_quote_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    fn process_single_quote_block<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        curr_state: LexerState,
+    ) {
         let has_tab = self.has_tab;
         let scalar_line = reader.line();
         let scalar = self.process_single_quote(reader, false);
@@ -2138,7 +2148,7 @@ impl Lexer  {
         &mut self,
         reader: &mut R,
         literal: bool,
-        curr_state: LexerState,
+        _curr_state: LexerState,
         block_indent: u32,
     ) -> Vec<usize> {
         let mut chomp = ChompIndicator::Clip;
@@ -2166,24 +2176,26 @@ impl Lexer  {
                 break;
             }
 
+            /*
             let map_indent = reader.col() + reader.count_spaces();
             let prefix_indent = reader.col() + block_indent;
             let is_line_empty = reader.is_empty_newline();
             let indent_has_reduced = map_indent <= block_indent && prev_indent != block_indent;
-            let check_block_indent = reader.peek_byte_at(block_indent as usize).unwrap_or(b'\0');
+            let peek_chr = reader.peek_byte_at(block_indent as usize).unwrap_or(b'\0');
 
-            if (check_block_indent == b'-'
+            if (peek_chr == b'-'
                 && matches!(curr_state, BlockSeq(ind, _) if prefix_indent <= ind ))
-                || (check_block_indent == b':'
+                || (peek_chr == b':'
                     && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent <= ind))
             {
                 reader.consume_bytes(block_indent as usize);
                 break;
-            } else if indent_has_reduced
-                && matches!(curr_state, BlockMap(ind, _) if ind <= map_indent && !is_line_empty)
-            {
-                break;
-            }
+            } else if indent_has_reduced && !is_line_empty {
+                match curr_state {
+                    BlockMap(ind, _) if ind <= map_indent => break,
+                    _ => {},
+                }
+            }*/
 
             state = match state {
                 LiteralStringState::AutoIndentation => self.process_autoindentation(
@@ -2199,7 +2211,7 @@ impl Lexer  {
                         self.process_indentation(
                             reader,
                             indent,
-                            literal,
+                            (literal, chomp),
                             &mut prev_indent,
                             &mut new_lines,
                             &mut tokens,
@@ -2214,16 +2226,14 @@ impl Lexer  {
 
         match chomp {
             ChompIndicator::Keep => {
-                if new_lines > 0 {
-                    tokens.push(NEWLINE);
-                    tokens.push(new_lines as usize);
-                }
+                tokens.push(NEWLINE);
+                tokens.push(new_lines as usize);
             }
-            ChompIndicator::Clip => {
+            ChompIndicator::Clip if new_lines >= 1 => {
                 tokens.push(NEWLINE);
                 tokens.push(1);
             }
-            ChompIndicator::Strip => {}
+            _ => {}
         }
         tokens.push(ScalarEnd as usize);
 
@@ -2391,39 +2401,30 @@ impl Lexer  {
         &mut self,
         reader: &mut R,
         indent: u32,
-        literal: bool,
+        lit_chomp: (bool, ChompIndicator),
         prev_indent: &mut u32,
         new_lines: &mut u32,
         tokens: &mut Vec<usize>,
     ) -> LiteralStringState {
         let curr_indent = reader.count_spaces();
-        if curr_indent < indent {
-            if reader.peek_byte_at(curr_indent as usize) == Some(b'#') {
-                return LiteralStringState::Comment;
-            }
-            if literal {
-                tokens.push(NewLine as usize);
-                tokens.push(*new_lines as usize);
-                *prev_indent = curr_indent;
-            } else {
-                tokens.push(NewLine as usize);
-                tokens.push(new_lines.saturating_sub(1) as usize);
-            }
-            *new_lines = 0;
-            tokens.push(ERROR_TOKEN);
-            self.errors.push(ExpectedIndent {
-                actual: curr_indent,
-                expected: indent,
-            });
-            return LiteralStringState::End;
-        }
+        let next_state = match fun_name(
+            curr_indent,
+            indent,
+            reader,
+            lit_chomp,
+            new_lines,
+            prev_indent,
+        ) {
+            v @ (LiteralStringState::Comment |   LiteralStringState::End) => return v,
+            x => x,
+        };
         reader.consume_bytes(indent as usize);
         let (start, end) = reader.read_line();
         if start == end {
             *new_lines += 1;
         } else {
             if *new_lines > 0 {
-                if !literal && *prev_indent == curr_indent && curr_indent == indent {
+                if !lit_chomp.0 && *prev_indent == curr_indent && curr_indent == indent {
                     tokens.push(NewLine as usize);
                     tokens.push(new_lines.saturating_sub(1) as usize);
                 } else {
@@ -2436,8 +2437,40 @@ impl Lexer  {
             tokens.push(end);
             *new_lines = 1;
         }
-        LiteralStringState::Indentation(indent)
+        next_state
     }
+}
+
+fn fun_name<B, R: Reader<B>>(
+    curr_indent: u32,
+    indent: u32,
+    reader: &mut R,
+    lit_chomp: (bool, ChompIndicator),
+    new_lines: &mut u32,
+    prev_indent: &mut u32,
+) -> LiteralStringState {
+    if curr_indent < indent {
+        if reader.peek_byte_at(curr_indent as usize) == Some(b'#') {
+            return LiteralStringState::Comment;
+        }
+
+        match lit_chomp {
+            (_, ChompIndicator::Strip) => {
+                *new_lines = 0;
+            }
+            (true, _) => {
+                *prev_indent = curr_indent;
+            }
+            (false, ChompIndicator::Keep) => {
+                *new_lines += 1;
+            }
+
+            _ => {}
+        }
+
+        return LiteralStringState::End;
+    }
+    LiteralStringState::Indentation(indent)
 }
 
 #[inline]

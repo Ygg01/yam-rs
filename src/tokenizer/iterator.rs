@@ -62,19 +62,6 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
     }
 }
 
-impl<'a, R, RB, B> EventIterator<'a, R, RB, B> {
-    #[inline]
-    pub fn new(reader: R, buffer: RB, _src: B) -> EventIterator<'a, R, RB, B> {
-        EventIterator {
-            reader,
-            buffer,
-            state: Lexer::default(),
-            tag: None,
-            anchor: None,
-            phantom: PhantomData::default(),
-        }
-    }
-}
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ScalarType {

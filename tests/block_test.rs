@@ -337,7 +337,7 @@ strip: |-
   text
 clip: |
   text
-keep: |
+keep: |+
   text";
 
 const LIT_STR2_EVENTS: &str = r"
@@ -433,6 +433,72 @@ pub fn block_literal() {
     assert_eq_event(LITERAL3_INPUT, LITERAL3_EVENTS);
     assert_eq_event(LIT_STR2_INPUT, LIT_STR2_EVENTS);
     assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
+}
+
+const X1_Y79Y_000_INPUT: &str = r"
+  foo: |
+  			
+			
+";
+
+const X1_Y79Y_000_EVENTS: &str = r"
++DOC
++MAP
+=VAL :foo
+=VAL |
+-MAP
+-DOC";
+
+const X2_Y79Y_000_INPUT: &str = r"
+foo: 
+	
+bar: 1";
+
+const X2_Y79Y_000_EVENTS: &str = r"
++DOC
++MAP
+=VAL :foo
+=VAL :
+=VAL :bar
+=VAL :1
+-MAP
+-DOC";
+
+const X3_Y79Y_000_INPUT: &str = r"
+foo: |
+	
+	
+bar: 1";
+
+const X3_Y79Y_000_EVENTS: &str = r"
++DOC
++MAP
+=VAL :foo
+ERR
+=VAL :bar
+=VAL :1
+-MAP
+-DOC";
+
+const X4_Y79Y_000_INPUT: &str = r"
+  foo: |
+  x";
+
+const X4_Y79Y_000_EVENTS: &str = r"
++DOC
++MAP
+=VAL :foo
+ERR
+=VAL |x\n
+-MAP
+-DOC";
+
+#[test]
+pub fn block_literal_indents() {
+    // assert_eq_event(X3_Y79Y_000_INPUT, X3_Y79Y_000_EVENTS);
+    // assert_eq_event(X1_Y79Y_000_INPUT, X1_Y79Y_000_EVENTS);
+    // assert_eq_event(X2_Y79Y_000_INPUT, X2_Y79Y_000_EVENTS);
+    // assert_eq_event(X4_Y79Y_000_INPUT, X4_Y79Y_000_EVENTS);
 }
 
 const LITERAL_ERR_INPUT: &str = r"

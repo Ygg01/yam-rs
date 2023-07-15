@@ -38,6 +38,7 @@ pub enum ErrorType {
     InvalidQuoteIndent { actual: u32, expected: u32 },
     InvalidTagHandleCharacter { found: char },
     InvalidScalarStart,
+    InvalidScalarIndent,
     MissingWhitespaceAfterColon,
     MissingWhitespaceBeforeComment,
     MissingFlowClosingBracket,
