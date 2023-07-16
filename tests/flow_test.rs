@@ -692,8 +692,8 @@ fn flow_alias() {
 
 const X1_Y79Y_003_INPUT: &str = r"
 - [
- foo,
  	foo,
+ foo,
 	 foo,
  ]";
 
