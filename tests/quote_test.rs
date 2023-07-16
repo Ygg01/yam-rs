@@ -173,6 +173,7 @@ const DQUOTE_MISS_EOF_EVENTS: &str = r#"
 +MAP
 =VAL :key
 ERR
+ERR
 =VAL "missing
 -MAP
 -DOC"#;
@@ -189,6 +190,8 @@ const DQUOTE_INDENT_ERR_EVENTS: &str = r#"
 +DOC ---
 +MAP
 =VAL :quoted
+ERR
+ERR
 ERR
 =VAL "a b c
 -MAP
