@@ -1251,17 +1251,18 @@ const NESTED_EVENTS: &str = r"
 -MAP
 -DOC";
 
-const X_9C9N_INPUT: &str = r"
+const X1_9C9N_INPUT: &str = r"
 flow: [a,
 b,
  c]";
 
-const X_9C9N_EVENTS: &str = r"
+const X1_9C9N_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :flow
 +SEQ []
 =VAL :a
+ERR
 ERR
 =VAL :b
 =VAL :c
@@ -1274,7 +1275,7 @@ pub fn block_map_complex() {
     assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
     assert_eq_event(NESTED_INPUT, NESTED_EVENTS);
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
-    assert_eq_event(X_9C9N_INPUT, X_9C9N_EVENTS);
+    assert_eq_event(X1_9C9N_INPUT, X1_9C9N_EVENTS);
 }
 
 const X_7ZZ5_INPUT: &str = r"
@@ -1334,10 +1335,10 @@ const X_8KB6_EVENTS: &str = r"
 
 const X1_6HB6_INPUT: &str = r"
 Not indented:
- Flow style: [    
-   By two,        
-  Also by two,    
-  	Still by two   
+ Flow style: [       # comment
+   By two,           # comment
+  Also by two,       # comment
+  	Still by two     # comment
     ]      # comment
 ";
 

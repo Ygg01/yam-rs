@@ -931,7 +931,6 @@ impl Lexer {
         } else {
             let start = reader.line();
             let mut scalar = self.get_scalar_node(reader, chr);
-            // self.check_flow_indent(scalar.col_start, &mut scalar.spans);
             let post_end = reader.line();
             scalar.is_multiline = start != post_end;
             scalar
@@ -941,7 +940,7 @@ impl Lexer {
     fn get_scalar_node<B, R: Reader<B>>(&mut self, reader: &mut R, chr: u8) -> NodeSpans {
         let mut scal_spans: Vec<usize> = Vec::with_capacity(10);
         if is_white_tab_or_break(chr) {
-            self.flow_skip_spaces(reader, &mut scal_spans);
+            self.skip_separation_spaces(reader);
             NodeSpans::default()
         } else if chr == b'&' {
             self.prev_anchor = self.try_parse_anchor(reader);
@@ -1005,6 +1004,7 @@ impl Lexer {
         let mut seq_state = BeforeFirst;
         let mut spans = self.prepend_tags_n_anchor();
         let mut end_found = false;
+        // let mut leading_tab: bool = false;
 
         spans.push(SEQ_START_EXP);
         reader.consume_bytes(1);
@@ -1018,7 +1018,11 @@ impl Lexer {
             let peek_next = reader.peek_byte_at(1).unwrap_or(b'\0');
 
             if is_white_tab_or_break(chr) {
-                self.flow_skip_spaces(reader, &mut spans);
+                let num_ind = self.skip_separation_spaces(reader).num_indent;
+
+                if num_ind < self.indent() {
+                    self.push_error_token(ErrorType::TabsNotAllowedAsIndentation, &mut spans);
+                }
             } else if chr == b']' {
                 reader.consume_bytes(1);
                 end_found = true;
@@ -1057,6 +1061,8 @@ impl Lexer {
                 spans.extend(self.get_flow_map(reader, AfterColon).spans);
             } else {
                 let node = self.get_flow_node(reader);
+                self.check_flow_indent(node.col_start, &mut spans);
+
                 let skip_colon_space = is_skip_colon_space(&node);
                 let offset = reader.count_whitespace();
                 if reader.peek_byte_at(offset).map_or(false, |c| c == b':') {
@@ -1120,17 +1126,10 @@ impl Lexer {
     }
 
     #[inline]
-    fn flow_skip_spaces<B, R: Reader<B>>(&mut self, reader: &mut R, spans: &mut Vec<usize>) {
-        let sep_inf = self.skip_separation_spaces(reader);
+    fn check_flow_indent(&mut self, actual: u32, spans: &mut Vec<usize>) {
         let expected = self.indent();
-        if sep_inf.num_indent < expected {
-            self.push_error_token(
-                ExpectedIndent {
-                    actual: sep_inf.num_indent,
-                    expected,
-                },
-                spans,
-            );
+        if actual < expected {
+            self.push_error_token(ExpectedIndent { actual, expected }, spans);
         }
     }
 
@@ -1167,7 +1166,7 @@ impl Lexer {
             let peek_next = reader.peek_byte_at(1);
 
             if is_white_tab_or_break(chr) {
-                self.flow_skip_spaces(reader, &mut spans);
+                self.skip_separation_spaces(reader);
             } else if chr == b'}' {
                 reader.consume_bytes(1);
                 is_end_emitted = true;
@@ -1202,6 +1201,7 @@ impl Lexer {
                 reader.skip_space_tab();
 
                 let node_spans = self.get_flow_node(reader);
+                self.check_flow_indent(node_spans.col_start, &mut spans);
                 if node_spans.is_empty() {
                     push_empty(&mut spans);
                 } else {
@@ -1210,6 +1210,7 @@ impl Lexer {
                 map_state.set_next_state();
             } else {
                 let scalar_spans = self.get_flow_node(reader);
+                self.check_flow_indent(scalar_spans.col_start, &mut spans);
                 skip_colon_space = is_skip_colon_space(&scalar_spans);
                 if !scalar_spans.is_empty() {
                     map_state.set_next_state();
@@ -1419,7 +1420,7 @@ impl Lexer {
                     self.push_error(UnexpectedScalarAtNodeEnd);
                 }
                 BlockMapExp(_, _) | BlockMap(_, _) | BlockSeq(_, BeforeElem | BeforeFirst) => {
-                    self.next_substate()
+                    self.next_substate();
                 }
                 BlockSeq(_, InSeqElem) => {
                     self.push_error(ErrorType::ExpectedSeqStart);
@@ -1482,8 +1483,10 @@ impl Lexer {
                 if !reader.peek_byte().map_or(false, is_valid_skip_char) || reader.eof() {
                     break;
                 }
-                let (indent, amount) = reader.count_space_then_tab();
-                has_tab = indent as usize != amount;
+                let sep = reader.count_space_then_tab();
+                num_indent = sep.0;
+                let amount = sep.1;
+                has_tab = num_indent as usize != amount;
                 let is_comment = reader.peek_byte_at(amount).map_or(false, |c| c == b'#');
 
                 if has_comment && !is_comment {
