@@ -2009,21 +2009,7 @@ const SEQ_EMPTY2_EVENTS: &str = r"
 pub fn block_seq_empty() {
     assert_eq_event(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS);
     assert_eq_event(SEQ_EMPTY2_INPUT, SEQ_EMPTY2_EVENTS);
-    assert_eq_event(X1_Y79Y_004_INPUT, X1_Y79Y_004_EVENTS);
 }
-
-const X2_Y79Y_004_INPUT: &str = r"
--	-";
-
-const X2_Y79Y_004_EVENTS: &str = r"
-+DOC
-+SEQ
-+SEQ
-ERR
-=VAL :
--SEQ
--SEQ
--DOC";
 
 const X1_DC7X_INPUT: &str = r"
 seq:	
@@ -2039,8 +2025,75 @@ const X1_DC7X_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X2_Y79Y_004_INPUT: &str = r"
+-	-";
+
+const X2_Y79Y_004_EVENTS: &str = r"
++DOC
++SEQ
+ERR
++SEQ
+=VAL :
+-SEQ
+-SEQ
+-DOC";
+
+const X3_Y79Y_004_INPUT: &str = r"
+-	-
+ ";
+
+
+const X1_Y79Y_006_INPUT: &str = r"
+?	-";
+
+const X1_Y79Y_006_EVENTS: &str = r"
++DOC
++MAP
+ERR
++SEQ
+=VAL :
+-SEQ
+=VAL :
+-MAP
+-DOC";
+
+const X2_Y79Y_006_INPUT: &str = r"
+? -";
+
+const X2_Y79Y_006_EVENTS: &str = r"
++DOC
++MAP
++SEQ
+=VAL :
+-SEQ
+=VAL :
+-MAP
+-DOC";
+
+const X3_Y79Y_006_INPUT: &str = r"
+? -
+";
+
+const X3_Y79Y_006_EVENTS: &str = r"
++DOC
++MAP
++SEQ
+=VAL :
+-SEQ
+=VAL :
+-MAP
+-DOC";
+
+
 #[test]
 fn block_tab_indents() {
     assert_eq_event(X1_DC7X_INPUT, X1_DC7X_EVENTS);
+    
+    assert_eq_event(X1_Y79Y_004_INPUT, X1_Y79Y_004_EVENTS);
     assert_eq_event(X2_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
+    assert_eq_event(X3_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
+    
+    assert_eq_event(X1_Y79Y_006_INPUT, X1_Y79Y_006_EVENTS);
+    assert_eq_event(X2_Y79Y_006_INPUT, X2_Y79Y_006_EVENTS);
+    assert_eq_event(X3_Y79Y_006_INPUT, X3_Y79Y_006_EVENTS);
 }

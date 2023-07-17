@@ -73,6 +73,7 @@ pub trait Reader<B> {
             && self.col() == 0
     }
     fn skip_space_tab(&mut self) -> usize;
+    fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn get_read_line(&self) -> (usize, usize, usize);
