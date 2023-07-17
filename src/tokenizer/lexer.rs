@@ -142,6 +142,7 @@ pub enum LexerState {
     DocBlock,
     BlockSeq(u32, SeqState),
     BlockMap(u32, MapState),
+    //TODO Move Explicit key to MapState
     BlockMapExp(u32, MapState),
 }
 
@@ -810,6 +811,7 @@ impl Lexer {
         let is_key = reader.peek_byte().map_or(false, |chr| chr == b':');
 
         self.process_block_scalar(
+            reader,
             curr_state,
             is_key,
             NodeSpans {
@@ -874,6 +876,7 @@ impl Lexer {
         self.next_substate();
         if next_is_colon {
             self.process_block_scalar(
+                reader,
                 self.curr_state(),
                 true,
                 NodeSpans {
@@ -1273,7 +1276,7 @@ impl Lexer {
 
         let is_key = reader.peek_byte().map_or(false, |chr| chr == b':');
 
-        self.process_block_scalar(curr_state, is_key, scalar, had_tab, scalar_line);
+        self.process_block_scalar(reader, curr_state, is_key, scalar, had_tab, scalar_line);
     }
 
     impl_quote!(process_double_quote(SCALAR_DQUOTE), double_quote_trim(get_double_quote_trim, b'"'), double_quote_start(get_double_quote) => double_quote_match);
@@ -1349,8 +1352,9 @@ impl Lexer {
             .map_or(false, |indent| indent >= x.num_indent)
     }
 
-    fn process_block_scalar(
+    fn process_block_scalar<B, R: Reader<B>>(
         &mut self,
+        reader: &mut R,
         curr_state: LexerState,
         is_key: bool,
         scalar: NodeSpans,
@@ -1372,6 +1376,7 @@ impl Lexer {
                     }
                 }
                 BlockMap(ind, _) | BlockSeq(ind, _) if scal > ind => true,
+                BlockMapExp(ind, _)  if scal > ind && matches!(self.last_map_line, Some(x) if x == reader.line()) => true,
                 _ => false,
             };
             let scalar_start = scalar;
@@ -1590,6 +1595,10 @@ impl Lexer {
         }
         for _ in 0..unwind {
             match self.pop_state() {
+                Some(BlockSeq(_, SeqState::BeforeFirst)) => {
+                    self.push_empty_token();
+                    self.tokens.push_back(SEQ_END);
+                },
                 Some(BlockSeq(_, _)) => self.tokens.push_back(SEQ_END),
                 Some(BlockMap(_, AfterColon) | BlockMapExp(_, AfterColon)) => {
                     self.push_empty_token();
@@ -1717,7 +1726,7 @@ impl Lexer {
         };
         self.pop_other_states(scalar.col_start, scalar_type);
 
-        self.process_block_scalar(curr_state, is_key, scalar, has_tab, scalar_line);
+        self.process_block_scalar(reader, curr_state, is_key, scalar, has_tab, scalar_line);
     }
 
     fn pop_other_states(&mut self, scalar_start: u32, scalar_type: ScalarEnd) {
@@ -1859,7 +1868,7 @@ impl Lexer {
         ends_with: &mut ScalarEnd,
     ) -> NodeSpans {
         let mut curr_indent = match curr_state {
-            BlockMapExp(ind, _) => ind,
+            // BlockMapExp(ind, _) => ind,
             _ => reader.col(),
         };
         let start_line = reader.line();
@@ -1872,7 +1881,7 @@ impl Lexer {
         let mut num_newlines = 0;
         let scalar_start = self.scalar_start(curr_state, reader.col());
         let scalar_limit = match curr_state {
-            BlockSeq(x, _) => x,
+            BlockMapExp(x, _) | BlockSeq(x, _) => x,
             _ => scalar_start,
         };
         let last_indent = self.indent();
@@ -2015,7 +2024,6 @@ impl Lexer {
 
     fn scalar_start(&mut self, curr_state: LexerState, curr_col: u32) -> u32 {
         match curr_state {
-            BlockMapExp(ind, _) => ind,
             BlockSeq(_, _) | BlockMap(_, BeforeColon | AfterColon) | DocBlock => {
                 self.col_start.unwrap_or(curr_col)
             }
@@ -2155,7 +2163,7 @@ impl Lexer {
 
         let ends_with = reader.peek_byte().map_or(false, |chr| chr == b':');
 
-        self.process_block_scalar(curr_state, ends_with, scalar, has_tab, scalar_line);
+        self.process_block_scalar(reader, curr_state, ends_with, scalar, has_tab, scalar_line);
     }
 
     fn read_block_scalar<B, R: Reader<B>>(
