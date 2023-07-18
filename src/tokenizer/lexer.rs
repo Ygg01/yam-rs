@@ -910,6 +910,22 @@ impl Lexer {
         }
     }
 
+    fn try_parse_tag<B, R: Reader<B>>(&mut self, reader: &mut R, spans: &mut Vec<usize>) -> bool {
+        match reader.read_tag() {
+            (Some(err), ..) => {
+                self.push_error(err);
+                false
+            }
+            (None, start, mid, end) => {
+                spans.push(TAG_START);
+                spans.push(start);
+                spans.push(mid);
+                spans.push(end);
+                true
+            }
+        }
+    }
+
     fn fetch_flow_node<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let tokens = self.get_flow_node(reader);
         self.tokens.extend(tokens.spans);
@@ -945,14 +961,20 @@ impl Lexer {
 
     fn get_scalar_node<B, R: Reader<B>>(&mut self, reader: &mut R, chr: u8) -> NodeSpans {
         let mut scal_spans: Vec<usize> = Vec::with_capacity(10);
+        let col_start = reader.col();
         if is_white_tab_or_break(chr) {
             self.skip_separation_spaces(reader);
             NodeSpans::default()
         } else if chr == b'&' {
             self.prev_anchor = self.try_parse_anchor(reader);
             NodeSpans::default()
+        } else if chr == b'!' && self.try_parse_tag(reader, &mut scal_spans) {
+            NodeSpans {
+                col_start,
+                is_multiline: false,
+                spans: scal_spans,
+            }
         } else if chr == b'*' {
-            let col_start = reader.col();
             let alias = reader.consume_anchor_alias();
 
             scal_spans.push(ALIAS);
@@ -1010,7 +1032,6 @@ impl Lexer {
         let mut seq_state = BeforeFirst;
         let mut spans = self.prepend_tags_n_anchor();
         let mut end_found = false;
-        // let mut leading_tab: bool = false;
 
         spans.push(SEQ_START_EXP);
         reader.consume_bytes(1);
@@ -1092,7 +1113,9 @@ impl Lexer {
                     }
                     seq_state.set_next_state();
                 } else if !node.spans.is_empty() {
-                    seq_state.set_next_state();
+                    if !Lexer::is_fake_node(&node) {
+                        seq_state.set_next_state();
+                    }
                     spans.extend(node.spans);
                 }
             }
@@ -1137,6 +1160,11 @@ impl Lexer {
         if actual < expected {
             self.push_error_token(ExpectedIndent { actual, expected }, spans);
         }
+    }
+
+    #[inline]
+    fn is_fake_node(node: &NodeSpans) -> bool {
+        matches!(node.spans.first(), None | Some(&TAG_START))
     }
 
     fn get_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, init_state: MapState) -> NodeSpans {
@@ -1218,7 +1246,7 @@ impl Lexer {
                 let scalar_spans = self.get_flow_node(reader);
                 self.check_flow_indent(scalar_spans.col_start, &mut spans);
                 skip_colon_space = is_skip_colon_space(&scalar_spans);
-                if !scalar_spans.is_empty() {
+                if !Lexer::is_fake_node(&scalar_spans) {
                     map_state.set_next_state();
                 }
                 spans.extend(scalar_spans.spans);
@@ -1376,7 +1404,12 @@ impl Lexer {
                     }
                 }
                 BlockMap(ind, _) | BlockSeq(ind, _) if scal > ind => true,
-                BlockMapExp(ind, _)  if scal > ind && matches!(self.last_map_line, Some(x) if x == reader.line()) => true,
+                BlockMapExp(ind, _)
+                    if scal > ind
+                        && matches!(self.last_map_line, Some(x) if x == reader.line()) =>
+                {
+                    true
+                }
                 _ => false,
             };
             let scalar_start = scalar;
@@ -1598,7 +1631,7 @@ impl Lexer {
                 Some(BlockSeq(_, SeqState::BeforeFirst)) => {
                     self.push_empty_token();
                     self.tokens.push_back(SEQ_END);
-                },
+                }
                 Some(BlockSeq(_, _)) => self.tokens.push_back(SEQ_END),
                 Some(BlockMap(_, AfterColon) | BlockMapExp(_, AfterColon)) => {
                     self.push_empty_token();
