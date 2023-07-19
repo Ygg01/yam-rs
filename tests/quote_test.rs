@@ -275,3 +275,29 @@ const DQUOTE_EMPTY1_EVENTS: &str = r"
 fn dquote_empty() {
     assert_eq_event(DQUOTE_EMPTY1_INPUT, DQUOTE_EMPTY1_EVENTS);
 }
+
+const X1_G4RS_INPUT: &str = r#"unicode: "Sosa did fine.\u263A""#;
+const X2_G4RS_INPUT: &str = r#"unicode: "Sosa did fine.☺""#;
+const X1_G4RS_EVENTS: &str = r#"
++DOC
++MAP
+=VAL :unicode
+=VAL "Sosa did fine.☺
+-MAP
+-DOC"#;
+
+const X3_G4RS_INPUT: &str = r#"hex esc: "\x0d\x0a is \r\n""#;
+const X3_G4RS_EVENTS: &str = r#"
++DOC
++MAP
+=VAL :hex esc
+=VAL "\r\n is \r\n
+-MAP
+-DOC"#;
+
+#[test]
+fn dquote_escape_unicode() {
+    assert_eq_event(X3_G4RS_INPUT, X3_G4RS_EVENTS);
+    assert_eq_event(X1_G4RS_INPUT, X1_G4RS_EVENTS);
+    assert_eq_event(X2_G4RS_INPUT, X1_G4RS_EVENTS);
+}

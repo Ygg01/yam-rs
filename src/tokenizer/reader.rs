@@ -170,6 +170,7 @@ pub(crate) fn is_tag_char(chr: u8) -> bool {
 #[inline]
 pub(crate) fn is_valid_escape(x: u8) -> bool {
     x == b'0'
+        || x == b'r'
         || x == b'n'
         || x == b'b'
         || x == b'\\'

@@ -316,8 +316,7 @@ macro_rules! impl_quote {
             tokens: &mut Vec<usize>,
         ) -> QuoteState {
             if reader.peek_stream_ending() {
-                self.errors.push(ErrorType::UnexpectedEndOfStream);
-                tokens.insert(0, ErrorToken as usize);
+                self.prepend_error_token(ErrorType::UnexpectedEndOfStream, tokens);
             };
             let indent = self.indent();
             if !matches!(self.curr_state(), DocBlock) && reader.col() <= indent {
@@ -1342,13 +1341,18 @@ impl Lexer {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
                 *start_str = reader.consume_bytes(1);
             }
+            [b'\\', b'x', ..] => {
+                reader.consume_bytes(2);
+            }
+            [b'\\', b'u' | b'U', ..] => {
+                reader.consume_bytes(2);
+            }
             [b'\\', x, ..] => {
                 if is_valid_escape(*x) {
                     emit_token_mut(start_str, match_pos, newspaces, tokens);
                     reader.consume_bytes(2);
                 } else {
-                    tokens.insert(0, ErrorToken as usize);
-                    self.errors.push(InvalidEscapeCharacter);
+                    self.prepend_error_token(InvalidEscapeCharacter, tokens);
                     reader.consume_bytes(2);
                 }
             }
