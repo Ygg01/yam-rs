@@ -1934,6 +1934,18 @@ impl Lexer {
             let (start, end, consume) =
                 reader.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
 
+
+            if key_type == KeyType::NotKey && start_line != reader.line() {
+                let offset = reader.count_whitespace_from(consume);
+                if reader.peek_byte_at(offset).map_or(false, |c| c == b':') {
+                    if !self.has_tab && reader.col() > self.last_block_indent.unwrap_or(0) {
+                        self.prepend_error_token(ErrorType::NestedMappingsNotAllowed, &mut tokens);
+                    }
+                    *ends_with = ScalarEnd::Plain;
+                    break;
+                }
+            }
+
             if had_comm {
                 if curr_state == DocBlock {
                     tokens.push(DOC_END);
@@ -1949,17 +1961,6 @@ impl Lexer {
                 self.push_error_token(UnexpectedCommentInScalar, &mut tokens);
                 tokens.push(SCALAR_PLAIN);
                 num_newlines = 0;
-            }
-
-            if key_type == KeyType::NotKey && start_line != reader.line() {
-                let offset = reader.count_whitespace_from(consume);
-                if reader.peek_byte_at(offset).map_or(false, |c| c == b':') {
-                    if !self.has_tab && reader.col() > self.last_block_indent.unwrap_or(0) {
-                        self.prepend_error_token(ErrorType::NestedMappingsNotAllowed, &mut tokens);
-                    }
-                    *ends_with = ScalarEnd::Plain;
-                    break;
-                }
             }
 
             match num_newlines {
