@@ -31,7 +31,7 @@ pub enum ErrorType {
     ExpectedIndentDocStart { actual: u32, expected: u32 },
     ExpectedNewlineInFolded,
     ImplicitKeysNeedToBeInline,
-    InvalidAnchorIndent { actual: u32, expected: u32},
+    InvalidAnchorIndent { actual: u32, expected: u32 },
     InvalidAnchorDeclaration,
     InvalidCommentStart,
     InvalidCommentInScalar,
