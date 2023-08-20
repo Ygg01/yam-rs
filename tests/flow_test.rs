@@ -277,8 +277,7 @@ const ERR_PLAIN_SCALAR_INPUT: &str = r"
 
 const ERR_PLAIN_SCALAR_EVENTS: &str = r"
 +DOC
-=VAL :a b
-ERR
+=VAL :a b c
 -DOC";
 
 #[test]
@@ -653,33 +652,6 @@ fn flow_custom_tag() {
     assert_eq_event(FLOW_TAG_INPUT, FLOW_TAG_EVENTS);
 }
 
-const FLOW_ALIAS_INPUT: &str = r"
-&seq [ &item 'a']
-";
-
-const FLOW_ALIAS_EVENTS: &str = r"
-+DOC
-+SEQ [] &seq
-=VAL &item 'a
--SEQ
--DOC";
-
-const ALIAS_N_COMP_MAP_INPUT: &str = r"
-&map
-&key [ &item a, b]: value
-";
-
-const ALIAS_N_COMP_MAP_EVENTS: &str = r"
-+DOC
-+MAP &map
-+SEQ [] &key
-=VAL &item :a
-=VAL :b
--SEQ
-=VAL :value
--MAP
--DOC";
-
 const X1_CN3R_INPUT: &str = r"
 [
  { &e e: f },
@@ -712,12 +684,51 @@ const X2_CN3R_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X3_CN3R_INPUT: &str = r"
+[&c c: d]
+";
+
+const X3_CN3R_EVENTS: &str = r"
++DOC
++SEQ []
++MAP {}
+=VAL &c :c
+=VAL :d
+-MAP
+-SEQ
+-DOC";
+
+const X4_CN3R_INPUT: &str = r"
+[&g {g: h}]";
+
+const X4_CN3R_EVENTS: &str = r"
++DOC
++SEQ []
++MAP {} &g
+=VAL :g
+=VAL :h
+-MAP
+-SEQ
+-DOC";
+
+const FLOW_ALIAS_INPUT: &str = r"
+&seq [ &item 'a']
+";
+
+const FLOW_ALIAS_EVENTS: &str = r"
++DOC
++SEQ [] &seq
+=VAL &item 'a
+-SEQ
+-DOC";
+
 #[test]
-fn flow_alias() {
+fn flow_anchor() {
+    assert_eq_event(X4_CN3R_INPUT, X4_CN3R_EVENTS);
+    assert_eq_event(X3_CN3R_INPUT, X3_CN3R_EVENTS);
     assert_eq_event(X2_CN3R_INPUT, X2_CN3R_EVENTS);
     assert_eq_event(X1_CN3R_INPUT, X1_CN3R_EVENTS);
     assert_eq_event(FLOW_ALIAS_INPUT, FLOW_ALIAS_EVENTS);
-    assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
 }
 
 const X1_Y79Y_003_INPUT: &str = r"
@@ -765,4 +776,25 @@ const X1_5T43_EVENTS: &str = r#"
 #[test]
 fn flow_mix() {
     assert_eq_event(X1_5T43_INPUT, X1_5T43_EVENTS);
+}
+
+const X1_FRK4_INPUT: &str = r"
+{
+    ? foo :,
+    : bar,
+}";
+
+const X1_FRK4_EVENTS: &str = r"
++DOC
++MAP {}
+=VAL :foo
+=VAL :
+=VAL :
+=VAL :bar
+-MAP
+-DOC";
+
+#[test]
+fn flow_exp_map() {
+    assert_eq_event(X1_FRK4_INPUT, X1_FRK4_EVENTS);
 }
