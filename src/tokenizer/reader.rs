@@ -52,6 +52,7 @@ pub trait Reader<B> {
     fn line(&self) -> u32;
     fn pos(&self) -> usize;
     fn peek_chars(&self) -> &[u8];
+    fn peek_two_chars(&self) -> &[u8];
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     #[inline]
     fn peek_byte(&self) -> Option<u8> {
@@ -60,6 +61,13 @@ pub trait Reader<B> {
     #[inline]
     fn peek_byte_is(&self, needle: u8) -> bool {
         match self.peek_byte_at(0) {
+            Some(x) if x == needle => true,
+            _ => false,
+        }
+    }
+    #[inline]
+    fn peek_byte_is_off(&self, needle: u8, offset: usize) -> bool {
+        match self.peek_byte_at(offset) {
             Some(x) if x == needle => true,
             _ => false,
         }

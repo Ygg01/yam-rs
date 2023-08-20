@@ -100,6 +100,11 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos
     }
 
+    fn peek_two_chars(&self) -> &[u8] {
+        let max = std::cmp::min(self.slice.len(), self.pos + 2);
+        &self.slice[self.pos..max]
+    }
+
     fn peek_chars(&self) -> &[u8] {
         let max = std::cmp::min(self.slice.len(), self.pos + 3);
         &self.slice[self.pos..max]
