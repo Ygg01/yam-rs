@@ -1454,6 +1454,9 @@ impl Lexer {
         tokens: &mut Vec<usize>,
     ) -> QuoteState {
         match reader.peek_chars() {
+            [b'\\', b' ', ..] => {
+                *start_str = reader.consume_bytes(1);
+            }
             [b'\\', b'\t', ..] => {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
                 emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);

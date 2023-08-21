@@ -30,8 +30,21 @@ const DQUOTE_ESC2_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 
+const X1_NP9H_INPUT: &str = r#"
+"folded 
+to a space,	
+ 
+to a line feed, or 	\
+ \ 	non-content""#;
+
+const X1_NP9H_EVENTS: &str = r#"
++DOC
+=VAL "folded to a space,\nto a line feed, or \t \tnon-content
+-DOC"#;
+
 #[test]
 fn dquote_escape() {
+    assert_eq_event(X1_NP9H_INPUT, X1_NP9H_EVENTS);
     assert_eq_event(DQUOTE_ESC1_INPUT, DQUOTE_ESC1_EVENTS);
     assert_eq_event(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS);
     assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
