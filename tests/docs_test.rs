@@ -81,8 +81,8 @@ const ERR_MULTIDOC_EVENTS: &str = r"
 %YAML 1.2
 +DOC ---
 ERR
-ERR
 -DOC
+ERR
 %YAML 1.2
 +DOC ---
 =VAL :
@@ -293,14 +293,30 @@ const X1_9HCY_INPUT: &str = r#"
 const X1_9HCY_EVENTS: &str = r#"
 +DOC
 =VAL <!foo> "bar
-ERR
 -DOC
+ERR
 +DOC ---
 =VAL <tag:example.com,2000:app/foo> "bar
 -DOC"#;
+
+const X1_EB22_INPUT: &str = r#"
+---
+scalar1 # comment
+%YAML 1.2"#;
+
+const X1_EB22_EVENTS: &str = r#"
++DOC ---
+=VAL :scalar1
+-DOC
+ERR
+%YAML 1.2
+ERR"#;
+
 
 #[test]
 fn doc_after_err() {
     assert_eq_event(X1_3HFZ_INPUT, X1_3HFZ_EVENTS);
     assert_eq_event(X1_9HCY_INPUT, X1_9HCY_EVENTS);
+    // TODO check these with YAML group.
+    assert_eq_event(X1_EB22_INPUT, X1_EB22_EVENTS);
 }

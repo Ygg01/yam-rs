@@ -2397,8 +2397,8 @@ impl Lexer {
                 self.skip_sep_spaces(reader);
             }
             [b'%', ..] => {
-                push_error(UnexpectedEndOfDocument, &mut self.tokens, &mut self.errors);
                 self.tokens.push_back(DOC_END);
+                push_error(UnexpectedEndOfDocument, &mut self.tokens, &mut self.errors);
                 self.set_state(PreDocStart);
             }
             [chr, ..] => {
