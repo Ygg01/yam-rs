@@ -468,16 +468,24 @@ impl Lexer {
         let mut curr_node = NodeSpans::default();
         let mut prop_node = NodeSpans::default();
 
+        let offset = reader.count_space_then_tab().1;
+
         if reader
-            .peek_byte_at(0)
+            .peek_byte_at(offset)
             .map_or(false, |c| c == b'!' || c == b'&')
         {
+            reader.consume_bytes(offset);
             prop_node = self.process_inline_properties(reader);
             self.skip_sep_spaces(reader);
         }
 
         let Some(chr) = reader.peek_byte() else {
             self.stream_end = true;
+            if !prop_node.is_empty() {
+                self.next_substate();
+                push_empty(&mut curr_node.spans);
+                curr_node.prepend_spans(prop_node);
+            }
             return curr_node;
         };
 
@@ -581,6 +589,9 @@ impl Lexer {
             }
             self.process_colon_block(reader, &mut prev_node.spans, &mut curr_node);
         } else {
+            if curr_node.is_empty() {
+                push_empty(&mut curr_node.spans);
+            }
             curr_node.prepend_spans(scal_prop_node);
 
             // case it's not a key

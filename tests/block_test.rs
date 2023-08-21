@@ -1634,7 +1634,7 @@ fn block_seq_anchor_alias() {
     assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
 }
 
-const SEQ_AND_TAG_INPUT: &str = r"
+const X1_57H4_INPUT: &str = r"
   sequence: !!seq
   - a
   - !!str
@@ -1643,7 +1643,7 @@ const SEQ_AND_TAG_INPUT: &str = r"
     foo: bar
 ";
 
-const SEQ_AND_TAG_EVENTS: &str = r"
+const X1_57H4_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :sequence
@@ -1659,6 +1659,19 @@ const SEQ_AND_TAG_EVENTS: &str = r"
 =VAL :bar
 -MAP
 -MAP
+-DOC";
+
+const X2_57H4_INPUT: &str = r"
+  - !!str
+    - b";
+
+const X2_57H4_EVENTS: &str = r"
++DOC
++SEQ
++SEQ <tag:yaml.org,2002:str>
+=VAL :b
+-SEQ
+-SEQ
 -DOC";
 
 const TAG_DEF_INPUT: &str = r"
@@ -1684,7 +1697,8 @@ const EXP_TAG_EVENTS: &str = r"
 
 #[test]
 fn block_col_tags() {
-    assert_eq_event(SEQ_AND_TAG_INPUT, SEQ_AND_TAG_EVENTS);
+    assert_eq_event(X1_57H4_INPUT, X1_57H4_EVENTS);
+    assert_eq_event(X2_57H4_INPUT, X2_57H4_EVENTS);
     assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENTS);
     assert_eq_event(EXP_TAG_INPUT, EXP_TAG_EVENTS);
 }
@@ -2381,11 +2395,13 @@ fn block_tab_indents() {
 }
 
 const X1_FH7J_INPUT: &str = r"
+- !!str
 - !!null : a";
 
 const X1_FH7J_EVENTS: &str = r"
 +DOC
 +SEQ
+=VAL <tag:yaml.org,2002:str> :
 +MAP
 =VAL <tag:yaml.org,2002:null> :
 =VAL :a
@@ -2393,7 +2409,21 @@ const X1_FH7J_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X2_FH7J_INPUT: &str = r"
+- !!str : !!null";
+
+const X2_FH7J_EVENTS: &str = r"
++DOC
++SEQ
++MAP
+=VAL <tag:yaml.org,2002:str> :
+=VAL <tag:yaml.org,2002:null> :
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn block_tags_empty() {
     assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
+    assert_eq_event(X2_FH7J_INPUT, X2_FH7J_EVENTS);
 }
