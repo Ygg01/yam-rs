@@ -1986,7 +1986,7 @@ const X1_TAG_SHORT_EVENTS: &str = "
 #[test]
 fn block_tag_short() {
     assert_eq_event(X1_TAG_SHORT_INPUT, X1_TAG_SHORT_EVENTS);
-    // assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
+    assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
 }
 
 const X1_9KAX_INPUT: &str = r"

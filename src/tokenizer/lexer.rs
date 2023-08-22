@@ -145,7 +145,11 @@ impl NodeSpans {
         }
         self.col_start = other.col_start;
         let mut pass = other.spans;
-        pass.extend(take(&mut self.spans));
+        if !self.spans.is_empty() {
+            pass.extend(take(&mut self.spans));
+        } else {
+            push_empty(&mut pass);
+        }
         self.spans = pass;
     }
 
@@ -478,7 +482,7 @@ impl Lexer {
 
         let Some(chr) = reader.peek_byte() else {
             self.stream_end = true;
-            return curr_node;
+            return if curr_node.is_empty() { prop_node } else { curr_node};
         };
 
         let is_doc_end = reader.peek_stream_ending();
