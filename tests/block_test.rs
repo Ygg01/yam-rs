@@ -1969,9 +1969,24 @@ const TAG_SHORT_EVENTS: &str = "
 -SEQ
 -DOC";
 
+const X1_TAG_SHORT_INPUT: &str = "
+---
+- !local foo
+- !!str bar
+";
+
+const X1_TAG_SHORT_EVENTS: &str = "
++DOC ---
++SEQ
+=VAL <!local> :foo
+=VAL <tag:yaml.org,2002:str> :bar
+-SEQ
+-DOC";
+
 #[test]
 fn block_tag_short() {
-    assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
+    assert_eq_event(X1_TAG_SHORT_INPUT, X1_TAG_SHORT_EVENTS);
+    // assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
 }
 
 const X1_9KAX_INPUT: &str = r"
