@@ -562,29 +562,30 @@ impl Lexer {
                 self.fetch_exp_block_map_key(reader, tokens);
             }
             [b':', peek, ..] if is_white_tab_or_break(*peek) => {
-                if self.process_colon_block(reader, tokens, &mut curr_node, &mut prop_node) {
-                    tokens.extend(take(&mut curr_node).spans);
-                    self.next_substate();
-                }
+                self.process_colon_block(reader, tokens, &mut curr_node, &mut prop_node);
+                tokens.extend(take(&mut curr_node).spans);
             }
             [b':'] => {
-                if self.process_colon_block(reader, tokens, &mut curr_node, &mut prop_node) {
-                    tokens.extend(take(&mut curr_node).spans);
-                    self.next_substate();
-                }
+                self.process_colon_block(reader, tokens, &mut curr_node, &mut prop_node);
+                tokens.extend(take(&mut curr_node).spans);
             }
             [b'-', peek, ..] if is_white_tab_or_break(*peek) => {
-                tokens.extend(prop_node.spans);
+                tokens.extend(take(&mut prop_node.spans));
+                tokens.extend(take(&mut curr_node.spans));
                 self.process_block_seq(reader, tokens);
             }
             [b'-'] => {
-                tokens.extend(prop_node.spans);
+                tokens.extend(take(&mut prop_node.spans));
+                tokens.extend(take(&mut curr_node.spans));
                 self.process_block_seq(reader, tokens);
             }
-            _ => {},
+            _ => {
+                self.next_substate();
+                tokens.extend(take(&mut prop_node.spans));
+                tokens.extend(take(&mut curr_node.spans));
+            },
         }
-        self.next_substate();
-        tokens.extend(curr_node.spans);
+        
     }
 
     fn process_line_start<B, R: Reader<B>>(
@@ -599,11 +600,11 @@ impl Lexer {
                 line_start: reader.line(),
                 ..Default::default()
             };
-            let indent = match self.curr_state() {
+            /*let indent = match self.curr_state() {
                 BlockMap(ind, _) | BlockSeq(ind, _) => Some(ind + 1),
                 _ => None,
-            };
-            let new_node = match reader.peek_two_chars() {
+            };*/
+            /*let new_node = */ match reader.peek_two_chars() {
                 [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
                     self.fetch_exp_block_map_key(reader, tokens)
                 }
