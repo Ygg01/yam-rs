@@ -1665,6 +1665,9 @@ const X2_57H4_INPUT: &str = r"
   - !!str
     - b";
 
+const X3_57H4_INPUT: &str = r"
+  - !!str - b";
+
 const X2_57H4_EVENTS: &str = r"
 +DOC
 +SEQ

@@ -43,7 +43,7 @@ fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
         actual_event.push_str("-STR\r\n");
     }
 
-    if is_strict || !is_error{
+    if is_strict || !is_error {
         let expected_event = fs::read_to_string(data.test_event)?;
         assert_eq!(actual_event, expected_event);
     } else {
@@ -128,7 +128,11 @@ fn collect_test(
     Ok(())
 }
 
-fn collect_tests(path: &Path, filter_list: Vec<&str>, is_strict: bool) -> Result<Vec<Trial>, Box<dyn Error>> {
+fn collect_tests(
+    path: &Path,
+    filter_list: Vec<&str>,
+    is_strict: bool,
+) -> Result<Vec<Trial>, Box<dyn Error>> {
     let mut tests = Vec::with_capacity(TEST_SIZE);
     collect_test_suite(path, filter_list, &mut tests, is_strict)?;
     Ok(tests)

@@ -312,7 +312,6 @@ ERR
 %YAML 1.2
 ERR"#;
 
-
 #[test]
 fn doc_after_err() {
     assert_eq_event(X1_3HFZ_INPUT, X1_3HFZ_EVENTS);
