@@ -1665,9 +1665,6 @@ const X2_57H4_INPUT: &str = r"
   - !!str
     - b";
 
-const X3_57H4_INPUT: &str = r"
-  - !!str - b";
-
 const X2_57H4_EVENTS: &str = r"
 +DOC
 +SEQ
@@ -1676,6 +1673,21 @@ const X2_57H4_EVENTS: &str = r"
 -SEQ
 -SEQ
 -DOC";
+
+const X3_57H4_INPUT: &str = r"
+  sequence: !!seq
+  - a";
+
+const X3_57H4_EVENTS: &str = r"
++DOC
++MAP
+=VAL :sequence
++SEQ <tag:yaml.org,2002:seq>
+=VAL :a
+-SEQ
+-MAP
+-DOC";
+
 
 const TAG_DEF_INPUT: &str = r"
  ! test
@@ -1700,8 +1712,9 @@ const EXP_TAG_EVENTS: &str = r"
 
 #[test]
 fn block_col_tags() {
-    assert_eq_event(X1_57H4_INPUT, X1_57H4_EVENTS);
+    assert_eq_event(X3_57H4_INPUT, X3_57H4_EVENTS);
     assert_eq_event(X2_57H4_INPUT, X2_57H4_EVENTS);
+    assert_eq_event(X1_57H4_INPUT, X1_57H4_EVENTS);
     assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENTS);
     assert_eq_event(EXP_TAG_INPUT, EXP_TAG_EVENTS);
 }
