@@ -649,8 +649,8 @@ const X_8XDJ_EVENTS: &str = r"
 =VAL :key
 =VAL :word1
 ERR
-ERR
 =VAL :word2
+=VAL :
 -MAP
 -DOC";
 
@@ -881,8 +881,8 @@ const MULTILINE_COMMENT2_EVENTS: &str = r"
 =VAL :multi
 =VAL :ab
 ERR
-ERR
 =VAL :xyz
+=VAL :
 -MAP
 -DOC";
 
@@ -1735,6 +1735,19 @@ const ANCHOR_MULTI_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const ANCHOR_MULTI_2_INPUT: &str = r"
+    &node2
+  &v2 val: x";
+
+
+const ANCHOR_MULTI_2_EVENTS: &str = r"
++DOC
++MAP &node2
+=VAL &v2 :val
+=VAL :x
+-MAP
+-DOC";
+
 const ANCHOR_ERR_INPUT: &str = r"
 top2: &node2
   &v2 val";
@@ -1770,6 +1783,7 @@ const X1_735Y_EVENTS: &str = r"
 fn block_anchor() {
     assert_eq_event(X1_735Y_INPUT, X1_735Y_EVENTS);
     assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
+    assert_eq_event(ANCHOR_MULTI_2_INPUT, ANCHOR_MULTI_2_EVENTS);
     assert_eq_event(ANCHOR_MULTI_INPUT, ANCHOR_MULTI_EVENTS);
     assert_eq_event(ANCHOR_ERR_INPUT, ANCHOR_ERR_EVENTS);
 }
@@ -1912,7 +1926,6 @@ const X_BF9H_EVENTS: &str = r"
 +MAP
 =VAL :plain
 =VAL :a b
-ERR
 ERR
 =VAL :c
 -MAP
