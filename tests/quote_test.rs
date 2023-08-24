@@ -161,9 +161,7 @@ const DQUOTE_END_INPUT: &str = r#"
 
 const DQUOTE_END_EVENTS: &str = r#"
 +DOC
-ERR
-=VAL " --- 
--DOC"#;
+ERR"#;
 
 const DQUOTE_ERR2_INPUT: &str = r#"
 "\c"
@@ -171,9 +169,7 @@ const DQUOTE_ERR2_INPUT: &str = r#"
 
 const DQUOTE_ERR2_EVENTS: &str = r#"
 +DOC
-ERR
-=VAL "\c
--DOC"#;
+ERR"#;
 
 const DQUOTE_MISS_EOF_INPUT: &str = r#"
 ---
@@ -185,11 +181,7 @@ const DQUOTE_MISS_EOF_EVENTS: &str = r#"
 +DOC ---
 +MAP
 =VAL :key
-ERR
-ERR
-=VAL "missing
--MAP
--DOC"#;
+ERR"#;
 
 const DQUOTE_INDENT_ERR_INPUT: &str = r#"
 ---
@@ -203,12 +195,7 @@ const DQUOTE_INDENT_ERR_EVENTS: &str = r#"
 +DOC ---
 +MAP
 =VAL :quoted
-ERR
-ERR
-ERR
-=VAL "a b c
--MAP
--DOC"#;
+ERR"#;
 
 const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
 ---
@@ -219,8 +206,7 @@ const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
 const DQUOTE_COMMENT_ERR_EVENTS: &str = r#"
 +DOC ---
 =VAL "quote
-ERR
--DOC"#;
+ERR"#;
 
 #[test]
 fn dquote_err() {

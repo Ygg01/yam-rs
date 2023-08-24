@@ -54,9 +54,7 @@ const BLOCK_ERR_EVENTS: &str = r"
 +SEQ
 =VAL :x
 -SEQ
-ERR
-=VAL :y
--DOC";
+ERR";
 
 const WRONG_SEQ_INDENT_INPUT: &str = r"
 a: 
@@ -71,11 +69,7 @@ const WRONG_SEQ_INDENT_EVENTS: &str = r"
 +SEQ
 =VAL :b
 -SEQ
-ERR
-ERR
-=VAL :c
--MAP
--DOC";
+ERR";
 
 const SEQ_NO_MINUS_INPUT: &str = r"
 map:
@@ -89,11 +83,7 @@ const SEQ_NO_MINUS_EVENTS: &str = r"
 =VAL :map
 +SEQ
 =VAL :a
-ERR
-=VAL :c
--SEQ
--MAP
--DOC";
+ERR";
 
 const X_9CWY_INPUT: &str = r"
 key:
@@ -109,10 +99,7 @@ const X_9CWY_EVENTS: &str = r"
 =VAL :item1
 =VAL :item2
 -SEQ
-ERR
-=VAL :invalid
--MAP
--DOC";
+ERR";
 
 const X_BD7L_INPUT: &str = r"
 - item
@@ -123,14 +110,7 @@ const X_BD7L_EVENTS: &str = r"
 +DOC
 +SEQ
 =VAL :item
-ERR
-+MAP
-=VAL :invalid
-=VAL :x
--MAP
-=VAL :
--SEQ
--DOC";
+ERR";
 
 #[test]
 fn block_seq_err() {
@@ -216,9 +196,7 @@ const FOLD_ERR_INPUT: &str = r"
 
 const FOLD_ERR_EVENTS: &str = r"
 +DOC
-ERR
-=VAL >\ninvalid\n
--DOC";
+ERR";
 
 const FOLD_STR2_INPUT: &str = r"
  >
@@ -471,12 +449,7 @@ const X3_Y79Y_000_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :foo
-ERR
-=VAL |
-=VAL :bar
-=VAL :1
--MAP
--DOC";
+ERR";
 
 const X4_Y79Y_000_INPUT: &str = r"
   foo: |
@@ -486,12 +459,7 @@ const X4_Y79Y_000_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :foo
-ERR
-=VAL |
-ERR
-=VAL :x
--MAP
--DOC";
+ERR";
 
 #[test]
 fn block_literal_indents() {
@@ -509,9 +477,7 @@ const LITERAL_ERR2_INPUT: &str = r"
 
 const SIMPLE_FOLDED_ERR_EVENTS: &str = r"
 +DOC ---
-ERR
-=VAL |
--DOC";
+ERR";
 
 #[test]
 fn block_literal_err() {
@@ -649,11 +615,7 @@ const X_8XDJ_EVENTS: &str = r"
 +MAP
 =VAL :key
 =VAL :word1
-ERR
-ERR
-=VAL :word2
--MAP
--DOC";
+ERR";
 
 #[test]
 fn block_plain_multiline() {
@@ -881,11 +843,7 @@ const MULTILINE_COMMENT2_EVENTS: &str = r"
 +MAP
 =VAL :multi
 =VAL :ab
-ERR
-ERR
-=VAL :xyz
--MAP
--DOC";
+ERR";
 
 const MULTILINE_COMMENT3_INPUT: &str = r"
   multi:
@@ -1099,10 +1057,7 @@ const EXP_BLOCK_MAP_ERR1_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :test
-ERR
-=VAL :value
--MAP
--DOC";
+ERR";
 
 const EXP_BLOCK_MAP_ERR2: &str = r"
  ? test
@@ -1113,10 +1068,7 @@ const EXP_BLOCK_MAP_ERR2_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :test
-ERR
-=VAL :value
--MAP
--DOC";
+ERR";
 
 #[test]
 fn block_exp_map_err() {
@@ -1131,13 +1083,7 @@ const INLINE_ERR_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :a
-ERR
-+MAP
-=VAL :b
-=VAL :
--MAP
--MAP
--DOC";
+ERR";
 
 #[test]
 fn block_map_inline_err() {
@@ -1150,13 +1096,7 @@ invalid
 
 const ERR_MULTILINE_KEY_EVENTS: &str = "
 +DOC
-ERR
-+MAP
-=VAL :invalid key
-=VAL :x
-ERR
--MAP
--DOC";
+ERR";
 
 const ERR_INVALID_KEY1_INPUT: &str = "
 a:
@@ -1168,10 +1108,7 @@ const ERR_INVALID_KEY1_EVENTS: &str = "
 +MAP
 =VAL :a
 =VAL :b
-ERR
-=VAL :c
--MAP
--DOC";
+ERR";
 
 const ERR_INVALID_KEY2_INPUT: &str = r#"
  a:
@@ -1184,10 +1121,7 @@ const ERR_INVALID_KEY2_EVENTS: &str = r#"
 +MAP
 =VAL :a
 =VAL :b
-ERR
-=VAL "c x
--MAP
--DOC"#;
+ERR"#;
 
 const ERR_INVALID_KEY3_INPUT: &str = r"
 top1:
@@ -1203,10 +1137,7 @@ const ERR_INVALID_KEY3_EVENTS: &str = r"
 =VAL :key1
 =VAL :val1
 -MAP
-ERR
-=VAL :top2
--MAP
--DOC";
+ERR";
 
 const ERR_TRAIL_INPUT: &str = r#"
 'key': "quote" trail
@@ -1217,18 +1148,15 @@ const ERR_TRAIL_EVENTS: &str = r#"
 +MAP
 =VAL 'key
 =VAL "quote
-ERR
-=VAL :trail
--MAP
--DOC"#;
+ERR"#;
 
 #[test]
 fn block_map_err() {
-    // assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
+    assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
     assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
-    // assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
-    // assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
-    // assert_eq_event(ERR_INVALID_KEY3_INPUT, ERR_INVALID_KEY3_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY3_INPUT, ERR_INVALID_KEY3_EVENTS);
 }
 
 const COMPLEX_KEYS_INPUT: &str = r##"
@@ -1298,13 +1226,7 @@ const X1_9C9N_EVENTS: &str = r"
 =VAL :flow
 +SEQ []
 =VAL :a
-ERR
-=VAL :b
-ERR
-=VAL :c
--SEQ
--MAP
--DOC";
+ERR";
 
 const MAP_AND_COMMENT_INPUT: &str = r"
 hr:
@@ -1596,12 +1518,7 @@ const X1_G9HC_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :seq
-ERR
-+SEQ &anchor
-=VAL :a
--SEQ
--MAP
--DOC";
+ERR";
 
 const X2_1_G9HC_INPUT: &str = r"
 seq:
@@ -1767,10 +1684,7 @@ const ANCHOR_ERR_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :top2
-ERR
-=VAL &v2 :val
--MAP
--DOC";
+ERR";
 
 const X1_735Y_INPUT: &str = r"
 - >
@@ -1942,11 +1856,7 @@ const X_BF9H_EVENTS: &str = r"
 +MAP
 =VAL :plain
 =VAL :a b
-ERR
-ERR
-=VAL :c
--MAP
--DOC";
+ERR";
 
 const X_BS4K_INPUT: &str = r"
 line1 # comment
@@ -1974,12 +1884,7 @@ const SEQ_SAME_LINE_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :key
-ERR
-+SEQ
-=VAL :a
--SEQ
--MAP
--DOC";
+ERR";
 
 #[test]
 fn block_seq_and_map() {
@@ -2114,10 +2019,7 @@ const X1_DK95_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :foo
-ERR
-=VAL 'bar baz
--MAP
--DOC";
+ERR";
 
 const X2_DK95_INPUT: &str = r"
 foo: 
@@ -2127,13 +2029,7 @@ const X2_DK95_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :foo
-ERR
-+MAP
-=VAL :bar
-=VAL :baz
--MAP
--MAP
--DOC";
+ERR";
 
 const X3_DK95_INPUT: &str = r"
 foo:
@@ -2146,15 +2042,7 @@ const X3_DK95_EVENTS: &str = r"
 +MAP
 =VAL :a
 =VAL :1
-ERR
-+MAP
-=VAL :b
-=VAL :2
--MAP
-=VAL :
--MAP
--MAP
--DOC";
+ERR";
 
 #[test]
 fn block_map_tab() {
@@ -2176,14 +2064,7 @@ const X1_DMG6_EVENTS: &str = r"
 =VAL :ok
 =VAL :1
 -MAP
-ERR
-+MAP
-=VAL :wrong
-=VAL :2
--MAP
-=VAL :
--MAP
--DOC";
+ERR";
 
 const X1_EW3V_INPUT: &str = r"
 k1: v1
@@ -2194,11 +2075,7 @@ const X1_EW3V_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :k1
-ERR
-=VAL :v1 key2
-=VAL :v2
--MAP
--DOC";
+ERR";
 
 const X1_7LBH_INPUT: &str = r#"
 a: b
@@ -2210,11 +2087,7 @@ const X1_7LBH_EVENTS: &str = r#"
 +MAP
 =VAL :a
 =VAL :b
-ERR
-=VAL "c d
-=VAL :1
--MAP
--DOC"#;
+ERR"#;
 
 #[test]
 fn block_map_err_indent() {
@@ -2248,7 +2121,7 @@ const SEQ_EMPTY2_EVENTS: &str = r"
 
 #[test]
 fn block_seq_empty() {
-    // assert_eq_event(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS);
+    assert_eq_event(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS);
     assert_eq_event(SEQ_EMPTY2_INPUT, SEQ_EMPTY2_EVENTS);
 }
 
@@ -2299,12 +2172,7 @@ const X2_Y79Y_004_INPUT: &str = r"
 const X2_Y79Y_004_EVENTS: &str = r"
 +DOC
 +SEQ
-ERR
-+SEQ
-=VAL :
--SEQ
--SEQ
--DOC";
+ERR";
 
 const X3_Y79Y_004_INPUT: &str = r"
 -	-
@@ -2316,13 +2184,7 @@ const X1_Y79Y_006_INPUT: &str = r"
 const X1_Y79Y_006_EVENTS: &str = r"
 +DOC
 +MAP
-ERR
-+SEQ
-=VAL :
--SEQ
-=VAL :
--MAP
--DOC";
+ERR";
 
 const X2_Y79Y_006_INPUT: &str = r"
 ? -";
@@ -2362,13 +2224,7 @@ const X1_Y79Y_007_EVENTS: &str = r"
 +SEQ
 =VAL :
 -SEQ
-ERR
-ERR
-+SEQ
-=VAL :
--SEQ
--MAP
--DOC";
+ERR";
 
 const X1_Y79Y_009_INPUT: &str = r"
 ? key:
@@ -2382,14 +2238,7 @@ const X1_Y79Y_009_EVENTS: &str = r"
 =VAL :key
 =VAL :
 -MAP
-ERR
-ERR
-+MAP
-=VAL :foo
-=VAL :
--MAP
--MAP
--DOC";
+ERR";
 
 const X2_Y79Y_009_INPUT: &str = r"
 ? key:
