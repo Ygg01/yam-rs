@@ -535,6 +535,16 @@ impl Lexer {
                     {
                         push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
                     }
+                    match self.curr_state() {
+                        BlockMap(ind, ExpectValue) | BlockSeq(ind, _) if prop_node.col_start <= ind => {
+                            push_error(ExpectedIndent { actual: prop_node.col_start, expected: ind }, tokens, &mut self.errors);
+                        }
+                        _ => {},
+                    }
+                }
+                b'-' if !prop_node.is_empty()  && prop_node.line_start == reader.line() => {
+                    push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
+                    self.process_block_seq(reader, tokens);
                 }
                 b'{' | b'[' => break self.get_flow_node(reader, &mut prop_node),
                 b'|' => break self.process_block_literal(reader, true),
@@ -574,16 +584,21 @@ impl Lexer {
 
                 // scalar found in invalid state
                 match self.curr_state() {
-                    BlockSeq(ind, InSeqElem) if ind == node_col => {
-                        push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
-                        tokens.extend(take(&mut curr_node.spans));
-                    }
-                    BlockSeq(ind, InSeqElem) if ind > node_col => {
-                        self.pop_block_states(1, tokens);
+                    BlockSeq(_, InSeqElem) => {
+                        if let Some(unwind) = self.find_matching_state(
+                            |state| matches!(state, BlockSeq(ind, _) | BlockMap(ind, _) if ind <= node_col),
+                        ) {
+                            self.pop_block_states(unwind, tokens);
+                        }
                         push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
                         tokens.extend(take(&mut curr_node.spans));
                     }
                     BlockMap(_, ExpectKey) => {
+                        if let Some(unwind) = self.find_matching_state(
+                            |state| matches!(state, BlockSeq(ind, _) | BlockMap(ind, _) if ind <= node_col),
+                        ) {
+                            self.pop_block_states(unwind, tokens);
+                        }
                         push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
                         tokens.extend(take(&mut curr_node.spans));
                     }
