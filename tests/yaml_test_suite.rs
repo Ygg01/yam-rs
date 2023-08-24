@@ -22,7 +22,7 @@ struct TestData {
     emit_yaml: Option<PathBuf>,
 }
 
-fn perform_test(data: TestData) -> Result<(), Failed> {
+fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
     let input_yaml = fs::read_to_string(data.input_yaml)?;
     let mut actual_event = String::with_capacity(input_yaml.len());
     let ev_iterator = EventIterator::from(&*input_yaml);
@@ -43,8 +43,12 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
         actual_event.push_str("-STR\r\n");
     }
 
-    let expected_event = fs::read_to_string(data.test_event)?;
-    assert_eq!(actual_event, expected_event);
+    if is_strict || !is_error {
+        let expected_event = fs::read_to_string(data.test_event)?;
+        assert_eq!(actual_event, expected_event);
+    } else {
+        assert_eq!(is_error, data.is_error);
+    }
     // TODO Input json/output yaml/emit yaml
 
     Ok(())
@@ -54,6 +58,7 @@ fn collect_test_suite(
     path: &Path,
     ignore_list: Vec<&str>,
     tests: &mut Vec<Trial>,
+    is_strict: bool,
 ) -> Result<(), Box<dyn Error>> {
     for entry in fs::read_dir(path)? {
         let entry = entry?;
@@ -65,7 +70,7 @@ fn collect_test_suite(
             .into_string()
             .expect("non-UTF8 string in path");
         if file_type.is_dir() && !ignore_list.contains(&&*dir_name) {
-            collect_test(dir_name, &test_dir_path, &ignore_list, tests)?;
+            collect_test(dir_name, &test_dir_path, &ignore_list, tests, is_strict)?;
         }
     }
     Ok(())
@@ -76,6 +81,7 @@ fn collect_test(
     test_dir_path: &PathBuf,
     ignore_list: &Vec<&str>,
     tests: &mut Vec<Trial>,
+    is_strict: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut test_data = TestData::default();
     let mut is_dir = false;
@@ -93,7 +99,7 @@ fn collect_test(
                 .expect("non-UTF8 string in path");
             let dir_name = format!("{dir_name}/{sub_dir}");
             let subdir_path = entry.path();
-            collect_test(dir_name, &subdir_path, ignore_list, tests)?;
+            collect_test(dir_name, &subdir_path, ignore_list, tests, is_strict)?;
             is_dir = true;
         } else {
             match &*filename {
@@ -113,8 +119,8 @@ fn collect_test(
         }
     }
     if !is_dir {
-        let test = Trial::test(format!("{} ({})", dir_name, &test_data.desc), || {
-            perform_test(test_data)
+        let test = Trial::test(format!("{} ({})", dir_name, &test_data.desc), move || {
+            perform_test(test_data, is_strict)
         });
         tests.push(test);
     }
@@ -122,9 +128,13 @@ fn collect_test(
     Ok(())
 }
 
-fn collect_tests(path: &Path, filter_list: Vec<&str>) -> Result<Vec<Trial>, Box<dyn Error>> {
+fn collect_tests(
+    path: &Path,
+    filter_list: Vec<&str>,
+    is_strict: bool,
+) -> Result<Vec<Trial>, Box<dyn Error>> {
     let mut tests = Vec::with_capacity(TEST_SIZE);
-    collect_test_suite(path, filter_list, &mut tests)?;
+    collect_test_suite(path, filter_list, &mut tests, is_strict)?;
     Ok(tests)
 }
 
@@ -135,6 +145,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tests = collect_tests(
         Path::new(r#"C:\projects\steel_yaml\tests\yaml-test-suite"#),
         filter_list,
+        false,
     )?;
 
     libtest_mimic::run(&args, tests).exit();

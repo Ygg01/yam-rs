@@ -30,8 +30,21 @@ const DQUOTE_ESC2_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 
+const X1_NP9H_INPUT: &str = r#"
+"folded 
+to a space,	
+ 
+to a line feed, or 	\
+ \ 	non-content""#;
+
+const X1_NP9H_EVENTS: &str = r#"
++DOC
+=VAL "folded to a space,\nto a line feed, or \t \tnon-content
+-DOC"#;
+
 #[test]
 fn dquote_escape() {
+    assert_eq_event(X1_NP9H_INPUT, X1_NP9H_EVENTS);
     assert_eq_event(DQUOTE_ESC1_INPUT, DQUOTE_ESC1_EVENTS);
     assert_eq_event(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS);
     assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
@@ -148,9 +161,7 @@ const DQUOTE_END_INPUT: &str = r#"
 
 const DQUOTE_END_EVENTS: &str = r#"
 +DOC
-ERR
-=VAL " --- 
--DOC"#;
+ERR"#;
 
 const DQUOTE_ERR2_INPUT: &str = r#"
 "\c"
@@ -158,9 +169,7 @@ const DQUOTE_ERR2_INPUT: &str = r#"
 
 const DQUOTE_ERR2_EVENTS: &str = r#"
 +DOC
-ERR
-=VAL "\c
--DOC"#;
+ERR"#;
 
 const DQUOTE_MISS_EOF_INPUT: &str = r#"
 ---
@@ -172,11 +181,7 @@ const DQUOTE_MISS_EOF_EVENTS: &str = r#"
 +DOC ---
 +MAP
 =VAL :key
-ERR
-ERR
-=VAL "missing
--MAP
--DOC"#;
+ERR"#;
 
 const DQUOTE_INDENT_ERR_INPUT: &str = r#"
 ---
@@ -190,12 +195,7 @@ const DQUOTE_INDENT_ERR_EVENTS: &str = r#"
 +DOC ---
 +MAP
 =VAL :quoted
-ERR
-ERR
-ERR
-=VAL "a b c
--MAP
--DOC"#;
+ERR"#;
 
 const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
 ---
@@ -206,8 +206,7 @@ const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
 const DQUOTE_COMMENT_ERR_EVENTS: &str = r#"
 +DOC ---
 =VAL "quote
-ERR
--DOC"#;
+ERR"#;
 
 #[test]
 fn dquote_err() {
