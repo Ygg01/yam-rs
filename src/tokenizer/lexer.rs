@@ -165,7 +165,7 @@ impl PropSpans {
                 }
                 self.spans.extend(take(other).spans);
                 self.prop_type = new_type;
-                
+
                 Ok(())
             }
             Err(r) => Err(r),
@@ -509,37 +509,41 @@ impl Lexer {
         }
 
         self.tokens.extend(tokens);
-        // We are in Root node and remnants in properties 
+        // We are in Root node and remnants in properties
         if matches!(self.curr_state(), DocBlock) && self.prev_prop.is_empty() {
             self.set_state(AfterDocBlock);
         }
     }
 
     fn get_block_collection<B, R: Reader<B>>(&mut self, reader: &mut R, tokens: &mut Vec<usize>) {
-
         if self.process_line_start(reader, tokens) {
             return;
         }
 
         let mut prop_node = PropSpans::from_reader(reader);
         let mut curr_node = loop {
-
             let Some(chr) = reader.peek_byte() else {
                 self.stream_end = true;
+                tokens.extend(take(&mut prop_node).spans);
                 return;
             };
 
             match chr {
                 b'&' | b'!' => {
-                    if let Err(err) = prop_node.merge_prop(&mut self.process_inline_properties(reader)) {
+                    if let Err(err) =
+                        prop_node.merge_prop(&mut self.process_inline_properties(reader))
+                    {
                         push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
                     }
                 }
                 b'{' | b'[' => break self.get_flow_node(reader, &mut prop_node),
                 b'|' => break self.process_block_literal(reader, true),
                 b'>' => break self.process_block_literal(reader, false),
-                b' '| b'\t' | b'\n' | b'\r' => {
-                    if self.skip_sep_spaces(reader).map_or(false, |info| info.num_breaks > 0) {
+                b' ' | b'\t' | b'\n' | b'\r' => {
+                    if self
+                        .skip_sep_spaces(reader)
+                        .map_or(false, |info| info.num_breaks > 0)
+                    {
                         self.merge_prop(&mut prop_node, tokens);
                     }
                     continue;
@@ -573,7 +577,7 @@ impl Lexer {
         }
     }
 
-    fn merge_prop(&mut self, prop_node: &mut PropSpans, tokens: &mut Vec<usize> ) {
+    fn merge_prop(&mut self, prop_node: &mut PropSpans, tokens: &mut Vec<usize>) {
         if let Err(err) = self.prev_prop.merge_prop(prop_node) {
             push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
         }
@@ -590,7 +594,7 @@ impl Lexer {
                 line_start: reader.line(),
                 ..Default::default()
             };
-            
+
             match reader.peek_two_chars() {
                 [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
                     self.fetch_exp_block_map_key(reader, tokens)
@@ -858,6 +862,7 @@ impl Lexer {
             }
             tokens.push(SEQ_START);
         } else if matches!(curr_state, BlockSeq(_, BeforeFirst)) {
+            tokens.extend(take(&mut self.prev_prop).spans);
             push_empty(tokens);
         } else {
             self.next_seq_substate();

@@ -488,6 +488,7 @@ const X4_Y79Y_000_EVENTS: &str = r"
 ERR
 =VAL |
 =VAL :x
+=VAL :
 -MAP
 -DOC";
 
@@ -1685,7 +1686,6 @@ const X3_57H4_EVENTS: &str = r"
 -MAP
 -DOC";
 
-
 const TAG_DEF_INPUT: &str = r"
  ! test
 ";
@@ -1748,7 +1748,6 @@ const ANCHOR_MULTI_EVENTS: &str = r"
 const ANCHOR_MULTI_2_INPUT: &str = r"
     &node2
   &v2 val: x";
-
 
 const ANCHOR_MULTI_2_EVENTS: &str = r"
 +DOC
@@ -1857,7 +1856,6 @@ const TAG1_2_INPUT: &str = r"
   !!str 
   a";
 
-
 const TAG1_EVENTS: &str = r"
 +DOC
 =VAL <tag:yaml.org,2002:str> :a
@@ -1944,6 +1942,7 @@ const X_BF9H_EVENTS: &str = r"
 =VAL :a b
 ERR
 =VAL :c
+=VAL :
 -MAP
 -DOC";
 
