@@ -542,7 +542,7 @@ impl Lexer {
                         _ => {},
                     }
                 }
-                b'-' if !prop_node.is_empty()  && prop_node.line_start == reader.line() => {
+                b'-' if reader.peek_byte_at(1).map_or(false, is_plain_unsafe) && !prop_node.is_empty()  && prop_node.line_start == reader.line() => {
                     push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
                     self.process_block_seq(reader, tokens);
                 }

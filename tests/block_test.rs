@@ -36,8 +36,22 @@ const SEQ_PLAIN_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_33X3_INPUT: &str = r"
+- !!int 1
+- !!int -2
+";
+
+const X1_33X3_EVENTS: &str = r"
++DOC
++SEQ
+=VAL <tag:yaml.org,2002:int> :1
+=VAL <tag:yaml.org,2002:int> :-2
+-SEQ
+-DOC";
+
 #[test]
 fn block_seq() {
+    assert_eq_event(X1_33X3_INPUT, X1_33X3_EVENTS);
     assert_eq_event(BLOCK1_INPUT, BLOCK_EVENTS);
     assert_eq_event(BLOCK2_INPUT, BLOCK_EVENTS);
     assert_eq_event(SEQ_PLAIN_INPUT, SEQ_PLAIN_EVENTS);
