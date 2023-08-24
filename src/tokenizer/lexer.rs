@@ -565,13 +565,34 @@ impl Lexer {
                 tokens.extend(take(&mut curr_node).spans);
             }
             _ if !curr_node.is_empty() => {
-                self.next_substate();
+                
+                let node_col = curr_node.col_start;
                 if let Err(err) = merge.merge_prop_type(&self.prev_prop.prop_type) {
                     push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
                 } else {
                     tokens.extend(take(&mut self.prev_prop).spans);
                 }
-                tokens.extend(take(&mut curr_node.spans));
+
+                // scalar found in invalid state
+                match self.curr_state() {
+                    BlockSeq(ind, InSeqElem) if ind == node_col => { 
+                        push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
+                        tokens.extend(take(&mut curr_node.spans));
+                    },
+                    BlockSeq(ind, InSeqElem) if ind > node_col => {
+                        self.pop_block_states(1, tokens);
+                        push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
+                        tokens.extend(take(&mut curr_node.spans));
+                    },
+                    BlockMap(_, ExpectKey)  => {
+                        push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
+                        tokens.extend(take(&mut curr_node.spans));
+                    },
+                    _ => {
+                        tokens.extend(take(&mut curr_node.spans));
+                        self.next_substate();
+                    }
+                }
             }
             _ => {}
         }
@@ -861,7 +882,7 @@ impl Lexer {
                 tokens.extend(take(&mut self.prev_prop).spans);
             }
             tokens.push(SEQ_START);
-        } else if matches!(curr_state, BlockSeq(_, BeforeFirst)) {
+        } else if matches!(curr_state, BlockSeq(_, BeforeFirst | BeforeElem)) {
             tokens.extend(take(&mut self.prev_prop).spans);
             push_empty(tokens);
         } else {
@@ -2379,7 +2400,7 @@ impl Lexer {
     fn finish_eof(&mut self) {
         for state in self.stack.iter().rev() {
             let token = match *state {
-                BlockSeq(_, BeforeFirst) => {
+                BlockSeq(_, BeforeFirst | BeforeElem) => {
                     self.tokens.push_back(SCALAR_PLAIN);
                     self.tokens.push_back(SCALAR_END);
                     SEQ_END
