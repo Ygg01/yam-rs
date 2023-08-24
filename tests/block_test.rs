@@ -128,6 +128,7 @@ ERR
 =VAL :invalid
 =VAL :x
 -MAP
+=VAL :
 -SEQ
 -DOC";
 
@@ -487,8 +488,8 @@ const X4_Y79Y_000_EVENTS: &str = r"
 =VAL :foo
 ERR
 =VAL |
+ERR
 =VAL :x
-=VAL :
 -MAP
 -DOC";
 
@@ -649,8 +650,8 @@ const X_8XDJ_EVENTS: &str = r"
 =VAL :key
 =VAL :word1
 ERR
+ERR
 =VAL :word2
-=VAL :
 -MAP
 -DOC";
 
@@ -881,8 +882,8 @@ const MULTILINE_COMMENT2_EVENTS: &str = r"
 =VAL :multi
 =VAL :ab
 ERR
+ERR
 =VAL :xyz
-=VAL :
 -MAP
 -DOC";
 
@@ -1942,8 +1943,8 @@ const X_BF9H_EVENTS: &str = r"
 =VAL :plain
 =VAL :a b
 ERR
+ERR
 =VAL :c
-=VAL :
 -MAP
 -DOC";
 
