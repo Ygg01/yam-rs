@@ -565,7 +565,6 @@ impl Lexer {
                 tokens.extend(take(&mut curr_node).spans);
             }
             _ if !curr_node.is_empty() => {
-                
                 let node_col = curr_node.col_start;
                 if let Err(err) = merge.merge_prop_type(&self.prev_prop.prop_type) {
                     push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
@@ -575,19 +574,19 @@ impl Lexer {
 
                 // scalar found in invalid state
                 match self.curr_state() {
-                    BlockSeq(ind, InSeqElem) if ind == node_col => { 
+                    BlockSeq(ind, InSeqElem) if ind == node_col => {
                         push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
                         tokens.extend(take(&mut curr_node.spans));
-                    },
+                    }
                     BlockSeq(ind, InSeqElem) if ind > node_col => {
                         self.pop_block_states(1, tokens);
                         push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
                         tokens.extend(take(&mut curr_node.spans));
-                    },
-                    BlockMap(_, ExpectKey)  => {
+                    }
+                    BlockMap(_, ExpectKey) => {
                         push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
                         tokens.extend(take(&mut curr_node.spans));
-                    },
+                    }
                     _ => {
                         tokens.extend(take(&mut curr_node.spans));
                         self.next_substate();
