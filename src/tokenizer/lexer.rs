@@ -673,6 +673,7 @@ impl Lexer {
             DocBlock => {
                 let state = BlockMap(indent, BeforeBlockComplexKey);
                 self.push_block_state(state, reader.line());
+                tokens.extend(take(&mut self.prev_prop).spans);
                 tokens.push(MAP_START);
                 true
             }

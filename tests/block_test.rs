@@ -979,8 +979,21 @@ const X1_A2M4_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_2XXW_INPUT: &str = r"
+--- !!set
+? Mark McGwire";
+
+const X1_2XXW_EVENTS: &str = r"
++DOC ---
++MAP <tag:yaml.org,2002:set>
+=VAL :Mark McGwire
+=VAL :
+-MAP
+-DOC";
+
 #[test]
 fn block_exp_map() {
+    assert_eq_event(X1_2XXW_INPUT, X1_2XXW_EVENTS);
     assert_eq_event(X1_A2M4_INPUT, X1_A2M4_EVENTS);
     assert_eq_event(X_7W2P_INPUT, X_7W2P_EVENTS);
     assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
