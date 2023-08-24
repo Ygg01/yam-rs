@@ -8,9 +8,7 @@ use std::vec;
 
 use LexerState::PreDocStart;
 
-use crate::tokenizer::lexer::LexerState::{
-    AfterDocBlock, BlockMap, BlockSeq, DocBlock, FlowMap, FlowSeq, InDocEnd,
-};
+use crate::tokenizer::lexer::LexerState::*;
 use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::*;
 use crate::tokenizer::lexer::PropType::*;
@@ -35,6 +33,7 @@ pub struct Lexer {
     space_indent: Option<u32>,
     last_block_indent: Option<u32>,
     last_map_line: Option<u32>,
+    prev_prop: PropSpans,
     has_tab: bool,
     stack: Vec<LexerState>,
 }
@@ -109,8 +108,8 @@ impl NodeSpans {
     }
 }
 
-#[derive(Clone, Copy, Default)]
-pub(crate) enum PropType {
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+pub enum PropType {
     #[default]
     Unset,
     Tag,
@@ -123,15 +122,15 @@ impl PropType {
         match (&self, &other) {
             (Unset, _) => Ok(*other),
             (_, Unset) => Ok(*self),
-            (Tag, Tag | TagAndAnchor)
-            | (Anchor, Anchor | TagAndAnchor)
-            | (TagAndAnchor, Tag | Anchor | TagAndAnchor) => Err(*self),
             (Tag, Anchor) | (Anchor, Tag) => Ok(TagAndAnchor),
+            (Tag, Tag | TagAndAnchor) | (TagAndAnchor, Tag) => Err(Tag),
+            (Anchor, Anchor | TagAndAnchor) | (TagAndAnchor, Anchor) => Err(Anchor),
+            (TagAndAnchor, TagAndAnchor) => Err(TagAndAnchor),
         }
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct PropSpans {
     col_start: u32,
     line_start: u32,
@@ -154,28 +153,23 @@ impl PropSpans {
         self.spans.is_empty()
     }
 
-    #[must_use]
-    fn try_merge(&mut self, next_prop: &mut PropSpans) -> Result<(), ErrorType> {
-        let mut is_succ = Ok(());
-        if !next_prop.is_empty() {
-            let pr_type = self.prop_type.merge_prop_type(&next_prop.prop_type);
-
-            match pr_type {
-                Ok(x) => {
-                    self.prop_type = x;
-                    self.spans.extend(take(next_prop).spans);
-                }
-                Err(x) => {
-                    if self.line_start != next_prop.line_start {
-                        self.prop_type = x;
-                        self.spans.extend(take(next_prop).spans);
-                    } else {
-                        is_succ = Err(ErrorType::NodeWithTwoAnchors);
-                    }
-                }
-            }
+    fn merge_prop(&mut self, other: &mut PropSpans) -> Result<(), PropType> {
+        if other.is_empty() {
+            return Ok(());
         }
-        is_succ
+        match self.prop_type.merge_prop_type(&other.prop_type) {
+            Ok(new_type) => {
+                if self.is_empty() {
+                    self.line_start = other.line_start;
+                    self.col_start = other.col_start;
+                }
+                self.spans.extend(take(other).spans);
+                self.prop_type = new_type;
+                
+                Ok(())
+            }
+            Err(r) => Err(r),
+        }
     }
 }
 
@@ -515,85 +509,73 @@ impl Lexer {
         }
 
         self.tokens.extend(tokens);
-        if matches!(self.curr_state(), DocBlock) {
+        // We are in Root node and remnants in properties 
+        if matches!(self.curr_state(), DocBlock) && self.prev_prop.is_empty() {
             self.set_state(AfterDocBlock);
         }
     }
 
     fn get_block_collection<B, R: Reader<B>>(&mut self, reader: &mut R, tokens: &mut Vec<usize>) {
-        let mut prop_node = self.process_inline_properties(reader);
 
-        if self.process_line_start(reader, tokens, &mut prop_node) {
+        if self.process_line_start(reader, tokens) {
             return;
         }
 
-        self.skip_space_tab(reader);
+        let mut prop_node = PropSpans::from_reader(reader);
+        let mut curr_node = loop {
 
-        let next_prop = self.process_inline_properties(reader);
+            let Some(chr) = reader.peek_byte() else {
+                self.stream_end = true;
+                return;
+            };
 
-        self.skip_space_tab(reader);
-
-        let Some(chr) = reader.peek_byte() else {
-            self.stream_end = true;
-            return;
+            match chr {
+                b'&' | b'!' => {
+                    if let Err(err) = prop_node.merge_prop(&mut self.process_inline_properties(reader)) {
+                        push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
+                    }
+                }
+                b'{' | b'[' => break self.get_flow_node(reader, &mut prop_node),
+                b'|' => break self.process_block_literal(reader, true),
+                b'>' => break self.process_block_literal(reader, false),
+                b' '| b'\t' | b'\n' | b'\r' => {
+                    if self.skip_sep_spaces(reader).map_or(false, |info| info.num_breaks > 0) {
+                        self.merge_prop(&mut prop_node, tokens);
+                    }
+                    continue;
+                }
+                _ => break self.get_scalar_node(reader, &mut false),
+            };
         };
 
-        let mut curr_node = match chr {
-            b'{' | b'[' => self.get_flow_node(reader, &mut prop_node),
-            b'|' => self.process_block_literal(reader, true),
-            b'>' => self.process_block_literal(reader, false),
-            b'\n' | b'\r' => {
-                let nod = NodeSpans::from_reader(reader);
-                self.skip_sep_spaces(reader);
-                nod
-            }
-            _ => self.get_scalar_node(reader, &mut false),
-        };
-
-        let merged = curr_node.merge_prop(next_prop);
+        let merge = curr_node.merge_prop(prop_node);
 
         self.skip_sep_spaces(reader);
         match reader.peek_two_chars() {
-            [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
-                self.fetch_exp_block_map_key(reader, tokens);
-            }
-            [b'?'] => {
-                self.fetch_exp_block_map_key(reader, tokens);
-            }
             [b':', peek, ..] if is_white_tab_or_break(*peek) => {
-                self.process_colon_block(reader, tokens, &mut curr_node, &mut prop_node);
+                self.process_colon_block(reader, tokens, &mut curr_node);
                 tokens.extend(take(&mut curr_node).spans);
             }
             [b':'] => {
-                self.process_colon_block(reader, tokens, &mut curr_node, &mut prop_node);
+                self.process_colon_block(reader, tokens, &mut curr_node);
                 tokens.extend(take(&mut curr_node).spans);
             }
-            [b'-', peek, ..] if is_white_tab_or_break(*peek) => {
-                if merged.merge_prop_type(&prop_node.prop_type).is_err() {
-                    push_error(NodeWithTwoAnchors, tokens, &mut self.errors);
-                }
-                tokens.extend(take(&mut prop_node.spans));
-                tokens.extend(take(&mut curr_node.spans));
+            _ if !curr_node.is_empty() => {
                 self.next_substate();
-                self.process_block_seq(reader, tokens, &mut prop_node);
-            }
-            [b'-'] => {
-                if merged.merge_prop_type(&prop_node.prop_type).is_err() {
-                    push_error(NodeWithTwoAnchors, tokens, &mut self.errors);
+                if let Err(err) = merge.merge_prop_type(&self.prev_prop.prop_type) {
+                    push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
+                } else {
+                    tokens.extend(take(&mut self.prev_prop).spans);
                 }
-                tokens.extend(take(&mut prop_node.spans));
-                tokens.extend(take(&mut curr_node.spans));
-                self.next_substate();
-                self.process_block_seq(reader, tokens, &mut prop_node);
-            }
-            _ => {
-                self.next_substate();
-                if merged.merge_prop_type(&prop_node.prop_type).is_err() {
-                    push_error(NodeWithTwoAnchors, tokens, &mut self.errors);
-                }
-                tokens.extend(take(&mut prop_node.spans));
                 tokens.extend(take(&mut curr_node.spans));
             }
+            _ => {}
+        }
+    }
+
+    fn merge_prop(&mut self, prop_node: &mut PropSpans, tokens: &mut Vec<usize> ) {
+        if let Err(err) = self.prev_prop.merge_prop(prop_node) {
+            push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
         }
     }
 
@@ -601,7 +583,6 @@ impl Lexer {
         &mut self,
         reader: &mut R,
         tokens: &mut Vec<usize>,
-        prop_node: &mut PropSpans,
     ) -> bool {
         let val = loop {
             let mut node = NodeSpans {
@@ -609,71 +590,35 @@ impl Lexer {
                 line_start: reader.line(),
                 ..Default::default()
             };
+            
             match reader.peek_two_chars() {
                 [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
                     self.fetch_exp_block_map_key(reader, tokens)
                 }
                 [b'?'] => self.fetch_exp_block_map_key(reader, tokens),
                 [b':', peek, ..] if is_white_tab_or_break(*peek) => {
-                    self.process_colon_block(reader, tokens, &mut node, prop_node)
+                    self.process_colon_block(reader, tokens, &mut node)
                 }
-                [b':'] => self.process_colon_block(reader, tokens, &mut node, prop_node),
+                [b':'] => self.process_colon_block(reader, tokens, &mut node),
                 [b'-', peek, ..] if is_white_tab_or_break(*peek) => {
-                    self.process_block_seq(reader, tokens, prop_node)
+                    self.process_block_seq(reader, tokens)
                 }
-                [b'-'] => self.process_block_seq(reader, tokens, prop_node),
+                [b'-'] => self.process_block_seq(reader, tokens),
                 [b' ' | b'\t' | b'\r' | b'\n', ..] => {
                     self.skip_sep_spaces(reader);
                     false
                 }
                 [] => {
-                    if !prop_node.is_empty() {
-                        tokens.extend(take(prop_node).spans);
-                    }
                     self.stream_end = true;
                     break true;
                 }
-                _ => break false,
+                _ => {
+                    break false;
+                }
             };
-            // if new_node && !prop_node.is_empty() && prop_node.line_start != node.line_start {
-            //     self.merge_properties(&mut node, prop_node, indent, tokens);
-            // }
             tokens.extend(node.spans);
         };
-
         val
-    }
-
-    fn merge_properties(
-        &mut self,
-        curr_node: &mut NodeSpans,
-        prop_node: &mut PropSpans,
-        indent: Option<u32>,
-        tokens: &mut Vec<usize>,
-    ) {
-        if matches!(tokens.first(), Some(&SEQ_START))
-            && curr_node.line_start == prop_node.line_start
-        {
-            push_error(
-                ErrorType::PropertyAtStartOfSequence,
-                &mut curr_node.spans,
-                &mut self.errors,
-            );
-        }
-        match indent {
-            Some(ind) if ind > prop_node.col_start => {
-                prepend_error(
-                    ExpectedIndent {
-                        actual: curr_node.col_start,
-                        expected: ind,
-                    },
-                    tokens,
-                    &mut self.errors,
-                );
-            }
-            _ => {}
-        }
-        curr_node.merge_prop(take(prop_node));
     }
 
     fn fetch_exp_block_map_key<B, R: Reader<B>>(
@@ -710,7 +655,6 @@ impl Lexer {
         reader: &mut R,
         tokens: &mut Vec<usize>,
         curr_node: &mut NodeSpans,
-        prop_node: &mut PropSpans,
     ) -> bool {
         let col_pos = reader.col();
         let col_line = reader.line();
@@ -728,8 +672,8 @@ impl Lexer {
         }
         reader.consume_bytes(1);
 
-        if prop_node.line_start == curr_node.line_start {
-            curr_node.merge_prop(take(prop_node));
+        if self.prev_prop.line_start == curr_node.line_start {
+            curr_node.merge_prop(take(&mut self.prev_prop));
             is_empty = curr_node.is_empty();
         }
 
@@ -835,8 +779,8 @@ impl Lexer {
             if curr_node.is_multiline {
                 push_error(ImplicitKeysNeedToBeInline, tokens, &mut self.errors);
             }
-            if prop_node.line_start != curr_node.line_start {
-                tokens.extend(take(prop_node).spans);
+            if self.prev_prop.line_start != curr_node.line_start {
+                tokens.extend(take(&mut self.prev_prop).spans);
             }
             self.next_substate();
             self.push_block_state(BlockMap(curr_node.col_start, ExpectValue), reader.line());
@@ -855,7 +799,6 @@ impl Lexer {
         &mut self,
         reader: &mut R,
         tokens: &mut Vec<usize>,
-        prop_node: &mut PropSpans,
     ) -> bool {
         let curr_state = self.curr_state();
         let indent = reader.col();
@@ -910,8 +853,8 @@ impl Lexer {
 
             self.next_substate();
             self.push_block_state(BlockSeq(indent, BeforeFirst), reader.line());
-            if !prop_node.is_empty() && prop_node.line_start != reader.line() {
-                tokens.extend(take(prop_node).spans);
+            if !self.prev_prop.is_empty() && self.prev_prop.line_start != reader.line() {
+                tokens.extend(take(&mut self.prev_prop).spans);
             }
             tokens.push(SEQ_START);
         } else if matches!(curr_state, BlockSeq(_, BeforeFirst)) {
@@ -1163,18 +1106,18 @@ impl Lexer {
 
         if reader.peek_byte_is(b'&') && self.try_parse_anchor_alias(reader, ANCHOR, &mut node) {
             node.prop_type = PropType::Anchor;
-            let offset = reader.count_whitespace();
+            let offset = reader.count_space_then_tab().1;
             if reader.peek_byte_is_off(b'!', offset) {
                 node.prop_type = PropType::TagAndAnchor;
-                self.skip_sep_spaces(reader);
+                self.skip_space_tab(reader);
                 self.try_parse_tag(reader, &mut node);
             }
         } else if reader.peek_byte_is(b'!') && self.try_parse_tag(reader, &mut node) {
             node.prop_type = PropType::Tag;
-            let offset = reader.count_whitespace();
+            let offset = reader.count_space_then_tab().1;
             if reader.peek_byte_is_off(b'&', offset) {
                 node.prop_type = PropType::TagAndAnchor;
-                self.skip_sep_spaces(reader);
+                self.skip_space_tab(reader);
                 self.try_parse_anchor_alias(reader, ANCHOR, &mut node);
             }
         }

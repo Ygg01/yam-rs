@@ -13,6 +13,8 @@ mod str_reader;
 
 pub use iterator::assert_eq_event;
 
+use self::lexer::PropType;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorType {
     AliasAndAnchor,
@@ -48,7 +50,7 @@ pub enum ErrorType {
     MissingFlowClosingBracket,
     NestedMappingsNotAllowed,
     NoDocStartAfterTag,
-    NodeWithTwoAnchors,
+    NodeWithTwoProperties(PropType),
     NodeWithTwoTags,
     PropertyAtStartOfSequence,
     StartedBlockInFlow,

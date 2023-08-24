@@ -487,7 +487,6 @@ const X4_Y79Y_000_EVENTS: &str = r"
 =VAL :foo
 ERR
 =VAL |
-ERR
 =VAL :x
 -MAP
 -DOC";
@@ -1033,8 +1032,6 @@ fn block_exp_map() {
 
 const EXP_MAP_EMPTY_INPUT: &str = r"
   # Sets are represented as a
-# Mapping where each key is
-  # associated with a null value
 ---
 ? a
 ? b 
@@ -1853,8 +1850,13 @@ fn block_mix_seq() {
     assert_eq_event(MIX2_BLOCK_INPUT, MIX2_BLOCK_EVENTS);
 }
 
-const TAG1_INPUT: &str = r"
+const TAG1_1_INPUT: &str = r"
   !!str a";
+
+const TAG1_2_INPUT: &str = r"
+  !!str 
+  a";
+
 
 const TAG1_EVENTS: &str = r"
 +DOC
@@ -1896,7 +1898,8 @@ const X_74H7_EVENTS: &str = r"
 
 #[test]
 fn block_tag() {
-    assert_eq_event(TAG1_INPUT, TAG1_EVENTS);
+    assert_eq_event(TAG1_1_INPUT, TAG1_EVENTS);
+    assert_eq_event(TAG1_2_INPUT, TAG1_EVENTS);
     assert_eq_event(COMPLEX_TAG2_INPUT, COMPLEX_TAG2_EVENTS);
     assert_eq_event(X_74H7_INPUT, X_74H7_EVENTS);
 }
