@@ -158,7 +158,7 @@ fn decode_hex(input: &[u8], size: u8) -> EscapeControl {
     // Manually encoded U+FFFD (Replacement characters)
     let replacement_char = [size + 2, 3, 239, 191, 189, 0, 0, 0];
     let digit_slice = input.iter().skip(2).take(size as usize);
-    if !digit_slice.clone().all(|x| x.is_ascii_hexdigit()) {
+    if !digit_slice.clone().all(u8::is_ascii_hexdigit) {
         return EscapeControl::Append(replacement_char);
     }
 
