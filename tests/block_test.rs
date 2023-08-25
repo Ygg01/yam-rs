@@ -1668,7 +1668,7 @@ fn block_seq_anchor_alias() {
     assert_eq_event(X1_G9HC_INPUT, X1_G9HC_EVENTS);
     assert_eq_event(X2_1_G9HC_INPUT, X2_G9HC_EVENTS);
     assert_eq_event(X2_2_G9HC_INPUT, X2_G9HC_EVENTS);
-  
+
     assert_eq_event(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS);
     assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
     assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
