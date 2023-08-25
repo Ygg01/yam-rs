@@ -2357,8 +2357,42 @@ const X2_FH7J_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X3_FH7J_INPUT: &str = r"
+-
+  b: !!str
+- x";
+
+const X3_FH7J_EVENTS: &str = r"
++DOC
++SEQ
++MAP
+=VAL :b
+=VAL <tag:yaml.org,2002:str> :
+-MAP
+=VAL :x
+-SEQ
+-DOC";
+
+const X4_FH7J_INPUT: &str = r"
+- !!str
+- !!str : !!null
+";
+
+const X4_FH7J_EVENTS: &str = r"
++DOC
++SEQ
+=VAL <tag:yaml.org,2002:str> :
++MAP
+=VAL <tag:yaml.org,2002:str> :
+=VAL <tag:yaml.org,2002:null> :
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn block_tags_empty() {
+    assert_eq_event(X4_FH7J_INPUT, X4_FH7J_EVENTS);
+    assert_eq_event(X3_FH7J_INPUT, X3_FH7J_EVENTS);
     assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
     assert_eq_event(X2_FH7J_INPUT, X2_FH7J_EVENTS);
 }
