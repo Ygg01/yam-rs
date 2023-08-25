@@ -544,14 +544,11 @@ impl Lexer {
                     {
                         push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
                     }
-                    match self.curr_state() {
-                        BlockMap(ind, ExpectValue) | BlockSeq(ind, _) if prop_node.col_start <= ind => {
-                            push_error(ExpectedIndent { actual: prop_node.col_start, expected: ind }, tokens, &mut self.errors);
-                        }
-                        _ => {},
-                    }
                 }
-                b'-' if reader.peek_byte_at(1).map_or(false, is_plain_unsafe) && !prop_node.is_empty()  && prop_node.line_start == reader.line() => {
+                b'-' if reader.peek_byte_at(1).map_or(false, is_plain_unsafe)
+                    && !prop_node.is_empty()
+                    && prop_node.line_start == reader.line() =>
+                {
                     push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
                     self.process_block_seq(reader, tokens);
                 }
@@ -563,6 +560,14 @@ impl Lexer {
                         .skip_sep_spaces(reader)
                         .map_or(false, |info| info.num_breaks > 0)
                     {
+                        match self.curr_state() {
+                            BlockMap(ind, ExpectValue) | BlockSeq(ind, _)
+                                if prop_node.col_start <= ind =>
+                            {
+                                push_error(ExpectedIndent { actual: prop_node.col_start, expected: ind }, tokens, &mut self.errors);
+                            }
+                            _ => {}
+                        }
                         self.merge_prop(&mut prop_node, tokens);
                     }
                     continue;
@@ -687,7 +692,7 @@ impl Lexer {
                 true
             }
             BlockMap(prev_indent, ExpectComplexValue) if prev_indent == indent => {
-                push_empty(tokens,&mut self.prev_prop);
+                push_empty(tokens, &mut self.prev_prop);
                 self.set_map_state(BeforeBlockComplexKey);
                 false
             }
@@ -975,34 +980,31 @@ impl Lexer {
         &mut self,
         reader: &mut R,
         start_token: usize,
-        node: &mut PropSpans,
+        node: &mut Vec<usize>,
     ) -> bool {
-        let col_start = reader.col();
         let anchor = reader.consume_anchor_alias();
 
         if anchor.0 == anchor.1 {
             false
         } else {
-            node.spans.push(start_token);
-            node.spans.push(anchor.0);
-            node.spans.push(anchor.1);
-            node.line_start = reader.line();
-            node.col_start = col_start;
+            node.push(start_token);
+            node.push(anchor.0);
+            node.push(anchor.1);
             true
         }
     }
 
-    fn try_parse_tag<B, R: Reader<B>>(&mut self, reader: &mut R, node: &mut PropSpans) -> bool {
+    fn try_parse_tag<B, R: Reader<B>>(&mut self, reader: &mut R, node: &mut Vec<usize>) -> bool {
         match reader.read_tag() {
             (Some(err), ..) => {
                 push_error(err, &mut self.tokens, &mut self.errors);
                 false
             }
             (None, start, mid, end) => {
-                node.spans.push(TAG_START);
-                node.spans.push(start);
-                node.spans.push(mid);
-                node.spans.push(end);
+                node.push(TAG_START);
+                node.push(start);
+                node.push(mid);
+                node.push(end);
                 true
             }
         }
@@ -1158,21 +1160,21 @@ impl Lexer {
     fn process_inline_properties<B, R: Reader<B>>(&mut self, reader: &mut R) -> PropSpans {
         let mut node = PropSpans::from_reader(reader);
 
-        if reader.peek_byte_is(b'&') && self.try_parse_anchor_alias(reader, ANCHOR, &mut node) {
+        if reader.peek_byte_is(b'&') && self.try_parse_anchor_alias(reader, ANCHOR, &mut node.spans) {
             node.prop_type = PropType::Anchor;
             let offset = reader.count_space_then_tab().1;
             if reader.peek_byte_is_off(b'!', offset) {
                 node.prop_type = PropType::TagAndAnchor;
                 self.skip_space_tab(reader);
-                self.try_parse_tag(reader, &mut node);
+                self.try_parse_tag(reader, &mut node.spans);
             }
-        } else if reader.peek_byte_is(b'!') && self.try_parse_tag(reader, &mut node) {
+        } else if reader.peek_byte_is(b'!') && self.try_parse_tag(reader, &mut node.spans) {
             node.prop_type = PropType::Tag;
             let offset = reader.count_space_then_tab().1;
             if reader.peek_byte_is_off(b'&', offset) {
                 node.prop_type = PropType::TagAndAnchor;
                 self.skip_space_tab(reader);
-                self.try_parse_anchor_alias(reader, ANCHOR, &mut node);
+                self.try_parse_anchor_alias(reader, ANCHOR, &mut node.spans);
             }
         }
         node
