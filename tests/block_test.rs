@@ -1516,6 +1516,58 @@ fn block_map_anchor_alias() {
     assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
 }
 
+const X1_SR86_INPUT: &str = r"
+&b *a";
+const X1_SR86_EVENTS: &str = r"
++DOC
+ERR";
+
+#[test]
+fn block_seq_anchor_alias_err() {
+    assert_eq_event(X1_SR86_INPUT, X1_SR86_EVENTS);
+}
+
+const X1_PW8X_INPUT: &str = r"
+-
+  ? &d
+-
+  ? &e
+  : &a";
+
+const X1_PW8X_EVENTS: &str = r"
++DOC
++SEQ
++MAP
+=VAL &d :
+=VAL :
+-MAP
++MAP
+=VAL &e :
+=VAL &a :
+-MAP
+-SEQ
+-DOC";
+
+const X2_PW8X_INPUT: &str = r"
+-
+  ? &d";
+
+const X2_PW8X_EVENTS: &str = r"
++DOC
++SEQ
++MAP
+=VAL &d :
+=VAL :
+-MAP
+-SEQ
+-DOC";
+
+#[test]
+fn block_exp_map_alias() {
+    assert_eq_event(X2_PW8X_INPUT, X2_PW8X_EVENTS);
+    assert_eq_event(X1_PW8X_INPUT, X1_PW8X_EVENTS);
+}
+
 const ALIAS_N_SEQ1_INPUT: &str = r"
 &seq
  - a

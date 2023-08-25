@@ -90,19 +90,6 @@ impl NodeSpans {
         }
     }
 
-    pub fn merge_prop(&mut self, other: PropSpans) -> PropType {
-        if other.is_empty() {
-            return PropType::Unset;
-        }
-        self.col_start = other.col_start;
-        let mut pass = other.spans;
-        if !self.spans.is_empty() {
-            pass.extend(take(&mut self.spans));
-        }
-        self.spans = pass;
-        other.prop_type
-    }
-
     pub fn push(&mut self, token: usize) {
         self.spans.push(token)
     }
@@ -576,7 +563,7 @@ impl Lexer {
             };
         };
 
-        let merge = curr_node.merge_prop(prop_node);
+        let merge = self.merge_prop_with(&mut curr_node, prop_node);
 
         self.skip_sep_spaces(reader);
         match reader.peek_two_chars() {
@@ -630,6 +617,27 @@ impl Lexer {
         if let Err(err) = self.prev_prop.merge_prop(prop_node) {
             push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
         }
+    }
+
+    fn merge_prop_with(&mut self, curr_node: &mut NodeSpans, prop_node: PropSpans) -> PropType {
+        if prop_node.is_empty() {
+            return PropType::Unset;
+        }
+        curr_node.col_start = prop_node.col_start;
+        let mut pass = prop_node.spans;
+        if matches!(curr_node.spans.first(), Some(&ALIAS)) {
+            push_error(
+                ErrorType::AliasAndAnchor,
+                &mut self.tokens,
+                &mut self.errors,
+            );
+            return PropType::Unset;
+        }
+        if !curr_node.spans.is_empty() {
+            pass.extend(take(&mut curr_node.spans));
+        }
+        curr_node.spans = pass;
+        prop_node.prop_type
     }
 
     fn process_line_start<B, R: Reader<B>>(
@@ -727,7 +735,8 @@ impl Lexer {
         reader.consume_bytes(1);
 
         if self.prev_prop.line_start == curr_node.line_start {
-            curr_node.merge_prop(take(&mut self.prev_prop));
+            let prop = take(&mut self.prev_prop);
+            self.merge_prop_with(curr_node, prop);
             is_empty = curr_node.is_empty();
         }
 
@@ -1038,7 +1047,7 @@ impl Lexer {
 
         if chr == b'!' || chr == b'&' {
             let prop = self.process_inline_properties(reader);
-            node.merge_prop(prop);
+            self.merge_prop_with(&mut node, prop);
             self.skip_sep_spaces(reader);
         }
 
@@ -1050,7 +1059,7 @@ impl Lexer {
             self.get_flow_map(reader, MapState::default(), prop_node)
         } else {
             let mut scal = self.get_scalar_node(reader, &mut is_plain_scalar);
-            scal.merge_prop(take(prop_node));
+            self.merge_prop_with(&mut scal, take(prop_node));
             scal
         };
 
