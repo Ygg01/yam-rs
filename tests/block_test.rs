@@ -1562,8 +1562,24 @@ const X2_PW8X_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X3_PW8X_INPUT: &str = r"
+-
+  ? &e
+  : &a";
+
+const X3_PW8X_EVENTS: &str = r"
++DOC
++SEQ
++MAP
+=VAL &e :
+=VAL &a :
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn block_exp_map_alias() {
+    assert_eq_event(X3_PW8X_INPUT, X3_PW8X_EVENTS);
     assert_eq_event(X2_PW8X_INPUT, X2_PW8X_EVENTS);
     assert_eq_event(X1_PW8X_INPUT, X1_PW8X_EVENTS);
 }

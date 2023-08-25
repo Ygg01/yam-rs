@@ -569,10 +569,20 @@ impl Lexer {
         match reader.peek_two_chars() {
             [b':', peek, ..] if is_white_tab_or_break(*peek) => {
                 self.process_colon_block(reader, tokens, &mut curr_node);
+                if let Err(err) = merge.merge_prop_type(&self.prev_prop.prop_type) {
+                    push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
+                } else {
+                    tokens.extend(take(&mut self.prev_prop).spans);
+                }
                 tokens.extend(take(&mut curr_node).spans);
             }
             [b':'] => {
                 self.process_colon_block(reader, tokens, &mut curr_node);
+                if let Err(err) = merge.merge_prop_type(&self.prev_prop.prop_type) {
+                    push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
+                } else {
+                    tokens.extend(take(&mut self.prev_prop).spans);
+                }
                 tokens.extend(take(&mut curr_node).spans);
             }
             _ if !curr_node.is_empty() => {
@@ -692,7 +702,8 @@ impl Lexer {
         reader.consume_bytes(1);
         self.skip_space_tab(reader);
         match self.curr_state() {
-            DocBlock => {
+            DocBlock | BlockSeq(_, _)=> {
+                self.next_substate();
                 let state = BlockMap(indent, BeforeBlockComplexKey);
                 self.push_block_state(state, reader.line());
                 tokens.extend(take(&mut self.prev_prop).spans);
@@ -720,6 +731,8 @@ impl Lexer {
     ) -> bool {
         let col_pos = reader.col();
         let col_line = reader.line();
+        let node_indents = curr_node.col_start;
+
         let mut is_empty = curr_node.is_empty();
         let is_inline_key = curr_node.line_start == reader.line();
         if is_empty
@@ -739,11 +752,6 @@ impl Lexer {
             self.merge_prop_with(curr_node, prop);
             is_empty = curr_node.is_empty();
         }
-
-        let node_indents = match self.curr_state() {
-            // BlockSeq(_, _) => self.space_indent.unwrap_or(0),
-            _ => curr_node.col_start,
-        };
 
         if self
             .last_block_indent
@@ -777,6 +785,10 @@ impl Lexer {
         let curr_state = self.curr_state();
         let is_new_map = match curr_state {
             BlockMap(ind, BeforeFirstKey | ExpectKey) if ind == node_indents => false,
+            BlockMap(ind, BeforeBlockComplexKey) if ind == col_pos => {
+                // push_empty(&mut curr_node.spans, &mut self.prev_prop);
+                false
+            },
             BlockMap(_, BeforeBlockComplexKey) => is_inline_key,
             BlockMap(ind, ExpectValue) => {
                 if is_inline_key {
@@ -1616,24 +1628,15 @@ impl Lexer {
         }
         for _ in 0..unwind {
             match self.pop_state() {
-                Some(BlockSeq(_, SeqState::BeforeFirst)) => {
-                    push_empty(spans, &mut self.prev_prop);
-                    spans.push(SEQ_END);
-                }
-                Some(BlockSeq(_, _)) => {
-                    spans.push(SEQ_END);
-                }
-                Some(BlockMap(_, ExpectValue)) => {
-                    push_empty(spans, &mut self.prev_prop);
-                    spans.push(MAP_END);
-                }
-                Some(BlockMap(_, _)) => {
-                    spans.push(MAP_END);
+                Some(v @ BlockMap(_,_) | v @ BlockSeq(_, _)) => {
+                    close_block_state(v, &mut self.prev_prop, spans);
                 }
                 _ => {}
             }
         }
     }
+
+
 
     fn find_matching_state<F: Fn(LexerState) -> bool>(&self, f: F) -> Option<usize> {
         self.stack
@@ -2438,30 +2441,53 @@ impl Lexer {
 
     fn finish_eof(&mut self) {
         for state in self.stack.iter().rev() {
-            let token = match *state {
-                BlockSeq(_, BeforeFirst | BeforeElem) => {
-                    push_empty(&mut self.tokens, &mut self.prev_prop);
-                    SEQ_END
+            match *state {
+                v @ BlockSeq(_, _) | v @ BlockMap(_, _) => {
+                    close_block_state(v, &mut self.prev_prop, &mut self.tokens);
                 }
-                BlockSeq(_, _) => SEQ_END,
-                BlockMap(_, ExpectValue | ExpectComplexValue) => {
-                    push_empty(&mut self.tokens, &mut self.prev_prop);
-                    MAP_END
+                FlowMap(_) => {
+                    self.tokens.push(MAP_END);
                 }
-                BlockMap(_, _) | FlowMap(_) => MAP_END,
                 FlowSeq => {
                     push_error(
                         MissingFlowClosingBracket,
                         &mut self.tokens,
                         &mut self.errors,
                     );
-                    SEQ_END
+                    self.tokens.push(SEQ_END);
                 }
-                DocBlock | AfterDocBlock => DOC_END,
+                DocBlock | AfterDocBlock => {
+                    self.tokens.push(DOC_END);
+                }
                 _ => continue,
             };
-            self.tokens.push_back(token);
         }
+    }
+}
+
+#[inline]
+fn close_block_state<T: Pusher>(state: LexerState, prop: &mut PropSpans, spans: &mut T) {
+    match state {
+        BlockSeq(_, BeforeFirst | BeforeElem) => {
+            push_empty(spans, prop);
+            spans.push(SEQ_END);
+        }
+        BlockSeq(_, _) => {
+            spans.push(SEQ_END);
+        }
+        BlockMap(_, ExpectValue | ExpectComplexValue) => {
+            push_empty(spans, prop);
+            spans.push(MAP_END);
+        }
+        BlockMap(_, BeforeBlockComplexKey) => {
+            push_empty(spans, prop);
+            push_empty(spans, &mut PropSpans::default());
+            spans.push(MAP_END);
+        }
+        BlockMap(_, _) => {
+            spans.push(MAP_END);
+        }
+        _ => {}
     }
 }
 
