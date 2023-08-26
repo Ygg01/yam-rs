@@ -699,8 +699,23 @@ const FLOW_ALIAS_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_X38W_INPUT: &str = r"
+{&a []: *b}
+";
+
+const X1_X38W_EVENTS: &str = r"
++DOC
++MAP {}
++SEQ [] &a
+-SEQ
+=ALI *b
+-MAP
+-DOC";
+
 #[test]
 fn flow_anchor() {
+    assert_eq_event(X1_X38W_INPUT, X1_X38W_EVENTS);
+
     assert_eq_event(X4_CN3R_INPUT, X4_CN3R_EVENTS);
     assert_eq_event(X3_CN3R_INPUT, X3_CN3R_EVENTS);
     assert_eq_event(X2_CN3R_INPUT, X2_CN3R_EVENTS);

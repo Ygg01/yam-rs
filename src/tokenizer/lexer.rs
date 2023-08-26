@@ -1270,15 +1270,15 @@ impl Lexer {
         }
 
         let offset = reader.count_whitespace();
-        let curr_state = self.curr_state();
+        let prev_state = self.prev_state();
         if reader.peek_byte_at(offset) == Some(b':')
-            && matches!(curr_state, FlowSeq | DocBlock)
+            && matches!(prev_state, FlowSeq | DocBlock)
             && reader.peek_byte_at(1).map_or(true, is_white_tab_or_break)
         {
             reader.consume_bytes(1 + offset);
             self.skip_space_tab(reader);
             if line_begin == reader.line() {
-                let map_start = if self.prev_state().in_flow_collection() {
+                let map_start = if prev_state.in_flow_collection() {
                     MAP_START_EXP
                 } else {
                     MAP_START
