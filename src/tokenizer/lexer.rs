@@ -33,7 +33,7 @@ pub struct Lexer {
     last_block_indent: Option<u32>,
     last_map_line: Option<u32>,
     prev_prop: PropSpans,
-    
+
     has_tab: bool,
     stack: Vec<LexerState>,
 }
@@ -706,34 +706,32 @@ impl Lexer {
         self.last_map_line = Some(reader.line());
         reader.consume_bytes(1);
         self.skip_space_tab(reader);
-        match self.curr_state() {
-            DocBlock | BlockSeq(_, _) => {
-                self.next_substate();
-                let state = BlockMap(indent, BeforeBlockComplexKey);
-                self.push_block_state(state, reader.line());
-                tokens.extend(take(&mut self.prev_prop).spans);
-                tokens.push(MAP_START);
-                true
-            }
-            BlockMap(map_indent, _) if indent > map_indent => {
-                self.next_substate();
-                let state = BlockMap(indent, BeforeBlockComplexKey);
-                self.push_block_state(state, reader.line());
-                tokens.extend(take(&mut self.prev_prop).spans);
-                tokens.push(MAP_START);
-                true
+        let is_new_exp_map = match self.curr_state() {
+            DocBlock => true,
+            BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent => true,
+            BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent < map_indent => {
+                if let Some(unwind)  = self.find_matching_state(|state| matches!(state, BlockMap(ind,_ ) | BlockSeq(ind,_ ) if ind == indent)) {
+                    self.pop_block_states(unwind, tokens);
+                }
+                matches!(self.curr_state(),BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent)
             }
             BlockMap(prev_indent, ExpectComplexValue) if prev_indent == indent => {
                 push_empty(tokens, &mut self.prev_prop);
-                self.set_map_state(BeforeBlockComplexKey);
                 false
             }
-            BlockMap(prev_indent, _) if prev_indent == indent => {
-                self.set_map_state(BeforeBlockComplexKey);
-                false
-            }
+            BlockMap(prev_indent, _) if prev_indent == indent => false,
             _ => false,
+        };
+        if is_new_exp_map {
+            self.next_substate();
+            let state = BlockMap(indent, BeforeBlockComplexKey);
+            self.push_block_state(state, reader.line());
+            tokens.extend(take(&mut self.prev_prop).spans);
+            tokens.push(MAP_START);
+        } else {
+            self.set_map_state(BeforeBlockComplexKey);
         }
+        is_new_exp_map
     }
 
     fn process_colon_block<B, R: Reader<B>>(
@@ -748,11 +746,10 @@ impl Lexer {
 
         let mut is_empty = curr_node.is_empty();
         let is_inline_key = curr_node.line_start == reader.line();
-        let matches_exp_map = self.find_matching_state(|x| matches!(x, BlockMap(ind , ExpectComplexValue) if ind == col_pos));
-        if is_empty
-            && curr_node.col_start == col_pos
-            && matches_exp_map.is_some()
-        {
+        let matches_exp_map = self.find_matching_state(
+            |x| matches!(x, BlockMap(ind , ExpectComplexValue) if ind == col_pos),
+        );
+        if is_empty && curr_node.col_start == col_pos && matches_exp_map.is_some() {
             reader.consume_bytes(1);
             if let Some(unwind) = matches_exp_map {
                 self.pop_block_states(unwind, &mut curr_node.spans);
@@ -1076,7 +1073,7 @@ impl Lexer {
 
         let ws_offset = reader.count_whitespace();
         if reader.peek_byte_at(ws_offset).map_or(false, |c| c == b':')
-            && !matches!(self.curr_state(), FlowMap(_))
+            && !matches!(self.curr_state(), FlowMap(_) | BlockMap(_, _))
         {
             reader.consume_bytes(ws_offset);
             if start_line != reader.line() {
@@ -2110,12 +2107,17 @@ impl Lexer {
                     }
                 }
                 _ => {
+                    let count_tab = reader.count_space_then_tab().1;
                     if *new_lines > 0 {
                         // First empty line after block literal is treated in a special way
                         let is_first_non_empty_line = tokens.len() > 1;
 
                         // That's on the same identation level as previously detected indentation
-                        if is_first_non_empty_line && !lit_chomp.0 && *prev_indent == curr_indent && curr_indent == indent  {
+                        if is_first_non_empty_line
+                            && !lit_chomp.0
+                            && *prev_indent == curr_indent + count_tab
+                            && curr_indent == indent
+                        {
                             tokens.push(NewLine as usize);
                             tokens.push(new_lines.saturating_sub(1) as usize);
                         } else {
@@ -2123,7 +2125,7 @@ impl Lexer {
                             tokens.push(*new_lines as usize);
                         }
                     }
-                    *prev_indent = curr_indent;
+                    *prev_indent = curr_indent + count_tab;
                     tokens.push(start);
                     tokens.push(end);
                     self.read_line(reader);
