@@ -2504,9 +2504,50 @@ const X1_K858_EVENTS: &str = r"
 -MAP
 -DOC";
 
-
-
 #[test]
 fn block_chomp() {
     assert_eq_event(X1_K858_INPUT, X1_K858_EVENTS);
+}
+
+const X1_KK5P_INPUT: &str = "
+complex1:
+  ? - a";
+
+const X1_KK5P_EVENTS: &str = "
++DOC
++MAP
+=VAL :complex1
++MAP
++SEQ
+=VAL :a
+-SEQ
+=VAL :
+-MAP
+-MAP
+-DOC";
+
+const X2_KK5P_INPUT: &str = "
+complex5:
+  ? - a
+  : - b";
+
+const X2_KK5P_EVENTS: &str = r"
++DOC
++MAP
+=VAL :complex5
++MAP
++SEQ
+=VAL :a
+-SEQ
++SEQ
+=VAL :b
+-SEQ
+-MAP
+-MAP
+-DOC";
+
+#[test]
+fn block_complex_exp() {
+    assert_eq_event(X2_KK5P_INPUT, X2_KK5P_EVENTS);
+    assert_eq_event(X1_KK5P_INPUT, X1_KK5P_EVENTS);
 }
