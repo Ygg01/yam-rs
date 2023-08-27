@@ -385,7 +385,7 @@ where
                             } else if extension.is_empty() && end == 0 {
                                 Some(Cow::Borrowed(namespace))
                             } else {
-                                None
+                                return Some(Event::ErrorEvent);
                             }
                         }
                     }

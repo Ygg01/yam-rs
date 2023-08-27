@@ -2093,8 +2093,26 @@ const X1_TAG_SHORT_EVENTS: &str = "
 -SEQ
 -DOC";
 
+const X1_QLJ7_INPUT: &str = r"
+%TAG !prefix! tag:example.com,2011:
+--- !prefix!A
+a: b
+--- !prefix!B
+c: d";
+
+const X1_QLJ7_EVENTS: &str = r"
++DOC ---
++MAP <tag:example.com,2011:A>
+=VAL :a
+=VAL :b
+-MAP
+-DOC
++DOC ---
+ERR";
+
 #[test]
 fn block_tag_short() {
+    assert_eq_event(X1_QLJ7_INPUT, X1_QLJ7_EVENTS);
     assert_eq_event(X1_TAG_SHORT_INPUT, X1_TAG_SHORT_EVENTS);
     assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
 }

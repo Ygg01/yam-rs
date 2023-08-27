@@ -2138,6 +2138,7 @@ impl Lexer {
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
         use DirectiveState::NoDirective;
         use HeaderState::{Bare, Directive, HeaderEnd, HeaderStart};
+        self.tags.clear();
 
         let mut header_state = Bare;
 
