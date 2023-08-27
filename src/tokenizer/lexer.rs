@@ -600,16 +600,7 @@ impl Lexer {
 
                 // scalar found in invalid state
                 match self.curr_state() {
-                    BlockSeq(_, InSeqElem) => {
-                        if let Some(unwind) = self.find_matching_state(
-                            |state| matches!(state, BlockSeq(ind, _) | BlockMap(ind, _) if ind <= node_col),
-                        ) {
-                            self.pop_block_states(unwind, tokens);
-                        }
-                        push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
-                        tokens.extend(take(&mut curr_node.spans));
-                    }
-                    BlockMap(_, ExpectKey) => {
+                    BlockMap(_, ExpectKey) | BlockSeq(_, InSeqElem) => {
                         if let Some(unwind) = self.find_matching_state(
                             |state| matches!(state, BlockSeq(ind, _) | BlockMap(ind, _) if ind <= node_col),
                         ) {
@@ -710,7 +701,9 @@ impl Lexer {
             DocBlock => true,
             BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent => true,
             BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent < map_indent => {
-                if let Some(unwind)  = self.find_matching_state(|state| matches!(state, BlockMap(ind,_ ) | BlockSeq(ind,_ ) if ind == indent)) {
+                if let Some(unwind) = self.find_matching_state(
+                    |state| matches!(state, BlockMap(ind,_ ) | BlockSeq(ind,_ ) if ind == indent),
+                ) {
                     self.pop_block_states(unwind, tokens);
                 }
                 matches!(self.curr_state(),BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent)
@@ -1535,7 +1528,9 @@ impl Lexer {
             space_indent = sep.0;
             let amount = sep.1;
             has_tab = space_indent != amount;
-            let is_comment = reader.peek_byte_at(amount as usize).map_or(false, |c| c == b'#');
+            let is_comment = reader
+                .peek_byte_at(amount as usize)
+                .map_or(false, |c| c == b'#');
 
             if has_comment && !is_comment {
                 break;
@@ -2162,7 +2157,11 @@ impl Lexer {
                     return;
                 }
                 Some(b'#') => {
+                    if reader.col() > 0 {
+                        push_error(ErrorType::MissingWhitespaceBeforeComment, &mut self.tokens, &mut self.errors);
+                    }
                     self.read_line(reader);
+                    self.skip_sep_spaces(reader);
                     continue;
                 }
                 Some(x) if is_white_tab_or_break(x) => {
@@ -2176,9 +2175,17 @@ impl Lexer {
             match (header_state, chr) {
                 (Bare, b'%') => {
                     let mut directive_state = NoDirective;
-                    if !self.try_read_yaml_directive(reader, &mut directive_state)
-                        && !self.try_read_tag(reader)
-                    {}
+                    if self.try_read_yaml_directive(reader, &mut directive_state)
+                        || self.try_read_tag(reader)
+                    {
+                        let line = reader.line();
+                        self.skip_sep_spaces(reader);
+
+                        if line == reader.line() && reader.peek_byte_at(0).map_or(false, |c| c != b'\r' && c != b'\n') {
+                            prepend_error(InvalidAnchorDeclaration, &mut self.tokens, &mut self.errors);
+                            self.read_line(reader);
+                        }
+                    }
                     header_state = Directive(directive_state);
                 }
                 (Bare, b'.') => {
@@ -2277,7 +2284,7 @@ impl Lexer {
         reader: &mut R,
         directive_state: &mut DirectiveState,
     ) -> bool {
-        if reader.col() == 0 && reader.try_read_slice_exact("%YAML") {
+        if reader.col() == 0 && reader.try_read_slice_exact("%YAML ") {
             self.skip_space_tab(reader);
             return match reader.peek_chars() {
                 b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
@@ -2288,14 +2295,6 @@ impl Lexer {
                     self.tokens.push_back(DIR_YAML);
                     self.tokens.push_back(reader.pos());
                     self.tokens.push_back(reader.consume_bytes(3));
-                    self.skip_space_tab(reader);
-                    let invalid_char = reader
-                        .peek_byte()
-                        .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#');
-                    if invalid_char {
-                        prepend_error(InvalidAnchorDeclaration, &mut self.tokens, &mut self.errors);
-                        self.read_line(reader);
-                    }
                     true
                 }
                 b"..." | b"---" => false,
@@ -2309,7 +2308,10 @@ impl Lexer {
     }
 
     fn try_read_tag<B, R: Reader<B>>(&mut self, reader: &mut R) -> bool {
-        reader.try_read_slice_exact("%TAG");
+        if !reader.try_read_slice_exact("%TAG") {
+            reader.read_line();
+            return false;
+        }
         self.skip_space_tab(reader);
 
         if let Ok(key) = reader.read_tag_handle() {
