@@ -812,11 +812,13 @@ impl Lexer {
 
         let curr_state = self.curr_state();
         let is_new_map = match curr_state {
-            BlockMap(ind, BeforeFirstKey | ExpectKey) if ind == node_indents => false,
-            BlockMap(ind, BeforeBlockComplexKey) if ind == col_pos => {
-                // push_empty(&mut curr_node.spans, &mut self.prev_prop);
+            BlockMap(ind, BeforeFirstKey | ExpectKey) => {
+                if node_indents != ind {
+                    push_error(InvalidMapItemIndent, tokens, &mut self.errors);
+                }
                 false
             }
+            BlockMap(ind, BeforeBlockComplexKey) if ind == col_pos => false,
             BlockMap(_, BeforeBlockComplexKey) => is_inline_key,
             BlockMap(ind, ExpectValue) => {
                 if is_inline_key {
@@ -1149,7 +1151,10 @@ impl Lexer {
             node.spans.push(ALIAS);
             node.spans.push(alias.0);
             node.spans.push(alias.1);
-        } else if chr == b':' && self.is_valid_map(reader, &mut node.spans) && self.curr_state().in_flow_collection() {
+        } else if chr == b':'
+            && self.is_valid_map(reader, &mut node.spans)
+            && self.curr_state().in_flow_collection()
+        {
             push_empty(&mut node.spans, &mut PropSpans::default());
             node.line_start = reader.line();
             node.col_start = reader.col();
@@ -1344,12 +1349,11 @@ impl Lexer {
         init_state: MapState,
         prop_node: &mut PropSpans,
     ) -> NodeSpans {
-        let mut map_state = init_state;
         let mut node = NodeSpans::from_reader(reader);
         let mut skip_colon_space = false;
         let is_nested = init_state != MapState::default();
 
-        self.push_state(FlowMap(map_state));
+        self.push_state(FlowMap(init_state));
 
         if !prop_node.is_empty() {
             node.merge_tokens(take(prop_node).spans);
@@ -1391,20 +1395,20 @@ impl Lexer {
             } else if chr == b'?' && peek_next.map_or(false, is_white_tab_or_break) {
                 reader.consume_bytes(1);
                 self.skip_sep_spaces(reader);
-                map_state = BeforeFlowComplexKey;
+                self.set_map_state(BeforeFlowComplexKey);
             } else if chr == b',' {
                 reader.consume_bytes(1);
-                if matches!(map_state, ExpectValue) {
+                if matches!(self.curr_state(), FlowMap(ExpectValue)) {
                     push_empty(&mut node.spans, &mut PropSpans::default());
-                    map_state = ExpectKey;
+                    self.set_map_state(ExpectKey);
                 }
                 self.skip_sep_spaces(reader);
                 continue;
             } else if chr == b':' && (skip_colon_space || peek_next.map_or(true, is_plain_unsafe)) {
                 reader.consume_bytes(1);
-                if matches!(map_state, ExpectKey) {
+                if matches!(self.curr_state(), FlowMap(ExpectKey)) {
                     push_empty(&mut node.spans, &mut PropSpans::default());
-                    map_state = ExpectValue;
+                    self.set_map_state(ExpectValue);
                     continue;
                 }
                 self.skip_sep_spaces(reader);
@@ -1412,15 +1416,23 @@ impl Lexer {
 
             let scalar_spans = self.get_flow_node(reader, prop_node);
             self.check_flow_indent(scalar_spans.col_start, &mut node.spans);
+            let ws_offset = reader.count_whitespace();
+            if matches!(self.curr_state(), FlowMap(ExpectValue))
+                && reader
+                    .peek_byte_at(ws_offset)
+                    .map_or(false, |c| c != b',' && c != b'}' && c != b']')
+            {
+                push_error(ErrorType::InvalidMapEnd, &mut node.spans, &mut self.errors)
+            }
             skip_colon_space = is_skip_colon_space(&scalar_spans);
             if scalar_spans.is_empty() {
                 push_empty(&mut node.spans, &mut PropSpans::default());
             } else {
                 node.merge_spans(scalar_spans);
             }
-            map_state.set_next_state();
+            self.next_substate();
         }
-        if matches!(map_state, ExpectValue | ExpectComplexValue) {
+        if matches!(self.curr_state(), FlowMap(ExpectValue | ExpectComplexValue)) {
             push_empty(&mut node.spans, &mut PropSpans::default());
         }
         if is_end_emitted {
@@ -1797,7 +1809,7 @@ impl Lexer {
 
     #[inline]
     fn set_map_state(&mut self, map_state: MapState) {
-        if let Some(BlockMap(_, state)) = self.stack.last_mut() {
+        if let Some(BlockMap(_, state) | FlowMap(state)) = self.stack.last_mut() {
             *state = map_state;
         }
     }
@@ -1807,6 +1819,7 @@ impl Lexer {
         let new_state = match self.stack.last() {
             Some(BlockMap(ind, state)) => BlockMap(*ind, state.next_state()),
             Some(BlockSeq(ind, state)) => BlockSeq(*ind, state.next_state()),
+            Some(FlowMap(state)) => FlowMap(state.next_state()),
             _ => return,
         };
         if let Some(x) = self.stack.last_mut() {

@@ -40,6 +40,8 @@ pub enum ErrorType {
     InvalidCommentInScalar,
     InvalidEscapeCharacter,
     InvalidMappingValue,
+    InvalidMapEnd,
+    InvalidMapItemIndent,
     InvalidQuoteIndent { actual: u32, expected: u32 },
     InvalidTagHandleCharacter { found: char },
     InvalidScalarStart,

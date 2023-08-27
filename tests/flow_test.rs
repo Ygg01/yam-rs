@@ -391,8 +391,6 @@ const X2_N782_EVENTS: &str = r"
 +MAP {}
 ERR";
 
-
-
 #[test]
 fn flow_seq_err() {
     assert_eq_event(X1_N782_INPUT, X1_N782_EVENTS);
@@ -609,8 +607,20 @@ const X2_DK4H_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_T833_INPUT: &str = r"
+{
+    foo: 1
+    bar: 2
+}";
+const X1_T833_EVENTS: &str = r"
++DOC
++MAP {}
+=VAL :foo
+ERR";
+
 #[test]
 fn flow_map_edge() {
+    assert_eq_event(X1_T833_INPUT, X1_T833_EVENTS);
     assert_eq_event(X_CT4Q_INPUT, X_CT4Q_EVENTS);
     assert_eq_event(X1_DK4H_INPUT, X1_DK4H_EVENTS);
     assert_eq_event(X2_DK4H_INPUT, X2_DK4H_EVENTS);

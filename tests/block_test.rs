@@ -2070,8 +2070,8 @@ const X1_S7BG_EVENTS: &str = r"
 
 #[test]
 fn block_seq_and_map() {
-  assert_eq_event(X1_S7BG_INPUT, X1_S7BG_EVENTS);
-  assert_eq_event(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS);
+    assert_eq_event(X1_S7BG_INPUT, X1_S7BG_EVENTS);
+    assert_eq_event(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS);
 }
 
 const TAG_SHORT_INPUT: &str = "
@@ -2290,8 +2290,23 @@ const X1_7LBH_EVENTS: &str = r#"
 =VAL :b
 ERR"#;
 
+const X1_U44R_INPUT: &str = r#"
+map:
+  a: "1"
+   b: "2"
+"#;
+const X1_U44R_EVENTS: &str = r#"
++DOC
++MAP
+=VAL :map
++MAP
+=VAL :a
+=VAL "1
+ERR"#;
+
 #[test]
 fn block_map_err_indent() {
+    assert_eq_event(X1_U44R_INPUT, X1_U44R_EVENTS);
     assert_eq_event(X1_EW3V_INPUT, X1_EW3V_EVENTS);
     assert_eq_event(X1_DMG6_INPUT, X1_DMG6_EVENTS);
     assert_eq_event(X1_7LBH_INPUT, X1_7LBH_EVENTS);
@@ -2695,7 +2710,7 @@ const X1_RZP5_INPUT: &str = r#"
 
 "#;
 
-const  X1_RZP5_EVENTS: &str = r#"
+const X1_RZP5_EVENTS: &str = r#"
 +DOC
 +MAP
 +SEQ

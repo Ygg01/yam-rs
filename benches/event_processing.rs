@@ -59,7 +59,7 @@ fn bench_block_simple(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-yaml");
     group.significance_level(0.05).sample_size(100);
     group.bench_function("bench_block_simple", |b| {
-        b.iter(||assert_eq_event(black_box(IN2), black_box(IN2_EXPECTED)));
+        b.iter(|| assert_eq_event(black_box(IN2), black_box(IN2_EXPECTED)));
     });
     group.finish();
 }
