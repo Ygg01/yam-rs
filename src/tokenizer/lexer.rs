@@ -479,7 +479,14 @@ impl Lexer {
         let mut prop_node = PropSpans::from_reader(reader);
         let mut curr_node = match self.get_node(reader, tokens, &mut prop_node) {
             Some(value) => value,
-            None => return,
+            None => {
+                if !self.prev_prop.is_empty() && self.curr_state() == DocBlock {
+                    push_empty(tokens, &mut self.prev_prop);
+                } else {
+                    tokens.extend(take(&mut prop_node).spans);
+                }
+                return;
+            }
         };
 
         let merge = self.merge_prop_with(&mut curr_node, prop_node);
@@ -545,7 +552,6 @@ impl Lexer {
         loop {
             let Some(chr) = reader.peek_byte() else {
                 self.stream_end = true;
-                tokens.extend(take(prop_node).spans);
                 return None;
             };
 
