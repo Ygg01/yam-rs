@@ -462,45 +462,7 @@ impl Lexer {
     fn fetch_block_node<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let mut tokens = Vec::new();
 
-        let Some(chr) = reader.peek_byte() else {
-            self.stream_end = true;
-            return;
-        };
-
-        let is_doc_end = reader.peek_stream_ending();
-
-        match chr {
-            b'.' if is_doc_end => {
-                self.pop_block_states(self.stack.len().saturating_sub(1), &mut tokens);
-                tokens.push(DOC_END_EXP);
-                self.set_state(PreDocStart);
-                reader.consume_bytes(3);
-                self.last_map_line = Some(reader.line());
-            }
-            b'-' if is_doc_end => {
-                self.pop_block_states(self.stack.len().saturating_sub(1), &mut tokens);
-                tokens.push(DOC_END);
-                self.set_state(PreDocStart);
-            }
-            b'#' if reader.col() > 0 => {
-                // comment that doesnt have literal
-                push_error(
-                    MissingWhitespaceBeforeComment,
-                    &mut self.tokens,
-                    &mut self.errors,
-                );
-                self.read_line(reader);
-            }
-            b'%' => {
-                push_error(UnexpectedDirective, &mut self.tokens, &mut self.errors);
-            }
-            chr if is_white_tab_or_break(chr) => {
-                self.skip_sep_spaces(reader);
-            }
-            _ => {
-                self.get_block_collection(reader, &mut tokens);
-            }
-        }
+        self.get_block_collection(reader, &mut tokens);
 
         self.tokens.extend(tokens);
         // We are in Root node and remnants in properties
@@ -522,7 +484,36 @@ impl Lexer {
                 return;
             };
 
+            let is_doc_end = reader.peek_stream_ending();
+
             match chr {
+                b'.' if is_doc_end => {
+                    self.pop_block_states(self.stack.len().saturating_sub(1), tokens);
+                    tokens.push(DOC_END_EXP);
+                    self.set_state(PreDocStart);
+                    reader.consume_bytes(3);
+                    self.last_map_line = Some(reader.line());
+                    return;
+                }
+                b'-' if is_doc_end => {
+                    self.pop_block_states(self.stack.len().saturating_sub(1), tokens);
+                    tokens.push(DOC_END);
+                    self.set_state(PreDocStart);
+                    return;
+                }
+                b'#' if reader.col() > 0 => {
+                    // comment that doesnt have literal
+                    push_error(
+                        MissingWhitespaceBeforeComment,
+                        &mut self.tokens,
+                        &mut self.errors,
+                    );
+                    self.read_line(reader);
+                }
+                b'%' => {
+                    push_error(UnexpectedDirective, &mut self.tokens, &mut self.errors);
+                    return;
+                }
                 b'&' | b'!' => {
                     if let Err(err) =
                         prop_node.merge_prop(&mut self.process_inline_properties(reader))
