@@ -892,6 +892,10 @@ impl Lexer {
 
         let new_seq = match curr_state {
             DocBlock => true,
+            BlockSeq(ind, InSeqElem) if indent > ind => {
+                push_error(UnexpectedSeqAtNodeEnd, tokens, &mut self.errors,);
+                false
+            },
             BlockSeq(ind, _) if indent > ind => true,
             BlockSeq(ind, _) if indent == ind => false,
             _ => {
@@ -1057,7 +1061,7 @@ impl Lexer {
 
         let ws_offset = reader.count_whitespace();
         if reader.peek_byte_at(ws_offset).map_or(false, |c| c == b':')
-            && !matches!(self.curr_state(), FlowMap(_) | BlockMap(_, _))
+            && !matches!(self.curr_state(), FlowMap(_) | BlockMap(_, _) | DocBlock)
         {
             reader.consume_bytes(ws_offset);
             if start_line != reader.line() {
@@ -1084,13 +1088,8 @@ impl Lexer {
             }
 
             reader.consume_bytes(1);
-            let map_start = if self.curr_state().in_flow_collection() {
-                MAP_START_EXP
-            } else {
-                MAP_START
-            };
 
-            node.spans.push(map_start);
+            node.spans.push(MAP_START_EXP);
             if prev_node.is_empty() {
                 node.push(SCALAR_PLAIN);
                 node.push(SCALAR_END);

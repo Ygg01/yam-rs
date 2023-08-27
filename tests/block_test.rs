@@ -128,8 +128,19 @@ const X_BD7L_EVENTS: &str = r"
 =VAL :item
 ERR";
 
+const X1_P2EQ_INPUT: &str = r"
+- {}- invalid";
+
+const X1_P2EQ_EVENTS: &str = r"
++DOC
++SEQ
++MAP {}
+-MAP
+ERR";
+
 #[test]
 fn block_seq_err() {
+    assert_eq_event(X1_P2EQ_INPUT, X1_P2EQ_EVENTS);
     assert_eq_event(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS);
     assert_eq_event(X_BD7L_INPUT, X_BD7L_EVENTS);
     assert_eq_event(X_9CWY_INPUT, X_9CWY_EVENTS);
@@ -1469,8 +1480,25 @@ const NESTED_MAPS_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 
+const X1_Q9WF_INPUT: &str = r"
+{}:
+  hr: a";
+
+const X1_Q9WF_EVENTS: &str = r"
++DOC
++MAP
++MAP {}
+-MAP
++MAP
+=VAL :hr
+=VAL :a
+-MAP
+-MAP
+-DOC";
+
 #[test]
 fn block_nested_maps() {
+    assert_eq_event(X1_Q9WF_INPUT, X1_Q9WF_EVENTS);
     assert_eq_event(NESTED_MAPS_INPUT, NESTED_MAPS_EVENTS);
 }
 

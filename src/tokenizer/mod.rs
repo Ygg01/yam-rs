@@ -67,6 +67,7 @@ pub enum ErrorType {
     UnexpectedEndOfStream,
     UnexpectedEndOfDocument,
     UnexpectedEndOfFile,
+    UnexpectedSeqAtNodeEnd,
     UnexpectedSymbol(char),
     UnsupportedYamlVersion,
     UnfinishedTag,
