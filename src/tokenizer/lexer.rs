@@ -979,10 +979,10 @@ impl Lexer {
             if self.space_indent.is_none() {
                 self.space_indent = Some(num_spaces);
             }
-            self.has_tab = num_spaces as usize != amount;
-            reader.consume_bytes(amount);
+            self.has_tab = num_spaces != amount;
+            reader.consume_bytes(amount as usize);
         }
-        amount
+        amount as usize
     }
 
     fn consume_spaces<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) -> bool {
@@ -1183,7 +1183,7 @@ impl Lexer {
         if reader.peek_byte_is(b'&') && try_parse_anchor_alias(reader, ANCHOR, &mut node.spans) {
             node.prop_type = PropType::Anchor;
             let offset = reader.count_space_then_tab().1;
-            if reader.peek_byte_is_off(b'!', offset) {
+            if reader.peek_byte_is_off(b'!', offset as usize) {
                 node.prop_type = PropType::TagAndAnchor;
                 self.skip_space_tab(reader);
                 self.try_parse_tag(reader, &mut node.spans);
@@ -1191,7 +1191,7 @@ impl Lexer {
         } else if reader.peek_byte_is(b'!') && self.try_parse_tag(reader, &mut node.spans) {
             node.prop_type = PropType::Tag;
             let offset = reader.count_space_then_tab().1;
-            if reader.peek_byte_is_off(b'&', offset) {
+            if reader.peek_byte_is_off(b'&', offset as usize) {
                 node.prop_type = PropType::TagAndAnchor;
                 self.skip_space_tab(reader);
                 try_parse_anchor_alias(reader, ANCHOR, &mut node.spans);
@@ -1537,8 +1537,8 @@ impl Lexer {
             let sep = reader.count_space_then_tab();
             space_indent = sep.0;
             let amount = sep.1;
-            has_tab = space_indent as usize != amount;
-            let is_comment = reader.peek_byte_at(amount).map_or(false, |c| c == b'#');
+            has_tab = space_indent != amount;
+            let is_comment = reader.peek_byte_at(amount as usize).map_or(false, |c| c == b'#');
 
             if has_comment && !is_comment {
                 break;
@@ -1547,7 +1547,7 @@ impl Lexer {
                 has_comment = true;
                 if amount > 0
                     && !reader
-                        .peek_byte_at(amount.saturating_sub(1))
+                        .peek_byte_at(amount.saturating_sub(1) as usize)
                         .map_or(false, |c| c == b' ' || c == b'\t' || c == b'\n')
                 {
                     push_error(
@@ -1573,8 +1573,8 @@ impl Lexer {
             if found_eol {
                 let (indent, amount) = reader.count_space_then_tab();
                 space_indent = indent;
-                has_tab = indent as usize != amount;
-                reader.consume_bytes(amount);
+                has_tab = indent != amount;
+                reader.consume_bytes(amount as usize);
                 found_eol = false;
             } else {
                 break;

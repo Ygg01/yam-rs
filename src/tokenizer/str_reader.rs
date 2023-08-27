@@ -124,7 +124,8 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize {
         let (indent, amount) = self.count_space_then_tab();
-        *has_tab = indent as usize != amount;
+        *has_tab = indent != amount;
+        let amount = amount.try_into().unwrap();
         self.consume_bytes(amount);
         amount
     }
@@ -286,7 +287,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end_of_str, end_of_str - start)
     }
 
-    fn count_space_then_tab(&mut self) -> (u32, usize) {
+    fn count_space_then_tab(&mut self) -> (u32, u32) {
         let spaces = match self.slice[self.pos..]
             .iter()
             .try_fold(0u32, |ws_cnt, chr| match *chr {
@@ -297,7 +298,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         };
         let tabs = match self.slice[self.pos..]
             .iter()
-            .try_fold(0usize, |ws_cnt, chr| match *chr {
+            .try_fold(0u32, |ws_cnt, chr| match *chr {
                 b' ' | b'\t' => Continue(ws_cnt + 1),
                 _ => Break(ws_cnt),
             }) {

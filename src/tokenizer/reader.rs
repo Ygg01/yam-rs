@@ -97,7 +97,7 @@ pub trait Reader<B> {
     fn get_double_quote_trim(&self, start_str: usize) -> Option<(usize, usize)>;
     fn get_single_quote(&self) -> Option<usize>;
     fn get_single_quote_trim(&self, start_str: usize) -> Option<(usize, usize)>;
-    fn count_space_then_tab(&mut self) -> (u32, usize);
+    fn count_space_then_tab(&mut self) -> (u32, u32);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
     fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType>;
