@@ -1211,9 +1211,17 @@ impl Lexer {
         let mut prop = PropSpans::default();
 
         loop {
-            let Some(chr) = reader.peek_byte() else {
-                self.stream_end = true;
-                break;
+            let chr = match reader.peek_byte() {
+                None => {
+                    self.stream_end = true;
+                    break;
+                }
+                Some(b'-') | Some(b'.') if reader.peek_stream_ending() => {
+                    reader.consume_bytes(3);
+                    push_error(UnexpectedEndOfDocument, &mut node.spans, &mut self.errors);
+                    continue;
+                }
+                Some(x) => x,
             };
 
             let peek_next = reader.peek_byte_at(1).unwrap_or(b'\0');
@@ -1339,6 +1347,11 @@ impl Lexer {
                 None => {
                     self.stream_end = true;
                     break;
+                }
+                Some(b'-') | Some(b'.') if reader.peek_stream_ending() => {
+                    reader.consume_bytes(3);
+                    push_error(UnexpectedEndOfDocument, &mut node.spans, &mut self.errors);
+                    continue;
                 }
                 Some(b',' | b']') if is_nested => {
                     break;
