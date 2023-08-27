@@ -2121,8 +2121,28 @@ const X1_QLJ7_EVENTS: &str = r"
 +DOC ---
 ERR";
 
+const X1_U99R_INPUT: &str = r"
+!!str, x";
+const X1_U99R_EVENTS: &str = r"
++DOC
+ERR";
+
+const X2_U99R_INPUT: &str = r"
+[!!str, xxx]";
+const X2_U99R_EVENTS: &str = r"
++DOC
++SEQ []
+=VAL <tag:yaml.org,2002:str> :
+=VAL :xxx
+-SEQ
+-DOC";
+
+
 #[test]
 fn block_tag_short() {
+    assert_eq_event(X1_U99R_INPUT, X1_U99R_EVENTS);
+    assert_eq_event(X2_U99R_INPUT, X2_U99R_EVENTS);
+
     assert_eq_event(X1_QLJ7_INPUT, X1_QLJ7_EVENTS);
     assert_eq_event(X1_TAG_SHORT_INPUT, X1_TAG_SHORT_EVENTS);
     assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);

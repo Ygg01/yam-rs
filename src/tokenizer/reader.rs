@@ -171,6 +171,17 @@ pub(crate) fn is_uri_char(chr: u8) -> bool {
 }
 
 #[inline]
+pub(crate) fn is_tag_char_short(chr: u8) -> bool {
+    // can't contain `!`, `,` `[`, `]` , `{` , `}`
+    (b'#'..=b'+').contains(&chr)
+        || (b'-'..=b';').contains(&chr)
+        || (b'?'..=b'Z').contains(&chr)
+        || chr == b'_'
+        || chr.is_ascii_lowercase()
+}
+
+
+#[inline]
 pub(crate) fn is_tag_char(chr: u8) -> bool {
     matches!(chr, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')
 }
