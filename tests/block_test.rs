@@ -2677,3 +2677,24 @@ fn block_complex_exp_mix() {
     assert_eq_event(X2_KK5P_INPUT, X2_KK5P_EVENTS);
     assert_eq_event(X1_KK5P_INPUT, X1_KK5P_EVENTS);
 }
+
+const X1_RZP5_INPUT: &str = r#"
+? # lala
+ - seq1
+
+"#;
+
+const  X1_RZP5_EVENTS: &str = r#"
++DOC
++MAP
++SEQ
+=VAL :seq1
+-SEQ
+=VAL :
+-MAP
+-DOC"#;
+
+#[test]
+fn block_comment() {
+    assert_eq_event_exact(X1_RZP5_INPUT, X1_RZP5_EVENTS)
+}
