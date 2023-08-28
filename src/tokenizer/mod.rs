@@ -3,7 +3,7 @@ pub use iterator::EventIterator;
 pub use lexer::Lexer;
 pub use lexer::LexerToken;
 pub use reader::Reader;
-use std::str::from_utf8;
+use core::str::from_utf8;
 pub use str_reader::StrReader;
 
 mod iterator;

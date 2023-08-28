@@ -1,6 +1,9 @@
-use std::ops::ControlFlow::{Break, Continue};
-use std::ops::Range;
-use std::usize;
+use core::ops::ControlFlow::{Break, Continue};
+use core::ops::Range;
+use core::usize;
+
+use alloc::vec::Vec;
+use alloc::vec;
 
 use memchr::{memchr, memchr2};
 
@@ -96,17 +99,17 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn pos(&self) -> usize {
+    fn offset(&self) -> usize {
         self.pos
     }
 
     fn peek_two_chars(&self) -> &[u8] {
-        let max = std::cmp::min(self.slice.len(), self.pos + 2);
+        let max = core::cmp::min(self.slice.len(), self.pos + 2);
         &self.slice[self.pos..max]
     }
 
     fn peek_chars(&self) -> &[u8] {
-        let max = std::cmp::min(self.slice.len(), self.pos + 3);
+        let max = core::cmp::min(self.slice.len(), self.pos + 3);
         &self.slice[self.pos..max]
     }
 

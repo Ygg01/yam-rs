@@ -1,6 +1,7 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use std::ops::Range;
+use core::ops::Range;
+use alloc::vec::Vec;
 
 use super::ErrorType;
 
@@ -50,7 +51,7 @@ pub trait Reader<B> {
     fn eof(&self) -> bool;
     fn col(&self) -> u32;
     fn line(&self) -> u32;
-    fn pos(&self) -> usize;
+    fn offset(&self) -> usize;
     fn peek_chars(&self) -> &[u8];
     fn peek_two_chars(&self) -> &[u8];
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;

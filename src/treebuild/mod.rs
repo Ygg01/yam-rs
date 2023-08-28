@@ -1,5 +1,6 @@
-use std::borrow::Cow;
-use std::fmt::Display;
+use alloc::borrow::Cow;
+use alloc::fmt::Display;
+use alloc::vec::Vec;
 
 use crate::tokenizer::ErrorType;
 use crate::treebuild::YamlToken::Scalar;
@@ -22,7 +23,7 @@ pub enum YamlToken<'a, TAG = ()> {
 }
 
 impl<'a, TAG> Display for YamlToken<'a, TAG> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Scalar(val, _) => write!(f, "SCAL: {val:?}"),
             Self::Sequence(val, _) => {

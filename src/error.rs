@@ -1,6 +1,5 @@
-use std::io::Error;
-use std::str::Utf8Error;
-
+use core::str::Utf8Error;
+use alloc::string::String;
 /// A specialized `Result` type where the error is hard-wired to [`Error`].
 ///
 /// [`Error`]: enum.Error.html
@@ -16,13 +15,6 @@ pub enum YamlError {
     NonDecodable(Option<Utf8Error>),
 }
 
-impl From<Error> for YamlError {
-    /// Creates a new `Error::Io` from the given error
-    #[inline]
-    fn from(error: Error) -> YamlError {
-        YamlError::Io(error.to_string())
-    }
-}
 
 impl From<Utf8Error> for YamlError {
     /// Creates a new `Error::NonDecodable` from the given error

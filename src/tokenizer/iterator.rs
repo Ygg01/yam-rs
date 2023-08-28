@@ -1,8 +1,10 @@
-use std::borrow::Cow;
-use std::fmt::Display;
-use std::marker::PhantomData;
+use alloc::borrow::Cow;
+use alloc::vec::Vec;
+use alloc::string::String;
+use core::fmt::{Display, Formatter};
+use core::marker::PhantomData;
 
-use std::{fmt::Write, str::from_utf8_unchecked};
+use core::str::from_utf8_unchecked;
 
 use urlencoding::decode_binary;
 
@@ -113,7 +115,7 @@ pub enum Event<'a> {
 }
 
 impl<'a> Display for Event<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             Event::DocStart { explicit } => {
                 let exp_str = if *explicit { " ---" } else { "" };
@@ -400,6 +402,8 @@ where
 }
 
 pub fn assert_eq_event(input: &str, events: &str) {
+    use core::fmt::Write;
+    
     let mut line = String::with_capacity(events.as_bytes().len());
     let scan: EventIterator<'_, StrReader, _> = EventIterator::from(input);
     scan.for_each(|ev| {

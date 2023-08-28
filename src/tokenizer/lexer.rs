@@ -1,10 +1,12 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use std::borrow::Cow;
-use std::collections::{HashMap, VecDeque};
-use std::hint::unreachable_unchecked;
-use std::mem::take;
-use std::vec;
+use core::hint::unreachable_unchecked;
+use alloc::borrow::Cow;
+use alloc::collections::VecDeque;
+use hashbrown::HashMap;
+use core::mem::take;
+use alloc::vec::Vec;
+use alloc::vec;
 
 use LexerState::PreDocStart;
 
@@ -1475,7 +1477,7 @@ impl Lexer {
             [b'\'', b'\'', ..] => {
                 emit_token_mut(start_str, match_pos + 1, newspaces, tokens);
                 reader.consume_bytes(2);
-                *start_str = reader.pos();
+                *start_str = reader.offset();
             }
             [b'\'', ..] => {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
@@ -1506,7 +1508,7 @@ impl Lexer {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
                 emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);
                 reader.consume_bytes(2);
-                *start_str = reader.pos();
+                *start_str = reader.offset();
             }
             [b'\\', b't', ..] => {
                 emit_token_mut(start_str, match_pos + 2, newspaces, tokens);
@@ -1519,7 +1521,7 @@ impl Lexer {
             }
             [b'\\', b'"', ..] => {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
-                *start_str = reader.pos() + 1;
+                *start_str = reader.offset() + 1;
                 reader.consume_bytes(2);
             }
             [b'\\', b'/', ..] => {
@@ -1560,7 +1562,7 @@ impl Lexer {
     ) -> Result<(), ErrorType> {
         if let Some(x) = self.skip_sep_spaces(reader) {
             *newspaces = Some(x.num_breaks.saturating_sub(1) as usize);
-            *start_str = reader.pos();
+            *start_str = reader.offset();
             if self
                 .last_block_indent
                 .map_or(false, |indent| indent >= x.space_indent)
@@ -1759,7 +1761,7 @@ impl Lexer {
 
             if chr == b'-' && matches!(curr_state, BlockSeq(indent, _) if curr_indent > indent)
                 || chr == b'?' && matches!(curr_state, BlockMap(indent, ExpectComplexKey) if curr_indent > indent ) {
-                offset_start = Some(reader.pos());
+                offset_start = Some(reader.offset());
 
             } else if end_of_stream || chr == b'?' || chr == b':' || chr == b'-'
                 || (in_flow_collection && is_flow_indicator(chr))
@@ -2379,7 +2381,7 @@ impl Lexer {
                         push_error(TwoDirectivesFound, &mut self.tokens, &mut self.errors);
                     }
                     self.tokens.push_back(DIR_YAML);
-                    self.tokens.push_back(reader.pos());
+                    self.tokens.push_back(reader.offset());
                     self.tokens.push_back(reader.consume_bytes(3));
                     true
                 }
