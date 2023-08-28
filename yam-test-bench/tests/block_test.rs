@@ -2175,7 +2175,6 @@ const X2_U99R_EVENTS: &str = r"
 -SEQ
 -DOC";
 
-
 #[test]
 fn block_tag_short() {
     assert_eq_event(X1_U99R_INPUT, X1_U99R_EVENTS);
