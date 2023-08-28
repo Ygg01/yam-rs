@@ -175,8 +175,24 @@ const X1_WZ62_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_1_ZXT5_INPUT: &str = r#"
+[ "key"
+  :value ]"#;
+
+const X1_2_ZXT5_INPUT: &str = r#"
+  [ "key"
+    : value ]"#;
+
+const X1_ZXT5_EVENTS: &str = r#"
++DOC
++SEQ []
+=VAL "key
+ERR"#;
+
 #[test]
 fn flow_map() {
+    assert_eq_event(X1_1_ZXT5_INPUT, X1_ZXT5_EVENTS);
+    assert_eq_event(X1_2_ZXT5_INPUT, X1_ZXT5_EVENTS);
     assert_eq_event(X1_WZ62_INPUT, X1_WZ62_EVENTS);
     assert_eq_event(MAP_XY_INPUT, MAP_XY_EVENTS);
     assert_eq_event(MAP_X_Y2_INPUT, MAP_X_Y_EVENTS);
