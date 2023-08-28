@@ -163,7 +163,8 @@ impl PropSpans {
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum MapState {
     BeforeFlowComplexKey,
-    BeforeBlockComplexKey,
+    ExpectComplexKey,
+    ExpectComplexColon,
     ExpectComplexValue,
     #[default]
     BeforeFirstKey,
@@ -176,7 +177,8 @@ impl MapState {
     fn next_state(self) -> MapState {
         match self {
             ExpectKey | BeforeFirstKey => ExpectValue,
-            BeforeFlowComplexKey | BeforeBlockComplexKey => ExpectComplexValue,
+            BeforeFlowComplexKey | ExpectComplexColon => ExpectComplexValue,
+            ExpectComplexKey => ExpectComplexColon,
             ExpectComplexValue | ExpectValue => ExpectKey,
         }
     }
@@ -735,7 +737,7 @@ impl Lexer {
                 }
                 matches!(self.curr_state(),BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent)
             }
-            BlockMap(prev_indent, ExpectComplexValue) if prev_indent == indent => {
+            BlockMap(prev_indent, ExpectComplexValue | ExpectComplexColon) if prev_indent == indent => {
                 push_empty(tokens, &mut self.prev_prop);
                 false
             }
@@ -744,12 +746,12 @@ impl Lexer {
         };
         if is_new_exp_map {
             self.next_substate();
-            let state = BlockMap(indent, BeforeBlockComplexKey);
+            let state = BlockMap(indent, ExpectComplexKey);
             self.push_block_state(state, reader.line());
             tokens.extend(take(&mut self.prev_prop).spans);
             tokens.push(MAP_START);
         } else {
-            self.set_map_state(BeforeBlockComplexKey);
+            self.set_map_state(ExpectComplexKey);
         }
         is_new_exp_map
     }
@@ -767,13 +769,18 @@ impl Lexer {
         let mut is_empty = curr_node.is_empty();
         let is_inline_key = curr_node.line_start == reader.line();
         let matches_exp_map = self.find_matching_state(
-            |x| matches!(x, BlockMap(ind , ExpectComplexValue) if ind == col_pos),
+            |x| matches!(x, BlockMap(ind , ExpectComplexColon) if ind == col_pos),
         );
-        if is_empty && curr_node.col_start == col_pos && matches_exp_map.is_some() {
+        if matches_exp_map.is_some() {
             reader.consume_bytes(1);
+            if !curr_node.is_empty() {
+                self.next_substate();
+                tokens.extend(take(curr_node).spans);
+            }
             if let Some(unwind) = matches_exp_map {
                 self.pop_block_states(unwind, &mut curr_node.spans);
             }
+            self.next_substate();
             return false;
         } else if curr_node.line_start < col_line && !curr_node.is_multiline {
             self.next_substate();
@@ -824,10 +831,10 @@ impl Lexer {
                 }
                 false
             }
-            BlockMap(ind, BeforeBlockComplexKey) if ind == col_pos => {
+            BlockMap(ind, ExpectComplexColon) if ind == col_pos => {
                 false
             }
-            BlockMap(_, BeforeBlockComplexKey) => is_inline_key,
+            BlockMap(_, ExpectComplexKey) => is_inline_key,
             BlockMap(ind, ExpectValue) => {
                 if is_inline_key {
                     is_empty = curr_node.col_start <= ind || is_empty;
@@ -840,7 +847,7 @@ impl Lexer {
 
                 curr_node.col_start > ind && is_inline_key
             }
-            BlockMap(ind, ExpectComplexValue) => {
+            BlockMap(ind, ExpectComplexColon) => {
                 if ind != col_pos {
                     if curr_node.col_start == ind {
                         is_empty = true;
@@ -880,14 +887,14 @@ impl Lexer {
             if self
                 .last_map_line
                 .map_or(false, |c| c == curr_node.line_start)
-                && !matches!(curr_state, BlockMap(_, BeforeBlockComplexKey))
+                && !matches!(curr_state, BlockMap(_, ExpectComplexKey))
             {
                 push_error(NestedMappingsNotAllowed, tokens, &mut self.errors);
             }
             self.last_map_line = Some(reader.line());
         } else if !is_inline_key
             && !is_new_map
-            && !matches!(curr_state, BlockMap(_, BeforeBlockComplexKey))
+            && !matches!(curr_state, BlockMap(_, ExpectComplexKey))
         {
             push_error(ImplicitKeysNeedToBeInline, tokens, &mut self.errors);
         }
@@ -924,7 +931,7 @@ impl Lexer {
 
         if !matches!(
             curr_state,
-            BlockMap(_, BeforeBlockComplexKey | ExpectComplexValue)
+            BlockMap(_, ExpectComplexKey | ExpectComplexValue)
         ) && self.last_map_line == Some(reader.line())
         {
             push_error(SequenceOnSameLineAsKey, tokens, &mut self.errors);
@@ -1749,7 +1756,7 @@ impl Lexer {
             let end_of_stream = reader.eof() || reader.peek_stream_ending();
 
             if chr == b'-' && matches!(curr_state, BlockSeq(indent, _) if curr_indent > indent)
-                || chr == b'?' && matches!(curr_state, BlockMap(indent, BeforeBlockComplexKey) if curr_indent > indent ) {
+                || chr == b'?' && matches!(curr_state, BlockMap(indent, ExpectComplexKey) if curr_indent > indent ) {
                 offset_start = Some(reader.pos());
 
             } else if end_of_stream || chr == b'?' || chr == b':' || chr == b'-'
@@ -2521,7 +2528,7 @@ impl Lexer {
     }
 }
 
-#[inline]
+// #[inline]
 fn close_block_state<T: Pusher>(state: LexerState, prop: &mut PropSpans, spans: &mut T) {
     match state {
         BlockSeq(_, BeforeFirst | BeforeElem) => {
@@ -2531,11 +2538,11 @@ fn close_block_state<T: Pusher>(state: LexerState, prop: &mut PropSpans, spans: 
         BlockSeq(_, _) => {
             spans.push(SEQ_END);
         }
-        BlockMap(_, ExpectValue | ExpectComplexValue) => {
+        BlockMap(_, ExpectValue | ExpectComplexValue | ExpectComplexColon) => {
             push_empty(spans, prop);
             spans.push(MAP_END);
         }
-        BlockMap(_, BeforeBlockComplexKey) => {
+        BlockMap(_, ExpectComplexKey) => {
             push_empty(spans, prop);
             push_empty(spans, &mut PropSpans::default());
             spans.push(MAP_END);
