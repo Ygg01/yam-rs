@@ -103,13 +103,13 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos
     }
 
-    fn peek_two_chars(&self) -> &[u8] {
-        let max = core::cmp::min(self.slice.len(), self.pos + 2);
+    fn peek_chars(&self) -> &[u8] {
+        let max = core::cmp::min(self.slice.len(), self.pos + 3);
         &self.slice[self.pos..max]
     }
 
-    fn peek_chars(&self) -> &[u8] {
-        let max = core::cmp::min(self.slice.len(), self.pos + 3);
+    fn peek_two_chars(&self) -> &[u8] {
+        let max = core::cmp::min(self.slice.len(), self.pos + 2);
         &self.slice[self.pos..max]
     }
 
@@ -242,52 +242,6 @@ impl<'r> Reader<()> for StrReader<'r> {
             .iter()
             .rposition(|chr| *chr != b' ' && *chr != b'\t')
             .map(|find| (start_str + find + 1, find + 1))
-    }
-
-    fn read_plain_one_line(
-        &mut self,
-        offset_start: Option<usize>,
-        had_comment: &mut bool,
-        in_flow_collection: bool,
-    ) -> (usize, usize, usize) {
-        let start = offset_start.unwrap_or(self.pos);
-        let (_, line_end, _) = self.get_read_line();
-        let end = self.pos + 1;
-        let line_end = StrReader::eof_or_pos(self, line_end);
-        let mut end_of_str = end;
-
-        for (prev, curr, next, pos) in self.get_lookahead_iterator(end..line_end) {
-            // ns-plain-char  prevent ` #`
-            if curr == b'#' && is_white_tab_or_break(prev) {
-                // if we encounter two or more comment print error and try to recover
-                return if *had_comment {
-                    (start, end_of_str, end_of_str - start)
-                } else {
-                    *had_comment = true;
-                    (start, end_of_str, end_of_str - start)
-                };
-            }
-
-            // ns-plain-char prevent `: `
-            // or `:{`  in flow collections
-            if curr == b':' && is_plain_unsafe(next) {
-                break;
-            }
-
-            // // if current character is a flow indicator, break
-            if in_flow_collection && is_flow_indicator(curr) {
-                break;
-            }
-
-            if is_white_tab_or_break(curr) {
-                if is_newline(curr) {
-                    break;
-                }
-            } else {
-                end_of_str = pos + 1;
-            }
-        }
-        (start, end_of_str, end_of_str - start)
     }
 
     fn count_space_then_tab(&mut self) -> (u32, u32) {
@@ -427,6 +381,52 @@ impl<'r> Reader<()> for StrReader<'r> {
         } else {
             None
         }
+    }
+
+    fn read_plain_one_line(
+        &mut self,
+        offset_start: Option<usize>,
+        had_comment: &mut bool,
+        in_flow_collection: bool,
+    ) -> (usize, usize, usize) {
+        let start = offset_start.unwrap_or(self.pos);
+        let (_, line_end, _) = self.get_read_line();
+        let end = self.pos + 1;
+        let line_end = StrReader::eof_or_pos(self, line_end);
+        let mut end_of_str = end;
+
+        for (prev, curr, next, pos) in self.get_lookahead_iterator(end..line_end) {
+            // ns-plain-char  prevent ` #`
+            if curr == b'#' && is_white_tab_or_break(prev) {
+                // if we encounter two or more comment print error and try to recover
+                return if *had_comment {
+                    (start, end_of_str, end_of_str - start)
+                } else {
+                    *had_comment = true;
+                    (start, end_of_str, end_of_str - start)
+                };
+            }
+
+            // ns-plain-char prevent `: `
+            // or `:{`  in flow collections
+            if curr == b':' && is_plain_unsafe(next) {
+                break;
+            }
+
+            // // if current character is a flow indicator, break
+            if in_flow_collection && is_flow_indicator(curr) {
+                break;
+            }
+
+            if is_white_tab_or_break(curr) {
+                if is_newline(curr) {
+                    break;
+                }
+            } else {
+                end_of_str = pos + 1;
+            }
+        }
+        (start, end_of_str, end_of_str - start)
     }
 }
 
