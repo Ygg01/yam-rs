@@ -11,7 +11,8 @@ homepage = "https://github.com/Ygg01/yam-rs"
 description = "Pure Rust YAML reader and writer (to be added)"
 categories = ["parsing", "parser-implementation"]
 keywords = ["yaml", "parser"]
-licenses = ["MIT", "LGPLv3 "]
+licenses = ["MIT", "LGPL-3.0-only"]
+license = "MIT OR LGPL-3.0-only"
 readme = "README.md"
 
 authors = ["Ygg01 <y.laughing.man.y@gmail.com>"]
