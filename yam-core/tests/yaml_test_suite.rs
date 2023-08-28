@@ -142,8 +142,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Arguments::from_args();
     let filter_list = vec![".git", "name", "tags"];
 
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests");
+    path.push("yaml-test-suite");
+
     let tests = collect_tests(
-        Path::new(r#"C:\projects\steel_yaml\tests\yaml-test-suite"#),
+        &path,
         filter_list,
         false,
     )?;
