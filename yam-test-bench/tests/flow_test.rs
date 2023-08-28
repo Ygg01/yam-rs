@@ -1,6 +1,4 @@
-mod common;
-
-use crate::common::assert_eq_event;
+use yam_test_bench::assert_eq_event;
 
 const NULL_YAML_INPUT: &str = r"
 null

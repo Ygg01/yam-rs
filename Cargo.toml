@@ -3,7 +3,8 @@
 [workspace]
 members = [
     "yam-core",
-    "yam"
+    "yam",
+    "yam-test-bench"
 ]
 resolver = "2"
 
