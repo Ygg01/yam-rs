@@ -1092,6 +1092,10 @@ impl Lexer {
             let prop = self.process_inline_properties(reader);
             self.merge_prop_with(&mut node, prop);
             self.skip_sep_spaces(reader);
+            if reader.peek_byte_is(b',') {
+                push_empty(&mut node.spans, &mut PropSpans::default());
+                return node;
+            }
         }
 
         let start_line = reader.line();

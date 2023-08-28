@@ -159,8 +159,25 @@ fn flow_complex_map() {
     assert_eq_event(X2_9MMW_INPUT, X2_9MMW_EVENTS);
 }
 
+const X1_WZ62_INPUT: &str = r"
+{
+    foo : !!str,
+    !!str : bar,
+  }";
+
+const X1_WZ62_EVENTS: &str = r"
++DOC
++MAP {}
+=VAL :foo
+=VAL <tag:yaml.org,2002:str> :
+=VAL <tag:yaml.org,2002:str> :
+=VAL :bar
+-MAP
+-DOC";
+
 #[test]
 fn flow_map() {
+    assert_eq_event(X1_WZ62_INPUT, X1_WZ62_EVENTS);
     assert_eq_event(MAP_XY_INPUT, MAP_XY_EVENTS);
     assert_eq_event(MAP_X_Y2_INPUT, MAP_X_Y_EVENTS);
     assert_eq_event(MAP_X_Y_INPUT, MAP_X_Y_EVENTS);
