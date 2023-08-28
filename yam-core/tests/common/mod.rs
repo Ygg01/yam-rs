@@ -1,8 +1,8 @@
-extern crate steel_yaml;
+extern crate yam_core;
 
 use std::fmt::Write;
 
-use steel_yaml::tokenizer::{Event, EventIterator, StrReader};
+use yam_core::tokenizer::{Event, EventIterator, StrReader};
 
 pub fn assert_eq_event(input: &str, events: &str) {
     let mut line = String::new();
