@@ -144,6 +144,7 @@ impl QuoteType for DoubleQuote {
         ScalarDoubleQuote as usize
     }
 
+    #[allow(unused_must_use)]
     fn match_fn<B, R: Reader<B> + ?Sized>(
         &self,
         reader: &mut R,
@@ -484,6 +485,7 @@ pub trait Reader<B> {
         }
     }
 
+    #[allow(unused_must_use)]
     fn trim_fn<Q: QuoteType>(
         &mut self,
         quote_type: Q,
@@ -539,6 +541,7 @@ pub trait Reader<B> {
 
     fn get_quoteline_offset(&mut self, quote: u8) -> &[u8];
 
+    #[allow(unused_must_use)]
     fn update_newlines(
         &mut self,
         newspaces: &mut Option<usize>,
