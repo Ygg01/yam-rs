@@ -84,7 +84,7 @@ impl<'a> StrReader<'a> {
 
 impl<'r> Reader<()> for StrReader<'r> {
     #[inline]
-    fn eof(&self) -> bool {
+    fn eof(&mut self) -> bool {
         self.pos >= self.slice.len()
     }
 
@@ -103,25 +103,25 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos
     }
 
-    fn peek_chars(&self) -> &[u8] {
+    fn peek_chars(&mut self) -> &[u8] {
         let max = core::cmp::min(self.slice.len(), self.pos + 3);
         &self.slice[self.pos..max]
     }
 
-    fn peek_two_chars(&self) -> &[u8] {
+    fn peek_two_chars(&mut self) -> &[u8] {
         let max = core::cmp::min(self.slice.len(), self.pos + 2);
         &self.slice[self.pos..max]
     }
 
     #[inline]
-    fn peek_byte_at(&self, offset: usize) -> Option<u8> {
+    fn peek_byte_at(&mut self, offset: usize) -> Option<u8> {
         self.slice.get(self.pos + offset).copied()
     }
 
     #[inline]
     fn skip_space_tab(&mut self) -> usize {
         let amount = self.count_space_tab_range_from(true);
-        self.consume_bytes(amount);
+        self.skip_bytes(amount);
         amount
     }
 
@@ -129,12 +129,12 @@ impl<'r> Reader<()> for StrReader<'r> {
         let (indent, amount) = self.count_space_then_tab();
         *has_tab = indent != amount;
         let amount = amount.try_into().unwrap();
-        self.consume_bytes(amount);
+        self.skip_bytes(amount);
         amount
     }
 
     #[inline]
-    fn consume_bytes(&mut self, amount: usize) -> usize {
+    fn skip_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
         self.col += TryInto::<u32>::try_into(amount).expect("Amount to not exceed u32");
         self.pos
@@ -152,7 +152,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         false
     }
 
-    fn get_read_line(&self) -> (usize, usize, usize) {
+    fn get_read_line(&mut self) -> (usize, usize, usize) {
         let slice = self.slice;
         let start = self.pos;
         let haystack: &[u8] = &slice[start..];
@@ -179,7 +179,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn count_spaces(&self) -> u32 {
+    fn count_spaces(&mut self) -> u32 {
         match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
             if *chr == b' ' {
                 Continue(pos + 1)
@@ -191,7 +191,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn count_whitespace_from(&self, offset: usize) -> usize {
+    fn count_whitespace_from(&mut self, offset: usize) -> usize {
         match self.slice[self.pos + offset..]
             .iter()
             .try_fold(offset, |pos, chr| {
@@ -205,7 +205,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn count_spaces_till(&self, num_spaces: u32) -> usize {
+    fn count_spaces_till(&mut self, num_spaces: u32) -> usize {
         self.slice[self.pos..]
             .iter()
             .enumerate()
@@ -213,30 +213,30 @@ impl<'r> Reader<()> for StrReader<'r> {
             .count()
     }
 
-    fn is_empty_newline(&self) -> bool {
+    fn is_empty_newline(&mut self) -> bool {
         self.slice[self.pos..self.get_read_line().1]
             .iter()
             .rev()
             .all(|c| *c == b' ')
     }
 
-    fn get_double_quote(&self) -> Option<usize> {
+    fn get_double_quote(&mut self) -> Option<usize> {
         let (line_start, line_end) = self.get_quoteline_offset(b'"');
         memchr2(b'\\', b'"', &self.slice[line_start..line_end])
     }
 
-    fn get_double_quote_trim(&self, start_str: usize) -> Option<(usize, usize)> {
+    fn get_double_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)> {
         let (_, line_end) = self.get_quoteline_offset(b'"');
         self.slice[start_str..line_end]
             .iter()
             .rposition(|chr| *chr != b' ' && *chr != b'\t')
             .map(|find| (start_str + find + 1, find + 1))
     }
-    fn get_single_quote(&self) -> Option<usize> {
+    fn get_single_quote(&mut self) -> Option<usize> {
         let (line_start, line_end) = self.get_quoteline_offset(b'\'');
         memchr(b'\'', &self.slice[line_start..line_end])
     }
-    fn get_single_quote_trim(&self, start_str: usize) -> Option<(usize, usize)> {
+    fn get_single_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)> {
         let (_, line_end) = self.get_quoteline_offset(b'\'');
         self.slice[start_str..line_end]
             .iter()
@@ -265,24 +265,24 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     fn consume_anchor_alias(&mut self) -> (usize, usize) {
-        let start = self.consume_bytes(1);
+        let start = self.skip_bytes(1);
 
         let amount = self.slice[self.pos..]
             .iter()
             .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p))
             .unwrap_or(self.slice.len() - self.pos);
-        self.consume_bytes(amount);
+        self.skip_bytes(amount);
         (start, start + amount)
     }
 
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize) {
         match self.peek_chars() {
             [b'!', b'<', ..] => {
-                let start = self.consume_bytes(2);
+                let start = self.skip_bytes(2);
                 let (line_start, line_end, _) = self.get_read_line();
                 let haystack = &self.slice[line_start..line_end];
                 if let Some(end) = memchr(b'>', haystack) {
-                    self.consume_bytes(end + 1);
+                    self.skip_bytes(end + 1);
                     (None, start, start + end, 0)
                 } else {
                     self.skip_space_tab();
@@ -291,12 +291,12 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
             [b'!', peek, ..] if is_white_tab_or_break(*peek) => {
                 let start = self.pos;
-                self.consume_bytes(1);
+                self.skip_bytes(1);
                 (None, start, start + 1, start + 1)
             }
             [b'!', ..] => {
                 let start = self.pos;
-                self.consume_bytes(1);
+                self.skip_bytes(1);
                 let (_, line_end, _) = self.get_read_line();
                 let haystack = &self.slice[self.pos..line_end];
                 let find_pos = match memchr(b'!', haystack) {
@@ -308,7 +308,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                     .iter()
                     .position(|c| !is_tag_char_short(*c))
                     .unwrap_or(line_end.saturating_sub(mid));
-                let end = self.consume_bytes(amount + find_pos);
+                let end = self.skip_bytes(amount + find_pos);
                 (None, start, mid, end)
             }
             _ => panic!("Tag must start with `!`"),
@@ -318,21 +318,21 @@ impl<'r> Reader<()> for StrReader<'r> {
     fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType> {
         match self.peek_chars() {
             [b'!', x, ..] if *x == b' ' || *x == b'\t' => {
-                self.consume_bytes(1);
+                self.skip_bytes(1);
                 self.skip_space_tab();
                 Ok(vec![b'!'])
             }
             [b'!', _x, ..] => {
                 let start = self.pos;
-                self.consume_bytes(1);
+                self.skip_bytes(1);
                 let amount: usize = self.slice[self.pos..]
                     .iter()
                     .position(|c: &u8| !is_tag_char(*c))
                     .unwrap_or(self.slice.len() - self.pos);
-                self.consume_bytes(amount);
+                self.skip_bytes(amount);
                 if self.peek_byte_is(b'!') {
                     let bac = self.slice[start..start + amount + 2].to_vec();
-                    self.consume_bytes(1);
+                    self.skip_bytes(1);
                     Ok(bac)
                 } else {
                     self.read_line();
@@ -355,7 +355,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 .iter()
                 .position(|c| !is_uri_char(*c))
                 .unwrap_or(self.slice.len() - self.pos);
-            let end = self.consume_bytes(amount);
+            let end = self.skip_bytes(amount);
             Some((start, end))
         } else {
             None
