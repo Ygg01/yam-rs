@@ -84,22 +84,6 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn get_double_quote(&mut self) -> Option<usize> {
-        todo!()
-    }
-
-    fn get_double_quote_trim(&mut self, _start_str: usize) -> Option<(usize, usize)> {
-        todo!()
-    }
-
-    fn get_single_quote(&mut self) -> Option<usize> {
-        todo!()
-    }
-
-    fn get_single_quote_trim(&mut self, _start_str: usize) -> Option<(usize, usize)> {
-        todo!()
-    }
-
     fn count_space_then_tab(&mut self) -> (u32, u32) {
         todo!()
     }
@@ -130,6 +114,14 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         _had_comment: &mut bool,
         _in_flow_collection: bool,
     ) -> (usize, usize, usize) {
+        todo!()
+    }
+
+    fn emit_newspace(&mut self, _tokens: &mut Vec<usize>, _newspaces: &mut Option<usize>) {
+        todo!()
+    }
+
+    fn get_quoteline_offset(&mut self, _quote: u8) -> &[u8] {
         todo!()
     }
 }

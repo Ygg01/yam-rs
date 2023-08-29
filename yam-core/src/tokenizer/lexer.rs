@@ -20,9 +20,12 @@ use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
+use super::reader::DoubleQuote;
 use super::reader::LexMutState;
+
+use super::reader::SingleQuote;
 use super::reader::{
-    is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
+    is_plain_unsafe, is_valid_skip_char, is_white_tab,
 };
 use crate::tokenizer::ErrorType;
 
@@ -351,116 +354,6 @@ impl DirectiveState {
             Self::OneDirective | Self::TwoDirectiveError => Self::TwoDirectiveError,
         }
     }
-}
-
-macro_rules! impl_quote {
-    ($quote:ident($quote_start:expr), $trim:ident($trim_fn:ident, $lit:literal), $start:ident($quote_fn:ident) => $match_fn:ident) => {
-        fn $quote<B, R: Reader<B>>(&mut self, reader: &mut R) -> NodeSpans {
-            let col_start = reader.col();
-            let line_start = reader.line();
-
-            let mut start_str = reader.skip_bytes(1);
-            let mut spans = Vec::with_capacity(10);
-            spans.push($quote_start);
-            let mut newspaces = None;
-            let mut state = QuoteState::Start;
-
-            loop {
-                state = match state {
-                    QuoteState::Start => {
-                        self.$start(reader, &mut start_str, &mut newspaces, &mut spans)
-                    }
-                    QuoteState::Trim => {
-                        self.$trim(reader, &mut start_str, &mut newspaces, &mut spans)
-                    }
-                    QuoteState::End | QuoteState::Error => break,
-                };
-            }
-            spans.push(ScalarEnd as usize);
-            let is_multiline = line_start != reader.line();
-            NodeSpans {
-                col_start,
-                line_start,
-                is_multiline,
-                spans,
-            }
-        }
-
-        fn $start<B, R: Reader<B>>(
-            &mut self,
-            reader: &mut R,
-            start_str: &mut usize,
-            newspaces: &mut Option<usize>,
-            tokens: &mut Vec<usize>,
-        ) -> QuoteState {
-            if let Some(pos) = reader.$quote_fn() {
-                let match_pos = reader.skip_bytes(pos);
-                self.$match_fn(reader, match_pos, start_str, newspaces, tokens)
-            } else if reader.eof() {
-                prepend_error(ErrorType::UnexpectedEndOfFile, tokens, &mut self.errors);
-                QuoteState::Error
-            } else {
-                QuoteState::Trim
-            }
-        }
-
-        #[allow(unused_must_use)]
-        fn $trim<B, R: Reader<B>>(
-            &mut self,
-            reader: &mut R,
-            start_str: &mut usize,
-            newspaces: &mut Option<usize>,
-            tokens: &mut Vec<usize>,
-        ) -> QuoteState {
-            if reader.peek_stream_ending() {
-                prepend_error(ErrorType::UnexpectedEndOfStream, tokens, &mut self.errors);
-            };
-            let indent = self.indent();
-            if !matches!(self.curr_state(), DocBlock) && reader.col() <= indent {
-                prepend_error(
-                    ErrorType::InvalidQuoteIndent {
-                        actual: reader.col(),
-                        expected: indent,
-                    },
-                    tokens,
-                    &mut self.errors,
-                );
-            }
-
-            if let Some((match_pos, len)) = reader.$trim_fn(*start_str) {
-                emit_token_mut(start_str, match_pos, newspaces, tokens);
-                reader.skip_bytes(len);
-            } else {
-                self.update_newlines(reader, newspaces, start_str);
-            }
-
-            match reader.peek_byte() {
-                Some(b'\n' | b'\r') => {
-                    if let Err(err) = self.update_newlines(reader, newspaces, start_str) {
-                        prepend_error(err, tokens, &mut self.errors);
-                    }
-                    QuoteState::Start
-                }
-                Some($lit) => {
-                    if let Some(x) = newspaces {
-                        tokens.push(NewLine as usize);
-                        tokens.push(*x as usize);
-                    }
-                    reader.skip_bytes(1);
-                    QuoteState::End
-                }
-                Some(_) => QuoteState::Start,
-                None => {
-                    prepend_error(
-                        ErrorType::UnexpectedEndOfFile,
-                        &mut self.tokens,
-                        &mut self.errors,
-                    );
-                    QuoteState::Error
-                }
-            }
-        }
-    };
 }
 
 impl Lexer {
@@ -1212,9 +1105,23 @@ impl Lexer {
                 push_error(InvalidScalarStart, &mut node.spans, &mut self.errors);
             }
         } else if chr == b'\'' {
-            node.merge_spans(self.process_single_quote(reader));
+            node.merge_spans(reader.read_quote(SingleQuote{}, &mut LexMutState { 
+                curr_state:  self.curr_state(), 
+                last_block_indent: &self.last_block_indent, 
+                tokens: &mut self.tokens, 
+                errors: &mut self.errors, 
+                stack: &self.stack, 
+                space_indent: &mut self.space_indent, 
+                has_tab: &mut self.has_tab }));
         } else if chr == b'"' {
-            node.merge_spans(self.process_double_quote(reader));
+            node.merge_spans(reader.read_quote(DoubleQuote{}, &mut LexMutState { 
+                curr_state:  self.curr_state(), 
+                last_block_indent: &self.last_block_indent, 
+                tokens: &mut self.tokens, 
+                errors: &mut self.errors, 
+                stack: &self.stack, 
+                space_indent: &mut self.space_indent, 
+                has_tab: &mut self.has_tab }));
         } else {
             *is_plain_scalar = true;
             node.merge_spans(self.get_plain_scalar(reader, self.curr_state()));
@@ -1500,115 +1407,6 @@ impl Lexer {
         node
     }
 
-    impl_quote!(process_single_quote(SCALAR_QUOTE), single_quote_trim(get_single_quote_trim, b'\''), single_quote_start(get_single_quote) => single_quote_match);
-
-    fn single_quote_match<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        match_pos: usize,
-        start_str: &mut usize,
-        newspaces: &mut Option<usize>,
-        tokens: &mut Vec<usize>,
-    ) -> QuoteState {
-        match reader.peek_chars() {
-            [b'\'', b'\'', ..] => {
-                emit_token_mut(start_str, match_pos + 1, newspaces, tokens);
-                reader.skip_bytes(2);
-                *start_str = reader.offset();
-            }
-            [b'\'', ..] => {
-                emit_token_mut(start_str, match_pos, newspaces, tokens);
-                reader.skip_bytes(1);
-                return QuoteState::End;
-            }
-            _ => {}
-        }
-        QuoteState::Start
-    }
-
-    impl_quote!(process_double_quote(SCALAR_DQUOTE), double_quote_trim(get_double_quote_trim, b'"'), double_quote_start(get_double_quote) => double_quote_match);
-
-    #[allow(unused_must_use)]
-    fn double_quote_match<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        match_pos: usize,
-        start_str: &mut usize,
-        newspaces: &mut Option<usize>,
-        tokens: &mut Vec<usize>,
-    ) -> QuoteState {
-        match reader.peek_chars() {
-            [b'\\', b' ', ..] => {
-                *start_str = reader.skip_bytes(1);
-            }
-            [b'\\', b'\t', ..] => {
-                emit_token_mut(start_str, match_pos, newspaces, tokens);
-                emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);
-                reader.skip_bytes(2);
-                *start_str = reader.offset();
-            }
-            [b'\\', b't', ..] => {
-                emit_token_mut(start_str, match_pos + 2, newspaces, tokens);
-                reader.skip_bytes(2);
-            }
-            [b'\\', b'\r' | b'\n', ..] => {
-                emit_token_mut(start_str, match_pos, newspaces, tokens);
-                reader.skip_bytes(1);
-                self.update_newlines(reader, &mut None, start_str);
-            }
-            [b'\\', b'"', ..] => {
-                emit_token_mut(start_str, match_pos, newspaces, tokens);
-                *start_str = reader.offset() + 1;
-                reader.skip_bytes(2);
-            }
-            [b'\\', b'/', ..] => {
-                emit_token_mut(start_str, match_pos, newspaces, tokens);
-                *start_str = reader.skip_bytes(1);
-            }
-            [b'\\', b'u' | b'U' | b'x', ..] => {
-                reader.skip_bytes(2);
-            }
-            [b'\\', x, ..] => {
-                if is_valid_escape(*x) {
-                    emit_token_mut(start_str, match_pos, newspaces, tokens);
-                    reader.skip_bytes(2);
-                } else {
-                    prepend_error(InvalidEscapeCharacter, tokens, &mut self.errors);
-                    reader.skip_bytes(2);
-                }
-            }
-            [b'"', ..] => {
-                emit_newspace(tokens, newspaces);
-                emit_token_mut(start_str, match_pos, newspaces, tokens);
-                reader.skip_bytes(1);
-                return QuoteState::End;
-            }
-            [b'\\'] => {
-                reader.skip_bytes(1);
-            }
-            _ => {}
-        }
-        QuoteState::Start
-    }
-
-    fn update_newlines<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        newspaces: &mut Option<usize>,
-        start_str: &mut usize,
-    ) -> Result<(), ErrorType> {
-        if let Some(x) = self.skip_sep_spaces(reader) {
-            *newspaces = Some(x.num_breaks.saturating_sub(1) as usize);
-            *start_str = reader.offset();
-            if self
-                .last_block_indent
-                .map_or(false, |indent| indent >= x.space_indent)
-            {
-                return Err(TabsNotAllowedAsIndentation);
-            }
-        }
-        Ok(())
-    }
 
     fn skip_separation_spaces<B, R: Reader<B>>(
         &mut self,
@@ -1738,6 +1536,8 @@ impl Lexer {
             curr_state,
             block_indent,
             &mut LexMutState {
+                curr_state,
+                last_block_indent: & self.last_block_indent,
                 tokens: &mut self.tokens,
                 errors: &mut self.errors,
                 stack: &self.stack,
@@ -2588,7 +2388,7 @@ fn is_skip_colon_space(scalar_spans: &NodeSpans) -> bool {
 
 //TODO Enable inlining
 // #[inline]
-fn push_empty<T: Pusher>(tokens: &mut T, prop: &mut PropSpans) {
+pub(crate) fn push_empty<T: Pusher>(tokens: &mut T, prop: &mut PropSpans) {
     tokens.push_all(take(prop).spans);
     tokens.push(SCALAR_PLAIN);
     tokens.push(SCALAR_END);
@@ -2601,12 +2401,13 @@ pub(crate) fn push_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &m
 }
 
 // #[inline]
-fn prepend_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &mut Vec<ErrorType>) {
+pub(crate) fn prepend_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &mut Vec<ErrorType>) {
     tokens.front_push(ERROR_TOKEN);
     errors.push(error);
 }
 
-pub(crate) enum QuoteState {
+#[doc(hidden)]
+pub enum QuoteState {
     Start,
     Trim,
     End,
@@ -2621,30 +2422,6 @@ pub(crate) fn find_matching_state<F: Fn(LexerState) -> bool>(
         .iter()
         .rposition(|state| f(*state))
         .map(|x| stack.len() - x - 1)
-}
-
-fn emit_token_mut(
-    start: &mut usize,
-    end: usize,
-    newspaces: &mut Option<usize>,
-    tokens: &mut Vec<usize>,
-) {
-    if end > *start {
-        if let Some(newspace) = newspaces.take() {
-            tokens.push(NewLine as usize);
-            tokens.push(newspace);
-        }
-        tokens.push(*start);
-        tokens.push(end);
-        *start = end;
-    }
-}
-
-fn emit_newspace(tokens: &mut Vec<usize>, newspaces: &mut Option<usize>) {
-    if let Some(newspace) = newspaces.take() {
-        tokens.push(NewLine as usize);
-        tokens.push(newspace);
-    }
 }
 
 const DOC_END: usize = usize::MAX;

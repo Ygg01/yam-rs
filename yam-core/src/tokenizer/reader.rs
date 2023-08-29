@@ -3,9 +3,10 @@
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 
+
 use core::ops::Range;
 
-use super::lexer::NodeSpans;
+use super::lexer::{prepend_error, NodeSpans, QuoteState};
 use super::LexerToken::*;
 use super::{
     lexer::{push_error, LexerState},
@@ -16,6 +17,8 @@ use crate::tokenizer::lexer::{find_matching_state, SeparationSpaceInfo};
 
 use crate::tokenizer::lexer::LexerState::*;
 use crate::tokenizer::ErrorType::*;
+
+use memchr::{memchr, memchr2};
 
 pub struct LookAroundBytes<'a> {
     iter: &'a [u8],
@@ -60,11 +63,166 @@ impl<'a> Iterator for LookAroundBytes<'a> {
 }
 
 pub struct LexMutState<'a> {
+    pub(crate) curr_state: LexerState,
+    pub(crate) last_block_indent: &'a Option<u32>,
     pub(crate) tokens: &'a mut VecDeque<usize>,
     pub(crate) errors: &'a mut Vec<ErrorType>,
     pub(crate) stack: &'a Vec<LexerState>,
     pub(crate) space_indent: &'a mut Option<u32>,
     pub(crate) has_tab: &'a mut bool,
+}
+
+pub trait QuoteType {
+    fn get_token(&self) -> usize;
+    fn get_liteal(&self) -> u8;
+    fn match_fn<B, R: Reader<B> + ?Sized>(
+        &self,
+        reader: &mut R,
+        match_pos: usize,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        lexer_state: &mut LexMutState,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState;
+    fn get_quote(&self, input: &[u8]) -> Option<usize>;
+    fn get_quote_trim(&self, input: &[u8], start_str: usize) -> Option<(usize, usize)>;
+}
+
+#[derive(Clone, Copy)]
+pub struct SingleQuote {}
+
+impl QuoteType for SingleQuote {
+    fn get_token(&self) -> usize {
+        ScalarSingleQuote as usize
+    }
+    fn match_fn<B, R: Reader<B> + ?Sized>(
+        &self,
+        reader: &mut R,
+        match_pos: usize,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        _lexer_state: &mut LexMutState,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        match reader.peek_chars() {
+            [b'\'', b'\'', ..] => {
+                emit_token_mut(start_str, match_pos + 1, newspaces, tokens);
+                reader.skip_bytes(2);
+                *start_str = reader.offset();
+            }
+            [b'\'', ..] => {
+                emit_token_mut(start_str, match_pos, newspaces, tokens);
+                reader.skip_bytes(1);
+                return QuoteState::End;
+            }
+            _ => {}
+        }
+        QuoteState::Start
+    }
+
+    fn get_liteal(&self) -> u8 {
+        b'\''
+    }
+
+    fn get_quote(&self, input: &[u8]) -> Option<usize> {
+        memchr(b'\'', input)
+    }
+
+    fn get_quote_trim(&self, input: &[u8], start_str: usize) -> Option<(usize, usize)> {
+        input
+            .iter()
+            .rposition(|chr| *chr != b' ' && *chr != b'\t')
+            .map(|find| (start_str + find + 1, find + 1))
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct DoubleQuote {}
+
+impl QuoteType for DoubleQuote {
+    fn get_token(&self) -> usize {
+        ScalarDoubleQuote as usize
+    }
+
+    fn match_fn<B, R: Reader<B> + ?Sized>(
+        &self,
+        reader: &mut R,
+        match_pos: usize,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        lexer_state: &mut LexMutState,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        match reader.peek_chars() {
+            [b'\\', b' ', ..] => {
+                *start_str = reader.skip_bytes(1);
+            }
+            [b'\\', b'\t', ..] => {
+                emit_token_mut(start_str, match_pos, newspaces, tokens);
+                emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);
+                reader.skip_bytes(2);
+                *start_str = reader.offset();
+            }
+            [b'\\', b't', ..] => {
+                emit_token_mut(start_str, match_pos + 2, newspaces, tokens);
+                reader.skip_bytes(2);
+            }
+            [b'\\', b'\r' | b'\n', ..] => {
+                emit_token_mut(start_str, match_pos, newspaces, tokens);
+                reader.skip_bytes(1);
+                reader.update_newlines(&mut None, start_str, lexer_state);
+            }
+            [b'\\', b'"', ..] => {
+                emit_token_mut(start_str, match_pos, newspaces, tokens);
+                *start_str = reader.offset() + 1;
+                reader.skip_bytes(2);
+            }
+            [b'\\', b'/', ..] => {
+                emit_token_mut(start_str, match_pos, newspaces, tokens);
+                *start_str = reader.skip_bytes(1);
+            }
+            [b'\\', b'u' | b'U' | b'x', ..] => {
+                reader.skip_bytes(2);
+            }
+            [b'\\', x, ..] => {
+                if is_valid_escape(*x) {
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
+                    reader.skip_bytes(2);
+                } else {
+                    prepend_error(InvalidEscapeCharacter, tokens, lexer_state.errors);
+                    reader.skip_bytes(2);
+                }
+            }
+            [b'"', ..] => {
+                reader.emit_newspace(tokens, newspaces);
+                emit_token_mut(start_str, match_pos, newspaces, tokens);
+                reader.skip_bytes(1);
+                return QuoteState::End;
+            }
+            [b'\\'] => {
+                reader.skip_bytes(1);
+            }
+            _ => {}
+        }
+        QuoteState::Start
+    }
+
+    fn get_liteal(&self) -> u8 {
+        b'"'
+    }
+
+    fn get_quote(&self, input: &[u8]) -> Option<usize> {
+        memchr2(b'\\', b'"', input)
+    }
+
+    fn get_quote_trim(&self, input: &[u8], start_str: usize) -> Option<(usize, usize)> {
+        input
+            .iter()
+            .rposition(|chr| *chr != b' ' && *chr != b'\t')
+            .map(|find| (start_str + find + 1, find + 1))
+    }
+
+
 }
 
 pub trait Reader<B> {
@@ -115,16 +273,13 @@ pub trait Reader<B> {
     fn count_whitespace_from(&mut self, offset: usize) -> usize;
     fn count_spaces_till(&mut self, indent: u32) -> usize;
     fn is_empty_newline(&mut self) -> bool;
-    fn get_double_quote(&mut self) -> Option<usize>;
-    fn get_double_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)>;
-    fn get_single_quote(&mut self) -> Option<usize>;
-    fn get_single_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)>;
     fn count_space_then_tab(&mut self) -> (u32, u32);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
     fn read_tag_handle(&mut self, space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType>;
     fn read_tag_uri(&mut self) -> Option<(usize, usize)>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
+    fn emit_newspace(&mut self, tokens: &mut Vec<usize>, newspaces: &mut Option<usize>);
 
     #[doc(hidden)]
     fn read_plain_one_line(
@@ -274,14 +429,167 @@ pub trait Reader<B> {
             has_tab,
         })
     }
-    fn read_quote(&mut self) -> Vec<usize> {
-        Vec::new()
+
+    #[doc(hidden)]
+    fn read_quote<T: QuoteType + Copy>(&mut self, quote: T, lexer_state: &mut LexMutState) -> NodeSpans {
+        let mut node = NodeSpans {
+            col_start: self.col(),
+            line_start: self.line(),
+            ..Default::default()
+        };
+
+        node.push(quote.get_token());
+        let mut start_str = self.skip_bytes(1);
+        let mut newspaces = None;
+        let mut state = QuoteState::Start;
+
+        loop {
+            state = match state {
+                QuoteState::Start => {
+                    self.start_fn(quote, &mut start_str, &mut newspaces, lexer_state, &mut node.spans)
+                }
+                QuoteState::Trim => self.trim_fn(
+                    quote,
+                    &mut start_str,
+                    &mut newspaces,
+                    lexer_state,
+                    &mut node.spans,
+                ),
+                QuoteState::End | QuoteState::Error => break,
+            };
+        }
+        node.push(ScalarEnd as usize);
+
+        node.is_multiline = node.line_start != self.line();
+        node
     }
-    fn read_dquote(&mut self) -> Vec<usize> {
-        Vec::new()
+
+    fn start_fn<T: QuoteType>(
+        &mut self,
+        quote: T,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        lexer_state: &mut LexMutState,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        let input = self.get_quoteline_offset(quote.get_liteal());
+        if let Some(pos) = quote.get_quote(input) {
+            let match_pos = self.skip_bytes(pos);
+            quote.match_fn(self, match_pos, start_str, newspaces, lexer_state, tokens)
+        } else if self.eof() {
+            prepend_error(ErrorType::UnexpectedEndOfFile, tokens, lexer_state.errors);
+            QuoteState::Error
+        } else {
+            QuoteState::Trim
+        }
     }
-    fn read_block_scalar(&mut self, _literal: bool, _block_indent: u32) -> Vec<usize> {
-        Vec::new()
+
+    fn trim_fn<Q: QuoteType>(
+        &mut self,
+        quote_type: Q,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        lexer_state: &mut LexMutState,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        if self.peek_stream_ending() {
+            prepend_error(ErrorType::UnexpectedEndOfStream, tokens, lexer_state.errors);
+        };
+        let indent = indent(lexer_state);
+        if !matches!(lexer_state.curr_state, DocBlock) && self.col() <= indent {
+            prepend_error(
+                ErrorType::InvalidQuoteIndent {
+                    actual: self.col(),
+                    expected: indent,
+                },
+                tokens,
+                lexer_state.errors,
+            );
+        }
+        let input = self.get_quoteline_offset(b'\'');
+        if let Some((match_pos, len)) = quote_type.get_quote_trim(input, *start_str) {
+            emit_token_mut(start_str, match_pos, newspaces, tokens);
+            self.skip_bytes(len);
+        } else {
+            self.update_newlines(newspaces, start_str, lexer_state);
+        }
+
+        match self.peek_byte() {
+            Some(b'\n' | b'\r') => {
+                if let Err(err) = self.update_newlines(newspaces, start_str, lexer_state) {
+                    prepend_error(err, tokens, lexer_state.errors);
+                }
+                QuoteState::Start
+            }
+            Some(x) if x == quote_type.get_liteal() => {
+                if let Some(x) = newspaces {
+                    tokens.push(NewLine as usize);
+                    tokens.push(*x);
+                }
+                self.skip_bytes(1);
+                QuoteState::End
+            }
+            Some(_) => QuoteState::Start,
+            None => {
+                prepend_error(ErrorType::UnexpectedEndOfFile, tokens, lexer_state.errors);
+                QuoteState::Error
+            }
+        }
+    }
+
+    fn get_quoteline_offset(&mut self, quote: u8) -> &[u8];
+
+    fn update_newlines(
+        &mut self,
+        newspaces: &mut Option<usize>,
+        start_str: &mut usize,
+        lexer_state: &mut LexMutState,
+    ) -> Result<(), ErrorType> {
+        if let Some(x) = self.skip_separation_spaces(lexer_state) {
+            *newspaces = Some(x.num_breaks.saturating_sub(1) as usize);
+            *start_str = self.offset();
+            if lexer_state
+                .last_block_indent
+                .map_or(false, |indent| indent >= x.space_indent)
+            {
+                return Err(TabsNotAllowedAsIndentation);
+            }
+        }
+        Ok(())
+    }
+
+    fn read_block_scalar(&mut self, _literal: bool, _block_indent: u32) -> NodeSpans {
+        
+        NodeSpans {
+            col_start: self.col(),
+            line_start: self.col(),
+            ..Default::default()
+        }
+    }
+}
+
+fn indent(lexer_state: &mut LexMutState) -> u32 {
+    match lexer_state.last_block_indent {
+        None => 0,
+        Some(x) if lexer_state.curr_state.in_flow_collection() => x + 1,
+        Some(x) => *x,
+    }
+}
+
+fn emit_token_mut(
+    start: &mut usize,
+    end: usize,
+    newspaces: &mut Option<usize>,
+    tokens: &mut Vec<usize>,
+) {
+    if end > *start {
+        if let Some(newspace) = newspaces.take() {
+            tokens.push(NewLine as usize);
+            tokens.push(newspace);
+        }
+        tokens.push(*start);
+        tokens.push(end);
+        *start = end;
     }
 }
 

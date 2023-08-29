@@ -5,7 +5,7 @@ use core::usize;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use memchr::{memchr, memchr2};
+use memchr::{memchr};
 
 use reader::{is_flow_indicator, is_plain_unsafe};
 
@@ -71,16 +71,7 @@ impl<'a> StrReader<'a> {
         }
     }
 
-    pub(crate) fn get_quoteline_offset(&self, quote: u8) -> (usize, usize) {
-        let slice = self.slice;
-        let start = self.pos;
-        let remaining = slice.len().saturating_sub(start);
-        let content = &slice[start..];
-        let n = memchr::memchr3_iter(b'\r', b'\n', quote, content)
-            .next()
-            .map_or(remaining, |p| if content[p] == quote { p + 1 } else { p });
-        (start, start + n)
-    }
+
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
@@ -220,30 +211,6 @@ impl<'r> Reader<()> for StrReader<'r> {
             .iter()
             .rev()
             .all(|c| *c == b' ')
-    }
-
-    fn get_double_quote(&mut self) -> Option<usize> {
-        let (line_start, line_end) = self.get_quoteline_offset(b'"');
-        memchr2(b'\\', b'"', &self.slice[line_start..line_end])
-    }
-
-    fn get_double_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)> {
-        let (_, line_end) = self.get_quoteline_offset(b'"');
-        self.slice[start_str..line_end]
-            .iter()
-            .rposition(|chr| *chr != b' ' && *chr != b'\t')
-            .map(|find| (start_str + find + 1, find + 1))
-    }
-    fn get_single_quote(&mut self) -> Option<usize> {
-        let (line_start, line_end) = self.get_quoteline_offset(b'\'');
-        memchr(b'\'', &self.slice[line_start..line_end])
-    }
-    fn get_single_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)> {
-        let (_, line_end) = self.get_quoteline_offset(b'\'');
-        self.slice[start_str..line_end]
-            .iter()
-            .rposition(|chr| *chr != b' ' && *chr != b'\t')
-            .map(|find| (start_str + find + 1, find + 1))
     }
 
     fn count_space_then_tab(&mut self) -> (u32, u32) {
@@ -446,6 +413,24 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.skip_bytes(end - start);
         tokens.push(start);
         tokens.push(end);
+    }
+
+    fn emit_newspace(&mut self, tokens: &mut Vec<usize>, newspaces: &mut Option<usize>) {
+        if let Some(newspace) = newspaces.take() {
+            tokens.push(NewLine as usize);
+            tokens.push(newspace);
+        }
+    }
+
+    fn get_quoteline_offset(&mut self, quote: u8) -> &[u8] {
+        let slice = self.slice;
+        let start = self.pos;
+        let remaining = slice.len().saturating_sub(start);
+        let content = &slice[start..];
+        let n = memchr::memchr3_iter(b'\r', b'\n', quote, content)
+            .next()
+            .map_or(remaining, |p| if content[p] == quote { p + 1 } else { p });
+        &slice[start.. start + n]
     }
 }
 

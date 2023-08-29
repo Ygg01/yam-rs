@@ -91,10 +91,10 @@ const DQUOTE_STR_EVENTS: &str = r#"
 =VAL "double quote
 -DOC"#;
 
-const DQUOTE_MULTI_INPUT: &str = r##"
+const DQUOTE_MULTI_INPUT: &str = r#"
  "test  
  
-   tab" "##;
+   tab" "#;
 
 const DQUOTE_MULTI_EVENTS: &str = r#"
 +DOC
@@ -123,10 +123,10 @@ const DQUOTE_MULTI1_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 
-const DQUOTE_MULTI2_INPUT: &str = r##"
+const DQUOTE_MULTI2_INPUT: &str = r#"
  - "double   
              
- quote" "##;
+ quote" "#;
 
 const DQUOTE_MULTI2_EVENTS: &str = r#"
 +DOC
