@@ -2,14 +2,14 @@
 
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
-use core::default;
+
 use core::ops::Range;
 
 use super::lexer::NodeSpans;
 use super::LexerToken::*;
 use super::{
     lexer::{push_error, LexerState},
-    ErrorType, LexerToken,
+    ErrorType,
 };
 use crate::tokenizer::lexer::MapState::*;
 use crate::tokenizer::lexer::{find_matching_state, SeparationSpaceInfo};
@@ -161,7 +161,7 @@ pub trait Reader<B> {
                 break;
             }
 
-            let (start, end, consume) =
+            let (start, end, _consume) =
                 self.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
 
             self.save_bytes(&mut spans.spans, start, end, num_newlines);
@@ -280,7 +280,7 @@ pub trait Reader<B> {
     fn read_dquote(&mut self) -> Vec<usize> {
         Vec::new()
     }
-    fn read_block_scalar(&mut self, literal: bool, block_indent: u32) -> Vec<usize> {
+    fn read_block_scalar(&mut self, _literal: bool, _block_indent: u32) -> Vec<usize> {
         Vec::new()
     }
 }

@@ -34,7 +34,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn peek_byte_at(&mut self, offset: usize) -> Option<u8> {
+    fn peek_byte_at(&mut self, _offset: usize) -> Option<u8> {
         todo!()
     }
 
@@ -42,7 +42,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize {
+    fn skip_space_and_tab_detect(&mut self, _has_tab: &mut bool) -> usize {
         todo!()
     }
 
@@ -52,11 +52,11 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         self._buffer_pos
     }
 
-    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newline: u32) {
+    fn save_bytes(&mut self, _tokens: &mut Vec<usize>, _start: usize, _end: usize, _newline: u32) {
         todo!()
     }
 
-    fn try_read_slice_exact(&mut self, needle: &str) -> bool {
+    fn try_read_slice_exact(&mut self, _needle: &str) -> bool {
         todo!()
     }
 
@@ -64,7 +64,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn read_line(&mut self, space_indent: &mut Option<u32>) -> (usize, usize) {
+    fn read_line(&mut self, _space_indent: &mut Option<u32>) -> (usize, usize) {
         todo!()
     }
 
@@ -72,11 +72,11 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn count_whitespace_from(&mut self, offset: usize) -> usize {
+    fn count_whitespace_from(&mut self, _offset: usize) -> usize {
         todo!()
     }
 
-    fn count_spaces_till(&mut self, indent: u32) -> usize {
+    fn count_spaces_till(&mut self, _indent: u32) -> usize {
         todo!()
     }
 
@@ -88,7 +88,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn get_double_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)> {
+    fn get_double_quote_trim(&mut self, _start_str: usize) -> Option<(usize, usize)> {
         todo!()
     }
 
@@ -96,7 +96,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn get_single_quote_trim(&mut self, start_str: usize) -> Option<(usize, usize)> {
+    fn get_single_quote_trim(&mut self, _start_str: usize) -> Option<(usize, usize)> {
         todo!()
     }
 
@@ -112,7 +112,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn read_tag_handle(&mut self, space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType> {
+    fn read_tag_handle(&mut self, _space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType> {
         todo!()
     }
 
@@ -126,9 +126,9 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
 
     fn read_plain_one_line(
         &mut self,
-        offset_start: Option<usize>,
-        had_comment: &mut bool,
-        in_flow_collection: bool,
+        _offset_start: Option<usize>,
+        _had_comment: &mut bool,
+        _in_flow_collection: bool,
     ) -> (usize, usize, usize) {
         todo!()
     }

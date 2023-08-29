@@ -5,7 +5,7 @@ pub fn assert_eq_event(input: &str, events: &str) {
     let mut line = String::new();
     let scan: EventIterator<StrReader> = EventIterator::from(input);
     for ev in scan {
-        line.push_str("\n");
+        line.push('\n');
         write!(line, "{:}", ev).unwrap();
         if matches!(ev, Event::ErrorEvent) {
             break;

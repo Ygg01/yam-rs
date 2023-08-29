@@ -22,7 +22,7 @@ use crate::tokenizer::ErrorType::*;
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::LexMutState;
 use super::reader::{
-    is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
+    is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
 };
 use crate::tokenizer::ErrorType;
 
@@ -1749,8 +1749,8 @@ impl Lexer {
 
     #[inline]
     fn read_line<B, R: Reader<B>>(&mut self, reader: &mut R) -> (usize, usize) {
-        let line = reader.read_line(&mut self.space_indent);
-        line
+        
+        reader.read_line(&mut self.space_indent)
     }
 
     #[must_use]
