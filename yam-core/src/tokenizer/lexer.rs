@@ -1,12 +1,12 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use core::hint::unreachable_unchecked;
 use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
-use hashbrown::HashMap;
-use core::mem::take;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
+use core::hint::unreachable_unchecked;
+use core::mem::take;
+use hashbrown::HashMap;
 
 use LexerState::PreDocStart;
 
@@ -20,6 +20,7 @@ use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
+use super::reader::LexMutState;
 use super::reader::{
     is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
 };
@@ -35,25 +36,26 @@ pub struct Lexer {
     last_block_indent: Option<u32>,
     last_map_line: Option<u32>,
     prev_prop: PropSpans,
-
     has_tab: bool,
     stack: Vec<LexerState>,
 }
 
+#[doc(hidden)]
 #[derive(Clone, Copy)]
-pub(crate) struct SeparationSpaceInfo {
-    num_breaks: u32,
-    space_indent: u32,
-    has_comment: bool,
-    has_tab: bool,
+pub struct SeparationSpaceInfo {
+    pub(crate) num_breaks: u32,
+    pub(crate) space_indent: u32,
+    pub(crate) has_comment: bool,
+    pub(crate) has_tab: bool,
 }
 
+#[doc(hidden)]
 #[derive(Clone, Default)]
-pub(crate) struct NodeSpans {
-    col_start: u32,
-    line_start: u32,
-    is_multiline: bool,
-    spans: Vec<usize>,
+pub struct NodeSpans {
+    pub(crate) col_start: u32,
+    pub(crate) line_start: u32,
+    pub(crate) is_multiline: bool,
+    pub(crate) spans: Vec<usize>,
 }
 
 impl NodeSpans {
@@ -230,7 +232,8 @@ impl LiteralStringState {
     }
 }
 
-trait Pusher {
+#[doc(hidden)]
+pub(crate) trait Pusher {
     fn front_push(&mut self, token: usize);
     fn push(&mut self, token: usize);
     fn push_all<T: IntoIterator<Item = usize>>(&mut self, iter: T);
@@ -268,6 +271,23 @@ impl Pusher for VecDeque<usize> {
     }
 }
 
+impl Pusher for &mut VecDeque<usize> {
+    #[inline]
+    fn front_push(&mut self, token: usize) {
+        self.push_front(token);
+    }
+
+    #[inline]
+    fn push(&mut self, token: usize) {
+        self.push_back(token);
+    }
+
+    fn push_all<T: IntoIterator<Item = usize>>(&mut self, iter: T) {
+        self.extend(iter);
+    }
+}
+
+#[doc(hidden)]
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum LexerState {
     #[default]
@@ -526,7 +546,8 @@ impl Lexer {
                 // scalar found in invalid state
                 match self.curr_state() {
                     BlockMap(_, ExpectKey) | BlockSeq(_, InSeqElem) => {
-                        if let Some(unwind) = self.find_matching_state(
+                        if let Some(unwind) = find_matching_state(
+                            &self.stack,
                             |state| matches!(state, BlockSeq(ind, _) | BlockMap(ind, _) if ind <= node_col),
                         ) {
                             self.pop_block_states(unwind, tokens);
@@ -732,14 +753,17 @@ impl Lexer {
             DocBlock => true,
             BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent => true,
             BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent < map_indent => {
-                if let Some(unwind) = self.find_matching_state(
+                if let Some(unwind) = find_matching_state(
+                    &self.stack,
                     |state| matches!(state, BlockMap(ind,_ ) | BlockSeq(ind,_ ) if ind == indent),
                 ) {
                     self.pop_block_states(unwind, tokens);
                 }
                 matches!(self.curr_state(),BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent)
             }
-            BlockMap(prev_indent, ExpectComplexValue | ExpectComplexColon) if prev_indent == indent => {
+            BlockMap(prev_indent, ExpectComplexValue | ExpectComplexColon)
+                if prev_indent == indent =>
+            {
                 push_empty(tokens, &mut self.prev_prop);
                 false
             }
@@ -770,7 +794,8 @@ impl Lexer {
 
         let mut is_empty = curr_node.is_empty();
         let is_inline_key = curr_node.line_start == reader.line();
-        let matches_exp_map = self.find_matching_state(
+        let matches_exp_map = find_matching_state(
+            &self.stack,
             |x| matches!(x, BlockMap(ind , ExpectComplexColon) if ind == col_pos),
         );
         if matches_exp_map.is_some() {
@@ -800,7 +825,8 @@ impl Lexer {
             .last_block_indent
             .map_or(false, |indent| node_indents <= indent)
         {
-            if let Some(unwind) = self.find_matching_state(
+            if let Some(unwind) = find_matching_state(
+                &self.stack,
                 |state| matches!(state, BlockMap(ind, _) if node_indents >= ind),
             ) {
                 self.pop_block_states(unwind, tokens);
@@ -833,9 +859,7 @@ impl Lexer {
                 }
                 false
             }
-            BlockMap(ind, ExpectComplexColon) if ind == col_pos => {
-                false
-            }
+            BlockMap(ind, ExpectComplexColon) if ind == col_pos => false,
             BlockMap(_, ExpectComplexKey) => is_inline_key,
             BlockMap(ind, ExpectValue) => {
                 if is_inline_key {
@@ -951,7 +975,8 @@ impl Lexer {
                 if let Some(last_seq) = self.stack.iter().rposition(|x| matches!(x, BlockSeq(_, _)))
                 {
                     tokens.extend(take(&mut self.prev_prop).spans);
-                    if let Some(unwind) = self.find_matching_state(
+                    if let Some(unwind) = find_matching_state(
+                        &self.stack,
                         |state| matches!(state, BlockSeq(ind, _) if ind == indent),
                     ) {
                         self.pop_block_states(unwind, tokens);
@@ -1172,7 +1197,10 @@ impl Lexer {
             node.spans.push(ALIAS);
             node.spans.push(alias.0);
             node.spans.push(alias.1);
-        } else if chr == b':' && self.is_valid_map(reader, &mut node.spans) && self.curr_state().in_flow_collection() {
+        } else if chr == b':'
+            && self.is_valid_map(reader, &mut node.spans)
+            && self.curr_state().in_flow_collection()
+        {
             push_empty(&mut node.spans, &mut PropSpans::default());
             node.line_start = reader.line();
             node.col_start = reader.col();
@@ -1230,8 +1258,14 @@ impl Lexer {
                 try_parse_anchor_alias(reader, ANCHOR, &mut node.spans);
             }
         }
-        if !self.curr_state().in_flow_collection() && !reader.peek_byte().map_or(true, is_white_tab_or_break) {
-            push_error(ExpectedWhiteSpaceAfterProperty, &mut node.spans, &mut self.errors);
+        if !self.curr_state().in_flow_collection()
+            && !reader.peek_byte().map_or(true, is_white_tab_or_break)
+        {
+            push_error(
+                ExpectedWhiteSpaceAfterProperty,
+                &mut node.spans,
+                &mut self.errors,
+            );
         }
         node
     }
@@ -1378,7 +1412,6 @@ impl Lexer {
         let is_nested = init_state != MapState::default();
 
         self.push_state(FlowMap(init_state));
-        
 
         if !prop_node.is_empty() {
             node.merge_tokens(take(prop_node).spans);
@@ -1442,7 +1475,11 @@ impl Lexer {
             let scalar_spans = self.get_flow_node(reader, prop_node);
             self.check_flow_indent(scalar_spans.col_start, &mut node.spans);
             let ws_offset = reader.count_whitespace();
-            if matches!(self.curr_state(), FlowMap(ExpectValue)) && reader.peek_byte_at(ws_offset).map_or(false, |c| c != b',' && c != b'}' && c != b']'){
+            if matches!(self.curr_state(), FlowMap(ExpectValue))
+                && reader
+                    .peek_byte_at(ws_offset)
+                    .map_or(false, |c| c != b',' && c != b'}' && c != b']')
+            {
                 push_error(ErrorType::InvalidMapEnd, &mut node.spans, &mut self.errors)
             }
             skip_colon_space = is_skip_colon_space(&scalar_spans);
@@ -1690,101 +1727,29 @@ impl Lexer {
         }
     }
 
-    fn find_matching_state<F: Fn(LexerState) -> bool>(&self, f: F) -> Option<usize> {
-        self.stack
-            .iter()
-            .rposition(|state| f(*state))
-            .map(|x| self.stack.len() - x - 1)
-    }
-
+    #[inline]
     fn get_plain_scalar<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
         curr_state: LexerState,
     ) -> NodeSpans {
-        let col_start = reader.col();
-        let mut curr_indent = reader.col();
-        let line_start = reader.line();
-        let mut end_line = reader.line();
-        let mut tokens = Vec::with_capacity(10);
-        tokens.push(SCALAR_PLAIN);
-        let mut offset_start: Option<usize> = None;
-        let in_flow_collection = curr_state.in_flow_collection();
-        let mut had_comment = false;
-        let mut num_newlines = 0;
-        let last_indent = self.indent();
-
-        loop {
-            if had_comment {
-                if curr_state != DocBlock {
-                    push_error(InvalidCommentInScalar, &mut tokens, &mut self.errors);
-                }
-                break;
-            }
-
-            let (start, end, consume) =
-                reader.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
-
-            match num_newlines {
-                x if x == 1 => {
-                    tokens.push(NewLine as usize);
-                    tokens.push(0);
-                }
-                x if x > 1 => {
-                    tokens.push(NewLine as usize);
-                    tokens.push(x - 1);
-                }
-                _ => {}
-            }
-
-            tokens.push(start);
-            tokens.push(end);
-            reader.skip_bytes(consume);
-
-            end_line = reader.line();
-
-            if reader.peek_byte().map_or(false, is_white_tab_or_break) {
-                if let Some(folded_newline) = self.skip_sep_spaces(reader) {
-                    if reader.col() >= last_indent {
-                        num_newlines = folded_newline.num_breaks as usize;
-                    }
-                    self.skip_space_tab(reader);
-                    if folded_newline.has_comment {
-                        had_comment = true;
-                    }
-                    curr_indent = folded_newline.space_indent;
-                }
-            }
-
-            let chr = reader.peek_byte_at(0).unwrap_or(b'\0');
-            let end_of_stream = reader.eof() || reader.peek_stream_ending();
-
-            if chr == b'-' && matches!(curr_state, BlockSeq(indent, _) if curr_indent > indent)
-                || chr == b'?' && matches!(curr_state, BlockMap(indent, ExpectComplexKey) if curr_indent > indent ) {
-                offset_start = Some(reader.offset());
-
-            } else if end_of_stream || chr == b'?' || chr == b':' || chr == b'-'
-                || (in_flow_collection && is_flow_indicator(chr))
-                || self.find_matching_state(|state| matches!(state, BlockMap(ind_col, _)| BlockSeq(ind_col, _) if ind_col >= curr_indent)
-                ).is_some()
-            {
-                break;
-            }
-        }
-        let is_multiline = end_line != line_start;
-        tokens.push(ScalarEnd as usize);
-        NodeSpans {
-            col_start,
-            line_start,
-            is_multiline,
-            spans: tokens,
-        }
+        let block_indent = self.indent();
+        reader.read_plain(
+            curr_state,
+            block_indent,
+            &mut LexMutState {
+                tokens: &mut self.tokens,
+                errors: &mut self.errors,
+                stack: &self.stack,
+                space_indent: &mut self.space_indent,
+                has_tab: &mut self.has_tab,
+            },
+        )
     }
 
     #[inline]
     fn read_line<B, R: Reader<B>>(&mut self, reader: &mut R) -> (usize, usize) {
-        let line = reader.read_line();
-        self.space_indent = None;
+        let line = reader.read_line(&mut self.space_indent);
         line
     }
 
@@ -2019,11 +1984,7 @@ impl Lexer {
                 LiteralStringState::from_indentation(block_indent + u32::from(len - b'0')),
             ),
             [b'#', ..] => {
-                push_error(
-                    UnexpectedComment,
-                    &mut self.tokens,
-                    &mut self.errors,
-                );
+                push_error(UnexpectedComment, &mut self.tokens, &mut self.errors);
                 reader.skip_bytes(1);
                 return LiteralStringState::End;
             }
@@ -2397,12 +2358,12 @@ impl Lexer {
 
     fn try_read_tag<B, R: Reader<B>>(&mut self, reader: &mut R) -> bool {
         if !reader.try_read_slice_exact("%TAG") {
-            reader.read_line();
+            reader.read_line(&mut self.space_indent);
             return false;
         }
         self.skip_space_tab(reader);
 
-        if let Ok(key) = reader.read_tag_handle() {
+        if let Ok(key) = reader.read_tag_handle(&mut self.space_indent) {
             self.skip_space_tab(reader);
             if let Some(val) = reader.read_tag_uri() {
                 self.tags.insert(key, val);
@@ -2634,7 +2595,7 @@ fn push_empty<T: Pusher>(tokens: &mut T, prop: &mut PropSpans) {
 }
 
 // #[inline]
-fn push_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &mut Vec<ErrorType>) {
+pub(crate) fn push_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &mut Vec<ErrorType>) {
     tokens.push(ERROR_TOKEN);
     errors.push(error);
 }
@@ -2650,6 +2611,16 @@ pub(crate) enum QuoteState {
     Trim,
     End,
     Error,
+}
+
+pub(crate) fn find_matching_state<F: Fn(LexerState) -> bool>(
+    stack: &Vec<LexerState>,
+    f: F,
+) -> Option<usize> {
+    stack
+        .iter()
+        .rposition(|state| f(*state))
+        .map(|x| stack.len() - x - 1)
 }
 
 fn emit_token_mut(

@@ -2,14 +2,15 @@ use core::ops::ControlFlow::{Break, Continue};
 use core::ops::Range;
 use core::usize;
 
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 
 use memchr::{memchr, memchr2};
 
 use reader::{is_flow_indicator, is_plain_unsafe};
 
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
+use crate::tokenizer::LexerToken::NewLine;
 use crate::tokenizer::{reader, ErrorType, Reader};
 
 use super::reader::{is_newline, is_tag_char, is_tag_char_short};
@@ -170,8 +171,9 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn read_line(&mut self) -> (usize, usize) {
+    fn read_line(&mut self, space_indent: &mut Option<u32>) -> (usize, usize) {
         let (start, end, consume) = self.get_read_line();
+        *space_indent = None;
         self.pos = consume;
         self.line += 1;
         self.col = 0;
@@ -315,7 +317,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType> {
+    fn read_tag_handle(&mut self, space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType> {
         match self.peek_chars() {
             [b'!', x, ..] if *x == b' ' || *x == b'\t' => {
                 self.skip_bytes(1);
@@ -335,13 +337,13 @@ impl<'r> Reader<()> for StrReader<'r> {
                     self.skip_bytes(1);
                     Ok(bac)
                 } else {
-                    self.read_line();
+                    self.read_line(space_indent);
                     Err(ErrorType::TagNotTerminated)
                 }
             }
             [x, ..] => {
                 let err = Err(ErrorType::InvalidTagHandleCharacter { found: *x as char });
-                self.read_line();
+                self.read_line(space_indent);
                 err
             }
             &[] => Err(ErrorType::UnexpectedEndOfFile),
@@ -428,6 +430,23 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
         (start, end_of_str, end_of_str - start)
     }
+
+    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newline: u32) {
+        match newline {
+            x if x == 1 => {
+                tokens.push(NewLine as usize);
+                tokens.push(0);
+            }
+            x if x > 1 => {
+                tokens.push(NewLine as usize);
+                tokens.push((x - 1) as usize);
+            }
+            _ => {}
+        }
+        self.skip_bytes(end - start);
+        tokens.push(start);
+        tokens.push(end);
+    }
 }
 
 #[test]
@@ -441,13 +460,13 @@ pub fn test_offset() {
     assert_eq!(end, 0);
     assert_eq!(b"", input.slice(start, end));
     assert_eq!(consume, 1);
-    reader.read_line();
+    reader.read_line(&mut None);
     let (start, end, consume) = reader.get_read_line();
     assert_eq!(start, 1);
     assert_eq!(end, 6);
     assert_eq!(b"  rst", input.slice(start, end));
     assert_eq!(consume, 7);
-    reader.read_line();
+    reader.read_line(&mut None);
     let (start, end, consume) = reader.get_read_line();
     assert_eq!(start, 7);
     assert_eq!(end, 7);

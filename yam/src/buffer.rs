@@ -5,9 +5,8 @@ pub struct BufReader<B, S> {
     _buffer: B,
     source: S,
     col: u32,
-    pos: u32,
+    line: u32,
     _buffer_pos: usize,
-
 }
 
 impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
@@ -20,7 +19,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
     }
 
     fn line(&self) -> u32 {
-        self.pos
+        self.line
     }
 
     fn offset(&self) -> usize {
@@ -48,13 +47,14 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
     }
 
     fn skip_bytes(&mut self, amount: usize) -> usize {
-        todo!()
+        self.source.consume(amount);
+        self._buffer_pos += amount;
+        self._buffer_pos
     }
 
-    fn save_bytes(&mut self, amount: usize) -> usize {
+    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newline: u32) {
         todo!()
     }
-
 
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         todo!()
@@ -64,7 +64,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn read_line(&mut self) -> (usize, usize) {
+    fn read_line(&mut self, space_indent: &mut Option<u32>) -> (usize, usize) {
         todo!()
     }
 
@@ -112,7 +112,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType> {
+    fn read_tag_handle(&mut self, space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType> {
         todo!()
     }
 
@@ -124,8 +124,12 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn read_plain_one_line(&mut self, offset_start: Option<usize>, had_comment: &mut bool, in_flow_collection: bool) -> (usize, usize, usize) {
+    fn read_plain_one_line(
+        &mut self,
+        offset_start: Option<usize>,
+        had_comment: &mut bool,
+        in_flow_collection: bool,
+    ) -> (usize, usize, usize) {
         todo!()
     }
 }
-
