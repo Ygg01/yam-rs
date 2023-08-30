@@ -5,7 +5,7 @@ use core::usize;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use memchr::{memchr};
+use memchr::memchr;
 
 use reader::{is_flow_indicator, is_plain_unsafe};
 
@@ -70,8 +70,6 @@ impl<'a> StrReader<'a> {
             Continue(x) | Break(x) => x,
         }
     }
-
-
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
@@ -430,7 +428,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let n = memchr::memchr3_iter(b'\r', b'\n', quote, content)
             .next()
             .map_or(remaining, |p| if content[p] == quote { p + 1 } else { p });
-        &slice[start.. start + n]
+        &slice[start..start + n]
     }
 }
 

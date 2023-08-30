@@ -3,7 +3,6 @@
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 
-
 use core::ops::Range;
 
 use super::lexer::{prepend_error, NodeSpans, QuoteState};
@@ -65,11 +64,11 @@ impl<'a> Iterator for LookAroundBytes<'a> {
 pub struct LexMutState<'a> {
     pub(crate) curr_state: LexerState,
     pub(crate) last_block_indent: &'a Option<u32>,
-    pub(crate) tokens: &'a mut VecDeque<usize>,
-    pub(crate) errors: &'a mut Vec<ErrorType>,
     pub(crate) stack: &'a Vec<LexerState>,
-    pub(crate) space_indent: &'a mut Option<u32>,
     pub(crate) has_tab: &'a mut bool,
+    pub(crate) errors: &'a mut Vec<ErrorType>,
+    pub(crate) tokens: &'a mut VecDeque<usize>,
+    pub(crate) space_indent: &'a mut Option<u32>,
 }
 
 pub trait QuoteType {
@@ -222,8 +221,6 @@ impl QuoteType for DoubleQuote {
             .rposition(|chr| *chr != b' ' && *chr != b'\t')
             .map(|find| (start_str + find + 1, find + 1))
     }
-
-
 }
 
 pub trait Reader<B> {
@@ -290,12 +287,7 @@ pub trait Reader<B> {
         in_flow_collection: bool,
     ) -> (usize, usize, usize);
 
-    fn read_plain(
-        &mut self,
-        curr_state: LexerState,
-        block_indent: u32,
-        lex_state: &mut LexMutState,
-    ) -> NodeSpans {
+    fn read_plain(&mut self, lex_state: &mut LexMutState) -> NodeSpans {
         let mut spans = NodeSpans {
             col_start: self.col(),
             line_start: self.line(),
@@ -306,12 +298,13 @@ pub trait Reader<B> {
         let mut end_line = self.line();
         let mut curr_indent = self.col();
         let mut num_newlines = 0;
+        let block_indent = indent(lex_state);
 
-        let in_flow_collection = curr_state.in_flow_collection();
+        let in_flow_collection = lex_state.curr_state.in_flow_collection();
         spans.push(ScalarPlain as usize);
         loop {
             if had_comment {
-                if curr_state != DocBlock {
+                if lex_state.curr_state != DocBlock {
                     push_error(InvalidCommentInScalar, &mut spans.spans, lex_state.errors);
                 }
                 break;
@@ -340,8 +333,8 @@ pub trait Reader<B> {
             let chr = self.peek_byte_at(0).unwrap_or(b'\0');
             let end_of_stream = self.eof() || self.peek_stream_ending();
 
-            if chr == b'-' && matches!(curr_state, BlockSeq(indent, _) if curr_indent > indent)
-                || chr == b'?' && matches!(curr_state, BlockMap(indent, ExpectComplexKey) if curr_indent > indent ) {
+            if chr == b'-' && matches!(lex_state.curr_state, BlockSeq(indent, _) if curr_indent > indent)
+                || chr == b'?' && matches!(lex_state.curr_state, BlockMap(indent, ExpectComplexKey) if curr_indent > indent ) {
                 offset_start = Some(self.offset());
 
             } else if end_of_stream || chr == b'?' || chr == b':' || chr == b'-'
@@ -432,7 +425,11 @@ pub trait Reader<B> {
     }
 
     #[doc(hidden)]
-    fn read_quote<T: QuoteType + Copy>(&mut self, quote: T, lexer_state: &mut LexMutState) -> NodeSpans {
+    fn read_quote<T: QuoteType + Copy>(
+        &mut self,
+        quote: T,
+        lexer_state: &mut LexMutState,
+    ) -> NodeSpans {
         let mut node = NodeSpans {
             col_start: self.col(),
             line_start: self.line(),
@@ -446,9 +443,13 @@ pub trait Reader<B> {
 
         loop {
             state = match state {
-                QuoteState::Start => {
-                    self.start_fn(quote, &mut start_str, &mut newspaces, lexer_state, &mut node.spans)
-                }
+                QuoteState::Start => self.start_fn(
+                    quote,
+                    &mut start_str,
+                    &mut newspaces,
+                    lexer_state,
+                    &mut node.spans,
+                ),
                 QuoteState::Trim => self.trim_fn(
                     quote,
                     &mut start_str,
@@ -562,7 +563,6 @@ pub trait Reader<B> {
     }
 
     fn read_block_scalar(&mut self, _literal: bool, _block_indent: u32) -> NodeSpans {
-        
         NodeSpans {
             col_start: self.col(),
             line_start: self.col(),

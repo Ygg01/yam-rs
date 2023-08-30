@@ -24,9 +24,7 @@ use super::reader::DoubleQuote;
 use super::reader::LexMutState;
 
 use super::reader::SingleQuote;
-use super::reader::{
-    is_plain_unsafe, is_valid_skip_char, is_white_tab,
-};
+use super::reader::{is_plain_unsafe, is_valid_skip_char, is_white_tab};
 use crate::tokenizer::ErrorType;
 
 #[derive(Clone, Default)]
@@ -1105,23 +1103,31 @@ impl Lexer {
                 push_error(InvalidScalarStart, &mut node.spans, &mut self.errors);
             }
         } else if chr == b'\'' {
-            node.merge_spans(reader.read_quote(SingleQuote{}, &mut LexMutState { 
-                curr_state:  self.curr_state(), 
-                last_block_indent: &self.last_block_indent, 
-                tokens: &mut self.tokens, 
-                errors: &mut self.errors, 
-                stack: &self.stack, 
-                space_indent: &mut self.space_indent, 
-                has_tab: &mut self.has_tab }));
+            node.merge_spans(reader.read_quote(
+                SingleQuote {},
+                &mut LexMutState {
+                    curr_state: self.curr_state(),
+                    last_block_indent: &self.last_block_indent,
+                    stack: &self.stack,
+                    tokens: &mut self.tokens,
+                    has_tab: &mut self.has_tab,
+                    errors: &mut self.errors,
+                    space_indent: &mut self.space_indent,
+                },
+            ));
         } else if chr == b'"' {
-            node.merge_spans(reader.read_quote(DoubleQuote{}, &mut LexMutState { 
-                curr_state:  self.curr_state(), 
-                last_block_indent: &self.last_block_indent, 
-                tokens: &mut self.tokens, 
-                errors: &mut self.errors, 
-                stack: &self.stack, 
-                space_indent: &mut self.space_indent, 
-                has_tab: &mut self.has_tab }));
+            node.merge_spans(reader.read_quote(
+                DoubleQuote {},
+                &mut LexMutState {
+                    curr_state: self.curr_state(),
+                    last_block_indent: &self.last_block_indent,
+                    stack: &self.stack,
+                    has_tab: &mut self.has_tab,
+                    tokens: &mut self.tokens,
+                    errors: &mut self.errors,
+                    space_indent: &mut self.space_indent,
+                },
+            ));
         } else {
             *is_plain_scalar = true;
             node.merge_spans(self.get_plain_scalar(reader, self.curr_state()));
@@ -1407,7 +1413,6 @@ impl Lexer {
         node
     }
 
-
     fn skip_separation_spaces<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -1531,25 +1536,19 @@ impl Lexer {
         reader: &mut R,
         curr_state: LexerState,
     ) -> NodeSpans {
-        let block_indent = self.indent();
-        reader.read_plain(
+        reader.read_plain(&mut LexMutState {
             curr_state,
-            block_indent,
-            &mut LexMutState {
-                curr_state,
-                last_block_indent: & self.last_block_indent,
-                tokens: &mut self.tokens,
-                errors: &mut self.errors,
-                stack: &self.stack,
-                space_indent: &mut self.space_indent,
-                has_tab: &mut self.has_tab,
-            },
-        )
+            last_block_indent: &self.last_block_indent,
+            stack: &self.stack,
+            has_tab: &mut self.has_tab,
+            errors: &mut self.errors,
+            tokens: &mut self.tokens,
+            space_indent: &mut self.space_indent,
+        })
     }
 
     #[inline]
     fn read_line<B, R: Reader<B>>(&mut self, reader: &mut R) -> (usize, usize) {
-        
         reader.read_line(&mut self.space_indent)
     }
 
@@ -2303,7 +2302,7 @@ impl Lexer {
     }
 }
 
-// #[inline]
+#[inline]
 fn close_block_state<T: Pusher>(state: LexerState, prop: &mut PropSpans, spans: &mut T) {
     match state {
         BlockSeq(_, BeforeFirst | BeforeElem) => {
@@ -2401,7 +2400,11 @@ pub(crate) fn push_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &m
 }
 
 // #[inline]
-pub(crate) fn prepend_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &mut Vec<ErrorType>) {
+pub(crate) fn prepend_error<T: Pusher>(
+    error: ErrorType,
+    tokens: &mut T,
+    errors: &mut Vec<ErrorType>,
+) {
     tokens.front_push(ERROR_TOKEN);
     errors.push(error);
 }
