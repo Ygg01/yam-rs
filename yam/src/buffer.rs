@@ -52,7 +52,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         self._buffer_pos
     }
 
-    fn save_bytes(&mut self, _tokens: &mut Vec<usize>, _start: usize, _end: usize, _newline: u32) {
+    fn save_bytes(&mut self, _tokens: &mut Vec<usize>, _start: usize, _end: usize, _newline: Option<u32>) {
         todo!()
     }
 
@@ -122,6 +122,10 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
     }
 
     fn get_quoteline_offset(&mut self, _quote: u8) -> &[u8] {
+        todo!()
+    }
+
+    fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newspace: u32) {
         todo!()
     }
 }

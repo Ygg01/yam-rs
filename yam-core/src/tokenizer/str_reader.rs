@@ -396,19 +396,20 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end_of_str, end_of_str - start)
     }
 
-    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newline: u32) {
-        match newline {
-            x if x == 1 => {
-                tokens.push(NewLine as usize);
-                tokens.push(0);
-            }
-            x if x > 1 => {
-                tokens.push(NewLine as usize);
-                tokens.push((x - 1) as usize);
-            }
-            _ => {}
+    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newline: Option<u32>) {
+        if let Some(x) = newline {
+            tokens.push(NewLine as usize);
+            tokens.push(x as usize);
         }
         self.skip_bytes(end - start);
+        tokens.push(start);
+        tokens.push(end);
+    }
+
+    
+    fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newspace: u32) {
+        tokens.push(NewLine as usize);
+        tokens.push(newspace as usize);
         tokens.push(start);
         tokens.push(end);
     }
@@ -430,6 +431,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             .map_or(remaining, |p| if content[p] == quote { p + 1 } else { p });
         &slice[start..start + n]
     }
+
 }
 
 #[test]

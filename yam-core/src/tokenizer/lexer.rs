@@ -308,18 +308,6 @@ pub enum LexerState {
     BlockMap(u32, MapState),
 }
 
-#[derive(PartialEq, Clone, Copy)]
-pub(crate) enum ChompIndicator {
-    /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
-    Strip,
-    ///  `` final line break character is preserved in the scalar’s content
-    Clip,
-    ///  `` final line break character is preserved in the scalar’s content but only containing whitespaces
-    // ClipEmpty,
-    /// `+` final line break and any trailing empty lines are considered to be part of the scalar’s content
-    Keep,
-}
-
 impl LexerState {
     #[inline]
     pub fn in_flow_collection(self) -> bool {
@@ -935,33 +923,24 @@ impl Lexer {
         amount as usize
     }
 
-    fn consume_spaces<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) -> bool {
-        let x = reader.count_spaces_till(indent);
-        if self.space_indent.is_none() {
-            self.space_indent = Some(x as u32);
-        }
-        reader.skip_bytes(x);
-        x == indent as usize
-    }
 
     fn process_block_literal<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
         literal: bool,
     ) -> NodeSpans {
-        let line_start = reader.line();
-        let col_start = reader.col();
-
-        let block_indent = self.indent();
-        let tokens = self.read_block_scalar(reader, literal, block_indent);
-        let is_multiline = reader.line() != line_start;
-
-        NodeSpans {
-            col_start,
-            line_start,
-            is_multiline,
-            spans: tokens,
-        }
+        reader.read_block_scalar(
+            literal,
+            &mut LexMutState {
+                curr_state: self.curr_state(),
+                last_block_indent: &self.last_block_indent,
+                stack: &self.stack,
+                has_tab: &mut self.has_tab,
+                errors: &mut self.errors,
+                tokens: &mut self.tokens,
+                space_indent: &mut self.space_indent,
+            },
+        )
     }
 
     fn try_parse_tag<B, R: Reader<B>>(&mut self, reader: &mut R, node: &mut Vec<usize>) -> bool {
@@ -1653,321 +1632,6 @@ impl Lexer {
         self.tokens.is_empty()
     }
 
-    fn read_block_scalar<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        literal: bool,
-        block_indent: u32,
-    ) -> Vec<usize> {
-        let mut chomp = ChompIndicator::Clip;
-        let mut tokens = Vec::with_capacity(8);
-        reader.skip_bytes(1);
-
-        let token = if literal {
-            ScalarLit as usize
-        } else {
-            ScalarFold as usize
-        };
-
-        tokens.push(token);
-
-        let mut new_lines = 0;
-        let mut prev_indent = 0;
-
-        let mut state = self.get_initial_indent(reader, block_indent, &mut prev_indent, &mut chomp);
-        if reader.eof() {
-            tokens.push(ScalarEnd as usize);
-            return tokens;
-        }
-        loop {
-            if reader.eof() || reader.peek_stream_ending() {
-                break;
-            }
-
-            state = match state {
-                LiteralStringState::AutoIndentation => self.process_autoindentation(
-                    reader,
-                    &mut prev_indent,
-                    &mut new_lines,
-                    &mut tokens,
-                ),
-                LiteralStringState::Indentation(indent) => {
-                    if reader.is_empty_newline() {
-                        self.process_trim(reader, indent, &mut new_lines, &mut tokens)
-                    } else {
-                        self.process_indentation(
-                            reader,
-                            indent,
-                            (literal, chomp),
-                            &mut prev_indent,
-                            &mut new_lines,
-                            &mut tokens,
-                        )
-                    }
-                }
-
-                LiteralStringState::Comment => self.process_comment(reader),
-                LiteralStringState::TabError => {
-                    self.skip_sep_spaces(reader);
-                    if !(reader.eof() || reader.peek_stream_ending()) {
-                        prepend_error(
-                            ErrorType::InvalidScalarIndent,
-                            &mut tokens,
-                            &mut self.errors,
-                        );
-                    }
-
-                    break;
-                }
-                LiteralStringState::End => break,
-            };
-        }
-
-        match chomp {
-            ChompIndicator::Keep => {
-                tokens.push(NEWLINE);
-                tokens.push(new_lines as usize);
-            }
-            ChompIndicator::Clip if new_lines > 0 => {
-                tokens.push(NEWLINE);
-                tokens.push(1);
-            }
-            _ => {}
-        }
-        tokens.push(ScalarEnd as usize);
-
-        tokens
-    }
-
-    fn get_initial_indent<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        block_indent: u32,
-        prev_indent: &mut u32,
-        chomp: &mut ChompIndicator,
-    ) -> LiteralStringState {
-        let (amount, state) = match reader.peek_chars() {
-            [_, b'0', ..] | [b'0', _, ..] => {
-                push_error(
-                    ExpectedChompBetween1and9,
-                    &mut self.tokens,
-                    &mut self.errors,
-                );
-                reader.skip_bytes(2);
-                return LiteralStringState::End;
-            }
-            [b'-', len, ..] | [len, b'-', ..] if matches!(len, b'1'..=b'9') => {
-                *chomp = ChompIndicator::Strip;
-                (
-                    2,
-                    LiteralStringState::from_indentation(block_indent + u32::from(len - b'0')),
-                )
-            }
-            [b'+', len, ..] | [len, b'+', ..] if matches!(len, b'1'..=b'9') => {
-                *chomp = ChompIndicator::Keep;
-                (
-                    2,
-                    LiteralStringState::from_indentation(block_indent + u32::from(len - b'0')),
-                )
-            }
-            [b'-', ..] => {
-                *chomp = ChompIndicator::Strip;
-                (1, LiteralStringState::AutoIndentation)
-            }
-            [b'+', ..] => {
-                *chomp = ChompIndicator::Keep;
-                (1, LiteralStringState::AutoIndentation)
-            }
-            [len, ..] if matches!(len, b'1'..=b'9') => (
-                1,
-                LiteralStringState::from_indentation(block_indent + u32::from(len - b'0')),
-            ),
-            [b'#', ..] => {
-                push_error(UnexpectedComment, &mut self.tokens, &mut self.errors);
-                reader.skip_bytes(1);
-                return LiteralStringState::End;
-            }
-            _ => (0, LiteralStringState::AutoIndentation),
-        };
-        reader.skip_bytes(amount);
-        if let LiteralStringState::Indentation(x) = state {
-            *prev_indent = x;
-        }
-
-        // allow comment in first line of block scalar
-        self.skip_space_tab(reader);
-        match reader.peek_byte() {
-            Some(b'#' | b'\r' | b'\n') => {
-                self.read_line(reader);
-            }
-            Some(chr) => {
-                self.read_line(reader);
-                push_error(
-                    UnexpectedSymbol(chr as char),
-                    &mut self.tokens,
-                    &mut self.errors,
-                );
-                return LiteralStringState::End;
-            }
-            _ => {}
-        }
-
-        state
-    }
-
-    fn process_autoindentation<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        prev_indent: &mut u32,
-        new_lines: &mut u32,
-        tokens: &mut Vec<usize>,
-    ) -> LiteralStringState {
-        let mut max_prev_indent = 0;
-        loop {
-            if reader.eof() {
-                return LiteralStringState::End;
-            }
-
-            let newline_indent = reader.count_spaces();
-            self.has_tab = matches!(
-                reader.peek_byte_at(newline_indent.saturating_sub(1) as usize),
-                Some(b'\t')
-            );
-
-            let newline_is_empty = reader.is_empty_newline();
-            if newline_is_empty && max_prev_indent < newline_indent {
-                max_prev_indent = newline_indent;
-            }
-            if max_prev_indent > newline_indent {
-                prepend_error(SpacesFoundAfterIndent, tokens, &mut self.errors);
-            }
-            if !newline_is_empty {
-                *prev_indent = newline_indent;
-                return LiteralStringState::Indentation(newline_indent);
-            }
-            *new_lines += 1;
-            self.read_line(reader);
-        }
-    }
-
-    fn process_trim<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        indent: u32,
-        new_lines: &mut u32,
-        tokens: &mut Vec<usize>,
-    ) -> LiteralStringState {
-        loop {
-            if reader.eof() {
-                return LiteralStringState::End;
-            }
-            let newline_indent: u32 = reader.count_spaces();
-            let newline_is_empty = reader.is_empty_newline();
-            if !newline_is_empty {
-                return LiteralStringState::Indentation(indent);
-            }
-            if newline_indent > indent {
-                reader.skip_bytes(indent as usize);
-                if reader.peek_byte_is(b'#') {
-                    return LiteralStringState::Comment;
-                }
-                let (start, end) = self.read_line(reader);
-                if start != end {
-                    tokens.push(NEWLINE);
-                    tokens.push(*new_lines as usize);
-                    tokens.push(start);
-                    tokens.push(end);
-                    *new_lines = 1;
-                }
-            } else {
-                *new_lines += 1;
-                self.read_line(reader);
-            }
-        }
-    }
-
-    fn process_comment<B, R: Reader<B>>(&mut self, reader: &mut R) -> LiteralStringState {
-        loop {
-            if reader.eof() {
-                return LiteralStringState::End;
-            }
-            let space_offset = reader.count_spaces() as usize;
-            if reader.peek_byte_at(space_offset) != Some(b'#') {
-                return LiteralStringState::End;
-            }
-            self.read_line(reader);
-        }
-    }
-
-    fn process_indentation<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        indent: u32,
-        lit_chomp: (bool, ChompIndicator),
-        prev_indent: &mut u32,
-        new_lines: &mut u32,
-        tokens: &mut Vec<usize>,
-    ) -> LiteralStringState {
-        let curr_indent = reader.count_spaces();
-        let mut next_state = next_process_indentation(
-            curr_indent,
-            indent,
-            reader,
-            lit_chomp,
-            new_lines,
-            prev_indent,
-        );
-        match next_state {
-            v @ (LiteralStringState::Comment | LiteralStringState::End) => return v,
-            x => x,
-        };
-
-        self.consume_spaces(reader, indent);
-        let (start, end, _) = reader.get_read_line();
-        if start == end {
-            *new_lines += 1;
-        } else {
-            match self.last_block_indent {
-                Some(i) if i >= curr_indent => {
-                    *new_lines = 0;
-                    if reader.peek_byte_is(b'\t') {
-                        self.has_tab = true;
-                        next_state = LiteralStringState::TabError;
-                    } else {
-                        next_state = LiteralStringState::End;
-                    }
-                }
-                _ => {
-                    let count_tab = reader.count_space_then_tab().1;
-                    if *new_lines > 0 {
-                        // First empty line after block literal is treated in a special way
-                        let is_first_non_empty_line = tokens.len() > 1;
-
-                        // That's on the same identation level as previously detected indentation
-                        if is_first_non_empty_line
-                            && !lit_chomp.0
-                            && *prev_indent == curr_indent + count_tab
-                            && curr_indent == indent
-                        {
-                            tokens.push(NewLine as usize);
-                            tokens.push(new_lines.saturating_sub(1) as usize);
-                        } else {
-                            tokens.push(NewLine as usize);
-                            tokens.push(*new_lines as usize);
-                        }
-                    }
-                    *prev_indent = curr_indent + count_tab;
-                    tokens.push(start);
-                    tokens.push(end);
-                    self.read_line(reader);
-                    *new_lines = 1;
-                }
-            };
-        }
-
-        next_state
-    }
-
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
         use DirectiveState::NoDirective;
         use HeaderState::{Bare, Directive, HeaderEnd, HeaderStart};
@@ -2345,37 +2009,6 @@ fn try_parse_anchor_alias<B, R: Reader<B>>(
     }
 }
 
-fn next_process_indentation<B, R: Reader<B>>(
-    curr_indent: u32,
-    indent: u32,
-    reader: &mut R,
-    lit_chomp: (bool, ChompIndicator),
-    new_lines: &mut u32,
-    prev_indent: &mut u32,
-) -> LiteralStringState {
-    if curr_indent < indent {
-        if reader.peek_byte_at(curr_indent as usize) == Some(b'#') {
-            return LiteralStringState::Comment;
-        }
-
-        match lit_chomp {
-            (_, ChompIndicator::Strip) => {
-                *new_lines = 0;
-            }
-            (true, _) => {
-                *prev_indent = curr_indent;
-            }
-            (false, ChompIndicator::Keep) => {
-                *new_lines += 1;
-            }
-
-            _ => {}
-        }
-
-        return LiteralStringState::End;
-    }
-    LiteralStringState::Indentation(indent)
-}
 
 #[inline]
 fn is_skip_colon_space(scalar_spans: &NodeSpans) -> bool {
