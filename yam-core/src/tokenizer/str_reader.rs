@@ -130,6 +130,23 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos
     }
 
+    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, new_lines: Option<u32>) {
+        if let Some(x) = new_lines {
+            tokens.push(NewLine as usize);
+            tokens.push(x as usize);
+        }
+        self.skip_bytes(end - start);
+        tokens.push(start);
+        tokens.push(end);
+    }
+
+    fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, new_lines: u32) {
+        tokens.push(NewLine as usize);
+        tokens.push(new_lines as usize);
+        tokens.push(start);
+        tokens.push(end);
+    }
+
     #[inline]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         if self.slice.len() < self.pos + needle.len() {
@@ -350,6 +367,14 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
+
+    fn emit_new_space(&mut self, tokens: &mut Vec<usize>, new_spaces: &mut Option<usize>) {
+        if let Some(new_line) = new_spaces.take() {
+            tokens.push(NewLine as usize);
+            tokens.push(new_line);
+        }
+    }
+
     fn read_plain_one_line(
         &mut self,
         offset_start: Option<usize>,
@@ -396,32 +421,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end_of_str, end_of_str - start)
     }
 
-    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newline: Option<u32>) {
-        if let Some(x) = newline {
-            tokens.push(NewLine as usize);
-            tokens.push(x as usize);
-        }
-        self.skip_bytes(end - start);
-        tokens.push(start);
-        tokens.push(end);
-    }
-
-    
-    fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newspace: u32) {
-        tokens.push(NewLine as usize);
-        tokens.push(newspace as usize);
-        tokens.push(start);
-        tokens.push(end);
-    }
-
-    fn emit_newspace(&mut self, tokens: &mut Vec<usize>, newspaces: &mut Option<usize>) {
-        if let Some(newspace) = newspaces.take() {
-            tokens.push(NewLine as usize);
-            tokens.push(newspace);
-        }
-    }
-
-    fn get_quoteline_offset(&mut self, quote: u8) -> &[u8] {
+    fn get_quote_line_offset(&mut self, quote: u8) -> &[u8] {
         let slice = self.slice;
         let start = self.pos;
         let remaining = slice.len().saturating_sub(start);

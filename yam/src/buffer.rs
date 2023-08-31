@@ -56,6 +56,10 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
+    fn emit_tokens(&mut self, _tokens: &mut Vec<usize>, _start: usize, _end: usize, _new_lines: u32) {
+        todo!()
+    }
+
     fn try_read_slice_exact(&mut self, _needle: &str) -> bool {
         todo!()
     }
@@ -108,6 +112,10 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
+    fn emit_new_space(&mut self, _tokens: &mut Vec<usize>, _new_lines: &mut Option<usize>) {
+        todo!()
+    }
+
     fn read_plain_one_line(
         &mut self,
         _offset_start: Option<usize>,
@@ -117,15 +125,7 @@ impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
         todo!()
     }
 
-    fn emit_newspace(&mut self, _tokens: &mut Vec<usize>, _newspaces: &mut Option<usize>) {
-        todo!()
-    }
-
-    fn get_quoteline_offset(&mut self, _quote: u8) -> &[u8] {
-        todo!()
-    }
-
-    fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, newspace: u32) {
+    fn get_quote_line_offset(&mut self, _quote: u8) -> &[u8] {
         todo!()
     }
 }
