@@ -253,7 +253,13 @@ pub trait Reader {
     }
     fn peek_stream_ending(&mut self) -> bool;
     fn skip_space_tab(&mut self) -> usize;
-    fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize;
+    fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize {
+        let (indent, amount) = self.count_space_then_tab();
+        *has_tab = indent != amount;
+        let amount = amount.try_into().unwrap();
+        self.skip_bytes(amount);
+        amount
+    }
     fn skip_bytes(&mut self, amount: usize) -> usize;
     fn save_bytes(
         &mut self,

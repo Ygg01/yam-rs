@@ -122,18 +122,10 @@ impl<'r> Reader for StrReader<'r> {
         amount
     }
 
-    fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize {
-        let (indent, amount) = self.count_space_then_tab();
-        *has_tab = indent != amount;
-        let amount = amount.try_into().unwrap();
-        self.skip_bytes(amount);
-        amount
-    }
-
     #[inline]
     fn skip_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
-        self.col += TryInto::<u32>::try_into(amount).expect("Amount to not exceed u32");
+        self.col += TryInto::<u32>::try_into(amount).expect("Amount of indents can't exceed u32");
         self.pos
     }
 

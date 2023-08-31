@@ -1,9 +1,12 @@
+use ErrorKind::Interrupted;
 use std::cmp::min;
-use std::io;
-use std::io::BufRead;
+use std::io::{BufRead, BufReader, ErrorKind, Read};
+use std::ops::ControlFlow::{Break, Continue};
+use std::slice::Iter;
+
 use yam_core::tokenizer::{DirectiveState, ErrorType, LexMutState, Reader};
 
-pub struct BufReader<B, S> {
+pub struct BufferedReader<B, S> {
     buffer: B,
     source: S,
     temp_buf: Vec<u8>,
@@ -12,12 +15,11 @@ pub struct BufReader<B, S> {
     abs_pos: usize,
 }
 
-impl<B: Default, S: Default> Default for BufReader<B, S> {
+impl<B: Default, S: Default> Default for BufferedReader<B, S> {
     fn default() -> Self {
         Self {
             buffer: B::default(),
             source: S::default(),
-            // This will never allocate more than 3
             temp_buf: Vec::with_capacity(3),
             col: u32::default(),
             line: u32::default(),
@@ -26,7 +28,7 @@ impl<B: Default, S: Default> Default for BufReader<B, S> {
     }
 }
 
-impl<'a, S: BufRead> Reader for BufReader<&'a mut Vec<u8>, S> {
+impl<'a, S: BufRead> Reader for BufferedReader<&'a mut Vec<u8>, S> {
     fn eof(&mut self) -> bool {
         !matches!(self.source.fill_buf(), Ok(b) if !b.is_empty())
     }
@@ -51,7 +53,7 @@ impl<'a, S: BufRead> Reader for BufReader<&'a mut Vec<u8>, S> {
                     let min = min(n.len(), 2);
                     self.temp_buf.extend(&n[0..min]);
                 }
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) if e.kind() == Interrupted => continue,
                 Err(_) => break,
             };
         }
@@ -63,7 +65,7 @@ impl<'a, S: BufRead> Reader for BufReader<&'a mut Vec<u8>, S> {
             break match self.source.fill_buf() {
                 Ok(n) if n.len() <= _offset => None,
                 Ok(n) => Some(n[0]),
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) if e.kind() == Interrupted => continue,
                 Err(_) => None,
             };
         }
@@ -76,30 +78,53 @@ impl<'a, S: BufRead> Reader for BufReader<&'a mut Vec<u8>, S> {
                     (n.starts_with(b"...") || n.starts_with(b"---"))
                         && self.col == 0
                         && n.get(3).map_or(true, |c| {
-                            *c == b'\t'
-                                || *c == b' '
-                                || *c == b'\r'
-                                || *c == b'\n'
-                                || *c == b'['
-                                || *c == b'{'
-                        })
+                        *c == b'\t'
+                            || *c == b' '
+                            || *c == b'\r'
+                            || *c == b'\n'
+                            || *c == b'['
+                            || *c == b'{'
+                    })
                 }
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) if e.kind() == Interrupted => continue,
                 Err(_) => false,
             };
         }
     }
 
     fn skip_space_tab(&mut self) -> usize {
-        todo!()
+        let mut amount = 0;
+        loop {
+            let (done, used) = {
+                let available = match self.source.fill_buf() {
+                    Ok(n) => n,
+                    Err(ref e) if e.kind() == Interrupted => continue,
+                    Err(_) => break
+                };
+                match available.iter().try_fold(0usize, |pos, chr| {
+                    if *chr == b' ' || *chr == b'\t' {
+                        Continue(pos + 1)
+                    } else {
+                        Break(pos)
+                    }
+                }) {
+                    Continue(x) => (false, x),
+                    Break(x) => (true, x),
+                }
+            };
+            amount += used;
+            self.skip_bytes(used);
+            if done || used == 0 {
+                break;
+            }
+        }
+        amount
     }
 
-    fn skip_space_and_tab_detect(&mut self, _has_tab: &mut bool) -> usize {
-        todo!()
-    }
 
     fn skip_bytes(&mut self, amount: usize) -> usize {
         self.source.consume(amount);
+        self.col += TryInto::<u32>::try_into(amount).expect("Amount of indents can't exceed u32");
         self.abs_pos += amount;
         self.abs_pos
     }
@@ -124,14 +149,31 @@ impl<'a, S: BufRead> Reader for BufReader<&'a mut Vec<u8>, S> {
         todo!()
     }
 
-    fn try_read_slice_exact(&mut self, _needle: &str) -> bool {
-        todo!()
+    fn try_read_slice_exact(&mut self, needle: &str) -> bool {
+        let needle_bytes = needle.as_bytes();
+        let mut buf = Vec::with_capacity(needle_bytes.len());
+        loop {
+            match self.source.fill_buf() {
+                Ok([]) => break,
+                Ok(n) => buf.extend(n),
+                Err(ref e) if e.kind() == Interrupted => continue,
+                Err(_) => break
+            };
+            if buf.len() >= needle_bytes.len() {
+                break
+            }
+
+        }
+        let result = buf.starts_with(needle_bytes);
+        self.skip_bytes(needle_bytes.len());
+        result
     }
 
     fn get_read_line(&mut self) -> (usize, usize, usize) {
         todo!()
     }
 
+    #[inline]
     fn read_line(&mut self, _space_indent: &mut Option<u32>) -> (usize, usize) {
         todo!()
     }
@@ -197,7 +239,67 @@ impl<'a, S: BufRead> Reader for BufReader<&'a mut Vec<u8>, S> {
         todo!()
     }
 
-    fn get_quote_line_offset(&mut self, _quote: u8) -> &[u8] {
-        todo!()
+    fn get_quote_line_offset(&mut self, quote: u8) -> &[u8] {
+        self.source.read_line()
     }
+}
+
+// Test only helper
+struct StringReader<'a> {
+    iter: Iter<'a, u8>,
+}
+
+impl<'a> StringReader<'a> {
+    /// Wrap a string in a `StringReader`, which implements `std::io::Read`.
+    pub fn new(data: &'a str) -> Self {
+        Self {
+            iter: data.as_bytes().iter(),
+        }
+    }
+}
+
+impl<'a> Read for StringReader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        for i in 0..<[u8]>::len(buf) {
+            if let Some(x) = self.iter.next() {
+                buf[i] = *x;
+            } else {
+                return Ok(i);
+            }
+        }
+        Ok(buf.len())
+    }
+}
+#[test]
+fn test_skip_space_tabs() {
+    let mut buffer = Vec::<u8>::with_capacity(10);
+    let mut buff_reader = BufferedReader {
+        buffer: &mut buffer,
+        source: BufReader::new(StringReader::new("   \t test")),
+        temp_buf: vec![],
+        col: 0,
+        line: 0,
+        abs_pos: 0,
+    };
+    assert_eq!(buff_reader.skip_space_tab(), 5);
+    assert!(buff_reader.peek_byte_is(b't'));
+    assert_eq!(buff_reader.col(), 5);
+    assert_eq!(buff_reader.abs_pos, 5)
+}
+
+#[test]
+fn test_read_exact() {
+    let mut buffer = Vec::<u8>::with_capacity(10);
+    let mut buff_reader = BufferedReader {
+        buffer: &mut buffer,
+        source: BufReader::new(StringReader::new("%YAML 1.2")),
+        temp_buf: vec![],
+        col: 0,
+        line: 0,
+        abs_pos: 0,
+    };
+    assert!(buff_reader.try_read_slice_exact("%YAML"));
+    assert!(buff_reader.peek_byte_is(b' '));
+    assert_eq!(buff_reader.col(), 5);
+    assert_eq!(buff_reader.abs_pos, 5)
 }
