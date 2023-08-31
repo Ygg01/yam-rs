@@ -2,7 +2,6 @@
 #![allow(clippy::wrong_self_convention)]
 
 use alloc::collections::VecDeque;
-use alloc::vec;
 use alloc::vec::Vec;
 
 use core::ops::Range;
@@ -14,7 +13,7 @@ use super::{
     ErrorType,
 };
 use crate::tokenizer::lexer::MapState::*;
-use crate::tokenizer::lexer::{find_matching_state, SeparationSpaceInfo};
+use crate::tokenizer::lexer::{find_matching_state, DirectiveState, SeparationSpaceInfo};
 
 use crate::tokenizer::lexer::LexerState::*;
 use crate::tokenizer::ErrorType::*;
@@ -144,7 +143,6 @@ impl QuoteType for SingleQuote {
     fn get_quote(&self, input: &[u8]) -> Option<usize> {
         memchr(b'\'', input)
     }
-    
 }
 
 #[derive(Clone, Copy)]
@@ -234,7 +232,6 @@ pub trait Reader {
     fn line(&self) -> u32;
     fn offset(&self) -> usize;
     fn peek_chars(&mut self) -> &[u8];
-    fn peek_two_chars(&mut self) -> &[u8];
     fn peek_byte_at(&mut self, offset: usize) -> Option<u8>;
     #[inline]
     fn peek_byte(&mut self) -> Option<u8> {
@@ -254,18 +251,17 @@ pub trait Reader {
             _ => false,
         }
     }
-    fn peek_stream_ending(&mut self) -> bool {
-        let chars = self.peek_chars();
-        (chars == b"..." || chars == b"---")
-            && self.peek_byte_at(3).map_or(true, |c| {
-                c == b'\t' || c == b' ' || c == b'\r' || c == b'\n' || c == b'[' || c == b'{'
-            })
-            && self.col() == 0
-    }
+    fn peek_stream_ending(&mut self) -> bool;
     fn skip_space_tab(&mut self) -> usize;
     fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize;
     fn skip_bytes(&mut self, amount: usize) -> usize;
-    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, new_lines: Option<u32>);
+    fn save_bytes(
+        &mut self,
+        tokens: &mut Vec<usize>,
+        start: usize,
+        end: usize,
+        new_lines: Option<u32>,
+    );
     fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, new_lines: u32);
 
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
@@ -283,10 +279,14 @@ pub trait Reader {
     fn read_tag(&mut self, lexer_state: &mut LexMutState) -> (usize, usize, usize);
     fn read_tag_handle(&mut self, space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType>;
     fn read_tag_uri(&mut self) -> Option<(usize, usize)>;
+    fn read_directive(
+        &mut self,
+        directive_state: &mut DirectiveState,
+        lexer_state: &mut LexMutState,
+    ) -> bool;
     fn read_break(&mut self) -> Option<(usize, usize)>;
     fn emit_new_space(&mut self, tokens: &mut Vec<usize>, new_lines: &mut Option<usize>);
 
-    #[doc(hidden)]
     fn read_plain_one_line(
         &mut self,
         offset_start: Option<usize>,
@@ -316,10 +316,8 @@ pub trait Reader {
             let (start, end, _consume) =
                 self.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
             let new_lines = match num_newlines {
-                x if x >= 1 => {
-                    Some(x- 1)
-                }
-                _ => None
+                x if x >= 1 => Some(x - 1),
+                _ => None,
             };
             self.save_bytes(&mut spans.spans, start, end, new_lines);
 
@@ -625,11 +623,7 @@ pub trait Reader {
                 LiteralStringState::TabError => {
                     self.skip_separation_spaces(lexer_state);
                     if !(self.eof() || self.peek_stream_ending()) {
-                        prepend_error(
-                            InvalidScalarIndent,
-                            &mut node.spans,
-                             lexer_state.errors,
-                        );
+                        prepend_error(InvalidScalarIndent, &mut node.spans, lexer_state.errors);
                     }
 
                     break;
@@ -850,8 +844,8 @@ pub trait Reader {
             [_, b'0', ..] | [b'0', _, ..] => {
                 push_error(
                     ExpectedChompBetween1and9,
-                     lexer_state.tokens,
-                     lexer_state.errors,
+                    lexer_state.tokens,
+                    lexer_state.errors,
                 );
                 self.skip_bytes(2);
                 return LiteralStringState::End;
@@ -883,11 +877,7 @@ pub trait Reader {
                 LiteralStringState::from_indentation(block_indent + u32::from(len - b'0')),
             ),
             [b'#', ..] => {
-                push_error(
-                    UnexpectedComment,
-                    lexer_state.tokens,
-                    lexer_state.errors,
-                );
+                push_error(UnexpectedComment, lexer_state.tokens, lexer_state.errors);
                 self.skip_bytes(1);
                 return LiteralStringState::End;
             }

@@ -1,5 +1,5 @@
 use std::io::BufRead;
-use yam_core::tokenizer::{ErrorType, LexMutState, Reader};
+use yam_core::tokenizer::{DirectiveState, ErrorType, LexMutState, Reader};
 
 pub struct BufReader<B, S> {
     _buffer: B,
@@ -30,11 +30,11 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
         todo!()
     }
 
-    fn peek_two_chars(&mut self) -> &[u8] {
+    fn peek_byte_at(&mut self, _offset: usize) -> Option<u8> {
         todo!()
     }
 
-    fn peek_byte_at(&mut self, _offset: usize) -> Option<u8> {
+    fn peek_stream_ending(&mut self) -> bool {
         todo!()
     }
 
@@ -52,11 +52,23 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
         self._buffer_pos
     }
 
-    fn save_bytes(&mut self, _tokens: &mut Vec<usize>, _start: usize, _end: usize, _newline: Option<u32>) {
+    fn save_bytes(
+        &mut self,
+        _tokens: &mut Vec<usize>,
+        _start: usize,
+        _end: usize,
+        _newline: Option<u32>,
+    ) {
         todo!()
     }
 
-    fn emit_tokens(&mut self, _tokens: &mut Vec<usize>, _start: usize, _end: usize, _new_lines: u32) {
+    fn emit_tokens(
+        &mut self,
+        _tokens: &mut Vec<usize>,
+        _start: usize,
+        _end: usize,
+        _new_lines: u32,
+    ) {
         todo!()
     }
 
@@ -100,12 +112,15 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
         todo!()
     }
 
-
     fn read_tag_handle(&mut self, _space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType> {
         todo!()
     }
 
     fn read_tag_uri(&mut self) -> Option<(usize, usize)> {
+        todo!()
+    }
+
+    fn read_directive(&mut self, directive_state: &mut DirectiveState, lexer_state: &mut LexMutState) -> bool {
         todo!()
     }
 

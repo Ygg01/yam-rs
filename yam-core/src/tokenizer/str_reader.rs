@@ -10,8 +10,10 @@ use memchr::memchr;
 use reader::{is_flow_indicator, is_plain_unsafe};
 
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LexMutState, LookAroundBytes};
-use crate::tokenizer::LexerToken::NewLine;
+use crate::tokenizer::LexerToken::{DirectiveYaml, NewLine};
 use crate::tokenizer::{reader, ErrorType, Reader};
+use crate::tokenizer::ErrorType::TwoDirectivesFound;
+use crate::tokenizer::lexer::{DirectiveState, push_error};
 
 use super::reader::{is_newline, is_tag_char, is_tag_char_short};
 
@@ -94,11 +96,6 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn peek_chars(&mut self) -> &[u8] {
-        let max = core::cmp::min(self.slice.len(), self.pos + 3);
-        &self.slice[self.pos..max]
-    }
-
-    fn peek_two_chars(&mut self) -> &[u8] {
         let max = core::cmp::min(self.slice.len(), self.pos + 2);
         &self.slice[self.pos..max]
     }
@@ -106,6 +103,16 @@ impl<'r> Reader for StrReader<'r> {
     #[inline]
     fn peek_byte_at(&mut self, offset: usize) -> Option<u8> {
         self.slice.get(self.pos + offset).copied()
+    }
+
+    fn peek_stream_ending(&mut self) -> bool {
+        let max = core::cmp::min(self.slice.len(), self.pos + 3);
+        let chars = &self.slice[self.pos..max];
+        (chars == b"..." || chars == b"---")
+            && self.peek_byte_at(3).map_or(true, |c| {
+                c == b'\t' || c == b' ' || c == b'\r' || c == b'\n' || c == b'[' || c == b'{'
+            })
+            && self.col() == 0
     }
 
     #[inline]
@@ -130,7 +137,13 @@ impl<'r> Reader for StrReader<'r> {
         self.pos
     }
 
-    fn save_bytes(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, new_lines: Option<u32>) {
+    fn save_bytes(
+        &mut self,
+        tokens: &mut Vec<usize>,
+        start: usize,
+        end: usize,
+        new_lines: Option<u32>,
+    ) {
         if let Some(x) = new_lines {
             tokens.push(NewLine as usize);
             tokens.push(x as usize);
@@ -297,7 +310,9 @@ impl<'r> Reader for StrReader<'r> {
                 (start, mid, end)
             }
             _ => {
-                lexer_state.errors.push(ErrorType::TagMustStartWithExclamation);
+                lexer_state
+                    .errors
+                    .push(ErrorType::TagMustStartWithExclamation);
                 (0, 0, 0)
             }
         }
@@ -350,6 +365,28 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
+    fn read_directive(&mut self, directive_state: &mut DirectiveState, lexer_state: &mut LexMutState) -> bool {
+        let max = core::cmp::min(self.slice.len(), self.pos + 3);
+        let chars = &self.slice[self.pos..max];
+        match chars {
+            b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
+                directive_state.add_directive();
+                if *directive_state == DirectiveState::TwoDirectiveError {
+                    push_error(TwoDirectivesFound, &mut lexer_state.tokens, &mut lexer_state.errors);
+                }
+                lexer_state.tokens.push_back(DirectiveYaml as usize);
+                lexer_state.tokens.push_back(self.pos);
+                lexer_state.tokens.push_back(self.skip_bytes(3));
+                true
+            }
+            b"..." | b"---" => false,
+            _ => {
+                self.read_line(lexer_state.space_indent);
+                false
+            }
+        }
+    }
+
     fn read_break(&mut self) -> Option<(usize, usize)> {
         let start = self.pos;
         if self.peek_byte_is(b'\n') {
@@ -370,7 +407,6 @@ impl<'r> Reader for StrReader<'r> {
             None
         }
     }
-
 
     fn emit_new_space(&mut self, tokens: &mut Vec<usize>, new_spaces: &mut Option<usize>) {
         if let Some(new_line) = new_spaces.take() {
@@ -435,7 +471,6 @@ impl<'r> Reader for StrReader<'r> {
             .map_or(remaining, |p| if content[p] == quote { p + 1 } else { p });
         &slice[start..start + n]
     }
-
 }
 
 #[test]

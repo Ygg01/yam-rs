@@ -319,7 +319,7 @@ impl LexerState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum DirectiveState {
+pub enum DirectiveState {
     NoDirective,
     OneDirective,
     TwoDirectiveError,
@@ -334,7 +334,7 @@ enum HeaderState {
 }
 
 impl DirectiveState {
-    fn add_directive(&mut self) {
+    pub(crate) fn add_directive(&mut self) {
         *self = match self {
             Self::NoDirective => Self::OneDirective,
             Self::OneDirective | Self::TwoDirectiveError => Self::TwoDirectiveError,
@@ -343,9 +343,8 @@ impl DirectiveState {
 }
 
 impl Lexer {
-
     pub(crate) fn get_lexer_state(&mut self) -> LexMutState {
-       LexMutState {
+        LexMutState {
             curr_state: self.curr_state(),
             last_block_indent: &self.last_block_indent,
             stack: &self.stack,
@@ -407,7 +406,7 @@ impl Lexer {
         let merge = self.merge_prop_with(&mut curr_node, prop_node);
 
         self.skip_sep_spaces(reader);
-        match reader.peek_two_chars() {
+        match reader.peek_chars() {
             [b':', peek, ..] if is_white_tab_or_break(*peek) => {
                 self.process_colon_block(reader, tokens, &mut curr_node);
                 self.merge_properties(tokens, merge);
@@ -573,11 +572,7 @@ impl Lexer {
         curr_node.col_start = prop_node.col_start;
         let mut pass = prop_node.spans;
         if matches!(curr_node.spans.first(), Some(&ALIAS)) {
-            push_error(
-                AliasAndAnchor,
-                &mut self.tokens,
-                &mut self.errors,
-            );
+            push_error(AliasAndAnchor, &mut self.tokens, &mut self.errors);
             return Unset;
         }
         if !curr_node.spans.is_empty() {
@@ -587,11 +582,7 @@ impl Lexer {
         prop_node.prop_type
     }
 
-    fn process_line_start<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        tokens: &mut Vec<usize>,
-    ) -> bool {
+    fn process_line_start<R: Reader>(&mut self, reader: &mut R, tokens: &mut Vec<usize>) -> bool {
         let val = loop {
             let mut node = NodeSpans {
                 col_start: reader.col(),
@@ -599,7 +590,7 @@ impl Lexer {
                 ..Default::default()
             };
 
-            match reader.peek_two_chars() {
+            match reader.peek_chars() {
                 [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
                     self.fetch_exp_block_map_key(reader, tokens)
                 }
@@ -792,11 +783,7 @@ impl Lexer {
                 push_error(ImplicitKeysNeedToBeInline, tokens, &mut self.errors);
             }
             if self.has_tab {
-                push_error(
-                    TabsNotAllowedAsIndentation,
-                    tokens,
-                    &mut self.errors,
-                );
+                push_error(TabsNotAllowedAsIndentation, tokens, &mut self.errors);
             }
             if self
                 .last_map_line
@@ -833,11 +820,7 @@ impl Lexer {
         is_new_map
     }
 
-    fn process_block_seq<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        tokens: &mut Vec<usize>,
-    ) -> bool {
+    fn process_block_seq<R: Reader>(&mut self, reader: &mut R, tokens: &mut Vec<usize>) -> bool {
         let curr_state = self.curr_state();
         let indent = reader.col();
         let expected_indent = self.indent();
@@ -888,11 +871,7 @@ impl Lexer {
 
         if new_seq {
             if self.has_tab {
-                push_error(
-                    TabsNotAllowedAsIndentation,
-                    tokens,
-                    &mut self.errors,
-                );
+                push_error(TabsNotAllowedAsIndentation, tokens, &mut self.errors);
             }
 
             self.next_sub_state();
@@ -932,16 +911,8 @@ impl Lexer {
         amount as usize
     }
 
-
-    fn process_block_literal<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        literal: bool,
-    ) -> NodeSpans {
-        reader.read_block_scalar(
-            literal,
-            &mut self.get_lexer_state()
-        )
+    fn process_block_literal<R: Reader>(&mut self, reader: &mut R, literal: bool) -> NodeSpans {
+        reader.read_block_scalar(literal, &mut self.get_lexer_state())
     }
 
     fn try_parse_tag<R: Reader>(&mut self, reader: &mut R, node: &mut Vec<usize>) -> bool {
@@ -966,11 +937,7 @@ impl Lexer {
         }
     }
 
-    fn get_flow_node<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        prop_node: &mut PropSpans,
-    ) -> NodeSpans {
+    fn get_flow_node<R: Reader>(&mut self, reader: &mut R, prop_node: &mut PropSpans) -> NodeSpans {
         let mut node = NodeSpans::from_reader(reader);
         self.skip_space_tab(reader);
         let Some(chr) = reader.peek_byte() else {
@@ -1081,15 +1048,9 @@ impl Lexer {
                 push_error(InvalidScalarStart, &mut node.spans, &mut self.errors);
             }
         } else if chr == b'\'' {
-            node.merge_spans(reader.read_quote(
-                SingleQuote {},
-                &mut self.get_lexer_state(),
-            ));
+            node.merge_spans(reader.read_quote(SingleQuote {}, &mut self.get_lexer_state()));
         } else if chr == b'"' {
-            node.merge_spans(reader.read_quote(
-                DoubleQuote {},
-                &mut self.get_lexer_state(),
-            ));
+            node.merge_spans(reader.read_quote(DoubleQuote {}, &mut self.get_lexer_state()));
         } else {
             *is_plain_scalar = true;
             node.merge_spans(self.get_plain_scalar(reader));
@@ -1103,11 +1064,7 @@ impl Lexer {
             Some(b' ' | b'\t' | b',' | b'[' | b']' | b'{' | b'}') => true,
             Some(b'\r' | b'\n') => {
                 reader.skip_bytes(1);
-                push_error(
-                    ColonMustBeOnSameLineAsKey,
-                    spans,
-                    &mut self.errors,
-                );
+                push_error(ColonMustBeOnSameLineAsKey, spans, &mut self.errors);
                 false
             }
             _ => false,
@@ -1146,11 +1103,7 @@ impl Lexer {
         node
     }
 
-    fn get_flow_seq<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        prop_node: &mut PropSpans,
-    ) -> NodeSpans {
+    fn get_flow_seq<R: Reader>(&mut self, reader: &mut R, prop_node: &mut PropSpans) -> NodeSpans {
         let line_begin = reader.line();
         let mut seq_state = BeforeFirst;
         let mut node = NodeSpans::from_reader(reader);
@@ -1199,11 +1152,7 @@ impl Lexer {
                 end_found = true;
                 break;
             } else if chr == b'#' {
-                push_error(
-                    InvalidCommentStart,
-                    &mut node.spans,
-                    &mut self.errors,
-                );
+                push_error(InvalidCommentStart, &mut node.spans, &mut self.errors);
                 self.read_line(reader);
             } else if chr == b',' {
                 reader.skip_bytes(1);
@@ -1221,11 +1170,7 @@ impl Lexer {
                 seq_state = BeforeElem;
             } else if chr == b'?' && is_white_tab_or_break(peek_next) {
                 node.spans.push(MAP_START_EXP);
-                node.merge_spans(self.get_flow_map(
-                    reader,
-                    BeforeFlowComplexKey,
-                    &mut prop,
-                ));
+                node.merge_spans(self.get_flow_map(reader, BeforeFlowComplexKey, &mut prop));
             } else {
                 let mut flow_node = self.get_flow_node(reader, &mut prop);
                 self.check_flow_indent(flow_node.col_start, &mut flow_node.spans);
@@ -1376,10 +1321,7 @@ impl Lexer {
         node
     }
 
-    fn skip_separation_spaces<R: Reader>(
-        &mut self,
-        reader: &mut R,
-    ) -> Option<SeparationSpaceInfo> {
+    fn skip_separation_spaces<R: Reader>(&mut self, reader: &mut R) -> Option<SeparationSpaceInfo> {
         if !reader.peek_byte().map_or(true, is_white_tab_or_break) {
             return None;
         }
@@ -1494,10 +1436,7 @@ impl Lexer {
     }
 
     #[inline]
-    fn get_plain_scalar<R: Reader>(
-        &mut self,
-        reader: &mut R,
-    ) -> NodeSpans {
+    fn get_plain_scalar<R: Reader>(&mut self, reader: &mut R) -> NodeSpans {
         reader.read_plain(&mut self.get_lexer_state())
     }
 
@@ -1773,23 +1712,7 @@ impl Lexer {
     ) -> bool {
         if reader.col() == 0 && reader.try_read_slice_exact("%YAML ") {
             self.skip_space_tab(reader);
-            return match reader.peek_chars() {
-                b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
-                    directive_state.add_directive();
-                    if *directive_state == DirectiveState::TwoDirectiveError {
-                        push_error(TwoDirectivesFound, &mut self.tokens, &mut self.errors);
-                    }
-                    self.tokens.push_back(DIR_YAML);
-                    self.tokens.push_back(reader.offset());
-                    self.tokens.push_back(reader.skip_bytes(3));
-                    true
-                }
-                b"..." | b"---" => false,
-                _ => {
-                    self.read_line(reader);
-                    false
-                }
-            };
+            return reader.read_directive(directive_state,  &mut self.get_lexer_state());
         }
         false
     }
@@ -1819,7 +1742,7 @@ impl Lexer {
         let col_is_not_start = reader.col() > 0;
         let chars = reader.peek_chars();
         match chars {
-            b"..." if is_stream_ending => {
+            [b'.', ..] if is_stream_ending => {
                 let col = reader.col();
                 reader.skip_bytes(3);
                 if col != 0 {
@@ -1835,7 +1758,7 @@ impl Lexer {
                 self.tokens.push_back(DOC_END_EXP);
                 self.set_state(InDocEnd);
             }
-            b"---" if is_stream_ending => {
+            [b'-', ..] if is_stream_ending => {
                 self.tokens.push_back(DOC_END);
                 self.set_state(PreDocStart);
             }
@@ -1983,7 +1906,6 @@ fn try_parse_anchor_alias<R: Reader>(
         true
     }
 }
-
 
 #[inline]
 fn is_skip_colon_space(scalar_spans: &NodeSpans) -> bool {
