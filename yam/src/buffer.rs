@@ -9,7 +9,7 @@ pub struct BufReader<B, S> {
     _buffer_pos: usize,
 }
 
-impl<R, S: BufRead> Reader<R> for BufReader<R, S> {
+impl<R, S: BufRead> Reader for BufReader<R, S> {
     fn eof(&mut self) -> bool {
         !matches!(self.source.fill_buf(), Ok(b) if !b.is_empty())
     }

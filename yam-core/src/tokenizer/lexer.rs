@@ -60,7 +60,7 @@ pub struct NodeSpans {
 }
 
 impl NodeSpans {
-    pub fn from_reader<B, R: Reader<B>>(reader: &R) -> NodeSpans {
+    pub fn from_reader<R: Reader>(reader: &R) -> NodeSpans {
         NodeSpans {
             col_start: reader.col(),
             line_start: reader.line(),
@@ -131,7 +131,7 @@ pub(crate) struct PropSpans {
 }
 
 impl PropSpans {
-    pub fn from_reader<B, R: Reader<B>>(reader: &R) -> PropSpans {
+    pub fn from_reader<R: Reader>(reader: &R) -> PropSpans {
         PropSpans {
             col_start: reader.col(),
             line_start: reader.line(),
@@ -343,7 +343,7 @@ impl DirectiveState {
 }
 
 impl Lexer {
-    pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    pub fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
 
         match curr_state {
@@ -362,7 +362,7 @@ impl Lexer {
         }
     }
 
-    fn fetch_block_node<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn fetch_block_node<R: Reader>(&mut self, reader: &mut R) {
         let mut tokens = Vec::new();
 
         self.get_block_collection(reader, &mut tokens);
@@ -374,7 +374,7 @@ impl Lexer {
         }
     }
 
-    fn get_block_collection<B, R: Reader<B>>(&mut self, reader: &mut R, tokens: &mut Vec<usize>) {
+    fn get_block_collection<R: Reader>(&mut self, reader: &mut R, tokens: &mut Vec<usize>) {
         if self.process_line_start(reader, tokens) {
             return;
         }
@@ -441,7 +441,7 @@ impl Lexer {
         }
     }
 
-    fn get_node<B, R: Reader<B>>(
+    fn get_node<R: Reader>(
         &mut self,
         reader: &mut R,
         tokens: &mut Vec<usize>,
@@ -575,7 +575,7 @@ impl Lexer {
         prop_node.prop_type
     }
 
-    fn process_line_start<B, R: Reader<B>>(
+    fn process_line_start<R: Reader>(
         &mut self,
         reader: &mut R,
         tokens: &mut Vec<usize>,
@@ -617,7 +617,7 @@ impl Lexer {
         val
     }
 
-    fn fetch_exp_block_map_key<B, R: Reader<B>>(
+    fn fetch_exp_block_map_key<R: Reader>(
         &mut self,
         reader: &mut R,
         tokens: &mut Vec<usize>,
@@ -658,7 +658,7 @@ impl Lexer {
         is_new_exp_map
     }
 
-    fn process_colon_block<B, R: Reader<B>>(
+    fn process_colon_block<R: Reader>(
         &mut self,
         reader: &mut R,
         tokens: &mut Vec<usize>,
@@ -821,7 +821,7 @@ impl Lexer {
         is_new_map
     }
 
-    fn process_block_seq<B, R: Reader<B>>(
+    fn process_block_seq<R: Reader>(
         &mut self,
         reader: &mut R,
         tokens: &mut Vec<usize>,
@@ -897,7 +897,7 @@ impl Lexer {
         new_seq
     }
 
-    fn skip_sep_spaces<B, R: Reader<B>>(&mut self, reader: &mut R) -> Option<SeparationSpaceInfo> {
+    fn skip_sep_spaces<R: Reader>(&mut self, reader: &mut R) -> Option<SeparationSpaceInfo> {
         let sep_opt = self.skip_separation_spaces(reader);
         if let Some(sep_info) = sep_opt {
             self.has_tab = sep_info.has_tab;
@@ -908,7 +908,7 @@ impl Lexer {
         sep_opt
     }
 
-    fn skip_space_tab<B, R: Reader<B>>(&mut self, reader: &mut R) -> usize {
+    fn skip_space_tab<R: Reader>(&mut self, reader: &mut R) -> usize {
         let (num_spaces, amount) = reader.count_space_then_tab();
         if amount > 0 {
             if self.space_indent.is_none() {
@@ -921,7 +921,7 @@ impl Lexer {
     }
 
 
-    fn process_block_literal<B, R: Reader<B>>(
+    fn process_block_literal<R: Reader>(
         &mut self,
         reader: &mut R,
         literal: bool,
@@ -940,7 +940,7 @@ impl Lexer {
         )
     }
 
-    fn try_parse_tag<B, R: Reader<B>>(&mut self, reader: &mut R, node: &mut Vec<usize>) -> bool {
+    fn try_parse_tag<R: Reader>(&mut self, reader: &mut R, node: &mut Vec<usize>) -> bool {
         match reader.read_tag() {
             (Some(err), ..) => {
                 push_error(err, &mut self.tokens, &mut self.errors);
@@ -956,7 +956,7 @@ impl Lexer {
         }
     }
 
-    fn fetch_flow_node<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn fetch_flow_node<R: Reader>(&mut self, reader: &mut R) {
         let tokens = self.get_flow_node(reader, &mut PropSpans::default());
         self.tokens.extend(tokens.spans);
         if matches!(self.curr_state(), DocBlock) {
@@ -964,7 +964,7 @@ impl Lexer {
         }
     }
 
-    fn get_flow_node<B, R: Reader<B>>(
+    fn get_flow_node<R: Reader>(
         &mut self,
         reader: &mut R,
         prop_node: &mut PropSpans,
@@ -1048,7 +1048,7 @@ impl Lexer {
         node
     }
 
-    fn get_scalar_node<B, R: Reader<B>>(
+    fn get_scalar_node<R: Reader>(
         &mut self,
         reader: &mut R,
         is_plain_scalar: &mut bool,
@@ -1112,7 +1112,7 @@ impl Lexer {
     }
 
     #[allow(clippy::wrong_self_convention)]
-    fn is_valid_map<B, R: Reader<B>>(&mut self, reader: &mut R, spans: &mut Vec<usize>) -> bool {
+    fn is_valid_map<R: Reader>(&mut self, reader: &mut R, spans: &mut Vec<usize>) -> bool {
         match reader.peek_byte_at(1) {
             Some(b' ' | b'\t' | b',' | b'[' | b']' | b'{' | b'}') => true,
             Some(b'\r' | b'\n') => {
@@ -1128,7 +1128,7 @@ impl Lexer {
         }
     }
 
-    fn process_inline_properties<B, R: Reader<B>>(&mut self, reader: &mut R) -> PropSpans {
+    fn process_inline_properties<R: Reader>(&mut self, reader: &mut R) -> PropSpans {
         let mut node = PropSpans::from_reader(reader);
 
         if reader.peek_byte_is(b'&') && try_parse_anchor_alias(reader, ANCHOR, &mut node.spans) {
@@ -1160,7 +1160,7 @@ impl Lexer {
         node
     }
 
-    fn get_flow_seq<B, R: Reader<B>>(
+    fn get_flow_seq<R: Reader>(
         &mut self,
         reader: &mut R,
         prop_node: &mut PropSpans,
@@ -1291,7 +1291,7 @@ impl Lexer {
         }
     }
 
-    fn get_flow_map<B, R: Reader<B>>(
+    fn get_flow_map<R: Reader>(
         &mut self,
         reader: &mut R,
         init_state: MapState,
@@ -1390,7 +1390,7 @@ impl Lexer {
         node
     }
 
-    fn skip_separation_spaces<B, R: Reader<B>>(
+    fn skip_separation_spaces<R: Reader>(
         &mut self,
         reader: &mut R,
     ) -> Option<SeparationSpaceInfo> {
@@ -1508,7 +1508,7 @@ impl Lexer {
     }
 
     #[inline]
-    fn get_plain_scalar<B, R: Reader<B>>(
+    fn get_plain_scalar<R: Reader>(
         &mut self,
         reader: &mut R,
         curr_state: LexerState,
@@ -1525,7 +1525,7 @@ impl Lexer {
     }
 
     #[inline]
-    fn read_line<B, R: Reader<B>>(&mut self, reader: &mut R) -> (usize, usize) {
+    fn read_line<R: Reader>(&mut self, reader: &mut R) -> (usize, usize) {
         reader.read_line(&mut self.space_indent)
     }
 
@@ -1630,7 +1630,7 @@ impl Lexer {
         self.tokens.is_empty()
     }
 
-    fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn fetch_pre_doc<R: Reader>(&mut self, reader: &mut R) {
         use DirectiveState::NoDirective;
         use HeaderState::{Bare, Directive, HeaderEnd, HeaderStart};
         self.tags.clear();
@@ -1789,7 +1789,7 @@ impl Lexer {
         }
     }
 
-    fn try_read_yaml_directive<B, R: Reader<B>>(
+    fn try_read_yaml_directive<R: Reader>(
         &mut self,
         reader: &mut R,
         directive_state: &mut DirectiveState,
@@ -1817,7 +1817,7 @@ impl Lexer {
         false
     }
 
-    fn try_read_tag<B, R: Reader<B>>(&mut self, reader: &mut R) -> bool {
+    fn try_read_tag<R: Reader>(&mut self, reader: &mut R) -> bool {
         if !reader.try_read_slice_exact("%TAG") {
             reader.read_line(&mut self.space_indent);
             return false;
@@ -1835,7 +1835,7 @@ impl Lexer {
         }
     }
 
-    fn fetch_after_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn fetch_after_doc<R: Reader>(&mut self, reader: &mut R) {
         let mut consume_line = false;
 
         let is_stream_ending = reader.peek_stream_ending();
@@ -1900,7 +1900,7 @@ impl Lexer {
         }
     }
 
-    fn fetch_end_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+    fn fetch_end_doc<R: Reader>(&mut self, reader: &mut R) {
         self.skip_space_tab(reader);
         match reader.peek_byte() {
             Some(b'#') => {
@@ -1990,7 +1990,7 @@ fn close_block_state<T: Pusher>(state: LexerState, prop: &mut PropSpans, spans: 
     }
 }
 
-fn try_parse_anchor_alias<B, R: Reader<B>>(
+fn try_parse_anchor_alias<R: Reader>(
     reader: &mut R,
     start_token: usize,
     node: &mut Vec<usize>,

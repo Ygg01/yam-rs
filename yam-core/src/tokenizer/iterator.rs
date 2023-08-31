@@ -216,9 +216,9 @@ impl<'a> Slicer<'a> for &'a [u8] {
     }
 }
 
-impl<'a, R, RB, B> Iterator for EventIterator<'a, R, RB, B>
+impl<'a, R, RB> Iterator for EventIterator<'a, R, RB>
 where
-    R: Reader<B>,
+    R: Reader,
     RB: Slicer<'a>,
 {
     type Item = Event<'a>;

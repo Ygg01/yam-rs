@@ -72,7 +72,7 @@ impl<'a> StrReader<'a> {
     }
 }
 
-impl<'r> Reader<()> for StrReader<'r> {
+impl<'r> Reader for StrReader<'r> {
     #[inline]
     fn eof(&mut self) -> bool {
         self.pos >= self.slice.len()

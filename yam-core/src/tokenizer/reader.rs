@@ -85,7 +85,7 @@ pub enum ChompIndicator {
 pub trait QuoteType {
     fn get_token(&self) -> usize;
     fn get_literal(&self) -> u8;
-    fn match_fn<B, R: Reader<B> + ?Sized>(
+    fn match_fn<R: Reader + ?Sized>(
         &self,
         reader: &mut R,
         match_pos: usize,
@@ -114,7 +114,7 @@ impl QuoteType for SingleQuote {
         b'\''
     }
 
-    fn match_fn<B, R: Reader<B> + ?Sized>(
+    fn match_fn<R: Reader + ?Sized>(
         &self,
         reader: &mut R,
         match_pos: usize,
@@ -158,7 +158,7 @@ impl QuoteType for DoubleQuote {
     }
 
     #[allow(unused_must_use)]
-    fn match_fn<B, R: Reader<B> + ?Sized>(
+    fn match_fn<R: Reader + ?Sized>(
         &self,
         reader: &mut R,
         match_pos: usize,
@@ -226,7 +226,7 @@ impl QuoteType for DoubleQuote {
     }
 }
 
-pub trait Reader<B> {
+pub trait Reader {
     fn eof(&mut self) -> bool;
     fn col(&self) -> u32;
     fn line(&self) -> u32;
