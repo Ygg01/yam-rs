@@ -2,6 +2,7 @@
 #![allow(clippy::wrong_self_convention)]
 
 use alloc::collections::VecDeque;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use core::ops::Range;
@@ -61,7 +62,7 @@ impl<'a> Iterator for LookAroundBytes<'a> {
         }
     }
 }
-
+#[doc(hidden)]
 pub struct LexMutState<'a> {
     pub(crate) curr_state: LexerState,
     pub(crate) last_block_indent: &'a Option<u32>,
@@ -71,6 +72,7 @@ pub struct LexMutState<'a> {
     pub(crate) tokens: &'a mut VecDeque<usize>,
     pub(crate) space_indent: &'a mut Option<u32>,
 }
+
 #[doc(hidden)]
 #[derive(PartialEq, Clone, Copy)]
 pub enum ChompIndicator {
@@ -278,7 +280,7 @@ pub trait Reader {
     fn is_empty_newline(&mut self) -> bool;
     fn count_space_then_tab(&mut self) -> (u32, u32);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
-    fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
+    fn read_tag(&mut self, lexer_state: &mut LexMutState) -> (usize, usize, usize);
     fn read_tag_handle(&mut self, space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType>;
     fn read_tag_uri(&mut self) -> Option<(usize, usize)>;
     fn read_break(&mut self) -> Option<(usize, usize)>;

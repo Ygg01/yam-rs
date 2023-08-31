@@ -9,7 +9,7 @@ use memchr::memchr;
 
 use reader::{is_flow_indicator, is_plain_unsafe};
 
-use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
+use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LexMutState, LookAroundBytes};
 use crate::tokenizer::LexerToken::NewLine;
 use crate::tokenizer::{reader, ErrorType, Reader};
 
@@ -259,7 +259,7 @@ impl<'r> Reader for StrReader<'r> {
         (start, start + amount)
     }
 
-    fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize) {
+    fn read_tag(&mut self, lexer_state: &mut LexMutState) -> (usize, usize, usize) {
         match self.peek_chars() {
             [b'!', b'<', ..] => {
                 let start = self.skip_bytes(2);
@@ -267,16 +267,17 @@ impl<'r> Reader for StrReader<'r> {
                 let haystack = &self.slice[line_start..line_end];
                 if let Some(end) = memchr(b'>', haystack) {
                     self.skip_bytes(end + 1);
-                    (None, start, start + end, 0)
+                    (start, start + end, 0)
                 } else {
                     self.skip_space_tab();
-                    (Some(ErrorType::UnfinishedTag), 0, 0, 0)
+                    lexer_state.errors.push(ErrorType::UnfinishedTag);
+                    (0, 0, 0)
                 }
             }
             [b'!', peek, ..] if is_white_tab_or_break(*peek) => {
                 let start = self.pos;
                 self.skip_bytes(1);
-                (None, start, start + 1, start + 1)
+                (start, start + 1, start + 1)
             }
             [b'!', ..] => {
                 let start = self.pos;
@@ -293,9 +294,12 @@ impl<'r> Reader for StrReader<'r> {
                     .position(|c| !is_tag_char_short(*c))
                     .unwrap_or(line_end.saturating_sub(mid));
                 let end = self.skip_bytes(amount + find_pos);
-                (None, start, mid, end)
+                (start, mid, end)
             }
-            _ => panic!("Tag must start with `!`"),
+            _ => {
+                lexer_state.errors.push(ErrorType::TagMustStartWithExclamation);
+                (0, 0, 0)
+            }
         }
     }
 

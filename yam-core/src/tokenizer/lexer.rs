@@ -343,6 +343,18 @@ impl DirectiveState {
 }
 
 impl Lexer {
+
+    pub(crate) fn get_lexer_state(&mut self) -> LexMutState {
+       LexMutState {
+            curr_state: self.curr_state(),
+            last_block_indent: &self.last_block_indent,
+            stack: &self.stack,
+            has_tab: &mut self.has_tab,
+            errors: &mut self.errors,
+            tokens: &mut self.tokens,
+            space_indent: &mut self.space_indent,
+        }
+    }
     pub fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
 
@@ -928,25 +940,15 @@ impl Lexer {
     ) -> NodeSpans {
         reader.read_block_scalar(
             literal,
-            &mut LexMutState {
-                curr_state: self.curr_state(),
-                last_block_indent: &self.last_block_indent,
-                stack: &self.stack,
-                has_tab: &mut self.has_tab,
-                errors: &mut self.errors,
-                tokens: &mut self.tokens,
-                space_indent: &mut self.space_indent,
-            },
+            &mut self.get_lexer_state()
         )
     }
 
     fn try_parse_tag<R: Reader>(&mut self, reader: &mut R, node: &mut Vec<usize>) -> bool {
-        match reader.read_tag() {
-            (Some(err), ..) => {
-                push_error(err, &mut self.tokens, &mut self.errors);
-                false
-            }
-            (None, start, mid, end) => {
+        match reader.read_tag(&mut self.get_lexer_state()) {
+            // The Error value
+            (0, 0, 0) => false,
+            (start, mid, end) => {
                 node.push(TAG_START);
                 node.push(start);
                 node.push(mid);
@@ -1081,32 +1083,16 @@ impl Lexer {
         } else if chr == b'\'' {
             node.merge_spans(reader.read_quote(
                 SingleQuote {},
-                &mut LexMutState {
-                    curr_state: self.curr_state(),
-                    last_block_indent: &self.last_block_indent,
-                    stack: &self.stack,
-                    tokens: &mut self.tokens,
-                    has_tab: &mut self.has_tab,
-                    errors: &mut self.errors,
-                    space_indent: &mut self.space_indent,
-                },
+                &mut self.get_lexer_state(),
             ));
         } else if chr == b'"' {
             node.merge_spans(reader.read_quote(
                 DoubleQuote {},
-                &mut LexMutState {
-                    curr_state: self.curr_state(),
-                    last_block_indent: &self.last_block_indent,
-                    stack: &self.stack,
-                    has_tab: &mut self.has_tab,
-                    tokens: &mut self.tokens,
-                    errors: &mut self.errors,
-                    space_indent: &mut self.space_indent,
-                },
+                &mut self.get_lexer_state(),
             ));
         } else {
             *is_plain_scalar = true;
-            node.merge_spans(self.get_plain_scalar(reader, self.curr_state()));
+            node.merge_spans(self.get_plain_scalar(reader));
         }
         node
     }
@@ -1511,17 +1497,8 @@ impl Lexer {
     fn get_plain_scalar<R: Reader>(
         &mut self,
         reader: &mut R,
-        curr_state: LexerState,
     ) -> NodeSpans {
-        reader.read_plain(&mut LexMutState {
-            curr_state,
-            last_block_indent: &self.last_block_indent,
-            stack: &self.stack,
-            has_tab: &mut self.has_tab,
-            errors: &mut self.errors,
-            tokens: &mut self.tokens,
-            space_indent: &mut self.space_indent,
-        })
+        reader.read_plain(&mut self.get_lexer_state())
     }
 
     #[inline]

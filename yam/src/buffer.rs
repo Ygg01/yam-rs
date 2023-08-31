@@ -1,5 +1,5 @@
 use std::io::BufRead;
-use yam_core::tokenizer::{ErrorType, Reader};
+use yam_core::tokenizer::{ErrorType, LexMutState, Reader};
 
 pub struct BufReader<B, S> {
     _buffer: B,
@@ -96,9 +96,10 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
         todo!()
     }
 
-    fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize) {
+    fn read_tag(&mut self, lexer_state: &mut LexMutState) -> (usize, usize, usize) {
         todo!()
     }
+
 
     fn read_tag_handle(&mut self, _space_indent: &mut Option<u32>) -> Result<Vec<u8>, ErrorType> {
         todo!()
