@@ -1,15 +1,32 @@
+use std::cmp::min;
+use std::io;
 use std::io::BufRead;
 use yam_core::tokenizer::{DirectiveState, ErrorType, LexMutState, Reader};
 
 pub struct BufReader<B, S> {
-    _buffer: B,
+    buffer: B,
     source: S,
+    temp_buf: Vec<u8>,
     col: u32,
     line: u32,
-    _buffer_pos: usize,
+    abs_pos: usize,
 }
 
-impl<R, S: BufRead> Reader for BufReader<R, S> {
+impl<B: Default, S: Default> Default for BufReader<B, S> {
+    fn default() -> Self {
+        Self {
+            buffer: B::default(),
+            source: S::default(),
+            // This will never allocate more than 3
+            temp_buf: Vec::with_capacity(3),
+            col: u32::default(),
+            line: u32::default(),
+            abs_pos: usize::default(),
+        }
+    }
+}
+
+impl<'a, S: BufRead> Reader for BufReader<&'a mut Vec<u8>, S> {
     fn eof(&mut self) -> bool {
         !matches!(self.source.fill_buf(), Ok(b) if !b.is_empty())
     }
@@ -27,15 +44,50 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
     }
 
     fn peek_chars(&mut self) -> &[u8] {
-        todo!()
+        self.temp_buf.clear();
+        loop {
+            break match self.source.fill_buf() {
+                Ok(n) => {
+                    let min = min(n.len(), 2);
+                    self.temp_buf.extend(&n[0..min]);
+                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(_) => break,
+            };
+        }
+        &self.temp_buf
     }
 
     fn peek_byte_at(&mut self, _offset: usize) -> Option<u8> {
-        todo!()
+        loop {
+            break match self.source.fill_buf() {
+                Ok(n) if n.len() <= _offset => None,
+                Ok(n) => Some(n[0]),
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(_) => None,
+            };
+        }
     }
 
     fn peek_stream_ending(&mut self) -> bool {
-        todo!()
+        loop {
+            break match self.source.fill_buf() {
+                Ok(n) => {
+                    (n.starts_with(b"...") || n.starts_with(b"---"))
+                        && self.col == 0
+                        && n.get(3).map_or(true, |c| {
+                            *c == b'\t'
+                                || *c == b' '
+                                || *c == b'\r'
+                                || *c == b'\n'
+                                || *c == b'['
+                                || *c == b'{'
+                        })
+                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(_) => false,
+            };
+        }
     }
 
     fn skip_space_tab(&mut self) -> usize {
@@ -48,8 +100,8 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
 
     fn skip_bytes(&mut self, amount: usize) -> usize {
         self.source.consume(amount);
-        self._buffer_pos += amount;
-        self._buffer_pos
+        self.abs_pos += amount;
+        self.abs_pos
     }
 
     fn save_bytes(
