@@ -9,11 +9,11 @@ use memchr::memchr;
 
 use reader::{is_flow_indicator, is_plain_unsafe};
 
+use crate::tokenizer::lexer::{push_error, DirectiveState};
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LexMutState, LookAroundBytes};
+use crate::tokenizer::ErrorType::TwoDirectivesFound;
 use crate::tokenizer::LexerToken::{DirectiveYaml, NewLine};
 use crate::tokenizer::{reader, ErrorType, Reader};
-use crate::tokenizer::ErrorType::TwoDirectivesFound;
-use crate::tokenizer::lexer::{DirectiveState, push_error};
 
 use super::reader::{is_newline, is_tag_char, is_tag_char_short};
 
@@ -365,14 +365,22 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
-    fn read_directive(&mut self, directive_state: &mut DirectiveState, lexer_state: &mut LexMutState) -> bool {
+    fn read_directive(
+        &mut self,
+        directive_state: &mut DirectiveState,
+        lexer_state: &mut LexMutState,
+    ) -> bool {
         let max = core::cmp::min(self.slice.len(), self.pos + 3);
         let chars = &self.slice[self.pos..max];
         match chars {
             b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
                 directive_state.add_directive();
                 if *directive_state == DirectiveState::TwoDirectiveError {
-                    push_error(TwoDirectivesFound, &mut lexer_state.tokens, &mut lexer_state.errors);
+                    push_error(
+                        TwoDirectivesFound,
+                        &mut lexer_state.tokens,
+                        lexer_state.errors,
+                    );
                 }
                 lexer_state.tokens.push_back(DirectiveYaml as usize);
                 lexer_state.tokens.push_back(self.pos);

@@ -1712,7 +1712,7 @@ impl Lexer {
     ) -> bool {
         if reader.col() == 0 && reader.try_read_slice_exact("%YAML ") {
             self.skip_space_tab(reader);
-            return reader.read_directive(directive_state,  &mut self.get_lexer_state());
+            return reader.read_directive(directive_state, &mut self.get_lexer_state());
         }
         false
     }

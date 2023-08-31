@@ -108,7 +108,7 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
         todo!()
     }
 
-    fn read_tag(&mut self, lexer_state: &mut LexMutState) -> (usize, usize, usize) {
+    fn read_tag(&mut self, _lexer_state: &mut LexMutState) -> (usize, usize, usize) {
         todo!()
     }
 
@@ -120,7 +120,11 @@ impl<R, S: BufRead> Reader for BufReader<R, S> {
         todo!()
     }
 
-    fn read_directive(&mut self, directive_state: &mut DirectiveState, lexer_state: &mut LexMutState) -> bool {
+    fn read_directive(
+        &mut self,
+        _directive_state: &mut DirectiveState,
+        _lexer_state: &mut LexMutState,
+    ) -> bool {
         todo!()
     }
 
