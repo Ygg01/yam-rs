@@ -135,6 +135,7 @@ impl<'r> Reader for StrReader<'r> {
         tokens.push(end);
     }
 
+    #[inline(always)]
     fn save_to_buf(&mut self, start: usize, input: &[u8]) -> (usize, usize) {
         (start, start + input.len())
     }
