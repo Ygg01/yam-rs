@@ -1,21 +1,21 @@
-use core::ops::ControlFlow::{Break, Continue};
-use core::ops::Range;
-use core::usize;
-
 use alloc::vec;
 use alloc::vec::Vec;
+use core::ops::ControlFlow::{Break, Continue};
+use core::usize;
 
 use memchr::memchr;
 
-use reader::{is_flow_indicator, is_plain_unsafe};
+use reader::is_flow_indicator;
 
-use crate::tokenizer::lexer::{push_error, DirectiveState};
-use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LexMutState, LookAroundBytes};
+use crate::tokenizer::lexer::LexerState::BlockSeq;
+use crate::tokenizer::lexer::SeqState::InSeqElem;
+use crate::tokenizer::lexer::{push_error, DirectiveState, NodeSpans};
+use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LexMutState};
 use crate::tokenizer::ErrorType::TwoDirectivesFound;
 use crate::tokenizer::LexerToken::{DirectiveYaml, NewLine};
 use crate::tokenizer::{reader, ErrorType, Reader};
 
-use super::reader::{is_newline, is_tag_char, is_tag_char_short};
+use super::reader::{is_tag_char, is_tag_char_short};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -47,16 +47,6 @@ impl<'a> From<&'a [u8]> for StrReader<'a> {
 }
 
 impl<'a> StrReader<'a> {
-    #[inline]
-    fn eof_or_pos(&self, pos: usize) -> usize {
-        pos.min(self.slice.len() - 1)
-    }
-
-    #[inline]
-    fn get_lookahead_iterator(&self, range: Range<usize>) -> LookAroundBytes {
-        LookAroundBytes::new(self.slice, range)
-    }
-
     #[inline]
     fn count_space_tab_range_from(&self, allow_tab: bool) -> usize {
         if self.pos >= self.slice.len() {
@@ -145,6 +135,10 @@ impl<'r> Reader for StrReader<'r> {
         tokens.push(end);
     }
 
+    fn save_to_buf(&mut self, start: usize, input: &[u8]) -> (usize, usize) {
+        (start, start + input.len())
+    }
+
     fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, new_lines: u32) {
         tokens.push(NewLine as usize);
         tokens.push(new_lines as usize);
@@ -179,6 +173,25 @@ impl<'r> Reader for StrReader<'r> {
                 }
             },
         )
+    }
+
+    fn get_zero_slice(&mut self) -> Vec<u8> {
+        let start = self.pos;
+        let haystack: &[u8] = &self.slice[start..];
+        let end = memchr::memchr2_iter(b'\r', b'\n', haystack)
+            .next()
+            .map_or(start + haystack.len(), |pos| {
+                if haystack[pos] == b'\r' && pos < haystack.len() - 1 && haystack[pos + 1] == b'\n'
+                {
+                    start + pos
+                } else {
+                    start + pos
+                }
+            });
+        let mut vec = Vec::with_capacity(end - start + 1);
+        vec.extend(&self.slice[start..end]);
+        vec.push(b'\0');
+        vec
     }
 
     #[inline]
@@ -415,52 +428,6 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
-    fn read_plain_one_line(
-        &mut self,
-        offset_start: Option<usize>,
-        had_comment: &mut bool,
-        in_flow_collection: bool,
-    ) -> (usize, usize, usize) {
-        let start = offset_start.unwrap_or(self.pos);
-        let (_, line_end, _) = self.get_read_line();
-        let end = self.pos + 1;
-        let line_end = StrReader::eof_or_pos(self, line_end);
-        let mut end_of_str = end;
-
-        for (prev, curr, next, pos) in self.get_lookahead_iterator(end..line_end) {
-            // ns-plain-char  prevent ` #`
-            if curr == b'#' && is_white_tab_or_break(prev) {
-                // if we encounter two or more comment print error and try to recover
-                return if *had_comment {
-                    (start, end_of_str, end_of_str - start)
-                } else {
-                    *had_comment = true;
-                    (start, end_of_str, end_of_str - start)
-                };
-            }
-
-            // ns-plain-char prevent `: `
-            // or `:{`  in flow collections
-            if curr == b':' && is_plain_unsafe(next) {
-                break;
-            }
-
-            // // if current character is a flow indicator, break
-            if in_flow_collection && is_flow_indicator(curr) {
-                break;
-            }
-
-            if is_white_tab_or_break(curr) {
-                if is_newline(curr) {
-                    break;
-                }
-            } else {
-                end_of_str = pos + 1;
-            }
-        }
-        (start, end_of_str, end_of_str - start)
-    }
-
     fn get_quote_line_offset(&mut self, quote: u8) -> &[u8] {
         let slice = self.slice;
         let start = self.pos;
@@ -496,4 +463,60 @@ pub fn test_offset() {
     assert_eq!(end, 7);
     assert_eq!(b"", input.slice(start, end));
     assert_eq!(consume, 7);
+}
+
+#[test]
+pub fn test_read_plain_one() {
+    use crate::tokenizer::Slicer;
+
+    let input = "test  ".as_bytes();
+    let mut reader = StrReader::from(input);
+    let mut has_comment = false;
+    let mut lex_state = LexMutState {
+        curr_state: Default::default(),
+        last_block_indent: &None,
+        stack: &vec![],
+        has_tab: &mut false,
+        errors: &mut vec![],
+        tokens: &mut Default::default(),
+        space_indent: &mut None,
+    };
+    let (start, end) =
+        reader.read_plain_one_line(false, &mut has_comment, &mut lex_state);
+    assert_eq!(start, 0);
+    assert_eq!(end, 4);
+    assert_eq!(b"test", input.slice(start, end));
+}
+
+
+#[test]
+pub fn test_read_plain_seq() {
+    use core::str::from_utf8;
+
+    let input = " - x \n  - y".as_bytes();
+    let mut reader = StrReader::from(input);
+    let mut lex_state = LexMutState {
+        curr_state: BlockSeq(1, InSeqElem),
+        last_block_indent: &None,
+        stack: &vec![],
+        has_tab: &mut false,
+        errors: &mut vec![],
+        tokens: &mut Default::default(),
+        space_indent: &mut None,
+    };
+    // Set Head to x
+    reader.skip_bytes(3);
+    let node = reader.read_plain(&mut lex_state);
+    let mut buff = Vec::new();
+    for x in node.spans[1..].chunks(2) {
+        if x[0] == NewLine as usize {
+            if x[1] == 0 {
+                buff.push(b' ');
+            }
+        } else if x.len() == 2 {
+            buff.extend_from_slice(&input[x[0].. x[1]]);
+        }
+    }
+
+    assert_eq!("x - y", from_utf8(&buff).unwrap());
 }

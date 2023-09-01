@@ -20,7 +20,7 @@ const BLOCK_EVENTS: &str = r"
 
 const SEQ_PLAIN_INPUT: &str = r"
   - x
-   - y
+    - y
 ";
 
 const SEQ_PLAIN2_INPUT: &str = r"

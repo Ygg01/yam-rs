@@ -1,8 +1,8 @@
-use ErrorKind::Interrupted;
 use std::cmp::min;
 use std::io::{BufRead, BufReader, ErrorKind, Read};
 use std::ops::ControlFlow::{Break, Continue};
 use std::slice::Iter;
+use ErrorKind::Interrupted;
 
 use yam_core::tokenizer::{DirectiveState, ErrorType, LexMutState, Reader};
 
@@ -78,13 +78,13 @@ impl<'a, S: BufRead> Reader for BufferedReader<&'a mut Vec<u8>, S> {
                     (n.starts_with(b"...") || n.starts_with(b"---"))
                         && self.col == 0
                         && n.get(3).map_or(true, |c| {
-                        *c == b'\t'
-                            || *c == b' '
-                            || *c == b'\r'
-                            || *c == b'\n'
-                            || *c == b'['
-                            || *c == b'{'
-                    })
+                            *c == b'\t'
+                                || *c == b' '
+                                || *c == b'\r'
+                                || *c == b'\n'
+                                || *c == b'['
+                                || *c == b'{'
+                        })
                 }
                 Err(e) if e.kind() == Interrupted => continue,
                 Err(_) => false,
@@ -99,7 +99,7 @@ impl<'a, S: BufRead> Reader for BufferedReader<&'a mut Vec<u8>, S> {
                 let available = match self.source.fill_buf() {
                     Ok(n) => n,
                     Err(ref e) if e.kind() == Interrupted => continue,
-                    Err(_) => break
+                    Err(_) => break,
                 };
                 match available.iter().try_fold(0usize, |pos, chr| {
                     if *chr == b' ' || *chr == b'\t' {
@@ -120,7 +120,6 @@ impl<'a, S: BufRead> Reader for BufferedReader<&'a mut Vec<u8>, S> {
         }
         amount
     }
-
 
     fn skip_bytes(&mut self, amount: usize) -> usize {
         self.source.consume(amount);
@@ -157,12 +156,11 @@ impl<'a, S: BufRead> Reader for BufferedReader<&'a mut Vec<u8>, S> {
                 Ok([]) => break,
                 Ok(n) => buf.extend(n),
                 Err(ref e) if e.kind() == Interrupted => continue,
-                Err(_) => break
+                Err(_) => break,
             };
             if buf.len() >= needle_bytes.len() {
-                break
+                break;
             }
-
         }
         let result = buf.starts_with(needle_bytes);
         self.skip_bytes(needle_bytes.len());
@@ -232,15 +230,23 @@ impl<'a, S: BufRead> Reader for BufferedReader<&'a mut Vec<u8>, S> {
 
     fn read_plain_one_line(
         &mut self,
-        _offset_start: Option<usize>,
-        _had_comment: &mut bool,
         _in_flow_collection: bool,
-    ) -> (usize, usize, usize) {
+        _had_comment: &mut bool,
+        _lexer_state: &mut LexMutState,
+    ) -> (usize, usize) {
         todo!()
     }
 
     fn get_quote_line_offset(&mut self, quote: u8) -> &[u8] {
-        self.source.read_line()
+        todo!()
+    }
+
+    fn save_to_buf(&mut self, start: usize, input: &[u8]) -> (usize, usize) {
+        todo!()
+    }
+
+    fn get_zero_slice(&mut self) -> Vec<u8> {
+        todo!()
     }
 }
 

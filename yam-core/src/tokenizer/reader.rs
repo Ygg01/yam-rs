@@ -4,8 +4,6 @@
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 
-use core::ops::Range;
-
 use super::lexer::{prepend_error, LiteralStringState, NodeSpans, QuoteState};
 use super::LexerToken::*;
 use super::{
@@ -20,47 +18,7 @@ use crate::tokenizer::ErrorType::*;
 
 use memchr::{memchr, memchr2};
 
-pub struct LookAroundBytes<'a> {
-    iter: &'a [u8],
-    pos: usize,
-    end: usize,
-}
 
-impl<'a> LookAroundBytes<'a> {
-    pub(crate) fn new(iter: &'a [u8], range: Range<usize>) -> LookAroundBytes<'a> {
-        let (pos, end) = (range.start, range.end);
-
-        LookAroundBytes { iter, pos, end }
-    }
-}
-
-impl<'a> Iterator for LookAroundBytes<'a> {
-    type Item = (u8, u8, u8, usize);
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.pos <= self.end {
-            let prev = if self.pos < 1 {
-                b'\0'
-            } else {
-                unsafe { *self.iter.get_unchecked(self.pos - 1) }
-            };
-            let curr = unsafe { *self.iter.get_unchecked(self.pos) };
-            let next = unsafe {
-                if self.pos + 1 < self.iter.len() {
-                    *self.iter.get_unchecked(self.pos + 1)
-                } else {
-                    b'\0'
-                }
-            };
-            let x = Some((prev, curr, next, self.pos));
-            self.pos += 1;
-            x
-        } else {
-            None
-        }
-    }
-}
 #[doc(hidden)]
 pub struct LexMutState<'a> {
     pub(crate) curr_state: LexerState,
@@ -268,10 +226,13 @@ pub trait Reader {
         end: usize,
         new_lines: Option<u32>,
     );
+    fn save_to_buf(&mut self, start: usize, input: &[u8]) -> (usize, usize);
     fn emit_tokens(&mut self, tokens: &mut Vec<usize>, start: usize, end: usize, new_lines: u32);
 
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn get_read_line(&mut self) -> (usize, usize, usize);
+    fn get_zero_slice(&mut self) -> Vec<u8>;
+
     fn read_line(&mut self, space_indent: &mut Option<u32>) -> (usize, usize);
     fn count_spaces(&mut self) -> u32;
     fn count_whitespace(&mut self) -> usize {
@@ -293,17 +254,9 @@ pub trait Reader {
     fn read_break(&mut self) -> Option<(usize, usize)>;
     fn emit_new_space(&mut self, tokens: &mut Vec<usize>, new_lines: &mut Option<usize>);
 
-    fn read_plain_one_line(
-        &mut self,
-        offset_start: Option<usize>,
-        had_comment: &mut bool,
-        in_flow_collection: bool,
-    ) -> (usize, usize, usize);
-
     fn read_plain(&mut self, lex_state: &mut LexMutState) -> NodeSpans {
         let mut spans = self.get_curr_node();
         let mut had_comment = false;
-        let mut offset_start: Option<usize> = None;
         let mut end_line = self.line();
         let mut curr_indent = self.col();
         let mut num_newlines = 0;
@@ -319,8 +272,8 @@ pub trait Reader {
                 break;
             }
 
-            let (start, end, _consume) =
-                self.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
+            let (start, end) =
+                self.read_plain_one_line(in_flow_collection, &mut had_comment, lex_state);
             let new_lines = match num_newlines {
                 x if x >= 1 => Some(x - 1),
                 _ => None,
@@ -347,8 +300,7 @@ pub trait Reader {
 
             if chr == b'-' && matches!(lex_state.curr_state, BlockSeq(indent, _) if curr_indent > indent)
                 || chr == b'?' && matches!(lex_state.curr_state, BlockMap(indent, ExpectComplexKey) if curr_indent > indent ) {
-                offset_start = Some(self.offset());
-
+                continue;
             } else if end_of_stream || chr == b'?' || chr == b':' || chr == b'-'
                 || (in_flow_collection && is_flow_indicator(chr))
                 || find_matching_state(lex_state.stack, |state| matches!(state, BlockMap(ind_col, _)| BlockSeq(ind_col, _) if ind_col >= curr_indent)
@@ -360,6 +312,41 @@ pub trait Reader {
         spans.push(ScalarEnd as usize);
         spans.is_multiline = spans.line_start != end_line;
         spans
+    }
+
+    #[inline]
+    fn read_plain_one_line(
+        &mut self,
+        in_flow_collection: bool,
+        had_comment: &mut bool,
+        _lexer_state: &mut LexMutState,
+    ) -> (usize, usize) {
+        let start = self.offset();
+        let slice = self.get_zero_slice();
+        let mut end_of_str = 0;
+
+        for (pos,win) in slice.windows(2).enumerate() {
+            match win {
+                // ns-plain-char  prevent ` #`
+                [peek, b'#', ..] if is_white_tab_or_break(*peek) => {
+                    if !*had_comment {
+                        *had_comment = true;
+                    }
+                    break;
+                }
+                [b':', peek, ..] if is_plain_unsafe(*peek, in_flow_collection) => {
+                    break;
+                }
+                [b',' | b'[' | b']' | b'{' | b'}', ..] if in_flow_collection => break,
+                [curr, ..] if is_newline(*curr) => break,
+                [curr, ..] if is_newline(*curr) => break,
+                [curr, ..] if is_white_tab(*curr) => {},
+                [_, ..] => end_of_str = pos + 1,
+                [] => break,
+            };
+        }
+        self.save_to_buf(start, &slice[0..end_of_str])
+
     }
 
     fn skip_separation_spaces(
@@ -435,6 +422,11 @@ pub trait Reader {
             has_tab,
         })
     }
+
+    fn read_comment(&mut self, lexer_state: &mut LexMutState) {
+        self.read_line(lexer_state.space_indent);
+    }
+
 
     #[doc(hidden)]
     fn read_quote<T: QuoteType + Copy>(
@@ -966,9 +958,10 @@ pub(crate) const fn is_white_tab(chr: u8) -> bool {
 }
 
 #[inline]
-pub(crate) const fn is_plain_unsafe(chr: u8) -> bool {
+pub(crate) const fn is_plain_unsafe(chr: u8, in_flow: bool) -> bool {
     match chr {
-        b'\0' | b' ' | b'\t' | b'\r' | b'\n' | b',' | b'[' | b']' | b'{' | b'}' => true,
+        b',' | b'[' | b']' | b'{' | b'}' => in_flow,
+        b'\0' | b' ' | b'\t' | b'\r' | b'\n' => true,
         _ => false,
     }
 }

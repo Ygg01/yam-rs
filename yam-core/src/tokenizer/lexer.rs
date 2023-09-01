@@ -468,6 +468,7 @@ impl Lexer {
             };
 
             let is_doc_end = reader.peek_stream_ending();
+            let in_flow_collection = self.curr_state().in_flow_collection();
 
             match chr {
                 b'.' if is_doc_end => {
@@ -507,7 +508,7 @@ impl Lexer {
                 b':' if reader.peek_byte_at(1).map_or(false, is_white_tab_or_break) => {
                     break;
                 }
-                b'-' if reader.peek_byte_at(1).map_or(false, is_plain_unsafe)
+                b'-' if reader.peek_byte_at(1).map_or(false, |c| is_plain_unsafe(c, in_flow_collection))
                     && !prop_node.is_empty()
                     && prop_node.line_start == reader.line() =>
                 {
@@ -888,6 +889,7 @@ impl Lexer {
         new_seq
     }
 
+    // TODO Remove
     fn skip_sep_spaces<R: Reader>(&mut self, reader: &mut R) -> Option<SeparationSpaceInfo> {
         let sep_opt = self.skip_separation_spaces(reader);
         if let Some(sep_info) = sep_opt {
@@ -899,6 +901,7 @@ impl Lexer {
         sep_opt
     }
 
+    // TODO Remove
     fn skip_space_tab<R: Reader>(&mut self, reader: &mut R) -> usize {
         let (num_spaces, amount) = reader.count_space_then_tab();
         if amount > 0 {
@@ -1041,7 +1044,7 @@ impl Lexer {
             node.line_start = reader.line();
             node.col_start = reader.col();
         } else if matches!(chr, b'-' | b'?')
-            && reader.peek_byte_at(1).map_or(false, is_plain_unsafe)
+            && reader.peek_byte_at(1).map_or(false, |c| is_plain_unsafe(c, self.curr_state().in_flow_collection()))
         {
             if self.curr_state().in_flow_collection() {
                 reader.skip_bytes(1);
@@ -1283,7 +1286,7 @@ impl Lexer {
                 }
                 self.skip_sep_spaces(reader);
                 continue;
-            } else if chr == b':' && (skip_colon_space || peek_next.map_or(true, is_plain_unsafe)) {
+            } else if chr == b':' && (skip_colon_space || peek_next.map_or(true, |c| is_plain_unsafe(c, true))) {
                 reader.skip_bytes(1);
                 if matches!(self.curr_state(), FlowMap(ExpectKey)) {
                     push_empty(&mut node.spans, &mut PropSpans::default());
