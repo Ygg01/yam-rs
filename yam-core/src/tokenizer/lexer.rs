@@ -137,7 +137,7 @@ impl PropSpans {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn is_empty(&self) -> bool {
         self.spans.is_empty()
     }
@@ -237,32 +237,34 @@ trait Pusher {
 }
 
 impl Pusher for Vec<usize> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn front_push(&mut self, token: usize) {
         self.insert(0, token);
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn push(&mut self, token: usize) {
         self.push(token);
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn push_all<T: IntoIterator<Item = usize>>(&mut self, iter: T) {
         self.extend(iter);
     }
 }
 
 impl Pusher for VecDeque<usize> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn front_push(&mut self, token: usize) {
         self.push_front(token);
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn push(&mut self, token: usize) {
         self.push_back(token);
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn push_all<T: IntoIterator<Item = usize>>(&mut self, iter: T) {
         self.extend(iter);
     }
@@ -300,7 +302,7 @@ pub(crate) enum ChompIndicator {
 }
 
 impl LexerState {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn in_flow_collection(self) -> bool {
         match &self {
             FlowSeq | FlowMap(_) => true,
@@ -1359,7 +1361,7 @@ impl Lexer {
         node
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn check_flow_indent(&mut self, actual: u32, spans: &mut Vec<usize>) {
         let expected = self.indent();
         if actual < expected {
@@ -1646,7 +1648,7 @@ impl Lexer {
         })
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn pop_state(&mut self) -> Option<LexerState> {
         let pop_state = self.stack.pop();
         if let Some(state) = self.stack.last_mut() {
@@ -1781,7 +1783,7 @@ impl Lexer {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn read_line<B, R: Reader<B>>(&mut self, reader: &mut R) -> (usize, usize) {
         let line = reader.read_line();
         self.space_indent = None;
@@ -1797,12 +1799,12 @@ impl Lexer {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn curr_state(&self) -> LexerState {
         *self.stack.last().unwrap_or(&LexerState::default())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn prev_state(&self) -> LexerState {
         *self
             .stack
@@ -1812,7 +1814,7 @@ impl Lexer {
             .unwrap_or(&LexerState::default())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn set_block_state(&mut self, state: LexerState, read_line: u32) {
         match self.stack.last_mut() {
             Some(x) => *x = state,
@@ -1820,7 +1822,7 @@ impl Lexer {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn set_state(&mut self, state: LexerState) {
         match self.stack.last_mut() {
             Some(x) => *x = state,
@@ -1828,14 +1830,14 @@ impl Lexer {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn set_map_state(&mut self, map_state: MapState) {
         if let Some(BlockMap(_, state) | FlowMap(state)) = self.stack.last_mut() {
             *state = map_state;
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next_substate(&mut self) {
         let new_state = match self.stack.last() {
             Some(BlockMap(ind, state)) => BlockMap(*ind, state.next_state()),
@@ -1848,19 +1850,19 @@ impl Lexer {
         };
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next_seq_substate(&mut self) {
         if let Some(BlockSeq(_, state)) = self.stack.last_mut() {
             *state = state.next_state();
         };
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn pop_token(&mut self) -> Option<usize> {
         self.tokens.pop_front()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn indent(&self) -> u32 {
         match self.last_block_indent {
             None => 0,
@@ -1869,22 +1871,22 @@ impl Lexer {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn tokens(self) -> VecDeque<usize> {
         self.tokens
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn peek_token(&mut self) -> Option<usize> {
         self.tokens.front().copied()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn peek_token_next(&mut self) -> Option<usize> {
         self.tokens.get(1).copied()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn is_empty(&self) -> bool {
         self.tokens.is_empty()
     }
@@ -2541,7 +2543,7 @@ impl Lexer {
     }
 }
 
-// #[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn close_block_state<T: Pusher>(state: LexerState, prop: &mut PropSpans, spans: &mut T) {
     match state {
         BlockSeq(_, BeforeFirst | BeforeElem) => {
@@ -2616,7 +2618,7 @@ fn next_process_indentation<B, R: Reader<B>>(
     LiteralStringState::Indentation(indent)
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn is_skip_colon_space(scalar_spans: &NodeSpans) -> bool {
     match scalar_spans.spans.first() {
         Some(&SCALAR_DQUOTE | &SCALAR_QUOTE | &SEQ_START_EXP | &MAP_START | &MAP_START_EXP) => true,
@@ -2624,21 +2626,20 @@ fn is_skip_colon_space(scalar_spans: &NodeSpans) -> bool {
     }
 }
 
-//TODO Enable inlining
-// #[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn push_empty<T: Pusher>(tokens: &mut T, prop: &mut PropSpans) {
     tokens.push_all(take(prop).spans);
     tokens.push(SCALAR_PLAIN);
     tokens.push(SCALAR_END);
 }
 
-// #[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn push_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &mut Vec<ErrorType>) {
     tokens.push(ERROR_TOKEN);
     errors.push(error);
 }
 
-// #[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn prepend_error<T: Pusher>(error: ErrorType, tokens: &mut T, errors: &mut Vec<ErrorType>) {
     tokens.front_push(ERROR_TOKEN);
     errors.push(error);
@@ -2809,7 +2810,7 @@ impl LexerToken {
     /// This method transforms a [`LexerToken`] into a [`DirectiveType`]
     ///
     /// It's UB to call on any [`LexerToken`] that isn't [`DirectiveTag`], [`DirectiveYaml`], or  [`DirectiveReserved`].
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn to_yaml_directive(self) -> DirectiveType {
         match self {
             DirectiveTag => DirectiveType::Tag,
@@ -2824,7 +2825,7 @@ impl LexerToken {
     ///
     /// It's UB to call on any [`LexerToken`] that isn't [`ScalarPlain`], [`Mark`], [`ScalarFold`], [`ScalarLit`],
     /// [`ScalarSingleQuote`], [`ScalarDoubleQuote`].
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn to_scalar(self) -> ScalarType {
         match self {
             ScalarPlain | Mark => ScalarType::Plain,

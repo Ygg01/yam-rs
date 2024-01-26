@@ -22,7 +22,7 @@ impl<'a> LookAroundBytes<'a> {
 impl<'a> Iterator for LookAroundBytes<'a> {
     type Item = (u8, u8, u8, usize);
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos <= self.end {
             let prev = if self.pos < 1 {
@@ -55,18 +55,18 @@ pub trait Reader<B> {
     fn peek_chars(&self) -> &[u8];
     fn peek_two_chars(&self) -> &[u8];
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn peek_byte(&self) -> Option<u8> {
         self.peek_byte_at(0)
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn peek_byte_is(&self, needle: u8) -> bool {
         match self.peek_byte_at(0) {
             Some(x) if x == needle => true,
             _ => false,
         }
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn peek_byte_is_off(&self, needle: u8, offset: usize) -> bool {
         match self.peek_byte_at(offset) {
             Some(x) if x == needle => true,
@@ -112,7 +112,7 @@ pub trait Reader<B> {
     ) -> (usize, usize, usize);
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) const fn is_white_tab_or_break(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => true,
@@ -120,7 +120,7 @@ pub(crate) const fn is_white_tab_or_break(chr: u8) -> bool {
     }
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) const fn is_valid_skip_char(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' | b'#' => true,
@@ -128,7 +128,7 @@ pub(crate) const fn is_valid_skip_char(chr: u8) -> bool {
     }
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) const fn is_white_tab(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' => true,
@@ -136,7 +136,7 @@ pub(crate) const fn is_white_tab(chr: u8) -> bool {
     }
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) const fn is_plain_unsafe(chr: u8) -> bool {
     match chr {
         b'\0' | b' ' | b'\t' | b'\r' | b'\n' | b',' | b'[' | b']' | b'{' | b'}' => true,
@@ -144,7 +144,7 @@ pub(crate) const fn is_plain_unsafe(chr: u8) -> bool {
     }
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) const fn is_newline(chr: u8) -> bool {
     match chr {
         b'\r' | b'\n' => true,
@@ -152,7 +152,7 @@ pub(crate) const fn is_newline(chr: u8) -> bool {
     }
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) const fn is_flow_indicator(chr: u8) -> bool {
     match chr {
         b',' | b'[' | b']' | b'{' | b'}' => true,
@@ -160,7 +160,7 @@ pub(crate) const fn is_flow_indicator(chr: u8) -> bool {
     }
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn is_uri_char(chr: u8) -> bool {
     chr == b'!'
         || (b'#'..=b',').contains(&chr)
@@ -171,7 +171,7 @@ pub(crate) fn is_uri_char(chr: u8) -> bool {
         || chr.is_ascii_lowercase()
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn is_tag_char_short(chr: u8) -> bool {
     // can't contain `!`, `,` `[`, `]` , `{` , `}`
     (b'#'..=b'+').contains(&chr)
@@ -182,12 +182,12 @@ pub(crate) fn is_tag_char_short(chr: u8) -> bool {
 }
 
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn is_tag_char(chr: u8) -> bool {
     matches!(chr, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')
 }
 
-#[inline]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn is_valid_escape(x: u8) -> bool {
     x == b'0'
         || x == b'r'

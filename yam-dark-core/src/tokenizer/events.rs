@@ -79,13 +79,13 @@ pub(crate) enum Stage1TapeEvent {
     /// #        ^-- end of sequence
     /// ```
     SequenceEnd = SEQ_END,
-    /// Start of a map  token, e.g. `{` in
+    /// Start of an explicit map token, e.g. `{` in
     /// ```yaml
     ///  { a: b,}
     /// #^ - start of mapping
     /// ```
     MappingStartExplicit = MAP_START_EXP,
-    /// Start of a map  token, e.g. `{` in
+    /// Start of a map token, e.g. `{` in
     /// ```yaml
     ///  [ a]: 3
     /// #^ - start of mapping
