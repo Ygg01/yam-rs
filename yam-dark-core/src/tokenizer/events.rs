@@ -12,7 +12,7 @@ const SCALAR_PLAIN: u8 = b's';
 const SCALAR_FOLD: u8 = b'>';
 const SCALAR_LIT: u8 = b'|';
 const SCALAR_QUOTE: u8 = b'\'';
-const SCALAR_DQUOTE: u8 = b'"';
+const SCALAR_DOUBLE_QUOTE: u8 = b'"';
 const TAG: u8 = b'!';
 const ANCHOR: u8 = b'&';
 const ALIAS: u8 = b'*';
@@ -27,7 +27,7 @@ const UNSIGNED_LONG: u8 = b'u';
 pub(crate) enum Stage1TapeEvent {
     /// Directive Tag denoted by `%TAG`
     DirectiveTag = DIRECTIVE,
-    /// Plain unquoted scalar that's neither quoted or literal or folded
+    /// Plain unquoted scalar that's neither quoted nor literal nor folded
     /// ```yaml
     ///     example: plain_scalar
     /// ```
@@ -54,7 +54,7 @@ pub(crate) enum Stage1TapeEvent {
     /// ```yaml
     ///     example: "double quote scalar"
     /// ```
-    ScalarDoubleQuote = SCALAR_DQUOTE,
+    ScalarDoubleQuote = SCALAR_DOUBLE_QUOTE,
     /// Element with alternative name e.g. `&foo [x,y]`
     AnchorToken = ANCHOR,
     /// Reference to an element with alternative name e.g. `*foo`
@@ -73,7 +73,7 @@ pub(crate) enum Stage1TapeEvent {
     /// #^ - start of sequence
     /// ```
     SequenceStart = SEQ_START,
-    /// End of a sequence token, e.g. `]` in
+    /// End of a sequence token, e.g.
     /// ```yaml
     ///  [a, b, c]
     /// #        ^-- end of sequence
