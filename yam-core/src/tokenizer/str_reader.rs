@@ -44,17 +44,17 @@ impl<'a> From<&'a [u8]> for StrReader<'a> {
 }
 
 impl<'a> StrReader<'a> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn eof_or_pos(&self, pos: usize) -> usize {
         pos.min(self.slice.len() - 1)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_lookahead_iterator(&self, range: Range<usize>) -> LookAroundBytes {
         LookAroundBytes::new(self.slice, range)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn count_space_tab_range_from(&self, allow_tab: bool) -> usize {
         if self.pos >= self.slice.len() {
             return 0;
@@ -83,22 +83,22 @@ impl<'a> StrReader<'a> {
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn eof(&self) -> bool {
         self.pos >= self.slice.len()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn col(&self) -> u32 {
         self.col
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn line(&self) -> u32 {
         self.line
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn offset(&self) -> usize {
         self.pos
     }
@@ -113,12 +113,12 @@ impl<'r> Reader<()> for StrReader<'r> {
         &self.slice[self.pos..max]
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn peek_byte_at(&self, offset: usize) -> Option<u8> {
         self.slice.get(self.pos + offset).copied()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn skip_space_tab(&mut self) -> usize {
         let amount = self.count_space_tab_range_from(true);
         self.consume_bytes(amount);
@@ -133,14 +133,14 @@ impl<'r> Reader<()> for StrReader<'r> {
         amount
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn consume_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
         self.col += TryInto::<u32>::try_into(amount).expect("Amount to not exceed u32");
         self.pos
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         if self.slice.len() < self.pos + needle.len() {
             return false;
@@ -169,7 +169,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         )
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn read_line(&mut self) -> (usize, usize) {
         let (start, end, consume) = self.get_read_line();
         self.pos = consume;
@@ -178,7 +178,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn count_spaces(&self) -> u32 {
         match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
             if *chr == b' ' {
