@@ -35,7 +35,11 @@ pub(crate) enum Stage1TapeEvent {
     AnchorToken = b'&',
     /// Reference to an element with alternative name e.g. `*foo`
     AliasToken = b'*',
-    /// Tag
+    /// Tag token in YAML.
+    /// ```yaml
+    ///    !tag b: c
+    ///   #^--- YAML tag
+    /// ```
     Tag = b'!',
     /// Start of a sequence token, e.g. `[` in
     /// ```yaml
