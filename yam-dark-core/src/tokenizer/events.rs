@@ -1,6 +1,6 @@
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) enum Stage1TapeEvent {
+pub(crate) enum Stage1Discriminant {
     /// Directive Tag denoted by `%TAG`
     DirectiveTag = b'%',
     /// Plain unquoted scalar that's neither quoted or literal or folded
@@ -77,14 +77,10 @@ pub(crate) enum Stage1TapeEvent {
     /// #       ^-- start of mapping
     /// ```
     MappingEnd = b'}',
-    /// Start of implicit Document
-    DocumentStart = b'-',
-    /// Start of explicit Document
-    DocumentStartExplicit = b'-' | 128,
-    /// End of implicit document.
-    DocumentEnd = b'.',
-    /// End of explicit document.
-    DocumentEndExplicit = b'.' | 128,
+    /// Limit  of implicit Document.
+    DocumentStart = b'r',
+    /// Limit of explicit Document.
+    DocumentStartExplicit = b'r' | 128,
     /// Null/empty value
     Null = b'n',
     /// Double value
