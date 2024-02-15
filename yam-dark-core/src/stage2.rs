@@ -26,7 +26,10 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
+use simdutf8::basic::imp::ChunkedUtf8Validator;
+
 use crate::error::{Error, ErrorType};
+use crate::safer_unchecked::GetSaferUnchecked;
 use crate::stage1::Stage1Parse;
 use crate::{impls, SIMD_INPUT_LENGTH, SIMD_JSON_PADDING};
 
@@ -50,6 +53,22 @@ pub struct YamlIndexes {
     structural_indexes: Vec<u64>,
     indent: Vec<u32>,
     rows: Vec<u32>,
+}
+
+impl YamlIndexes {
+    pub(crate) fn reserve(&self, p0: usize) {
+        todo!()
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        todo!()
+    }
+}
+
+impl YamlIndexes {
+    pub(crate) fn clear(&self) {
+        todo!()
+    }
 }
 
 /// SIMD aligned buffer
@@ -200,16 +219,23 @@ impl<'de> Parser<'de> {
         input: &mut [u8],
         structural_indexes: &mut YamlIndexes,
     ) -> std::result::Result<(), ErrorType> {
-
         unsafe {
-
-            let x ={
+            let x = {
                 if std::is_x86_feature_detected!("avx2") {
-                    Parser::_find_structural_bits::<impls::avx2::SimdInput>(input, structural_indexes)
+                    Parser::_find_structural_bits::<impls::avx2::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
                 } else if std::is_x86_feature_detected!("sse4.2") {
-                    Parser::_find_structural_bits::<impls::sse42::SimdInput>(input, structural_indexes)
+                    Parser::_find_structural_bits::<impls::sse42::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
                 } else {
-                    Parser::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+                    Parser::_find_structural_bits::<impls::native::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
                 }
             };
             x
@@ -222,6 +248,149 @@ impl<'de> Parser<'de> {
         input: &[u8],
         structural_indexes: &mut YamlIndexes,
     ) -> std::result::Result<(), ErrorType> {
-        todo!()
+        let len = input.len();
+        let len = input.len();
+        // 8 is a heuristic number to estimate it turns out a rate of 1/8 structural characters
+        // leads almost never to relocations.
+        structural_indexes.clear();
+        structural_indexes.reserve(len / 8);
+
+        let mut utf8_validator = S::Utf8Validator::new();
+
+        // we have padded the input out to 64 byte multiple with the remainder being
+        // zeros
+
+        // persistent state across loop
+        // does the last iteration end with an odd-length sequence of backslashes?
+        // either 0 or 1, but a 64-bit value
+        let mut prev_iter_ends_odd_backslash: u64 = 0;
+        // does the previous iteration end inside a double-quote pair?
+        let mut prev_iter_inside_quote: u64 = 0;
+        // either all zeros or all ones
+        // does the previous iteration end on something that is a predecessor of a
+        // pseudo-structural character - i.e. whitespace or a structural character
+        // effectively the very first char is considered to follow "whitespace" for
+        // the
+        // purposes of pseudo-structural character detection so we initialize to 1
+        let mut prev_iter_ends_pseudo_pred: u64 = 1;
+
+        // structurals are persistent state across loop as we flatten them on the
+        // subsequent iteration into our array pointed to be base_ptr.
+        // This is harmless on the first iteration as structurals==0
+        // and is done for performance reasons; we can hide some of the latency of the
+        // expensive carryless multiply in the previous step with this work
+        let mut structurals: u64 = 0;
+
+        let lenminus64: usize = if len < 64 { 0 } else { len - 64 };
+        let mut idx: usize = 0;
+        let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
+
+        while idx < lenminus64 {
+            /*
+            #ifndef _MSC_VER
+              __builtin_prefetch(buf + idx + 128);
+            #endif
+             */
+            let chunk = input.get_kinda_unchecked(idx..idx + 64);
+            utf8_validator.update_from_chunks(chunk);
+
+            let input = S::new(chunk);
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
+
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = input.find_quote_mask_and_bits(
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
+
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            S::flatten_bits(structural_indexes, idx as u32, structurals);
+
+            let mut whitespace: u64 = 0;
+            input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
+
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = S::finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += SIMD_INPUT_LENGTH;
+        }
+
+        // we use a giant copy-paste which is ugly.
+        // but otherwise the string needs to be properly padded or else we
+        // risk invalidating the UTF-8 checks.
+        if idx < len {
+            let mut tmpbuf: [u8; SIMD_INPUT_LENGTH] = [0x20; SIMD_INPUT_LENGTH];
+            tmpbuf
+                .as_mut_ptr()
+                .copy_from(input.as_ptr().add(idx), len - idx);
+            utf8_validator.update_from_chunks(&tmpbuf);
+
+            let input = S::new(&tmpbuf);
+
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
+
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = input.find_quote_mask_and_bits(
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
+
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            S::flatten_bits(structural_indexes, idx as u32, structurals);
+
+            let mut whitespace: u64 = 0;
+            input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
+
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = S::finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += SIMD_INPUT_LENGTH;
+        }
+        // This test isn't in upstream, for some reason the error mask is et for then.
+        if prev_iter_inside_quote != 0 {
+            return Err(ErrorType::Syntax);
+        }
+        // finally, flatten out the remaining structurals from the last iteration
+        S::flatten_bits(structural_indexes, idx as u32, structurals);
+
+        // a valid JSON file cannot have zero structural indexes - we should have
+        // found something (note that we compare to 1 as we always add the root!)
+        if structural_indexes.is_empty() {
+            return Err(ErrorType::Eof);
+        }
+
+        if error_mask != 0 {
+            return Err(ErrorType::Syntax);
+        }
+
+        if utf8_validator.finalize(None).is_err() {
+            Err(ErrorType::InvalidUtf8)
+        } else {
+            Ok(())
+        }
     }
 }

@@ -3,6 +3,7 @@ use crate::stage2::YamlIndexes;
 
 mod error;
 mod impls;
+mod safer_unchecked;
 mod stage1;
 mod stage2;
 mod tokenizer;
