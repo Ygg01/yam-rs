@@ -1,7 +1,7 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use core::ops::Range;
 use alloc::vec::Vec;
+use core::ops::Range;
 
 use super::ErrorType;
 
@@ -180,7 +180,6 @@ pub(crate) fn is_tag_char_short(chr: u8) -> bool {
         || chr == b'_'
         || chr.is_ascii_lowercase()
 }
-
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn is_tag_char(chr: u8) -> bool {

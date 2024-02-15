@@ -20,13 +20,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::alloc::{alloc, handle_alloc_error, Layout};
+use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
 use std::marker::PhantomData;
 use std::mem;
+use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
-use crate::{SIMD_INPUT_LENGTH, SIMD_JSON_PADDING};
-use crate::error::Error;
+use crate::error::{Error, ErrorType};
+use crate::stage1::Stage1Parse;
+use crate::{impls, SIMD_INPUT_LENGTH, SIMD_JSON_PADDING};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -39,9 +41,15 @@ pub enum StackState {}
 
 pub struct Buffers {
     string_buffer: Vec<u8>,
-    structural_indexes: Vec<u64>,
+    yaml_indexes: YamlIndexes,
     stage2_stack: Vec<StackState>,
-    input_buffer: AlignedBuf,
+    simd_input_buffer: AlignedBuf,
+}
+
+pub struct YamlIndexes {
+    structural_indexes: Vec<u64>,
+    indent: Vec<u32>,
+    rows: Vec<u32>,
 }
 
 /// SIMD aligned buffer
@@ -106,7 +114,28 @@ impl AlignedBuf {
         );
         self.len = n;
     }
+}
 
+impl Drop for AlignedBuf {
+    fn drop(&mut self) {
+        unsafe {
+            dealloc(self.inner.as_ptr(), self.layout);
+        }
+    }
+}
+
+impl Deref for AlignedBuf {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { std::slice::from_raw_parts(self.inner.as_ptr(), self.len) }
+    }
+}
+
+impl DerefMut for AlignedBuf {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { std::slice::from_raw_parts_mut(self.inner.as_ptr(), self.len) }
+    }
 }
 
 impl<'de> Parser<'de> {
@@ -122,7 +151,7 @@ impl<'de> Parser<'de> {
         buffer.string_buffer.clear();
         buffer.string_buffer.reserve(len + SIMD_JSON_PADDING);
 
-        let input_buffer = &mut buffer.input_buffer;
+        let input_buffer = &mut buffer.simd_input_buffer;
         if input_buffer.capacity() < simd_safe_len {
             *input_buffer = AlignedBuf::with_capacity(simd_safe_len)
         }
@@ -142,31 +171,57 @@ impl<'de> Parser<'de> {
             // safety: all bytes are initialized
             input_buffer.set_len(simd_safe_len);
 
-            Self::find_structural_bits(input, &mut buffer.structural_indexes)
-                .map_err(Error::generic)?;
+            Self::find_structural_bits(input, &mut buffer.yaml_indexes).map_err(Error::generic)?;
         };
 
         Self::build_tape(
             input,
             input_buffer,
             &mut buffer.string_buffer,
-            &buffer.structural_indexes,
+            &buffer.yaml_indexes,
             &mut buffer.stage2_stack,
             event_list,
         )
     }
 
-    pub (crate) fn build_tape(
+    pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],
         buffer: &mut [u8],
-        structural_indexes: &[u32],
+        yaml_indexes: &YamlIndexes,
         stack: &mut Vec<StackState>,
         res: &mut String,
     ) -> Result<()> {
-
+        todo!()
     }
-    pub(crate) unsafe fn find_structural_bits(p0: &mut [u8], p1: &mut Vec<u64>) -> _ {
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &mut [u8],
+        structural_indexes: &mut YamlIndexes,
+    ) -> std::result::Result<(), ErrorType> {
+
+        unsafe {
+
+            let x ={
+                if std::is_x86_feature_detected!("avx2") {
+                    Parser::_find_structural_bits::<impls::avx2::SimdInput>(input, structural_indexes)
+                } else if std::is_x86_feature_detected!("sse4.2") {
+                    Parser::_find_structural_bits::<impls::sse42::SimdInput>(input, structural_indexes)
+                } else {
+                    Parser::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+                }
+            };
+            x
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
+    pub(crate) unsafe fn _find_structural_bits<S: Stage1Parse>(
+        input: &[u8],
+        structural_indexes: &mut YamlIndexes,
+    ) -> std::result::Result<(), ErrorType> {
         todo!()
     }
 }

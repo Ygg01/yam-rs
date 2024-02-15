@@ -1,6 +1,6 @@
 #![no_std]
-extern crate core;
 extern crate alloc;
+extern crate core;
 
 pub use tokenizer::Lexer;
 

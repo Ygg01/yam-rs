@@ -2,8 +2,8 @@ use core::ops::ControlFlow::{Break, Continue};
 use core::ops::Range;
 use core::usize;
 
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 
 use memchr::{memchr, memchr2};
 
