@@ -6,6 +6,7 @@ pub(crate) trait Stage1Parse {
     type Utf8Validator: ChunkedUtf8Validator;
     type SimdRepresentation;
 
+    /// Method to unsafely construct a value from the array of UTF8 bytes
     unsafe fn new(ptr: &[u8]) -> Self;
 
     unsafe fn compute_quote_mask(quote_bits: u64) -> u64;
@@ -14,6 +15,31 @@ pub(crate) trait Stage1Parse {
 
     unsafe fn flatten_bits(base: &mut YamlIndexes, idx: u32, bits: u64);
 
+    /// Method for quickly finding structurals and whitespace
+    ///
+    ///
+    /// # Complications
+    ///
+    /// Yaml is much more complicated than JSON in addition to `{`, `}`, `:`, `[`, `]` and `,`
+    /// we also have YAML specific structurals `!` (tags), `&` (alias), `*` (anchor), `?` explicit map,
+    /// `-` block list, `#` comment.
+    /// Stuff like `>` folded and `|` literal have been dealt with in string/quote preprocessing
+    /// In other words we have following structural list:
+    ///
+    /// |            | Characters                                                                                                                       |
+    /// | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+    /// | Structural | `[` (0x5B), `]` (0x5D), `{` (0x7B), `}` (0x7D), `:` (0x3A), `?` (0x3F), `-` (0x2D),`&` (0x26), `%` (0x25), `#`(0x23), `*` (0x2A), `!` (0x21) |
+    /// | Whitespace | ` ` (0x20), `\n` (0x0A), `\t` (0x09), `\r` (0x0D)                                                                                             |
+    ///
+    /// Which we can divide into 4 sets
+    ///
+    /// | Code points                                     |   Value | Chars                               |
+    /// | ----------------------------------------------- | --------- | --------------------------------------- |
+    /// | 0x20, 0x21, 0x23, 0x25, 0x26, 0x2A, 0x2C, 0x2D, | 1         | ` `, `!`,  `#` ,  `%`, `&`, `*`,`,`,`-` |
+    /// | 0x3A, 0x3F                                      | 2         | `:`, `?`                                |
+    /// | 0x5B, 0x5D, 0x7B, 0x7D                          | 4         | `[`, `]`, `{`, `}`                      |
+    /// | 0x09, 0x0A, 0x0D                                | 8         | `\t`, `\n`, `\r`                        |
+    /// | other                                           | 0         |                                         |
     unsafe fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64);
 
     unsafe fn unsigned_lteq_against_input(&self, max_val: Self::SimdRepresentation) -> u64;
