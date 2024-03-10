@@ -1,12 +1,9 @@
-use crate::error::ErrorType;
-use crate::stage2::YamlIndexes;
 
 mod error;
-mod impls;
 mod safer_unchecked;
-mod stage1;
 mod stage2;
 mod tokenizer;
+mod stage1;
 
 pub const SIMD_INPUT_LENGTH: usize = 64;
 pub const SIMD_JSON_PADDING: usize = 32;
