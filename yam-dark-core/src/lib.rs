@@ -1,3 +1,4 @@
+use crate::error::Error;
 
 mod error;
 mod safer_unchecked;
@@ -10,6 +11,8 @@ pub const SIMD_JSON_PADDING: usize = 32;
 
 pub const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
 pub const ODD_BITS: u64 = !EVEN_BITS;
+
+pub type ParseResult<T> = Result<T, Error>;
 
 // MIT License
 //
