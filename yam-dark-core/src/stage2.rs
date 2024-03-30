@@ -58,20 +58,10 @@ impl<'de> Parser<'de> {
         input: &[u8],
         hint: Option<usize>,
     ) -> String {
-        todo!();
+        // TODO
         let buff = String::with_capacity(hint.unwrap_or(100));
         buff
     }
-    
-    ///
-    /// Method takes a chunk of bytes and based on current parser state updates buffers and returns
-    /// block state which contains indices in buffer
-    pub(crate) fn advance<T: Buffer>(
-        chunk: [u8; 64], 
-        buffers: &mut T, 
-        state: &mut YamlParserState
-    ) -> ParseResult<YamlBlockState> {
-        todo!()
-    }
+
 }
 
