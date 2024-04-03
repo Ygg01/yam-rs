@@ -20,10 +20,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::marker::PhantomData;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use crate::error::Error;
-use crate::stage1::YamlBlockState;
 
 pub type ParseResult<T> = Result<T, Error>;
 
