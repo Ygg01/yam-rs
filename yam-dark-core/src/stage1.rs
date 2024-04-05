@@ -1,5 +1,10 @@
+use core::arch::x86_64::__m256i;
+
+use simdutf8::basic::imp::ChunkedUtf8Validator;
+
+use crate::stage2::{Buffer, YamlParserState};
+use crate::util::NoopValidator;
 use crate::ParseResult;
-use crate::stage2::{Buffer, Buffers, YamlParserState};
 
 #[derive(Default)]
 pub struct YamlBlockState {
@@ -37,17 +42,17 @@ pub struct YamlCharacterBlock {
 
 impl YamlBlockState {}
 
-pub trait Utf8Validator {}
-
-pub struct NoopValidator {}
-
-impl Utf8Validator for NoopValidator {}
+pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
+    chunk: &'buffer [u8; 64],
+    buffers: &'input mut B,
+    state: &'input mut YamlParserState,
+) -> ParseResult<YamlBlockState>;
 
 pub trait Stage1Scanner {
     type SimdType;
-    fn with_validator<T: Utf8Validator>(validator: T) -> Self;
+    type Validator: ChunkedUtf8Validator;
 
-    fn get_validator<T: Utf8Validator>(&self) -> T;
+    fn validator() -> Self::Validator;
 
     /// Scans a chunk and returns a YamlBlockState
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -55,7 +60,43 @@ pub trait Stage1Scanner {
         chunk: &[u8; 64],
         buffers: &mut T,
         state: &mut YamlParserState,
-    ) -> ParseResult<YamlSingleQuoteBlock>;
+    ) -> ParseResult<YamlBlockState>;
 }
 
-struct NativeScanner {}
+pub(crate) struct NativeScanner {}
+
+impl Stage1Scanner for NativeScanner {
+    type SimdType = u128;
+    type Validator = NoopValidator;
+
+    fn validator() -> Self::Validator {
+        NoopValidator {}
+    }
+
+    fn next<T: Buffer>(
+        _chunk: &[u8; 64],
+        _buffers: &mut T,
+        _state: &mut YamlParserState,
+    ) -> ParseResult<YamlBlockState> {
+        todo!()
+    }
+}
+
+pub(crate) struct AvxScanner {}
+
+impl Stage1Scanner for AvxScanner {
+    type SimdType = [__m256i; 2];
+    type Validator = simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
+
+    fn validator() -> Self::Validator {
+        unsafe { simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp::new() }
+    }
+
+    fn next<'b, 'i, T: Buffer>(
+        _chunk: &'b [u8; 64],
+        _buffers: &'i mut T,
+        _state: &'i mut YamlParserState,
+    ) -> ParseResult<YamlBlockState> {
+        todo!()
+    }
+}

@@ -1,13 +1,15 @@
 #![no_std]
 extern crate alloc;
+extern crate core_detect;
 
 use crate::error::Error;
 
 mod error;
 mod safer_unchecked;
+mod stage1;
 mod stage2;
 mod tokenizer;
-mod stage1;
+mod util;
 
 pub const SIMD_INPUT_LENGTH: usize = 64;
 pub const SIMD_JSON_PADDING: usize = 32;

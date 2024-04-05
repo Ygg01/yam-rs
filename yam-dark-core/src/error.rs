@@ -25,5 +25,3 @@ impl Display for Error {
         write!(f, "{:?}", self.error)
     }
 }
-
-
