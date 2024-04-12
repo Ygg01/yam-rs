@@ -29,7 +29,7 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::error::Error;
 use crate::stage1::{AvxScanner, NativeScanner, NextFn, Stage1Scanner};
-use crate::util::NoopValidator;
+use crate::util::{ChunkyIterator, NoopValidator};
 
 pub type ParseResult<T> = Result<T, Error>;
 
@@ -86,14 +86,22 @@ impl<'de> Parser<'de> {
 
         let next_fn = get_stage1_next();
         let mut validator = get_validator(true);
-        
-        let chunk = _input.chunks_exact(8);
-        // chunk.next_chunk()
-        
-        unsafe {
-            validator.update_from_chunks(&[1, 2, 3]);
-            let z = next_fn(&[0; 64], &mut buffer, &mut state);
+        let mut iter = ChunkyIterator::from_bytes(_input);
+
+        // SIMDified part
+        for chunk in &mut iter {
+            unsafe {
+                validator.update_from_chunks(chunk);
+                let z = next_fn(chunk, &mut buffer, &mut state);
+            }
+            
         }
+        
+        // Remaining part
+        for _rem in iter.finalize() {
+            
+        }
+        
 
         buff
     }
