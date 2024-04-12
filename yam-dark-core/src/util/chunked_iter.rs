@@ -18,6 +18,12 @@ impl<'a> Iterator for ChunkyIterator<'a> {
 }
 
 impl<'a> ChunkyIterator<'a> {
+    
+    pub(crate) fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
+        ChunkyIterator {
+            bytes
+        }
+    }
     pub(crate) fn finalize(&self) -> &[u8] {
         self.bytes
     }
