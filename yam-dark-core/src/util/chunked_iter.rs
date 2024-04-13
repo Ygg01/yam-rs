@@ -1,24 +1,34 @@
-const CHUNK_SIZE : usize = 64;
+use core::slice::from_raw_parts;
+use crate::SIMD_INPUT_LENGTH;
+
 
 pub(crate) struct ChunkyIterator<'a> {
     bytes: &'a [u8],
 }
 
 impl<'a> Iterator for ChunkyIterator<'a> {
-    type Item = &'a [u8; CHUNK_SIZE];
+    type Item = &'a [u8; SIMD_INPUT_LENGTH];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((chunk, rest)) = self.bytes.split_first_chunk::<CHUNK_SIZE>() {
-            self.bytes = rest;
-            return Some(chunk);
+        if self.bytes.len() < SIMD_INPUT_LENGTH {
+            None
+        } else {
+            let len = self.bytes.len();
+            let ptr = self.bytes.as_ptr();
+            // SAFETY: We manually verified the bounds of the split.
+            let (first, tail) = unsafe {
+                (from_raw_parts(ptr, SIMD_INPUT_LENGTH), from_raw_parts(ptr.add(SIMD_INPUT_LENGTH), len - SIMD_INPUT_LENGTH))
+            };
+            self.bytes = tail;
+            // SAFETY: We explicitly check for the correct number of elements,
+            //   and do not let the references outlive the slice.
+            Some(unsafe { &*(first.as_ptr() as *const [u8; SIMD_INPUT_LENGTH]) })
         }
-        None
     }
 }
 
 impl<'a> ChunkyIterator<'a> {
-    
     pub(crate) fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
         ChunkyIterator {
             bytes
