@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 // MIT License
 //
 // Copyright (c) 2024 Ygg One
@@ -21,7 +23,7 @@
 // SOFTWARE.
 
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
@@ -29,7 +31,7 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::error::Error;
 use crate::impls::{AvxScanner, NativeScanner};
-use crate::stage1::{NextFn, Stage1Scanner};
+use crate::stage1::{NextFn, Stage1Scanner, YamlBlockState};
 use crate::util::{ChunkyIterator, NoopValidator};
 
 pub type ParseResult<T> = Result<T, Error>;
@@ -54,10 +56,16 @@ trait YamlIndex {}
 #[derive(Default)]
 pub(crate) struct YamlParserState {}
 
+impl YamlParserState {
+    pub(crate) fn process_chunk(&mut self, p0: &Buffers, p1: YamlBlockState) {
+        todo!()
+    }
+}
+
 impl<'de> Parser<'de> {
-    pub fn build_events(_input: &[u8], hint: Option<usize>) -> String {
+    pub fn build_events(_input: &[u8], hint: Option<usize>) -> Result<String, String> {
         // TODO
-        let buff = String::with_capacity(hint.unwrap_or(100));
+        let mut buff = String::with_capacity(hint.unwrap_or(100));
         let mut buffer = Buffers::default();
         let mut state = YamlParserState::default();
 
@@ -93,7 +101,18 @@ impl<'de> Parser<'de> {
         for chunk in &mut iter {
             unsafe {
                 validator.update_from_chunks(chunk);
-                let _z = next_fn(chunk, &mut buffer, &mut state);
+                let res: Result<YamlBlockState, Error> = next_fn(chunk, &mut buffer, &mut state);
+                let block = match res {  
+                    Err(e) => {
+                        buff.push_str("\nERR ");
+                        buff.push('(');
+                        buff.push_str(&e.to_string());
+                        buff.push(')');
+                        return Err(buff)
+                    },
+                    Ok(x) => x,
+                };
+                state.process_chunk(&buffer, block);
             }
             
         }
@@ -104,6 +123,6 @@ impl<'de> Parser<'de> {
         }
         
 
-        buff
+        Ok(buff)
     }
 }
