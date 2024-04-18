@@ -125,7 +125,7 @@ impl<'de> Parser<'de> {
         
         let mut validator = get_validator(true);
 
-        Self::run_next::<Buffers, EventStringVisitor>(
+        Self::run_to_end::<Buffers, EventStringVisitor>(
             input,
             &mut event_visitor,
             &mut buffer,
@@ -134,7 +134,7 @@ impl<'de> Parser<'de> {
         event_visitor.buffer
     }
 
-    fn run_next<B: Buffer, V: YamlVisitor<'de>>(
+    fn run_to_end<B: Buffer, V: YamlVisitor<'de>>(
         input: &'de [u8],
         event_visitor: &mut EventStringVisitor,
         buffer: &mut B,
