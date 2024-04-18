@@ -94,46 +94,41 @@ impl EventStringVisitor {
     }
 }
 
+#[cfg_attr(not(feature = "no-inline"), inline)]
+fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
+    if pre_checked {
+        unsafe {
+            // Is always safe for preformatted utf8
+            return Box::new(NoopValidator::new());
+        }
+    }
+    if core_detect::is_x86_feature_detected!("avx2") {
+        Box::new(AvxScanner::validator())
+    } else {
+        Box::new(NativeScanner::validator())
+    }
+}
+
+#[cfg_attr(not(feature = "no-inline"), inline)]
+fn get_stage1_next<B: Buffer>() -> NextFn<B> {
+    if core_detect::is_x86_feature_detected!("avx2") {
+        AvxScanner::next::<B>
+    } else {
+        NativeScanner::next::<B>
+    }
+}
+
 impl<'de> Parser<'de> {
     pub fn build_events(input: &'de [u8], hint: Option<usize>) -> String {
-        // TODO
         let mut event_visitor = EventStringVisitor::new_with_hint(hint);
         let mut buffer = Buffers::default();
-        let mut state = YamlParserState::default();
-
-        #[cfg_attr(not(feature = "no-inline"), inline)]
-        fn get_stage1_next() -> NextFn<Buffers> {
-            if core_detect::is_x86_feature_detected!("avx2") {
-                AvxScanner::next::<Buffers>
-            } else {
-                NativeScanner::next::<Buffers>
-            }
-        }
-
-        #[cfg_attr(not(feature = "no-inline"), inline)]
-        fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
-            if pre_checked {
-                unsafe {
-                    // Is always safe for preformatted utf8
-                    return Box::new(NoopValidator::new());
-                }
-            }
-            if core_detect::is_x86_feature_detected!("avx2") {
-                Box::new(AvxScanner::validator())
-            } else {
-                Box::new(NativeScanner::validator())
-            }
-        }
-
-        let next_fn = get_stage1_next();
+        
         let mut validator = get_validator(true);
 
         Self::run_next::<Buffers, EventStringVisitor>(
             input,
             &mut event_visitor,
             &mut buffer,
-            &mut state,
-            next_fn,
             &mut validator,
         );
         event_visitor.buffer
@@ -143,16 +138,17 @@ impl<'de> Parser<'de> {
         input: &'de [u8],
         event_visitor: &mut EventStringVisitor,
         buffer: &mut B,
-        state: &mut YamlParserState,
-        next_fn: NextFn<B>,
         validator: &mut Box<dyn ChunkedUtf8Validator>,
     ) -> Result<(), ()> {
         let mut iter = ChunkyIterator::from_bytes(input);
+        let mut state = YamlParserState::default();
+        let next_fn = get_stage1_next::<B>();
+
         // SIMDified part
         for chunk in &mut iter {
             unsafe {
                 validator.update_from_chunks(chunk);
-                let res: Result<YamlBlockState, Error> = next_fn(chunk, buffer, state);
+                let res: Result<YamlBlockState, Error> = next_fn(chunk, buffer, &mut state);
                 let block = match res {
                     Err(e) => {
                         event_visitor.visit_error(e);
