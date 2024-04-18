@@ -1,9 +1,8 @@
-use core::arch::x86_64::__m256i;
-use simdutf8::basic::imp::ChunkedUtf8Validator;
-use crate::ParseResult;
 use crate::stage1::{Stage1Scanner, YamlBlockState};
 use crate::stage2::{Buffer, YamlParserState};
-
+use crate::ParseResult;
+use core::arch::x86_64::__m256i;
+use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) struct AvxScanner {}
 

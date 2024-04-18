@@ -57,15 +57,47 @@ trait YamlIndex {}
 pub(crate) struct YamlParserState {}
 
 impl YamlParserState {
-    pub(crate) fn process_chunk(&mut self, p0: &Buffers, p1: YamlBlockState) {
+    pub(crate) fn process_chunk<B: Buffer>(&mut self, p0: &B, p1: YamlBlockState) {
         todo!()
     }
 }
 
+trait YamlVisitor<'de> {
+    fn visit_error(&mut self, error: Error);
+}
+
+pub struct EventStringVisitor {
+    buffer: String,
+}
+
+impl<'vis> YamlVisitor<'vis> for EventStringVisitor {
+    fn visit_error(&mut self, error: Error) {
+        self.buffer.push_str("\nERR ");
+        self.buffer.push('(');
+        self.buffer.push_str(&error.to_string());
+        self.buffer.push(')');
+    }
+}
+
+impl EventStringVisitor {
+    pub fn new_with_hint(hint: Option<usize>) -> Self {
+        EventStringVisitor {
+            buffer: match hint {
+                Some(cap) => String::with_capacity(cap),
+                None => String::new(),
+            },
+        }
+    }
+
+    pub fn buffer(self) -> String {
+        self.buffer
+    }
+}
+
 impl<'de> Parser<'de> {
-    pub fn build_events(_input: &[u8], hint: Option<usize>) -> Result<String, String> {
+    pub fn build_events(input: &'de [u8], hint: Option<usize>) -> String {
         // TODO
-        let mut buff = String::with_capacity(hint.unwrap_or(100));
+        let mut event_visitor = EventStringVisitor::new_with_hint(hint);
         let mut buffer = Buffers::default();
         let mut state = YamlParserState::default();
 
@@ -95,34 +127,46 @@ impl<'de> Parser<'de> {
 
         let next_fn = get_stage1_next();
         let mut validator = get_validator(true);
-        let mut iter = ChunkyIterator::from_bytes(_input);
 
+        Self::run_next::<Buffers, EventStringVisitor>(
+            input,
+            &mut event_visitor,
+            &mut buffer,
+            &mut state,
+            next_fn,
+            &mut validator,
+        );
+        event_visitor.buffer
+    }
+
+    fn run_next<B: Buffer, V: YamlVisitor<'de>>(
+        input: &'de [u8],
+        event_visitor: &mut EventStringVisitor,
+        buffer: &mut B,
+        state: &mut YamlParserState,
+        next_fn: NextFn<B>,
+        validator: &mut Box<dyn ChunkedUtf8Validator>,
+    ) -> Result<(), ()> {
+        let mut iter = ChunkyIterator::from_bytes(input);
         // SIMDified part
         for chunk in &mut iter {
             unsafe {
                 validator.update_from_chunks(chunk);
-                let res: Result<YamlBlockState, Error> = next_fn(chunk, &mut buffer, &mut state);
-                let block = match res {  
+                let res: Result<YamlBlockState, Error> = next_fn(chunk, buffer, state);
+                let block = match res {
                     Err(e) => {
-                        buff.push_str("\nERR ");
-                        buff.push('(');
-                        buff.push_str(&e.to_string());
-                        buff.push(')');
-                        return Err(buff)
-                    },
+                        event_visitor.visit_error(e);
+                        return Err(());
+                    }
                     Ok(x) => x,
                 };
-                state.process_chunk(&buffer, block);
+                state.process_chunk(buffer, block);
             }
-            
         }
-        
-        // Remaining part
-        for _rem in iter.finalize() {
-            
-        }
-        
 
-        Ok(buff)
+        // Remaining part
+        for _rem in iter.finalize() {}
+
+        Ok(())
     }
 }

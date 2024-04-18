@@ -1,7 +1,7 @@
-use crate::ParseResult;
 use crate::stage1::{Stage1Scanner, YamlBlockState};
 use crate::stage2::{Buffer, YamlParserState};
 use crate::util::NoopValidator;
+use crate::ParseResult;
 
 pub(crate) struct NativeScanner {}
 
@@ -22,4 +22,3 @@ impl Stage1Scanner for NativeScanner {
         todo!()
     }
 }
-
