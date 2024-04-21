@@ -7,8 +7,6 @@ use crate::error::Error;
 
 mod error;
 mod impls;
-mod stage1;
-mod stage2;
 mod tokenizer;
 mod util;
 
