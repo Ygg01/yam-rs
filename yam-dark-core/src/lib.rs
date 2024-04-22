@@ -3,6 +3,8 @@
 extern crate alloc;
 extern crate core_detect;
 
+pub use impls::{u8x16_bit, u8x16_bit_iter};
+
 use crate::error::Error;
 
 mod error;

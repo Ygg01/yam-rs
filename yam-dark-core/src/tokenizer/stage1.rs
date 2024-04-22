@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-use alloc::collections::btree_map::Values;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
@@ -55,6 +54,8 @@ pub trait Stage1Scanner {
     fn validator() -> Self::Validator;
 
     fn from_chunk(values: &[u8; 64]) -> Self;
+
+    fn cmp_ascii_to_input(&self, m: u8) -> u64;
 
     /// Scans a chunk and returns a YamlBlockState
     fn next<T: Buffer>(
