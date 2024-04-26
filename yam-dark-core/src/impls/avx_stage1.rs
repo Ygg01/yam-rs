@@ -16,11 +16,11 @@ impl Stage1Scanner for AvxScanner {
         unsafe { simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp::new() }
     }
 
-    fn from_chunk(values: &[u8; 64]) -> Self {
+    fn from_chunk(_values: &[u8; 64]) -> Self {
         todo!()
     }
 
-    fn cmp_ascii_to_input(&self, m: u8) -> u64 {
+    fn cmp_ascii_to_input(&self, _cmp: u8) -> u64 {
         todo!()
     }
 
