@@ -154,7 +154,14 @@ impl Stage1Scanner for NativeScanner {
         NativeScanner { v0: *values }
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn cmp_ascii_to_input(&self, cmp: u8) -> u64 {
         u8x64_eq(self.v0, cmp)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn leading_spaces(&self, spaces: u64) -> (u32, u32) {
+        let z = spaces.leading_ones();
+        (z, z)
     }
 }

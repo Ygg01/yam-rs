@@ -2,19 +2,19 @@
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::ParseResult;
+use crate::tokenizer::stage2::{Buffer, YamlParserState};
 
 #[derive(Default)]
-pub struct YamlBlockState {
-    double_quote: YamlDoubleQuoteBlock,
-    single_quote: YamlSingleQuoteBlock,
-    characters: YamlCharacterBlock,
+pub struct YamlChunkState {
+    double_quote: YamlDoubleQuoteChunk,
+    single_quote: YamlSingleQuoteChunk,
+    characters: YamlCharacterChunk,
     follows_non_quote_scalar: u64,
 }
 
 #[derive(Default)]
-pub struct YamlDoubleQuoteBlock {
+pub struct YamlDoubleQuoteChunk {
     /// Escaped characters
     escaped: u64,
     /// Real double quotes
@@ -25,7 +25,7 @@ pub struct YamlDoubleQuoteBlock {
 }
 
 #[derive(Default)]
-pub struct YamlSingleQuoteBlock {
+pub struct YamlSingleQuoteChunk {
     /// Real single quotes
     quote: u64,
     /// String characters
@@ -33,20 +33,20 @@ pub struct YamlSingleQuoteBlock {
 }
 
 #[derive(Default)]
-pub struct YamlCharacterBlock {
-    /// Whitespaces
-    whitespace: u64,
+pub struct YamlCharacterChunk {
+    /// Space
+    spaces: u64,
     /// Operators
     op: u64,
 }
 
-impl YamlBlockState {}
+impl YamlChunkState {}
 
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
     chunk: &'buffer [u8; 64],
     buffers: &'input mut B,
     state: &'input mut YamlParserState,
-) -> ParseResult<YamlBlockState>;
+) -> ParseResult<YamlChunkState>;
 
 const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
 const ODD_BITS: u64 = !EVEN_BITS;
@@ -61,16 +61,18 @@ pub trait Stage1Scanner {
 
     fn cmp_ascii_to_input(&self, m: u8) -> u64;
 
+    fn leading_spaces(&self, spaces: u64) -> (u32, u32);
+
     /// Scans a chunk and returns a YamlBlockState
     fn next<T: Buffer>(
         chunk: &[u8; 64],
         buffers: &mut T,
         prev_state: &mut YamlParserState,
-    ) -> ParseResult<YamlBlockState>
+    ) -> ParseResult<YamlChunkState>
     where
         Self: Sized,
     {
-        let mut block = YamlBlockState::default();
+        let mut block = YamlChunkState::default();
         let mut simd = Self::from_chunk(chunk);
         let single_quotes = simd.cmp_ascii_to_input(b'\'');
         let double_quotes = simd.cmp_ascii_to_input(b'"');
@@ -84,7 +86,7 @@ pub trait Stage1Scanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn find_odd_backslash_sequences(&self, block_state: &mut YamlBlockState) {
+    fn find_odd_backslash_sequences(&self, block_state: &mut YamlChunkState) {
         let backslash_bits: u64 = self.cmp_ascii_to_input(b'\\');
         let start_edges: u64 = backslash_bits & !(backslash_bits << 1);
 
@@ -100,17 +102,20 @@ pub trait Stage1Scanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn find_whitespace_and_structurals(&self, block_state: &mut YamlBlockState) {
+    fn find_whitespace_and_structurals(&self, block_state: &mut YamlChunkState) {
+        let spaces = self.cmp_ascii_to_input(b' ');
+        let newlines = self.cmp_ascii_to_input(b'\n');
+        block_state.characters.spaces = spaces;
         todo!()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn find_single_quote_mask_and_bits(&self, block_state: &mut YamlBlockState, quote_bits: u64) {
+    fn find_single_quote_mask_and_bits(&self, block_state: &mut YamlChunkState, quote_bits: u64) {
         todo!()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn find_double_quote_mask_and_bits(&self, block_state: &mut YamlBlockState, quote_bits: u64) {
+    fn find_double_quote_mask_and_bits(&self, block_state: &mut YamlChunkState, quote_bits: u64) {
         todo!()
     }
 }

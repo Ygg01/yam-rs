@@ -22,4 +22,7 @@ impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
+    fn leading_spaces(&self) -> (u32, u32) {
+        todo!()
+    }
 }
