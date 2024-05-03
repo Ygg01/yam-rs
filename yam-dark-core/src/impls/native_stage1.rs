@@ -1,7 +1,5 @@
-use crate::tokenizer::stage1::{Stage1Scanner, YamlBlockState};
-use crate::tokenizer::stage2::{Buffer, YamlParserState};
+use crate::tokenizer::stage1::Stage1Scanner;
 use crate::util::NoopValidator;
-use crate::ParseResult;
 
 pub(crate) struct NativeScanner {
     v0: [u8; 64],
@@ -158,14 +156,5 @@ impl Stage1Scanner for NativeScanner {
 
     fn cmp_ascii_to_input(&self, cmp: u8) -> u64 {
         u8x64_eq(self.v0, cmp)
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next<T: Buffer>(
-        _chunk: &[u8; 64],
-        _buffers: &mut T,
-        _state: &mut YamlParserState,
-    ) -> ParseResult<YamlBlockState> {
-        todo!()
     }
 }

@@ -2,9 +2,7 @@ use core::arch::x86_64::__m256i;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-use crate::tokenizer::stage1::{Stage1Scanner, YamlBlockState};
-use crate::tokenizer::stage2::{Buffer, YamlParserState};
-use crate::ParseResult;
+use crate::tokenizer::stage1::Stage1Scanner;
 
 pub(crate) struct AvxScanner {}
 
@@ -24,11 +22,4 @@ impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn next<'i, T: Buffer>(
-        _chunk: &[u8; 64],
-        _buffers: &'i mut T,
-        _state: &'i mut YamlParserState,
-    ) -> ParseResult<YamlBlockState> {
-        todo!()
-    }
 }
