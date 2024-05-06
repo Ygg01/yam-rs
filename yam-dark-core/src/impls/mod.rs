@@ -1,7 +1,7 @@
-pub(crate) use avx_stage1::AvxScanner;
+// pub(crate) use avx_stage1::AvxScanner;
 pub(crate) use native_stage1::NativeScanner;
 
-mod avx_stage1;
+// mod avx_stage1;
 mod native_stage1;
 
 pub fn u8x16_bit(a: [u8; 16]) -> u16 {
