@@ -89,11 +89,11 @@ pub trait Stage1Scanner {
 
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64;
 
-    /// Counts the number of odd quotes in a given 64-bit quote_bits.
+    /// Counts the number of odd bits in a given 64-bit bitmask.
     ///
     /// # Arguments
     ///
-    /// * `quote_bits` - A 64-bit unsigned integer representing the quote bits.
+    /// * `bitmask` - A 64-bit unsigned integer representing the quote bits.
     ///
     /// # Returns
     ///
@@ -106,12 +106,12 @@ pub trait Stage1Scanner {
     /// use crate::yam_dark_core::Stage1Scanner;
     ///
     /// let quote_bits = 0b10101010;
-    /// let count = NativeScanner::count_odd_quotes(quote_bits);
+    /// let count = NativeScanner::count_odd_bits(quote_bits);
     /// assert_eq!(count, 4);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn count_odd_quotes(quote_bits: u64) -> u32 {
-        quote_bits.count_ones()
+    fn count_odd_bits(bitmask: u64) -> u32 {
+        bitmask.count_ones() % 2
     }
 
     /// This function processes the next chunk of a YAML input.
@@ -175,7 +175,7 @@ pub trait Stage1Scanner {
         let (mut odd_carries, iter_ends_odd_backslash) = backslash_bits.overflowing_add(odd_starts);
 
         odd_carries |= *prev_iteration_odd;
-        // push in bit zero as a potential end
+        // push in a bit zero as a potential end
         // if we had an odd-numbered run at the
         // end of the previous iteration
         *prev_iteration_odd = u64::from(iter_ends_odd_backslash);
@@ -201,7 +201,7 @@ pub trait Stage1Scanner {
         let shift_even = even_bit << 1;
         let odd_starts = shift_even ^ odd_bit;
         block_state.single_quote.quote = odd_starts;
-        prev_iter_state.prev_iter_odd_quote = Self::count_odd_quotes(odd_starts);
+        prev_iter_state.prev_iter_odd_quote = Self::count_odd_bits(odd_starts);
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
