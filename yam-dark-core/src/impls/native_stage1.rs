@@ -1,4 +1,4 @@
-use crate::tokenizer::stage1::{Stage1Scanner, YamlCharacterChunk};
+use crate::tokenizer::stage1::{Stage1Scanner, YamlCharacterChunk, YamlChunkState};
 use crate::util::NoopValidator;
 use crate::{u8x64_eq, u8x64_lteq};
 
@@ -47,5 +47,9 @@ impl Stage1Scanner for NativeScanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64 {
         u8x64_lteq(self.v0, cmp as u8)
+    }
+
+    fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState) {
+        todo!()
     }
 }

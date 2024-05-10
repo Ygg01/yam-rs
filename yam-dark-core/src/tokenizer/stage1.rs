@@ -22,6 +22,8 @@
 
 #![allow(unused)]
 
+use alloc::vec::Vec;
+
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
@@ -32,6 +34,8 @@ pub struct YamlChunkState {
     double_quote: YamlDoubleQuoteChunk,
     single_quote: YamlSingleQuoteChunk,
     characters: YamlCharacterChunk,
+    rows: Vec<u32>,
+    cols: Vec<u32>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
 }
@@ -135,6 +139,7 @@ pub trait Stage1Scanner {
     ///
     /// Returns the Result that returns an error if it encounters a parse error or [YamlChunkState].
     /// [YamlChunkState] stores current iteration information and is merged on each [Stage1Scanner::next]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next<T: Buffer>(
         chunk: &[u8; 64],
         buffers: &mut T,
@@ -154,7 +159,6 @@ pub trait Stage1Scanner {
         prev_state.merge_state(chunk, buffers, &mut block)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
     /// Returns a bitvector indicating where there are characters that end an odd-length sequence
     /// of backslashes. An odd-length sequence of backslashes changes the behavior of the next
     /// character that follows. An even-length sequence of backslashes, as well as the largest
@@ -187,6 +191,7 @@ pub trait Stage1Scanner {
     /// let result = scanner.scan_for_odd_backslashes(&mut prev_iteration_odd);
     /// assert_eq!(result, 0b1000000000010000010000000000000100000000000001000010000000100);
     /// ```
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_for_odd_backslashes(&self, prev_iteration_odd: &mut u64) -> u64 {
         let backslash_bits = self.cmp_ascii_to_input(b'\\');
         let start_edges = backslash_bits & !(backslash_bits << 1);
@@ -232,12 +237,19 @@ pub trait Stage1Scanner {
         prev_iter_state.prev_iter_odd_quote = Self::count_odd_bits(odd_starts);
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState) {
-        block_state.characters.spaces = self.cmp_ascii_to_input(b' ');
-        block_state.characters.newline = self.cmp_ascii_to_input(b'\n');
-        todo!()
-    }
+    /// Scans the whitespace and structurals in the given YAML chunk state.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_state` - A mutable reference to the `YamlChunkState` for scanning.
+    ///
+    /// # Nibble mask
+    ///
+    /// Based on structure in structure.md
+    /// We can compute the nibble mask as LOW nibble: `[16, 2, 0, 2, 0, 2, 2, 2, 0, 8, 11, 4, 2, 14, 2, 1]`
+    /// and HIGH NIBBLE as `[8, 0, 18, 1, 0, 4, 0, 4, 0, 0, 0, 0, 0, 0, 0]`
+    ///
+    fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState);
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_double_quote_bitmask(
