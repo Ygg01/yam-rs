@@ -26,8 +26,8 @@ use alloc::vec::Vec;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
+use crate::{EVEN_BITS, ODD_BITS, ParseResult};
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
-use crate::ParseResult;
 
 #[derive(Default)]
 pub struct YamlChunkState {
@@ -74,13 +74,14 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
     state: &'input mut YamlParserState,
 ) -> ParseResult<YamlChunkState>;
 
-const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
-const ODD_BITS: u64 = !EVEN_BITS;
-
 pub trait Stage1Scanner {
     type SimdType;
     type Validator: ChunkedUtf8Validator;
 
+
+    /// Returns the validator for the given type.
+    ///
+    /// The `validator` function is a generic method that returns the validator for the type it is called on. The `Self` keyword is used to refer to the type of the implementing struct or trait.
     fn validator() -> Self::Validator;
 
     fn from_chunk(values: &[u8; 64]) -> Self;

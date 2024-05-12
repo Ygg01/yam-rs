@@ -104,7 +104,7 @@ This allows us to classify stuff int following groups basically by first
 | `0x09`, `0x0A`, `0x0D`                                         | `\t`, `\n`, `\r`                       | 8              |
 | `0x20`                                                         | ` `                                    | 16             |
 
-Having following low/high nibble
+Having following low/high nibble table.
 
 |            | 0  | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A  | B | C | D  | E | F | high nibble |
 |------------|----|---|---|---|---|---|---|---|---|---|----|---|---|----|---|---|-------------|
@@ -115,3 +115,9 @@ Having following low/high nibble
 | 7          |    |   |   |   |   |   |   |   |   |   |    | 4 |   | 4  |   |   | 4           |
 | low nibble | 16 | 2 |   | 2 |   | 2 | 2 | 2 |   | 8 | 11 | 4 | 2 | 14 | 2 | 1 | x           |
 
+From which we can derive the following values
+
+```rust
+const LOW_NIBBLE: [u8; 16] = [16, 2, 0, 2, 0, 2, 2, 2, 0, 8, 11, 4, 2, 14, 2, 1];
+const HIGH_NIBBLE: [u8; 16] = [8, 0, 18, 1, 0, 4, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0];
+```
