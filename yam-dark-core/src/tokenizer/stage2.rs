@@ -53,6 +53,7 @@ impl Buffer for Buffers {}
 
 trait YamlIndex {}
 
+#[doc(hidden)]
 #[derive(Default)]
 pub struct YamlParserState {
     pub(crate) prev_iter_ends_pseudo_pred: u64,

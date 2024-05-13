@@ -31,8 +31,8 @@ use crate::{ParseResult, EVEN_BITS, ODD_BITS};
 
 #[derive(Default)]
 pub struct YamlChunkState {
-    double_quote: YamlDoubleQuoteChunk,
-    single_quote: YamlSingleQuoteChunk,
+    pub double_quote: YamlDoubleQuoteChunk,
+    pub single_quote: YamlSingleQuoteChunk,
     pub characters: YamlCharacterChunk,
     rows: Vec<u32>,
     cols: Vec<u32>,
@@ -53,7 +53,7 @@ pub struct YamlDoubleQuoteChunk {
 #[derive(Default)]
 pub struct YamlSingleQuoteChunk {
     /// Real single quotes
-    quote: u64,
+    pub quote: u64,
     /// String characters
     in_string: u64,
 }
@@ -229,11 +229,15 @@ pub trait Stage1Scanner {
     /// # Example
     ///
     /// ```rust
-    /// use yam_dark_core::YamlChunkState;
-    /// let mut block_state = YamlChunkState::new();
-    /// let mut prev_iter_state = YamlParserState::new();
+    /// use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    /// let mut block_state = YamlChunkState::default();
+    /// let mut prev_iter_state = YamlParserState::default();
     ///
-    /// scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    ///  let chunk = b" ' ''               '                                           ";
+    ///  let scanner = NativeScanner::from_chunk(chunk);
+    ///  let result = scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    ///  let expected = 0b000000000000000000000000000000000000001000000000000000000010;
+    ///  assert_eq!(block_state.single_quote.quote, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
