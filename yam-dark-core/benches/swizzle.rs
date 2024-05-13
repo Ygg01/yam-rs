@@ -1,5 +1,3 @@
-use std::ops::Shr;
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rand::prelude::*;
 
@@ -84,54 +82,49 @@ unsafe fn find_whitespace_and_structurals_u8x16(
     whitespace: &mut u64,
     structurals: &mut u64,
 ) {
+    let low_nib_and_mask = U8X16::splat(0xF);
+    let high_nib_and_mask = U8X16::splat(0x7F);
+
     let v0 = unsafe { U8X16::from_slice(&input[0..16]) };
     let v1 = unsafe { U8X16::from_slice(&input[16..32]) };
     let v2 = unsafe { U8X16::from_slice(&input[32..48]) };
     let v3 = unsafe { U8X16::from_slice(&input[48..64]) };
 
-    let structural_shufti_mask: [u8; 16] = [0x7; 16];
-    let whitespace_shufti_mask: [u8; 16] = [0x18; 16];
-    let low_nib_and_mask: [u8; 16] = [0xF; 16]; //8x16_splat(0xf);
-    let high_nib_and_mask: [u8; 16] = [0x7F; 16]; //u8x16_splat(0x7f);
-
-    let v_v0 = (util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask))
-        & (util::u8x16_swizzle(HIGH_NIBBLE_MASK, v0.shr(4) & high_nib_and_mask));
-
-    let v_v1 = (util::u8x16_swizzle(LOW_NIBBLE_MASK, v1 & low_nib_and_mask))
-        & (util::u8x16_swizzle(HIGH_NIBBLE_MASK, v1.shr(4) & high_nib_and_mask));
-
-    let v_v2 = (util::u8x16_swizzle(LOW_NIBBLE_MASK, v2 & low_nib_and_mask))
-        & (util::u8x16_swizzle(HIGH_NIBBLE_MASK, v2.shr(4) & high_nib_and_mask));
-
-    let v_v3 = (util::u8x16_swizzle(LOW_NIBBLE_MASK, v3 & low_nib_and_mask))
-        & (util::u8x16_swizzle(HIGH_NIBBLE_MASK, v3.shr(4) & high_nib_and_mask));
+    let v_v0 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v0 >> 4) & high_nib_and_mask);
+    let v_v1 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v1 >> 4) & high_nib_and_mask);
+    let v_v2 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v2 >> 4) & high_nib_and_mask);
+    let v_v3 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v3 >> 4) & high_nib_and_mask);
 
     let tmp_v0 = (v_v0 & 0x7).comp_all(0);
     let tmp_v1 = (v_v1 & 0x7).comp_all(0);
     let tmp_v2 = (v_v2 & 0x7).comp_all(0);
     let tmp_v3 = (v_v3 & 0x7).comp_all(0);
-    //
-    let structural_res_0 = tmp_v0.to_u16() as u64;
-    let structural_res_1 = tmp_v1.to_u16() as u64;
-    let structural_res_2 = tmp_v2.to_u16() as u64;
-    let structural_res_3 = tmp_v3.to_u16() as u64;
+
+    let structural_res_0 = tmp_v0.to_bitmask() as u64;
+    let structural_res_1 = tmp_v1.to_bitmask() as u64;
+    let structural_res_2 = tmp_v2.to_bitmask() as u64;
+    let structural_res_3 = tmp_v3.to_bitmask() as u64;
 
     *structurals = !(structural_res_0
         | (structural_res_1 << 16)
         | (structural_res_2 << 32)
         | (structural_res_3 << 48));
 
-    let tmp_ws0 = (v_v0 & 0x17).comp_all(0);
-    let tmp_ws1 = (v_v1 & 0x17).comp_all(0);
-    let tmp_ws2 = (v_v2 & 0x17).comp_all(0);
-    let tmp_ws3 = (v_v3 & 0x17).comp_all(0);
+    let tmp_ws0 = (v_v0 & 0x18).comp_all(0);
+    let tmp_ws1 = (v_v1 & 0x18).comp_all(0);
+    let tmp_ws2 = (v_v2 & 0x18).comp_all(0);
+    let tmp_ws3 = (v_v3 & 0x18).comp_all(0);
 
-    let ws_res_0 = tmp_ws0.to_u16() as u64;
-    let ws_res_1 = tmp_ws1.to_u16() as u64;
-    let ws_res_2 = tmp_ws2.to_u16() as u64;
-    let ws_res_3 = tmp_ws3.to_u16() as u64;
+    let ws_res_0 = tmp_ws0.to_bitmask() as u64;
+    let ws_res_1 = tmp_ws1.to_bitmask() as u64;
+    let ws_res_2 = tmp_ws2.to_bitmask() as u64;
+    let ws_res_3 = tmp_ws3.to_bitmask() as u64;
 
-    *whitespace = !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48));
+    *whitespace = !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48))
 }
 
 fn u8x16_bitmask(a: [u8; 16]) -> u16 {
@@ -336,16 +329,16 @@ fn bench_simd_json(c: &mut Criterion) {
     let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).gen();
     let mut chunk = YamlChunkState::default();
 
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(rand_bytes.len() as u64));
+    group.significance_level(0.05).sample_size(200);
+    group.throughput(Throughput::Bytes(64));
     group.bench_function("bench-simd-json", |b| {
         b.iter(|| unsafe {
             find_whitespace_and_structurals(
                 rand_bytes,
                 &mut chunk.characters.spaces,
-                &mut chunk.characters.op,
+                &mut chunk.characters.structurals,
             );
-            black_box(chunk.characters.spaces | chunk.characters.op);
+            black_box(chunk.characters.spaces | chunk.characters.structurals);
         });
     });
     group.finish();
@@ -356,16 +349,16 @@ fn bench_yam_u8x16(c: &mut Criterion) {
     let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).gen();
     let mut chunk = YamlChunkState::default();
 
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(rand_bytes.len() as u64));
+    group.significance_level(0.05).sample_size(200);
+    group.throughput(Throughput::Bytes(64));
     group.bench_function("bench-yam-u8x16", |b| {
         b.iter(|| unsafe {
             find_whitespace_and_structurals_u8x16(
                 rand_bytes,
                 &mut chunk.characters.spaces,
-                &mut chunk.characters.op,
+                &mut chunk.characters.structurals,
             );
-            black_box(chunk.characters.spaces | chunk.characters.op);
+            black_box(chunk.characters.spaces | chunk.characters.structurals);
         });
     });
     group.finish();
@@ -382,6 +375,7 @@ fn bench_yam(c: &mut Criterion) {
     group.bench_function("bench-dark-yam", |b| {
         b.iter(|| {
             scanner.scan_whitespace_and_structurals(chunk);
+            black_box(chunk.characters.spaces | chunk.characters.structurals);
         });
     });
     group.finish();
