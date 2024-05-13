@@ -1,8 +1,13 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
+pub use native::u8x16_swizzle;
+pub use native::u8x64_eq;
+pub use native::u8x64_lteq;
+pub use native::U8X16;
 
 mod chunked_iter;
+mod native;
 
 #[doc(hidden)]
 pub struct NoopValidator();
