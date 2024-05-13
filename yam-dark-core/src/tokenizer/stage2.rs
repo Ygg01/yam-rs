@@ -128,11 +128,7 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_stage1_next<B: Buffer>() -> NextFn<B> {
-    if core_detect::is_x86_feature_detected!("avx2") {
-        NativeScanner::next::<B>
-    } else {
-        NativeScanner::next::<B>
-    }
+    NativeScanner::next::<B>
 }
 
 impl<'de> Parser<'de> {
