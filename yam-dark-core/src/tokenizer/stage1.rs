@@ -83,10 +83,77 @@ pub trait Stage1Scanner {
     /// The `validator` function is a generic method that returns the validator for the type it is called on. The `Self` keyword is used to refer to the type of the implementing struct or trait.
     fn validator() -> Self::Validator;
 
+    /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
+    ///
+    /// # Arguments
+    ///
+    /// * `values` - A slice of 64 `u8` values that represents a chunk of data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use yam_dark_core::Stage1Scanner;
+    /// use yam_dark_core::NativeScanner;
+    ///
+    /// let values: [u8; 64] = [0; 64];
+    /// let result = NativeScanner::from_chunk(&values);
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// A new instance of [Stage1Scanner] constructed from the given `values`.
     fn from_chunk(values: &[u8; 64]) -> Self;
 
+    /// Compares the ASCII value of the given input with the internal value
+    /// of the struct and returns a 64-bit bitmask.
+    ///
+    /// # Arguments
+    ///
+    /// * `m` - A u8 value representing the ASCII character to compare with.
+    ///
+    /// # Returns
+    ///
+    /// An `u64` value representing the bitmask of the comparisson.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use yam_dark_core::Stage1Scanner;
+    /// use yam_dark_core::NativeScanner;
+    ///
+    /// let values: [u8; 64] = [0; 64];
+    /// let result = NativeScanner::from_chunk(&values);
+    /// let bitmask = result.cmp_ascii_to_input(1);
+    /// assert_eq!(bitmask, 0);
+    /// ```
     fn cmp_ascii_to_input(&self, m: u8) -> u64;
 
+    /// Returns the number of leading spaces in a given [`YamlCharacterChunk`].
+    ///
+    /// This function takes a mutable reference to a [`YamlCharacterChunk`] and returns a tuple `(u32, u32)`.
+    /// The first value in the tuple represents the number of leading spaces counted from the start of
+    /// the [`YamlCharacterChunk`]. The second value represents the number of recognized spaces counted
+    /// from the start of the line containing the [`YamlCharacterChunk`].
+    ///
+    /// # Arguments
+    ///
+    /// * `spaces` - A mutable reference to a `YamlCharacterChunk` object which is updated with leading spaces
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the number of leading spaces and recognized spaces respectively.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use yam_dark_core::{Stage1Scanner, NativeScanner, YamlCharacterChunk};
+    ///
+    /// let mut chunk = YamlCharacterChunk::default();
+    /// let scanner = NativeScanner::from_chunk(&[0; 64]);
+    /// let (leading_spaces, recognized_spaces) = scanner.leading_spaces(&mut chunk);
+    /// println!("Leading spaces: {}", leading_spaces);
+    /// println!("Recognized spaces: {}", recognized_spaces);
+    /// ```
     fn leading_spaces(&self, spaces: &mut YamlCharacterChunk) -> (u32, u32);
 
     fn compute_quote_mask(quote_bits: u64) -> u64;
