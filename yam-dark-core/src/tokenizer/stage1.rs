@@ -26,8 +26,8 @@ use alloc::vec::Vec;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
+use crate::{EVEN_BITS, NativeScanner, ODD_BITS, ParseResult};
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
-use crate::{ParseResult, EVEN_BITS, ODD_BITS};
 
 #[derive(Default)]
 pub struct YamlChunkState {
@@ -212,8 +212,8 @@ pub trait Stage1Scanner {
         buffers: &mut T,
         prev_state: &mut YamlParserState,
     ) -> ParseResult<YamlChunkState>
-    where
-        Self: Sized,
+        where
+            Self: Sized,
     {
         let mut block = YamlChunkState::default();
         let mut simd = Self::from_chunk(chunk);
@@ -332,10 +332,21 @@ pub trait Stage1Scanner {
     ///
     /// # Nibble mask
     ///
-    /// Based on structure in structure.md
-    /// We can compute the nibble mask as LOW nibble: `[16, 2, 0, 2, 0, 2, 2, 2, 0, 8, 11, 4, 2, 14, 2, 1]`
-    /// and HIGH NIBBLE as `[8, 0, 18, 1, 0, 4, 0, 4, 0, 0, 0, 0, 0, 0, 0]`
+    /// Based on structure in structure.md, we compute low and high nibble mask and use them to swizzle
+    /// higher and lower component of a byte. E.g. if a byte is `0x23`, we use the `low_nibble[2]` and
+    /// `high_nibble[3]` for swizzling.
     ///
+    /// # Example
+    /// ```rust
+    /// use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    /// let mut block_state = YamlChunkState::default();
+    /// let mut prev_iter_state = YamlParserState::default();
+    ///  let chunk = b" -                                                              ";
+    ///  let scanner = NativeScanner::from_chunk(chunk);
+    ///  let result = scanner.scan_whitespace_and_structurals(&mut block_state);
+    ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
+    ///  assert_eq!(block_state.characters.structurals, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
+    /// ```
     fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState);
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -368,4 +379,15 @@ pub trait Stage1Scanner {
         };
         block_state.double_quote.quote_bits = quote_mask;
     }
+}
+
+#[test]
+fn test_structurals() {
+    let mut block_state = YamlChunkState::default();
+    let mut prev_iter_state = YamlParserState::default();
+    let chunk = b" -                                                              ";
+    let scanner = NativeScanner::from_chunk(chunk);
+    let result = scanner.scan_whitespace_and_structurals(&mut block_state);
+    let expected = 0b000000000000000000000000000000000000000000000000000000000010;
+    assert_eq!(block_state.characters.structurals, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
 }
