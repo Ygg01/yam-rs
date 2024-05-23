@@ -26,8 +26,8 @@ use alloc::vec::Vec;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-use crate::{EVEN_BITS, NativeScanner, ODD_BITS, ParseResult};
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
+use crate::{NativeScanner, ParseResult, EVEN_BITS, ODD_BITS};
 
 #[derive(Default)]
 pub struct YamlChunkState {
@@ -156,8 +156,51 @@ pub trait Stage1Scanner {
     /// ```
     fn leading_spaces(&self, spaces: &mut YamlCharacterChunk) -> (u32, u32);
 
+    /// Computes a quote mask based on the given quote bit mask.
+    ///
+    /// The `compute_quote_mask` function takes an input `quote_bits` of type `u64` and calculates
+    /// a quote mask. The quote mask is a bitmask that has a binary 1 in every position where the
+    /// corresponding byte is `"` (keep in mind that binary representation is big endian, while array
+    /// representation is little endian).
+    ///
+    /// # Arguments
+    ///
+    /// * `quote_bits` - The quote bits of type `u64` that specify the positions to be masked.
+    ///
+    /// # Returns
+    ///
+    /// The computed quote mask of type `u64`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use yam_dark_core::{NativeScanner, Stage1Scanner};
+    ///
+    /// let quote_bits = 0b0000100001;
+    /// let quote_mask = NativeScanner::compute_quote_mask(quote_bits);
+    /// assert_eq!(quote_mask, 0b11111);
+    /// ```
     fn compute_quote_mask(quote_bits: u64) -> u64;
 
+    /// Checks if the value of `cmp` is less than or equal to the value of `self`.
+    ///
+    /// Returns the result as a `u64` value.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmp` - An `i8` value representing the number to be compared against `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use yam_dark_core::{NativeScanner, Stage1Scanner, YamlCharacterChunk};
+    ///
+    /// let bin_str = b"                                                                ";
+    /// let mut chunk = YamlCharacterChunk::default();
+    /// let scanner = NativeScanner::from_chunk(bin_str);
+    /// let result = scanner.unsigned_lteq_against_splat(0x20);
+    /// assert_eq!(result, 0b1111111111111111111111111111111111111111111111111111111111111111);
+    /// ```
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64;
 
     /// Counts the number of odd bits in a given 64-bit bitmask.
@@ -212,8 +255,8 @@ pub trait Stage1Scanner {
         buffers: &mut T,
         prev_state: &mut YamlParserState,
     ) -> ParseResult<YamlChunkState>
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         let mut block = YamlChunkState::default();
         let mut simd = Self::from_chunk(chunk);
@@ -387,7 +430,23 @@ fn test_structurals() {
     let mut prev_iter_state = YamlParserState::default();
     let chunk = b" -                                                              ";
     let scanner = NativeScanner::from_chunk(chunk);
-    let result = scanner.scan_whitespace_and_structurals(&mut block_state);
+    scanner.scan_whitespace_and_structurals(&mut block_state);
     let expected = 0b000000000000000000000000000000000000000000000000000000000010;
-    assert_eq!(block_state.characters.structurals, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
+    assert_eq!(
+        block_state.characters.structurals, expected,
+        "Expected:    {:#066b} \nGot instead: {:#066b} ",
+        expected, block_state.single_quote.quote
+    );
+}
+
+#[test]
+fn test_lteq() {
+    let bin_str = b"                                                                ";
+    let mut chunk = YamlCharacterChunk::default();
+    let scanner = NativeScanner::from_chunk(bin_str);
+    let result = scanner.unsigned_lteq_against_splat(0x20);
+    assert_eq!(
+        result,
+        0b1111111111111111111111111111111111111111111111111111111111111111
+    );
 }
