@@ -78,11 +78,11 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
 ///
 /// This trait provides methods for validating and scanning chunks of data, and finding important
 /// parts like structural starts and so on.
-///
-/// This trait provides methods for validating and scanning chunks of data, as well as
-/// processing the next chunk of YAML input.
 pub trait Stage1Scanner {
+    /// Type [`Stage1Scanner`] uses to perform it's SIMD-ifed actions.
     type SimdType;
+
+    /// [`ChunkedUtf8Validator`] that matches the [`Stage1Scanner`] architecture.
     type Validator: ChunkedUtf8Validator;
 
     /// Returns the validator for the given type.
@@ -108,7 +108,7 @@ pub trait Stage1Scanner {
     ///
     /// # Returns
     ///
-    /// A new instance of [Stage1Scanner] constructed from the given `values`.
+    /// A new instance of [`Stage1Scanner`] constructed from the given `values`.
     fn from_chunk(values: &[u8; 64]) -> Self;
 
     /// Compares the ASCII value of the given input with the internal value
@@ -120,7 +120,7 @@ pub trait Stage1Scanner {
     ///
     /// # Returns
     ///
-    /// An `u64` value representing the bitmask of the comparisson.
+    /// An `u64` value representing the bitmask of the comparison.
     ///
     /// # Example
     ///
@@ -250,12 +250,12 @@ pub trait Stage1Scanner {
     ///
     /// * `chunk` - A reference to a byte slice `chunk` containing the next 64 bytes of input data.
     /// * `buffers` - A mutable reference to a `buffers` object implementing the `Buffer` trait.
-    /// * `prev_state` - A mutable reference to a [YamlParserState] object that stores previous iteration state information.
+    /// * `prev_state` - A mutable reference to a [`YamlParserState`] object that stores previous iteration state information.
     ///
     /// # Returns
     ///
-    /// Returns the Result that returns an error if it encounters a parse error or [YamlChunkState].
-    /// [YamlChunkState] stores current iteration information and is merged on each [Stage1Scanner::next]
+    /// Returns the Result that returns an error if it encounters a parse error or [`YamlChunkState`].
+    /// [`YamlChunkState`] stores current iteration information and is merged on each [`Stage1Scanner::next`]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next<T: Buffer>(
         chunk: &[u8; 64],
@@ -340,8 +340,8 @@ pub trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// - `block_state`: A mutable reference to a current [YamlChunkState].
-    /// - `prev_iter_state`: A mutable reference to previous iteration [YamlParserState].
+    /// - `block_state`: A mutable reference to a current [`YamlChunkState`].
+    /// - `prev_iter_state`: A mutable reference to previous iteration [`YamlParserState`].
     ///
     /// # Example
     ///
@@ -378,7 +378,7 @@ pub trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `block_state` - A mutable reference to the `YamlChunkState` for scanning.
+    /// * `block_state` - A mutable reference to the [`YamlChunkState`] for scanning.
     ///
     /// # Nibble mask
     ///
@@ -403,8 +403,8 @@ pub trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `block_state` - A mutable reference to the `YamlChunkState` struct.
-    /// * `prev_iter_state` - A mutable reference to the `YamlParserState` struct.
+    /// * `block_state` - A mutable reference to the [`YamlChunkState`] struct.
+    /// * `prev_iter_state` - A mutable reference to the [`YamlParserState`] struct.
     ///
     /// # Example
     ///
