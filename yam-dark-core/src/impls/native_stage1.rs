@@ -1,9 +1,9 @@
 use util::u8x16_swizzle;
 
-use crate::{HIGH_NIBBLE_MASK, LOW_NIBBLE_MASK, util};
-use crate::tokenizer::stage1::{Stage1Scanner, YamlCharacterChunk, YamlChunkState};
-use crate::util::{U8X16, u8x64_eq, u8x64_lteq};
+use crate::tokenizer::stage1::{Stage1Scanner, YamlChunkState};
 use crate::util::NoopValidator;
+use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
+use crate::{util, YamlParserState, HIGH_NIBBLE_MASK, LOW_NIBBLE_MASK};
 
 #[doc(hidden)]
 pub struct NativeScanner {
@@ -29,10 +29,12 @@ impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn leading_spaces(&self, chunks: &mut YamlCharacterChunk) -> (u32, u32) {
-        // TODO actual spaces implementation
-        let z = chunks.spaces.leading_zeros();
-        (z, z)
+    fn calculate_indents(
+        &self,
+        _chunk_state: &mut YamlChunkState,
+        _prev_state: &mut YamlParserState,
+    ) {
+        todo!()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
