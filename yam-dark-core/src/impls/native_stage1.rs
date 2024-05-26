@@ -31,10 +31,11 @@ impl Stage1Scanner for NativeScanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn calculate_indents(
         &self,
-        _chunk_state: &mut YamlChunkState,
+        chunk_state: &mut YamlChunkState,
         _prev_state: &mut YamlParserState,
     ) {
-        todo!()
+        chunk_state.characters.line_feed = u8x64_lteq(self.v0, b'\n');
+        chunk_state.characters.spaces = u8x64_lteq(self.v0, b' ');
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -98,7 +99,7 @@ impl Stage1Scanner for NativeScanner {
         let ws_res_2 = tmp_ws2.to_bitmask() as u64;
         let ws_res_3 = tmp_ws3.to_bitmask() as u64;
 
-        block_state.characters.spaces =
+        block_state.characters.whitespace =
             !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48))
     }
 }
