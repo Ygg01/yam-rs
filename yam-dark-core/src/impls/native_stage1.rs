@@ -25,7 +25,7 @@ impl Stage1Scanner for NativeScanner {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn cmp_ascii_to_input(&self, cmp: u8) -> u64 {
-        u8x64_eq(self.v0, cmp)
+        u8x64_eq(&self.v0, cmp)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
