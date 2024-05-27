@@ -1,7 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
-use yam_dark_core::util::{mask_merge, U8X16, VAL};
+use yam_dark_core::util::{mask_merge, U8X16};
 use yam_dark_core::ChunkyIterator;
+use yam_dark_memo::INDENT_TABLE;
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -58,10 +59,10 @@ pub fn count_table(chunk: &[u8; 64]) -> [u32; 64] {
     let v2 = unsafe { U8X16::from_slice(&chunk[32..48]) };
     let v3 = unsafe { U8X16::from_slice(&chunk[48..64]) };
 
-    let t0 = U8X16::from_array(VAL[v0.to_bitmask() as usize]);
-    let t1 = U8X16::from_array(VAL[v1.to_bitmask() as usize]);
-    let t2 = U8X16::from_array(VAL[v2.to_bitmask() as usize]);
-    let t3 = U8X16::from_array(VAL[v3.to_bitmask() as usize]);
+    let t0 = U8X16::from_array(INDENT_TABLE[v0.to_bitmask() as usize]);
+    let t1 = U8X16::from_array(INDENT_TABLE[v1.to_bitmask() as usize]);
+    let t2 = U8X16::from_array(INDENT_TABLE[v2.to_bitmask() as usize]);
+    let t3 = U8X16::from_array(INDENT_TABLE[v3.to_bitmask() as usize]);
 
     mask_merge(t0, t1, t2, t3)
 }
