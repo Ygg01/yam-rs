@@ -1,4 +1,4 @@
-use core::ops::{BitAnd, Shr};
+use core::ops::{Add, AddAssign, BitAnd, Shr};
 
 /// Returns an `u64` value representing the bitmask of each element in the given u8 that is equal to [cmp]
 ///
@@ -187,11 +187,37 @@ pub fn u8x64_lteq(a: [u8; 64], cmp: u8) -> u64 {
 pub struct U8X16([u8; 16]);
 
 impl U8X16 {
+    
+}
+
+impl U8X16 {
     #[inline]
     pub fn splat(input: u8) -> Self {
         U8X16([input; 16])
     }
 
+
+    pub fn mask_value(&self, mask: u16) -> U8X16 {
+        U8X16([
+            if mask & (1 << 0) != 0 { self.0[0] } else { 0 },
+            if mask & (1 << 1) != 0 { self.0[1] } else { 0 },
+            if mask & (1 << 2) != 0 { self.0[2] } else { 0 },
+            if mask & (1 << 3) != 0 { self.0[3] } else { 0 },
+            if mask & (1 << 4) != 0 { self.0[4] } else { 0 },
+            if mask & (1 << 5) != 0 { self.0[5] } else { 0 },
+            if mask & (1 << 6) != 0 { self.0[6] } else { 0 },
+            if mask & (1 << 7) != 0 { self.0[7] } else { 0 },
+            if mask & (1 << 8) != 0 { self.0[8] } else { 0 },
+            if mask & (1 << 9) != 0 { self.0[9] } else { 0 },
+            if mask & (1 << 10) != 0 { self.0[10] } else { 0 },
+            if mask & (1 << 11) != 0 { self.0[11] } else { 0 },
+            if mask & (1 << 12) != 0 { self.0[12] } else { 0 },
+            if mask & (1 << 13) != 0 { self.0[13] } else { 0 },
+            if mask & (1 << 14) != 0 { self.0[14] } else { 0 },
+            if mask & (1 << 15) != 0 { self.0[15] } else { 0 },
+        ])
+    }
+    
     #[inline]
     pub fn from_array(input: [u8; 16]) -> Self {
         U8X16(input)
@@ -295,6 +321,17 @@ impl U8X16 {
             *input.get_unchecked(15),
         ])
     }
+
+    #[inline]
+    pub fn shift_right(&self, k: usize) -> U8X16 {
+        let mut copy = *self;
+        copy.0.rotate_right(k);
+
+        for i in 0..k {
+            copy.0[i] = 0;
+        }
+        copy
+    }
 }
 
 impl BitAnd<[u8; 16]> for U8X16 {
@@ -320,6 +357,38 @@ impl BitAnd<[u8; 16]> for U8X16 {
             self.0[14] & other[14],
             self.0[15] & other[15],
         ])
+    }
+}
+
+
+impl Add<U8X16> for U8X16 {
+    type Output = U8X16;
+
+    fn add(self, rhs: U8X16) -> Self::Output {
+        U8X16([
+            self.0[0] + rhs.0[0],
+            self.0[1] + rhs.0[1],
+            self.0[2] + rhs.0[2],
+            self.0[3] + rhs.0[3],
+            self.0[4] + rhs.0[4],
+            self.0[5] + rhs.0[5],
+            self.0[6] + rhs.0[6],
+            self.0[7] + rhs.0[7],
+            self.0[8] + rhs.0[8],
+            self.0[9] + rhs.0[9],
+            self.0[10] + rhs.0[10],
+            self.0[11] + rhs.0[11],
+            self.0[12] + rhs.0[12],
+            self.0[13] + rhs.0[13],
+            self.0[14] + rhs.0[14],
+            self.0[15] + rhs.0[15],
+        ])
+    }
+}
+
+impl AddAssign for U8X16 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -488,105 +557,7 @@ pub fn u8x16_swizzle(mask: [u8; 16], x: U8X16) -> U8X16 {
     ])
 }
 
-#[doc(hidden)]
-#[inline]
-pub fn mask_and_add_u8x16(a: &mut U8X16, b: U8X16, mask: u16) {
-    a.0[0] = if mask & (1 << 0) != 0 {
-        a.0[0] + b.0[0]
-    } else {
-        a.0[0]
-    };
 
-    a.0[1] = if mask & (1 << 1) != 0 {
-        a.0[1] + b.0[1]
-    } else {
-        a.0[1]
-    };
-
-    a.0[2] = if mask & (1 << 2) != 0 {
-        a.0[2] + b.0[2]
-    } else {
-        a.0[2]
-    };
-
-    a.0[3] = if mask & (1 << 3) != 0 {
-        a.0[3] + b.0[3]
-    } else {
-        a.0[3]
-    };
-
-    a.0[4] = if mask & (1 << 4) != 0 {
-        a.0[4] + b.0[4]
-    } else {
-        a.0[4]
-    };
-
-    a.0[5] = if mask & (1 << 5) != 0 {
-        a.0[5] + b.0[5]
-    } else {
-        a.0[5]
-    };
-
-    a.0[6] = if mask & (1 << 6) != 0 {
-        a.0[6] + b.0[6]
-    } else {
-        a.0[6]
-    };
-
-    a.0[7] = if mask & (1 << 7) != 0 {
-        a.0[7] + b.0[7]
-    } else {
-        a.0[7]
-    };
-
-    a.0[8] = if mask & (1 << 8) != 0 {
-        a.0[8] + b.0[8]
-    } else {
-        a.0[8]
-    };
-
-    a.0[9] = if mask & (1 << 9) != 0 {
-        a.0[9] + b.0[9]
-    } else {
-        a.0[9]
-    };
-
-    a.0[10] = if mask & (1 << 10) != 0 {
-        a.0[10] + b.0[10]
-    } else {
-        a.0[10]
-    };
-
-    a.0[11] = if mask & (1 << 11) != 0 {
-        a.0[11] + b.0[11]
-    } else {
-        a.0[11]
-    };
-
-    a.0[12] = if mask & (1 << 12) != 0 {
-        a.0[12] + b.0[12]
-    } else {
-        a.0[12]
-    };
-
-    a.0[13] = if mask & (1 << 13) != 0 {
-        a.0[13] + b.0[13]
-    } else {
-        a.0[13]
-    };
-
-    a.0[14] = if mask & (1 << 14) != 0 {
-        a.0[14] + b.0[14]
-    } else {
-        a.0[14]
-    };
-
-    a.0[15] = if mask & (1 << 15) != 0 {
-        a.0[15] + b.0[15]
-    } else {
-        a.0[15]
-    };
-}
 
 #[doc(hidden)]
 #[inline]
