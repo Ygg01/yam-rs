@@ -9,6 +9,7 @@ Building from sources
 3. `git submodule update --init`
 4. `cargo install cargo-nextest`
 5. `cargo install cargo-criterion`
+6. `cargo nextest run`
 
 Plans
 ---
@@ -20,4 +21,5 @@ It's in development yet, but plans include:
 It contains few crates:
 - yam-core - `no_std` + `alloc` lib that contains the core processing logic
 - yam - library that relies on `yam-core` to work. It provides IO integration.
-- yam-dark-core - experimental `no_std` + `alloc` lib with SIMD acceleration
+- yam-dark-core - experimental `no_std` + `alloc` lib with SIMD acceleration.
+    - yam-dark-memo - crate containing large tables, due to size/compilation it's pulled into separate crate.
