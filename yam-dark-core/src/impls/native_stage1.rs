@@ -10,6 +10,8 @@ pub struct NativeScanner {
     v0: [u8; 64],
 }
 
+impl NativeScanner {}
+
 impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
