@@ -134,10 +134,18 @@ fn col_count_small(c: &mut Criterion) {
 
     group.bench_function("col_count_small", |b| {
         b.iter(|| {
-            let mut prev_indent = 0;
-            let mut count = [0; 64];
-            count_table_small(mask, &mut prev_indent, &mut count);
-            black_box(count[0] > 0);
+            let mut prev_col = 0;
+            let mut prev_row = 0;
+            let mut count_row = [0; 64];
+            let mut count_col = [0; 64];
+            count_table_small(
+                mask,
+                &mut prev_col,
+                &mut prev_row,
+                &mut count_col,
+                &mut count_row,
+            );
+            black_box(count_col[0] > 0 && count_row[0] == 0);
         })
     });
     group.finish();
