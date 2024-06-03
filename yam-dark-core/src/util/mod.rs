@@ -30,11 +30,9 @@ impl ChunkedUtf8Validator for NoopValidator {
     }
 }
 
-pub fn count_table_small(newline_mask: u64, prev_indent: &mut u32) -> [u32; 64] {
-    let mut res = [0; 64];
-
+pub fn count_table_small(newline_mask: u64, prev_indent: &mut u32, byte_cols: &mut [u32; 64]) {
     #[inline]
-    fn calculate_row(index_mask: u64, reset_bool: bool, prev_indent: &mut u32) -> [u32; 8] {
+    fn calculate_byte_col(index_mask: u64, reset_bool: bool, prev_indent: &mut u32) -> [u32; 8] {
         let byte_col1 = U8_BYTE_COL_TABLE[index_mask as usize];
         let rows1 = U8_ROW_TABLE[index_mask as usize];
         let row_calc = add_offset_and_mask(byte_col1, rows1, prev_indent);
@@ -43,59 +41,57 @@ pub fn count_table_small(newline_mask: u64, prev_indent: &mut u32) -> [u32; 64] 
         row_calc
     }
 
-    let row_calc = calculate_row(newline_mask & 0xFF, newline_mask & 0x80 == 0, prev_indent);
-    res[0..8].copy_from_slice(&row_calc);
+    let row_calc = calculate_byte_col(newline_mask & 0xFF, newline_mask & 0x80 == 0, prev_indent);
+    byte_cols[0..8].copy_from_slice(&row_calc);
 
-    let row_calc = calculate_row(
+    let row_calc = calculate_byte_col(
         (newline_mask & 0xFF00) >> 8,
         newline_mask & 0x8000 == 0,
         prev_indent,
     );
-    res[8..16].copy_from_slice(&row_calc);
+    byte_cols[8..16].copy_from_slice(&row_calc);
 
-    let row_calc = calculate_row(
+    let row_calc = calculate_byte_col(
         (newline_mask & 0xFF_0000) >> 16,
         newline_mask & 0x80_0000 == 0,
         prev_indent,
     );
-    res[16..24].copy_from_slice(&row_calc);
+    byte_cols[16..24].copy_from_slice(&row_calc);
 
-    let row_calc = calculate_row(
+    let row_calc = calculate_byte_col(
         (newline_mask & 0xFF00_0000) >> 24,
         newline_mask & 0x8000_0000 == 0,
         prev_indent,
     );
-    res[24..32].copy_from_slice(&row_calc);
+    byte_cols[24..32].copy_from_slice(&row_calc);
 
-    let row_calc = calculate_row(
+    let row_calc = calculate_byte_col(
         (newline_mask & 0xFF_0000_0000) >> 32,
         newline_mask & 0x80_0000_0000 == 0,
         prev_indent,
     );
-    res[32..40].copy_from_slice(&row_calc);
+    byte_cols[32..40].copy_from_slice(&row_calc);
 
-    let row_calc = calculate_row(
+    let row_calc = calculate_byte_col(
         (newline_mask & 0xFF00_0000_0000) >> 40,
         newline_mask & 0x8000_0000_0000 == 0,
         prev_indent,
     );
-    res[40..48].copy_from_slice(&row_calc);
+    byte_cols[40..48].copy_from_slice(&row_calc);
 
-    let row_calc = calculate_row(
+    let row_calc = calculate_byte_col(
         (newline_mask & 0xFF_0000_0000_0000) >> 48,
         newline_mask & 0x80_0000_0000_0000 == 0,
         prev_indent,
     );
-    res[48..56].copy_from_slice(&row_calc);
+    byte_cols[48..56].copy_from_slice(&row_calc);
 
-    let row_calc = calculate_row(
+    let row_calc = calculate_byte_col(
         (newline_mask & 0xFF00_0000_0000_0000) >> 56,
         newline_mask & 0x8000_0000_0000_0000 == 0,
         prev_indent,
     );
-    res[56..64].copy_from_slice(&row_calc);
-
-    res
+    byte_cols[56..64].copy_from_slice(&row_calc);
 }
 
 pub fn add_offset_and_mask(x: [u8; 8], mask: [u8; 8], offset: &mut u32) -> [u32; 8] {
@@ -146,7 +142,8 @@ fn test_quick_count() {
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 0, 1, 2, 3, 4, 5,
     ];
     let mut prev_value = 0;
-    let actual = count_table_small(mask, &mut prev_value);
-    assert_eq!(&actual[0..24], &expected_value[0..24]);
+    let mut actual_cols = [0; 64];
+    count_table_small(mask, &mut prev_value, &mut actual_cols);
+    assert_eq!(&actual_cols[0..24], &expected_value[0..24]);
     assert_eq!(prev_value, 40);
 }
