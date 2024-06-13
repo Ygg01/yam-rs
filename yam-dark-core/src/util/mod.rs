@@ -1,11 +1,9 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
-pub use native::{mask_merge, U8X16, u8x16_swizzle, u8x64_eq, u8x64_lteq};
+pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
 pub use native::{mask_merge_u8x8, U8X8};
 pub use table::{U8_BYTE_COL_TABLE, U8_ROW_TABLE};
-
-use crate::util::table::U8_INDENT_TABLE;
 
 mod chunked_iter;
 mod native;
@@ -116,49 +114,38 @@ pub fn count_table_small(
         *prev_row += rows[7] as u32;
         x
     }
+    #[derive(PartialEq)]
+    enum PrevChar {
+        Newline,
+        WS,
+        Other,
+    }
 
     fn calculate_indent(
         newline_mask: usize,
         white_space_mask: usize,
-        last_index: &mut i32,
-        col: [u32; 8],
+        _last_index: &mut i32,
+        _col: [u32; 8],
     ) -> [u32; 8] {
-        let indent_mask = (newline_mask ^ !white_space_mask) & 0xFF;
-        let ind = U8_INDENT_TABLE[indent_mask];
-        let col_ind = U8_BYTE_COL_TABLE[newline_mask];
-        let indent = [
-            col_ind[0] as usize as usize,
-            col_ind[1] as usize as usize,
-            col_ind[2] as usize as usize,
-            col_ind[3] as usize,
-            col_ind[4] as usize,
-            col_ind[5] as usize,
-            col_ind[6] as usize,
-            col_ind[7] as usize,
-        ];
-        // let mut indent = col.clone();
-        // for i in 0..8usize {
-        //     if white_space_mask & (1 << i) == 0 {
-        //         if *last_index == -1 {
-        //             *last_index = i as i32;
-        //         }
-        //         indent[i] = *last_index as u32;
-        //     }
-        //     if newline_mask & (1 << i) == 0 {
-        //         *last_index = -1;
-        //     }
-        // }
+        let mut last_char = PrevChar::Newline;
+        let mut result = [0; 8];
+        let mut last_indent = 0;
 
-        [
-            indent[0] as u32,
-            indent[1] as u32,
-            indent[2] as u32,
-            indent[3] as u32,
-            indent[4] as u32,
-            indent[4] as u32,
-            indent[4] as u32,
-            indent[4] as u32,
-        ]
+        for pos in 0..8 {
+            let ws_pos = (white_space_mask & (1 << pos)) != 0;
+            let nl_pos = (newline_mask & (1 << pos)) != 0;
+            if last_char != PrevChar::Other && ws_pos {
+                last_char = PrevChar::WS;
+                last_indent += 1;
+            }
+            if nl_pos {
+                last_indent = 0;
+                last_char = PrevChar::Newline;
+            }
+            result[pos] = last_indent;
+        }
+
+        result
     }
     // First 8 bits
     let mask = (newline_mask & 0xFF) as usize;
