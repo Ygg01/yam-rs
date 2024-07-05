@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 use core::ops::{Add, AddAssign, BitAnd, Shr};
 
 /// Returns an `u64` value representing the bitmask of each element in the given u8 that is equal to [cmp]
@@ -343,52 +344,6 @@ impl U8X16 {
     #[inline]
     pub fn from_array(input: [u8; 16]) -> Self {
         U8X16(input)
-    }
-
-    #[inline]
-    pub fn add_offset_and_mask(&self, mask: Self) -> U8X16 {
-        U8X16([
-            if mask.0[0] == 0 { self.0[0] } else { self.0[0] },
-            if mask.0[1] == 0 { self.0[1] } else { self.0[1] },
-            if mask.0[2] == 0 { self.0[2] } else { self.0[2] },
-            if mask.0[3] == 0 { self.0[3] } else { self.0[3] },
-            if mask.0[4] == 0 { self.0[4] } else { self.0[4] },
-            if mask.0[5] == 0 { self.0[5] } else { self.0[5] },
-            if mask.0[6] == 0 { self.0[6] } else { self.0[6] },
-            if mask.0[7] == 0 { self.0[7] } else { self.0[7] },
-            if mask.0[8] == 0 { self.0[8] } else { self.0[8] },
-            if mask.0[9] == 0 { self.0[9] } else { self.0[9] },
-            if mask.0[10] == 0 {
-                self.0[10]
-            } else {
-                self.0[10]
-            },
-            if mask.0[11] == 0 {
-                self.0[11]
-            } else {
-                self.0[11]
-            },
-            if mask.0[12] == 0 {
-                self.0[12]
-            } else {
-                self.0[12]
-            },
-            if mask.0[13] == 0 {
-                self.0[13]
-            } else {
-                self.0[13]
-            },
-            if mask.0[14] == 0 {
-                self.0[14]
-            } else {
-                self.0[14]
-            },
-            if mask.0[15] == 0 {
-                self.0[15]
-            } else {
-                self.0[15]
-            },
-        ])
     }
 
     #[inline]
@@ -804,21 +759,10 @@ pub struct U8X8(pub [u8; 8]);
 
 impl U8X8 {
     #[inline]
-    pub unsafe fn from_slice(input: &[u8]) -> Self {
-        U8X8([
-            *input.get_unchecked(0),
-            *input.get_unchecked(1),
-            *input.get_unchecked(2),
-            *input.get_unchecked(3),
-            *input.get_unchecked(4),
-            *input.get_unchecked(5),
-            *input.get_unchecked(6),
-            *input.get_unchecked(7),
-        ])
-    }
-
-    #[inline]
     pub fn from_array(input: [u8; 8]) -> Self {
+        // Safety:
+        // This is perfectly safe since bounds are known at compile time
+        // But compiler isn't smart enough to figure it out.
         unsafe {
             U8X8([
                 *input.get_unchecked(0),
@@ -892,7 +836,7 @@ impl U8X8 {
     }
 }
 
-pub fn mask_merge_u8x8(
+pub fn merge8x8_into_32x64(
     v0: U8X8,
     v1: U8X8,
     v2: U8X8,
