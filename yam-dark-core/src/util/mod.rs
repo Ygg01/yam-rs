@@ -1,8 +1,8 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
-pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
-pub use native::{merge8x8_into_32x64, U8X8};
+pub use native::{mask_merge, U8X16, u8x16_swizzle, u8x64_eq, u8x64_lteq};
+pub use native::U8X8;
 pub use table::{U8_BYTE_COL_TABLE, U8_INDENT_TABLE, U8_ROW_TABLE};
 
 mod chunked_iter;
@@ -303,6 +303,7 @@ pub fn count_indent_dependent(
     indents: &mut [u32; 64],
 ) {
     let mut byte_indent = [0; 64];
+
     indents.copy_from_slice(prev_byte_col);
 }
 
