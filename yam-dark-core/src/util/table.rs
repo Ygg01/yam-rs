@@ -516,7 +516,7 @@ pub const U8_ROW_TABLE: [[u8; 8]; 256] = [
     [1, 2, 3, 4, 5, 6, 7, 8],
 ];
 
-pub const U8_INDENT_TABLE: [[u8; 8]; 256] = [
+pub const INDENT_SWIZZLE_TABLE: [[u8; 8]; 256] = [
     [0, 0, 0, 0, 0, 0, 0, 0],
     [1, 0, 0, 0, 0, 0, 0, 0],
     [0, 1, 0, 0, 0, 0, 0, 0],
