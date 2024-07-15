@@ -302,9 +302,39 @@ pub fn count_indent_dependent(
     prev_byte_col: &[u32; 64],
     indents: &mut [u32; 64],
 ) {
-    let mut byte_indent = [0; 64];
+    let space_start_edge = whitespace_mask & !(whitespace_mask << 1);
+    let after_indent_bits = newline_mask.wrapping_sub(space_start_edge);
+
+    let (after_indent_bits, not_space) = after_indent_bits.overflowing_shr(2);
+    let swizzle_vec = [0, 0, 0, 1, 2, 3, 4, 7];
+    let array: &[u32; 8] = <&[u32; 8]>::try_from(&prev_byte_col);
+
+
+    // let array = <&[u32; 8]>::try_from(&prev_byte_col[0..8]);
+
+    // indents[0..8].copy_from_slice(&swizzle_u32x8(array, swizzle_vec));
+    // indents[8..16].copy_from_slice(&swizzle_u32x8(&prev_byte_col[8..16].try_from()?
+
 
     indents.copy_from_slice(prev_byte_col);
+}
+
+fn swizzle_u32x8(vec: &[u32; 8], swizzle: [u8; 8]) -> [u32; 8] {
+    debug_assert!(swizzle.iter().all(|x| *x >= 0 && *x < 8));
+    // Safety:
+    // Vector [u8; 8] must have values in 0..=7 which will be true for all table values.
+    unsafe {
+        [
+            *vec.get_unchecked(*swizzle.get_unchecked(0) as usize),
+            *vec.get_unchecked(*swizzle.get_unchecked(1) as usize),
+            *vec.get_unchecked(*swizzle.get_unchecked(2) as usize),
+            *vec.get_unchecked(*swizzle.get_unchecked(3) as usize),
+            *vec.get_unchecked(*swizzle.get_unchecked(4) as usize),
+            *vec.get_unchecked(*swizzle.get_unchecked(5) as usize),
+            *vec.get_unchecked(*swizzle.get_unchecked(6) as usize),
+            *vec.get_unchecked(*swizzle.get_unchecked(7) as usize),
+        ]
+    }
 }
 
 #[test]
