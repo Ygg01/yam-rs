@@ -6,6 +6,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::hint::unreachable_unchecked;
 use core::mem::take;
+
 use hashbrown::HashMap;
 
 use LexerState::PreDocStart;
@@ -15,15 +16,14 @@ use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::*;
 use crate::tokenizer::lexer::PropType::*;
 use crate::tokenizer::lexer::SeqState::*;
-
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
+use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{
     is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
 };
-use crate::tokenizer::ErrorType;
 
 #[derive(Clone, Default)]
 pub struct Lexer {
@@ -1663,13 +1663,8 @@ impl Lexer {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn pop_state(&mut self) -> Option<LexerState> {
         let pop_state = self.stack.pop();
-        if let Some(state) = self.stack.last_mut() {
-            match state {
-                BlockMap(indent, _) | BlockSeq(indent, _) => {
-                    self.last_block_indent = Some(*indent);
-                }
-                _ => {}
-            }
+        if let Some(BlockMap(indent, _) | BlockSeq(indent, _)) = self.stack.last_mut() {
+            self.last_block_indent = Some(*indent);
         };
         pop_state
     }
