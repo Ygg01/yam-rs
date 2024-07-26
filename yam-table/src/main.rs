@@ -20,14 +20,14 @@ fn main() -> std::io::Result<()> {
 fn calculate_indent(mask: u8) -> [u8; 8] {
     let mut result = [0, 1, 2, 3, 4, 5, 6, 7];
     let mut start_pos = None;
-    for pos in 0usize..8 {
+    for (pos, item) in result.iter_mut().enumerate() {
         if mask & (1 << pos) != 0 && start_pos.is_some() {
             start_pos = None;
         }
-        let old_val = result[pos];
-        result[pos] = start_pos.unwrap_or(old_val);
+        let old_val = *item;
+        *item = start_pos.unwrap_or(old_val);
         if mask & (1 << pos) == 0 && start_pos.is_none() {
-            start_pos = Some(result[pos]);
+            start_pos = Some(*item);
         }
     }
     result

@@ -2,7 +2,6 @@ use alloc::borrow::Cow;
 use alloc::fmt::Display;
 use alloc::vec::Vec;
 
-use crate::tokenizer::ErrorType;
 use crate::treebuild::YamlToken::Scalar;
 
 pub enum YamlToken<'a, TAG = ()> {
@@ -62,9 +61,4 @@ impl<'a, TAG: Default> Default for Entry<'a, TAG> {
             value: YamlToken::default(),
         }
     }
-}
-
-pub struct YamlTokenError<'a, T> {
-    _partial: YamlToken<'a, T>,
-    _error: Vec<ErrorType>,
 }
