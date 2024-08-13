@@ -33,12 +33,11 @@ fn print2(input: u8) {
     println!("see   = {:#010b}", see);
 
     let fin = input ^ start_edge ^ end_edge;
-    println!("fin   = {:#010b}", fin);
+    println!("in    = {:#010b}", fin);
 
     let x = see * 2 - end_edge;
     println!("xxx   = {:#010b}", x);
 }
-
 
 fn print1(input: u8) {
     println!("\nin  = {:#010b}", input);
@@ -71,11 +70,70 @@ fn print1(input: u8) {
 }
 
 fn main() {
-    // print2(0b1111);
-    print2(0b1111000);
-    print2(0b0011);
-    print2(0b01111101);
-    // print2(0b1001101);
+    // print3(0b1111);
+    // print3(0b1111000);
+    // print3(0b0011);
+    // print3(0b01111101);
+    print3(0b01101111);
+    // find_odd(0b01110);
+}
+
+fn find_odd(bits: u8) -> u8 {
+    // println!("\nbits    = {:#010b}", bits);
+
+    let start_edge = bits & !(bits << 1);
+    // println!("S       = {:#010b}", start_edge);
+
+    let even_start = start_edge & 0x55;
+    // println!("ES      = {:#010b}", even_start);
+
+    let even_carry = bits + even_start;
+    // println!("EC      = {:#010b}", even_carry);
+
+    let even_carry_only = !bits & even_carry;
+    // println!("ECE     = {:#010b}", even_carry_only);
+
+    let od1 = even_carry_only & 0xAA;
+    // println!("OD1     = {:#010b}", od1);
+
+    let os = start_edge & 0xAA;
+    let oc = bits + os;
+    let oce = oc & !bits;
+    let od2 = oce & 0x55;
+
+    let res = (od1 | od2) >> 1;
+    println!("res   = {:#010b}", res);
+
+    res
+}
+
+fn print3(input: u8) {
+    println!("\nin    = {:#010b}", input);
+
+    let start_edge = input & (input << 1);
+    // println!("se    = {:#010b}", start_edge);
+
+    let end_edge = input & (input >> 1);
+    // println!("ee    = {:#010b}", end_edge);
+
+    let inn = start_edge & end_edge;
+    println!("inn   = {:#010b}", inn);
+
+    let ins = inn & !(inn << 1);
+    println!("ins   = {:#010b}", ins);
+
+    let odd = find_odd(inn) ^ inn;
+    println!("odd   = {:#010b}", odd);
+
+    let mut xxx = (input ^ odd);
+    println!("xxx   = {:#010b}", xxx);
+
+    xxx ^= xxx << 1;
+    xxx ^= xxx << 2;
+    xxx ^= xxx << 4;
+    println!("yyy   = {:#010b}", xxx);
+
+    println!("final = {:#010b}", xxx | ins);
 }
 
 fn calculate_indent(mask: u8) -> [u8; 8] {
