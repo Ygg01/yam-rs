@@ -49,7 +49,7 @@ fn main() {
     // print3(0b1111101);
     // let x = 0b10111;
     // print3(x);
-    print3(0b10111);
+    print3(0b1011);
     // find_even_end(0b11011);
     // print3(0b11101);
     // print3(0b1011010);
@@ -58,39 +58,35 @@ fn main() {
 }
 
 fn find_even_end(bits: u8) -> u8 {
-    println!("input   = {:#010b}", bits);
     let start_edge = bits & !(bits << 1);
-    let end_edge = bits & !(bits << 1);
+    let end_edge = bits & !(bits >> 1);
 
     let even_start = start_edge & 0x55;
+    let odd_start = start_edge & 0xAA;
+
     let even_carry = bits + even_start;
+    let odd_carry = bits + odd_start;
+
     let even_carry_only = !bits & even_carry;
-    let mut odd1 = even_carry_only & 0x55;
+    let odd_carry_only = !bits & odd_carry;
 
-    let odd_starts = start_edge & 0xAA;
-    let odd_carries = bits.overflowing_add(odd_starts).0;
-    let odd_carries_only = odd_carries & !bits;
-    let mut odd2 = odd_carries_only & 0xAA;
+    let odd1 = even_carry_only & 0x55;
+    let odd2 = odd_carry_only & 0xAA;
 
-    let (max, min, part) = if odd1 < odd2 {
-        (odd2, odd1, 0xAA)
+    let end_edge_even = end_edge & 0x55;
+    let end_edge_odd = end_edge & 0xAA;
+
+    let (max, min, part) = if end_edge_even < end_edge_odd {
+        (end_edge_odd, end_edge_even, 0x55)
     } else {
-        (odd1, odd2, 0x55)
+        (end_edge_even, end_edge_odd, 0xAA)
     };
 
-    let edge_sub = max.saturating_sub(bits) + min;
-    println!("es      = {:#010b}", edge_sub);
-    let edge_other = end_edge.saturating_sub(bits) ^ edge_sub;
-    println!("eo      = {:#010b}", edge_other);
+    let edge_sub = (max << 1).saturating_sub(bits) + min;
 
-    odd1 >>= 1;
-    odd2 >>= 1;
+    let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
 
-    println!(
-        "odds    = {:#010b}",
-        odd1 | odd2 | edge_sub & part | edge_other & !part
-    );
-    0
+    odd1 >> 1 | odd2 >> 1 | (edge_sub & part) | (edge_other & !part)
 }
 
 fn find_odd_end(bits: u8) -> u8 {
@@ -108,54 +104,34 @@ fn find_odd_end(bits: u8) -> u8 {
     (odd1 | odd2) >> 1
 }
 
-fn print3(input: u8) {
-    println!("\nin    = {:#010b}", input);
+fn find_odd_start(bits: u8) -> u8 {
+    let end_edge = bits & !(bits >> 1);
+    // println!("eef     = {:#010b}", end_edge);
 
-    // let sa = input & !(input << 1);
-    // let in_wos = input & !sa;
-    let end_edge = input & !(input >> 1);
+    let even_end = end_edge & 0x55;
+    let odd_end = end_edge & 0xAA;
 
-    let end_edge_odd = end_edge & 0xAA;
-    let end_edge_even = end_edge & 0x55;
-
-    let (max, min, part) = if end_edge_even < end_edge_odd {
-        (end_edge_odd, end_edge_even, 0xAA)
+    let (max, min, part) = if even_end < odd_end {
+        (odd_end, even_end, 0xAA)
     } else {
-        (end_edge_even, end_edge_odd, 0x55)
+        (even_end, odd_end, 0x55)
     };
 
-    let edge_sub = (max << 1).saturating_sub(input) + min;
-    let edge_other = (end_edge << 1).saturating_sub(input) ^ edge_sub;
-    let odd_start = edge_sub & part | edge_other & !part;
-    println!("ods   = {:#010b}", odd_start);
+    let edge_sub = (max << 1).saturating_sub(bits) + min;
+    let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
 
-    let odd_end = find_odd_end(input);
-    println!("evs   = {:#010b}", odd_end);
+    let odd1 = edge_sub & part;
+    let odd2 = edge_other & !part;
 
-    // let left_pad = in_wos & (in_wos << 1);
-    // let right_pad = in_wos & (in_wos >> 1);
-    //
-    // let inn = left_pad & right_pad;
-    // println!("inn   = {:#010b}", inn);
-    //
-    // // let ee = input & !(input >>1);
-    // let out = (left_pad | right_pad);
-    // println!("out   = {:#010b}", out);
-    //
-    // let odd = find_odd(inn);
-    // println!("odd   = {:#010b}", odd);
-    //
-    // let xxx = input ^ odd;
-    // println!("xxx   = {:#010b}", xxx);
-    //
-    // let xxx = scale(xxx);
-    //
-    // let yyy = input ^ out;
-    // println!("yyy   = {:#010b}", xxx);
-    // let yyy = scale(yyy);
-    //
-    // let fin = xxx | yyy;
-    // println!("final = {:#010b}", fin);
+    (odd1 | odd2)
+}
+
+fn print3(input: u8) {
+    println!("\nin      = {:#010b}", input);
+
+    println!("fos     = {:#010b}", find_odd_start(input));
+    println!("foe     = {:#010b}", find_odd_end(input));
+    println!("fee     = {:#010b}", find_even_end(input));
 }
 
 fn scale(xxx: u8) -> u8 {
