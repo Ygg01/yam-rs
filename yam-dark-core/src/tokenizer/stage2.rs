@@ -59,7 +59,7 @@ pub struct YamlParserState {
     pub(crate) prev_iter_ends_pseudo_pred: u64,
     pub(crate) prev_iter_ends_odd_backslash: u64,
     pub(crate) prev_iter_inside_quote: u64,
-    pub(crate) prev_iter_odd_backslash: u64,
+    pub(crate) prev_iter_odd_backslash: u32,
     pub(crate) prev_iter_odd_quote: u32,
     pub(crate) last_indent: u32,
 }
