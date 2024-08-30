@@ -377,12 +377,11 @@ pub trait Stage1Scanner {
         prev_iter_state: &mut YamlParserState,
     ) {
         let quotes = self.cmp_ascii_to_input(b'\'');
+        let end_edge = quotes & !(quotes >> 1);
+        let start_edge = quotes & !(quotes << 1);
 
         let even_ends =
             Self::scan_for_mask(quotes, &mut prev_iter_state.prev_iter_odd_quote, EVEN_BITS);
-
-        let grouped_quotes = (quotes & (quotes >> 1)) | (quotes & (quotes << 1));
-        let end_edge = grouped_quotes & !(grouped_quotes >> 1);
 
         let end_edge_even = end_edge & EVEN_BITS;
         let end_edge_odd = end_edge & ODD_BITS;
@@ -393,14 +392,16 @@ pub trait Stage1Scanner {
             (end_edge_even, end_edge_odd, ODD_BITS)
         };
 
-        let edge_sub = (max << 1).saturating_sub(grouped_quotes);
-        let edge_other = (min << 1).saturating_sub(grouped_quotes);
+        let edge_diff = max - min;
 
-        let even_starts = (edge_sub & part) | (edge_other & !part);
-        let even_limits = even_starts | even_ends;
+        let edge_carry = edge_diff & start_edge;
+        let max_edge_masked = edge_carry & part;
 
+        let other_edge = start_edge ^ edge_carry;
+        let min_edge_masked = other_edge & !part;
+
+        let even_limits = even_ends | max_edge_masked | min_edge_masked;
         let even_mask = Self::compute_quote_mask(even_limits);
-
         chunk_state.single_quote.odd_quotes = quotes & !even_mask;
         chunk_state.single_quote.escaped_quotes = even_mask;
     }
@@ -489,12 +490,12 @@ fn test_single_quotes1() {
     let mut block_state = YamlChunkState::default();
     let mut prev_iter_state = YamlParserState::default();
 
-    let chunk = b" ' ''  '                                                        ";
+    let chunk = b" ' ''  '''                                                      ";
     let scanner = NativeScanner::from_chunk(chunk);
     scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
-    let expected = 0b000000000000000000000000000000000000000000000000000010000010;
+    let expected = 0b000000000000000000000000000000000000000000000000001110000010;
     assert_eq!(
-        block_state.single_quote.odd_quotes, expected,
+        expected, block_state.single_quote.odd_quotes,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
         expected, block_state.single_quote.odd_quotes
     );
@@ -505,12 +506,12 @@ fn test_single_quotes2() {
     let mut block_state = YamlChunkState::default();
     let mut prev_iter_state = YamlParserState::default();
 
-    let chunk = b" ' ''  '                                                        ";
+    let chunk = b" ' ''  '' '                                                     ";
     let scanner = NativeScanner::from_chunk(chunk);
     scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
-    let expected = 0b0000000000000000000000000000000000000000000000000000010000010;
+    let expected = 0b0000000000000000000000000000000000000000000000000010000000010;
     assert_eq!(
-        block_state.single_quote.odd_quotes, expected,
+        expected, block_state.single_quote.odd_quotes,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
         expected, block_state.single_quote.odd_quotes
     );
