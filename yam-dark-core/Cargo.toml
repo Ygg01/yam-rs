@@ -41,3 +41,7 @@ harness = false
 [[bench]]
 name = "count_cols"
 harness = false
+
+[[bench]]
+name = "count_quotes"
+harness = false
