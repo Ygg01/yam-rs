@@ -8,7 +8,7 @@ pub fn select_consecutive_bits(input: u64, selector: u64) -> u64 {
     let mut selector = selector;
     loop {
         if selector == 0 || pos > 63 {
-            break
+            break;
         }
         result |= input & selector;
         selector = input & selector >> 1;
@@ -16,22 +16,6 @@ pub fn select_consecutive_bits(input: u64, selector: u64) -> u64 {
     }
     result
 }
-
-// #[doc(hidden)]
-// pub fn select_consecutive_bits_branchless(bits: u64, mask: u64) -> u64 {
-//     let mut pos = 0;
-//     let mut result = 0u64;
-//     let mut mask = mask;
-//     loop {
-//         if mask == 0 || pos > 63 {
-//             break
-//         }
-//         result |= bits & mask;
-//         mask = bits & mask >> 1;
-//         pos += 1;
-//     }
-//     result
-// }
 
 fn find_bits(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-quotes");
@@ -47,8 +31,5 @@ fn find_bits(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    find_bits,
-);
+criterion_group!(benches, find_bits,);
 criterion_main!(benches);
