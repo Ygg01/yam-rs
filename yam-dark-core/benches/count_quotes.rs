@@ -45,5 +45,5 @@ fn find_bits_branchless(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, find_bits,find_bits_branchless,);
+criterion_group!(benches, find_bits, find_bits_branchless,);
 criterion_main!(benches);
