@@ -389,7 +389,6 @@ pub unsafe trait Stage1Scanner {
         chunk_state.single_quote.escaped_quotes = even_mask;
     }
 
-
     /// Calculates a mask from the provided quote bits and an even boundary value.
     /// Given a set of bitmask and highest bits in consecutive group of `1` it will select all neighboring ones to the right (using big endian number notation)
     ///
@@ -420,7 +419,6 @@ pub unsafe trait Stage1Scanner {
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
         util::select_consecutive_bits_branchless(quote_bits, even_ends)
     }
-
 
     /// Scans the whitespace and structurals in the given YAML chunk state.
     ///
