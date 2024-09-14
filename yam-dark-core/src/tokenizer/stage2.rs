@@ -23,7 +23,7 @@
 // SOFTWARE.
 
 use alloc::boxed::Box;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
@@ -32,6 +32,7 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 use crate::error::Error;
 use crate::impls::NativeScanner;
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlChunkState};
+use crate::tokenizer::visitor::{EventStringVisitor, YamlVisitor};
 use crate::util::{ChunkyIterator, NoopValidator};
 
 pub type ParseResult<T> = Result<T, Error>;
@@ -81,38 +82,6 @@ impl YamlParserState {
     }
 }
 
-trait YamlVisitor<'de> {
-    fn visit_error(&mut self, error: Error);
-}
-
-pub struct EventStringVisitor {
-    buffer: String,
-}
-
-impl<'vis> YamlVisitor<'vis> for EventStringVisitor {
-    fn visit_error(&mut self, error: Error) {
-        self.buffer.push_str("\nERR ");
-        self.buffer.push('(');
-        self.buffer.push_str(&error.to_string());
-        self.buffer.push(')');
-    }
-}
-
-impl EventStringVisitor {
-    pub fn new_with_hint(hint: Option<usize>) -> Self {
-        EventStringVisitor {
-            buffer: match hint {
-                Some(cap) => String::with_capacity(cap),
-                None => String::new(),
-            },
-        }
-    }
-
-    pub fn buffer(self) -> String {
-        self.buffer
-    }
-}
-
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
     if pre_checked {
@@ -151,7 +120,7 @@ impl<'de> Parser<'de> {
 
     fn run_to_end<B: Buffer, V: YamlVisitor<'de>>(
         input: &'de [u8],
-        event_visitor: &mut EventStringVisitor,
+        event_visitor: &mut V,
         buffer: &mut B,
         validator: &mut Box<dyn ChunkedUtf8Validator>,
     ) -> Result<(), ()> {
