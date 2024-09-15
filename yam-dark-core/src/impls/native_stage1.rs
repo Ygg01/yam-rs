@@ -43,18 +43,20 @@ unsafe impl Stage1Scanner for NativeScanner {
         let spaces = u8x64_lteq(self.v0, b' ');
         let line_feeds = u8x64_lteq(self.v0, b'\n');
 
-
         for pos in 0..64 {
             let is_newline = line_feeds & (1 << pos) != 0;
             let is_space = spaces & (1 << pos) != 0;
 
-            if is_space && !*prev_state.is_indent_frozen {
+            if is_space && !prev_state.is_indent_frozen {
                 curr_indent += 1;
-            } else if !is_space && *prev_state.is_indent_frozen {
-                *prev_state.is_indent_frozen = true;
+            } else if !is_space && prev_state.is_indent_frozen {
+                prev_state.is_indent_frozen = true;
             }
 
             if is_newline {
+                // Safety since pos is guaranteed to be between 0..=63
+                // and we initialized cols/rows/indents up to be exactly 64 elements, we can
+                // safely access it without bound checks.
                 unsafe {
                     *chunk_state.cols.get_unchecked_mut(pos) = curr_col + 1;
                     *chunk_state.rows.get_unchecked_mut(pos) = curr_row;
@@ -67,6 +69,9 @@ unsafe impl Stage1Scanner for NativeScanner {
             }
 
             curr_col += 1;
+            // Safety since pos is guaranteed to be between 0..=63
+            // and we initialized cols/rows/indents to be exactly 64 elements, we can
+            // safely access it without bound checks.
             unsafe {
                 *chunk_state.cols.get_unchecked_mut(pos) = curr_col;
                 *chunk_state.rows.get_unchecked_mut(pos) = curr_row;
