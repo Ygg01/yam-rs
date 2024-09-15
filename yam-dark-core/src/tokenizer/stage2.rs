@@ -63,6 +63,9 @@ pub struct YamlParserState {
     pub(crate) prev_iter_odd_backslash: u32,
     pub(crate) prev_iter_odd_quote: u32,
     pub(crate) last_indent: u32,
+    pub(crate) last_col: u32,
+    pub(crate) last_row: u32,
+    pub(crate) is_indent_frozen: bool,
 }
 
 impl YamlParserState {

@@ -70,7 +70,7 @@ pub struct YamlCharacterChunk {
     /// SPACE (`0x20`) bitmask
     pub spaces: u64,
     /// LINE_FEED (`0x0A`) bitmask
-    pub line_feed: u64,
+    pub line_feeds: u64,
     /// Operators used in YAML
     pub structurals: u64,
 }
