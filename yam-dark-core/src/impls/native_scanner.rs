@@ -16,7 +16,7 @@ unsafe impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
 
-    fn validator() -> Self::Validator {
+    unsafe fn validator() -> Self::Validator {
         NoopValidator {}
     }
 
@@ -54,7 +54,8 @@ unsafe impl Stage1Scanner for NativeScanner {
             }
 
             if is_newline {
-                // Safety since pos is guaranteed to be between `0..=63`,
+                // # Safety
+                // Since pos is guaranteed to be between `0..=63`,
                 // and we initialized cols/rows/indents up to be exactly 64 elements, we can
                 // safely access it without bound checks.
                 unsafe {
@@ -69,7 +70,8 @@ unsafe impl Stage1Scanner for NativeScanner {
             }
 
             curr_col += 1;
-            // Safety since pos is guaranteed to be between `0..=63`,
+            // # Safety
+            // Since pos is guaranteed to be between `0..=63`,
             // and we initialized cols/rows/indents to be exactly 64 elements, we can
             // safely access it without bound checks.
             unsafe {
