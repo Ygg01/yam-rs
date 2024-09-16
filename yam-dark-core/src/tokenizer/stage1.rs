@@ -28,7 +28,7 @@ use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
-use crate::{util, NativeScanner, ParseResult, EVEN_BITS, ODD_BITS};
+use crate::{util, NativeScanner, ParseResult, EVEN_BITS, ODD_BITS, SIMD_CHUNK_LENGTH};
 
 /// Represents the state of YAML chunk processing.
 ///
@@ -197,10 +197,12 @@ pub struct YamlCharacterChunk {
 }
 
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
-    chunk: &'buffer [u8; 64],
+    chunk: &'buffer [u8; SIMD_CHUNK_LENGTH],
     buffers: &'input mut B,
     state: &'input mut YamlParserState,
 ) -> ParseResult<YamlChunkState>;
+
+const SIMD_CHUNK_SIZE: usize = 64;
 
 /// A trait representing a stage 1 scanner for parsing `YAML` input.
 ///
@@ -212,7 +214,7 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
 /// This trait MUST ALWAYS return valid positions in given stream in bytes. They will be used for unchecked
 /// access to the underlying bytes.
 pub unsafe trait Stage1Scanner {
-    /// Type [`Stage1Scanner`] uses to perform it's SIMD-ifed actions.
+    /// Type [`Stage1Scanner`] uses to perform SIMD accelerated actions.
     type SimdType;
 
     /// [`ChunkedUtf8Validator`] that matches the [`Stage1Scanner`] architecture.
@@ -230,22 +232,22 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `values` - A slice of 64 `u8` values that represents a chunk of data.
+    /// * `data_chunk` - A reference to an array of 64 `u8` values that represents a chunk of data.
     ///
     /// # Example
     ///
     /// ```
-    /// use yam_dark_core::Stage1Scanner;
+    /// use yam_dark_core::{Stage1Scanner, SIMD_CHUNK_LENGTH};
     /// use yam_dark_core::NativeScanner;
     ///
-    /// let values: [u8; 64] = [0; 64];
-    /// let result = NativeScanner::from_chunk(&values);
+    /// let data_chunk: [u8; SIMD_CHUNK_LENGTH] = [0; SIMD_CHUNK_LENGTH];
+    /// let result = NativeScanner::from_chunk(&data_chunk);
     /// ```
     ///
     /// # Returns
     ///
     /// A new instance of [`Stage1Scanner`] constructed from the given `values`.
-    fn from_chunk(values: &[u8; 64]) -> Self;
+    fn from_chunk(data_chunk: &[u8; SIMD_CHUNK_LENGTH]) -> Self;
 
     /// Compares the ASCII value of the given input with the internal value
     /// of the struct and returns a 64-bit bitmask.
@@ -261,10 +263,10 @@ pub unsafe trait Stage1Scanner {
     /// # Example
     ///
     /// ```
-    /// use yam_dark_core::Stage1Scanner;
+    /// use yam_dark_core::{Stage1Scanner, SIMD_CHUNK_LENGTH};
     /// use yam_dark_core::NativeScanner;
     ///
-    /// let values: [u8; 64] = [0; 64];
+    /// let values: [u8; SIMD_CHUNK_LENGTH] = [0; SIMD_CHUNK_LENGTH];
     /// let result = NativeScanner::from_chunk(&values);
     /// let bitmask = result.cmp_ascii_to_input(1);
     /// assert_eq!(bitmask, 0);

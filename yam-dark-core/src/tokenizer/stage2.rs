@@ -34,6 +34,7 @@ use crate::impls::{AvxScanner, NativeScanner};
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlChunkState};
 use crate::tokenizer::visitor::{EventStringVisitor, YamlVisitor};
 use crate::util::{ChunkyIterator, NoopValidator};
+use crate::SIMD_CHUNK_LENGTH;
 
 pub type ParseResult<T> = Result<T, Error>;
 
@@ -71,7 +72,7 @@ pub struct YamlParserState {
 impl YamlParserState {
     pub(crate) fn merge_state<T: Buffer>(
         &mut self,
-        chunk: &[u8; 64],
+        chunk: &[u8; SIMD_CHUNK_LENGTH],
         buffers: &mut T,
         block_state: &mut YamlChunkState,
     ) -> ParseResult<YamlChunkState> {
