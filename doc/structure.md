@@ -70,85 +70,79 @@ We have to classify following character values: `[` (0x5B), `]` (0x5D), `{` (0x7
 for flow scalar; `'` (0x27), `"` (0x22), `>` (0x3E), `|` (0x7C) for strings; ` ` (0x20), `\t` (0x09), `\n` (0x0A) `\r` (
 0x0D) for whitespace; `&` (0x26), `*` (0x2A) , `%` (0x25), `?` (0x3F), `!` (0x21), `-` (0x2D), `#` (0x23), `.` (0x2E)
 
-| Code points | Character | Classification |
-|-------------|-----------|----------------|
-| `0x09`      | `\t`      | WS             |
-| `0x0A`      | `\n`      | WS             |
-| `0x0D`      | `\r`      | WS             |
-| `0x20`      | ` `       | WS             |
-| `0x21`      | `!`       | TAG            |
-| `0x22`      | `>`       | STRING         |
-| `0x22`      | `"`       | STRING         |
-| `0x23`      | `#`       | COMMENT        |
-| `0x25`      | `%`       | TAG            |
-| `0x26`      | `&`       | ALIAS          |
-| `0x27`      | `'`       | STRING         |
-| `0x2A`      | `*`       | ALIAS          |
-| `0x2C`      | `,`       | SEQ            |
-| `0x2D`      | `-`       | SEQ/START      |
-| `0x2E`      | `.`       | END            |
-| `0x3A`      | `:`       | MAP            |
-| `0x3F`      | `?`       | MAP            |
-| `0x5B`      | `[`       | SEQ            |
-| `0x5D`      | `]`       | SEQ            |
-| `0x7B`      | `{`       | MAP            |
-| `0x7C`      | `\|`      | STRING         |
-| `0x7D`      | `}`       | MAP            |
+| Code points | Character | Classification    |
+|-------------|-----------|-------------------|
+| `0x09`      | `\t`      | WS                |
+| `0x0A`      | `\n`      | WS                |
+| `0x0D`      | `\r`      | WS                |
+| `0x20`      | ` `       | WS                |
+| `0x21`      | `!`       | TAG               |
+| `0x22`      | `>`       | STRING            |
+| `0x22`      | `"`       | STRING            |
+| `0x23`      | `#`       | COMMENT           |
+| `0x25`      | `%`       | TAG               |
+| `0x26`      | `&`       | ALIAS             |
+| `0x27`      | `'`       | STRING            |
+| `0x2A`      | `*`       | ALIAS             |
+| `0x2C`      | `,`       | SEQ               |
+| `0x2D`      | `-`       | SEQ/START (BLOCK) |
+| `0x2E`      | `.`       | END (BLOCK)       |
+| `0x3A`      | `:`       | MAP (BLOCK)       |
+| `0x3F`      | `?`       | MAP (BLOCK)       |
+| `0x5B`      | `[`       | SEQ               |
+| `0x5D`      | `]`       | SEQ               |
+| `0x7B`      | `{`       | MAP               |
+| `0x7C`      | `\|`      | STRING            |
+| `0x7D`      | `}`       | MAP               |
 
 Because of string/comment shadowing, we only look for non-string and non-comment elements.
 
 First stage we get rid of comments, then get rid of single and double-quoted strings.
 
-## Flow classificator
+## Classificator
 
-We need two classifications unlike JSONs. First we do the flow classificator.
+We need to classify stuff into:
+
+- Flow: `[` (0x5B), `]` (0x5D),`{` (0x7B), `}` (0x7D), `,` (0x2C), `:` (0x3A)
+- Block: `?` (0x3F), `:` (0x3A), `-` (0x2D)
+- Whitespace: ` ` (0x20), `\t` (0x09), `\n` (0x0A), `\r` (0x0D)
 
 | Code points                    | Characters         | Desired values |
 |--------------------------------|--------------------|----------------|
-| `0x2C`                         | `,`                | 1              |
-| `0x3A`                         | `:`                | 2              |
-| `0x5B`, `0x5D`, `0x7B`, `0x7D` | `[`, `]`, `{`, `}` | 4              |
-| `0x09`, `0x0A`, `0x0D`         | `\t`, `\n`, `\r`   | 8              |
-| `0x20`                         | ` `                | 16             |
+| `0x3F`                         | `?`                | 1              |
+| `0x2D`                         | `-`                | 2              |
+| `0x2C`                         | `,`                | 4              |
+| `0x3A`                         | `:`                | 8              |
+| `0x5B`, `0x5D`, `0x7B`, `0x7D` | `[`, `]`, `{`, `}` | 16             |
+| `0x09`, `0x0A`, `0x0D`         | `\t`, `\n`, `\r`   | 32             |
+| `0x20`                         | ` `                | 64             |
+| Anything else                  |                    | 0              |
 
 Which produces the below low/high nibble table.
 
-|            | 0  | 1 | ... | 8 | 9 | A  | B | C | D  | E | F | high nibble |
-|------------|----|---|-----|---|---|----|---|---|----|---|---|-------------|
-| 0          |    |   |     |   | 8 | 8  |   |   | 8  |   |   | 8           |
-| 1          |    |   |     |   |   |    |   |   |    |   |   | 0           |
-| 2          | 16 |   |     |   |   |    |   | 1 |    |   |   | 17          |
-| 3          |    |   |     |   |   | 2  |   |   |    |   |   | 2           |
-| 4          |    |   |     |   |   |    |   |   |    |   |   | 0           |
-| 5          |    |   |     |   |   |    | 4 |   | 4  |   |   | 4           |
-| 6          |    |   |     |   |   |    |   |   |    |   |   | 0           |
-| 7          |    |   |     |   |   |    | 4 |   | 4  |   |   | 4           |
-| ...        |    |   |     |   |   |    |   |   |    |   |   | 0           |
-| low nibble | 16 |   | ... |   | 8 | 10 | 4 | 1 | 12 |   |   | x           |
+|            | 0  | 1 | ... | 8 | 9  | A  | B  | C | D  | E | F | high nibble |
+|------------|----|---|-----|---|----|----|----|---|----|---|---|-------------|
+| 0          |    |   |     |   | 32 | 32 |    |   | 32 |   |   | 32          |
+| 1          |    |   |     |   |    |    |    |   |    |   |   | 0           |
+| 2          | 64 |   |     |   |    |    |    | 4 | 2  |   |   | 70          |
+| 3          |    |   |     |   |    | 8  |    |   |    |   | 1 | 9           |
+| 4          |    |   |     |   |    |    |    |   |    |   |   | 0           |
+| 5          |    |   |     |   |    |    | 16 |   | 16 |   |   | 16          |
+| 6          |    |   |     |   |    |    |    |   |    |   |   | 0           |
+| 7          |    |   |     |   |    |    | 16 |   | 16 |   |   | 16          |
+| ...        |    |   |     |   |    |    |    |   |    |   |   | 0           |
+| low nibble | 64 |   | ... |   | 32 | 40 | 16 | 4 | 50 |   | 1 | x           |
 
 From which we can derive the following values
 
 ```rust
-const LOW_NIBBLE: [u8; 16] = [16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 10, 4, 1, 12, 0, 0];
-const HIGH_NIBBLE: [u8; 16] = [8, 0, 17, 2, 0, 4, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0];
+const LOW_NIBBLE: [u8; 16] = [64, 0, 0, 0, 0, 0, 0, 0, 0, 32, 40, 16, 4, 50, 0, 1];
+const HIGH_NIBBLE: [u8; 16] = [32, 0, 70, 9, 0, 16, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0];
 ```
 
-## Block classificator
+This way we can extract simultaneously:
 
-YAML block classificators is a bit different. We can reuse `:`, `,` and ` ` from Flow classificator.
-That leaves `>` (0x3E), `|` (0x7C), `?` (0x3F), `!` (0x21), `%` (0x25), `&` (0x26), `*` (0x2A) ,`-` (0x2D), `.` (0x2E)
-
-| Code points                                    | Characters                    | Desired values |
-|------------------------------------------------|-------------------------------|----------------|
-| `0x3A`, `0x3E`, `0x3F`                         | `:`, `>`,  `?`                | 1              |
-| `0x21`, `0x25`, `0x26`, `0x2A`, `0x2D`, `0x2E` | `!`,  `%`, `&`, `*`, `-`, `.` | 2              |
-| `0x7C`                                         | `\| `                         | 4              |
-| `0x20`                                         | ` `                           | 16             |
-
-First we find all comments, single and double quotes that might shadow the structurals, then any block strings
-candidates
-that mig
-
-Sadly, because of YAML unquoted nature, we need to store not just index of element but also its indent, so we can skip
-over
-any indents lesser than a value.
+- Block structurals with `0b1011`
+- Flow structurals with `0b1_1000`
+- Spaces with `0b0100_0000`
+- Whitespaces with `0b0110_0000`
