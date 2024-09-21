@@ -382,7 +382,7 @@ pub unsafe trait Stage1Scanner {
         let mut simd = Self::from_chunk(chunk);
         let double_quotes = simd.cmp_ascii_to_input(b'"');
 
-        simd.scan_whitespace_and_structurals(&mut chunk_state);
+        simd.classify(&mut chunk_state);
 
         // Pre-requisite
         // LINE FEED needs to be gathered before calling `calculate_indents`
@@ -547,14 +547,14 @@ pub unsafe trait Stage1Scanner {
     ///  let mut prev_iter_state = YamlParserState::default();
     ///  let chunk = b" -                                                              ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  scanner.scan_whitespace_and_structurals(&mut block_state);
+    ///  scanner.classify(&mut block_state);
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     ///  assert_eq!(
     ///     block_state.characters.structurals,
     ///     expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.odd_quotes
     ///  );
     /// ```
-    fn scan_whitespace_and_structurals(&self, chunk_state: &mut YamlChunkState);
+    fn classify(&self, chunk_state: &mut YamlChunkState);
 
     /// Scans the input for double quote bitmask.
     ///
@@ -645,7 +645,7 @@ fn test_structurals() {
     let mut prev_iter_state = YamlParserState::default();
     let chunk = b" -                                                              ";
     let scanner = NativeScanner::from_chunk(chunk);
-    scanner.scan_whitespace_and_structurals(&mut block_state);
+    scanner.classify(&mut block_state);
     let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     assert_eq!(
         block_state.characters.structurals, expected,

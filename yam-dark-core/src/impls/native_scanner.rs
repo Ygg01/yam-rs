@@ -102,7 +102,7 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState) {
+    fn classify(&self, block_state: &mut YamlChunkState) {
         let low_nib_and_mask = U8X16::splat(0xF);
         let high_nib_and_mask = U8X16::splat(0x7F);
 
