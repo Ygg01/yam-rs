@@ -183,7 +183,7 @@ pub struct YamlSingleQuoteChunk {
 /// assert_eq!(y.whitespace, 0);
 /// assert_eq!(y.spaces, 0);
 /// assert_eq!(y.line_feeds, 0);
-/// assert_eq!(y.structurals, 0);
+/// assert_eq!(y.block_structurals, 0);
 /// ```
 pub struct YamlCharacterChunk {
     /// Whitespace bitmask SPACE  (`0x20`) , TABS (`0x09`), LINE_FEED (`0x0A`) or CARRIAGE_RETURN (`0x0D`)
@@ -192,8 +192,10 @@ pub struct YamlCharacterChunk {
     pub spaces: u64,
     /// LINE_FEED (`0x0A`) bitmask
     pub line_feeds: u64,
-    /// Operators used in YAML
-    pub structurals: u64,
+    /// Block operators used in YAML
+    pub block_structurals: u64,
+    /// Flow operators used in YAML
+    pub flow_structurals: u64,
 }
 
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
@@ -382,7 +384,7 @@ pub unsafe trait Stage1Scanner {
         let mut simd = Self::from_chunk(chunk);
         let double_quotes = simd.cmp_ascii_to_input(b'"');
 
-        simd.classify(&mut chunk_state);
+        simd.classify_yaml_characters(&mut chunk_state);
 
         // Pre-requisite
         // LINE FEED needs to be gathered before calling `calculate_indents`
@@ -529,6 +531,7 @@ pub unsafe trait Stage1Scanner {
     }
 
     /// Scans the whitespace and structurals in the given YAML chunk state.
+    /// This method sets [`YamlCharacterChunk`] part of [`YamlChunkState`].
     ///
     /// # Arguments
     ///
@@ -547,14 +550,14 @@ pub unsafe trait Stage1Scanner {
     ///  let mut prev_iter_state = YamlParserState::default();
     ///  let chunk = b" -                                                              ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  scanner.classify(&mut block_state);
+    ///  scanner.classify_yaml_characters(&mut block_state);
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     ///  assert_eq!(
-    ///     block_state.characters.structurals,
+    ///     block_state.characters.block_structurals,
     ///     expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.odd_quotes
     ///  );
     /// ```
-    fn classify(&self, chunk_state: &mut YamlChunkState);
+    fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
 
     /// Scans the input for double quote bitmask.
     ///
@@ -645,10 +648,10 @@ fn test_structurals() {
     let mut prev_iter_state = YamlParserState::default();
     let chunk = b" -                                                              ";
     let scanner = NativeScanner::from_chunk(chunk);
-    scanner.classify(&mut block_state);
+    scanner.classify_yaml_characters(&mut block_state);
     let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     assert_eq!(
-        block_state.characters.structurals, expected,
+        block_state.characters.block_structurals, expected,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
         expected, block_state.single_quote.escaped_quotes
     );

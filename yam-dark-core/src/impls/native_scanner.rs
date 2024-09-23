@@ -7,7 +7,7 @@ use crate::{util, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE, SIMD_CHUNK_LENGTH};
 
 #[doc(hidden)]
 pub struct NativeScanner {
-    v0: [u8; SIMD_CHUNK_LENGTH],
+    inner_chunk: [u8; SIMD_CHUNK_LENGTH],
 }
 
 impl NativeScanner {}
@@ -22,12 +22,14 @@ unsafe impl Stage1Scanner for NativeScanner {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from_chunk(values: &[u8; SIMD_CHUNK_LENGTH]) -> Self {
-        NativeScanner { v0: *values }
+        NativeScanner {
+            inner_chunk: *values,
+        }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn cmp_ascii_to_input(&self, cmp: u8) -> u64 {
-        u8x64_eq(&self.v0, cmp)
+        u8x64_eq(&self.inner_chunk, cmp)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -40,12 +42,9 @@ unsafe impl Stage1Scanner for NativeScanner {
         let mut curr_col = prev_state.last_col;
         let mut curr_indent = prev_state.last_indent;
 
-        let spaces = u8x64_lteq(self.v0, b' ');
-        let line_feeds = u8x64_lteq(self.v0, b'\n');
-
         for pos in 0..64 {
-            let is_newline = line_feeds & (1 << pos) != 0;
-            let is_space = spaces & (1 << pos) != 0;
+            let is_newline = chunk_state.characters.line_feeds & (1 << pos) != 0;
+            let is_space = chunk_state.characters.spaces & (1 << pos) != 0;
 
             if is_space && !prev_state.is_indent_frozen {
                 curr_indent += 1;
@@ -80,8 +79,6 @@ unsafe impl Stage1Scanner for NativeScanner {
                 *chunk_state.indents.get_unchecked_mut(pos) = curr_indent;
             }
         }
-        chunk_state.characters.line_feeds = line_feeds;
-        chunk_state.characters.spaces = spaces;
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -98,19 +95,24 @@ unsafe impl Stage1Scanner for NativeScanner {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64 {
-        u8x64_lteq(self.v0, cmp as u8)
+        u8x64_lteq(self.inner_chunk, cmp as u8)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn classify(&self, block_state: &mut YamlChunkState) {
+    fn classify_yaml_characters(&self, block_state: &mut YamlChunkState) {
+        // Setup swizzle table
+        //
+        // Step 1: Setup swizzle mask
         let low_nib_and_mask = U8X16::splat(0xF);
         let high_nib_and_mask = U8X16::splat(0x7F);
 
-        let v0 = unsafe { U8X16::from_slice(&self.v0[0..16]) };
-        let v1 = unsafe { U8X16::from_slice(&self.v0[16..32]) };
-        let v2 = unsafe { U8X16::from_slice(&self.v0[32..48]) };
-        let v3 = unsafe { U8X16::from_slice(&self.v0[48..64]) };
+        // Step 2: Fill U8X16 SIMD-like vectors with content from chunk
+        let v0 = unsafe { U8X16::from_slice(&self.inner_chunk[0..16]) };
+        let v1 = unsafe { U8X16::from_slice(&self.inner_chunk[16..32]) };
+        let v2 = unsafe { U8X16::from_slice(&self.inner_chunk[32..48]) };
+        let v3 = unsafe { U8X16::from_slice(&self.inner_chunk[48..64]) };
 
+        // Step 3: Do the lookup via swizzle
         let v_v0 = u8x16_swizzle(LOW_NIBBLE, v0 & low_nib_and_mask)
             & u8x16_swizzle(HIGH_NIBBLE, (v0 >> 4) & high_nib_and_mask);
         let v_v1 = u8x16_swizzle(LOW_NIBBLE, v1 & low_nib_and_mask)
@@ -120,32 +122,70 @@ unsafe impl Stage1Scanner for NativeScanner {
         let v_v3 = u8x16_swizzle(LOW_NIBBLE, v3 & low_nib_and_mask)
             & u8x16_swizzle(HIGH_NIBBLE, (v3 >> 4) & high_nib_and_mask);
 
-        let tmp_v0 = (v_v0 & 0x7).comp_all(0);
-        let tmp_v1 = (v_v1 & 0x7).comp_all(0);
-        let tmp_v2 = (v_v2 & 0x7).comp_all(0);
-        let tmp_v3 = (v_v3 & 0x7).comp_all(0);
+        // Extract spaces using simple mask and compare.
+        let tmp_sp0 = (v_v0 & 0x40).comp_all(0);
+        let tmp_sp1 = (v_v1 & 0x40).comp_all(0);
+        let tmp_sp2 = (v_v2 & 0x40).comp_all(0);
+        let tmp_sp3 = (v_v3 & 0x40).comp_all(0);
 
-        let structural_res_0 = tmp_v0.to_bitmask() as u64;
-        let structural_res_1 = tmp_v1.to_bitmask() as u64;
-        let structural_res_2 = tmp_v2.to_bitmask() as u64;
-        let structural_res_3 = tmp_v3.to_bitmask() as u64;
+        // Convert the SIMD-like type to bitmask
+        let spaces_0 = tmp_sp0.to_bitmask64();
+        let spaces_1 = tmp_sp1.to_bitmask64();
+        let spaces_2 = tmp_sp2.to_bitmask64();
+        let spaces_3 = tmp_sp3.to_bitmask64();
 
-        block_state.characters.structurals = !(structural_res_0
-            | (structural_res_1 << 16)
-            | (structural_res_2 << 32)
-            | (structural_res_3 << 48));
+        block_state.characters.spaces =
+            !(spaces_0 | (spaces_1 << 16) | (spaces_2 << 32) | (spaces_3 << 48));
 
-        let tmp_ws0 = (v_v0 & 0x18).comp_all(0);
-        let tmp_ws1 = (v_v1 & 0x18).comp_all(0);
-        let tmp_ws2 = (v_v2 & 0x18).comp_all(0);
-        let tmp_ws3 = (v_v3 & 0x18).comp_all(0);
+        // Extract whitespaces using simple mask and compare.
+        let tmp_ws0 = (v_v0 & 0x60).comp_all(0);
+        let tmp_ws1 = (v_v1 & 0x60).comp_all(0);
+        let tmp_ws2 = (v_v2 & 0x60).comp_all(0);
+        let tmp_ws3 = (v_v3 & 0x60).comp_all(0);
 
-        let ws_res_0 = tmp_ws0.to_bitmask() as u64;
-        let ws_res_1 = tmp_ws1.to_bitmask() as u64;
-        let ws_res_2 = tmp_ws2.to_bitmask() as u64;
-        let ws_res_3 = tmp_ws3.to_bitmask() as u64;
+        let ws_res_0 = tmp_ws0.to_bitmask64();
+        let ws_res_1 = tmp_ws1.to_bitmask64();
+        let ws_res_2 = tmp_ws2.to_bitmask64();
+        let ws_res_3 = tmp_ws3.to_bitmask64();
 
         block_state.characters.whitespace =
-            !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48))
+            !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48));
+
+        // Extract block structurals
+        let tmp_bl0 = (v_v0 & 0xB).comp_all(0);
+        let tmp_bl1 = (v_v1 & 0xB).comp_all(0);
+        let tmp_bl2 = (v_v2 & 0xB).comp_all(0);
+        let tmp_bl3 = (v_v3 & 0xB).comp_all(0);
+
+        let block_structural_res_0 = tmp_bl0.to_bitmask64();
+        let block_structural_res_1 = tmp_bl1.to_bitmask64();
+        let block_structural_res_2 = tmp_bl2.to_bitmask64();
+        let block_structural_res_3 = tmp_bl3.to_bitmask64();
+
+        let block_structurals_candidates = !(block_structural_res_0
+            | (block_structural_res_1 << 16)
+            | (block_structural_res_2 << 32)
+            | (block_structural_res_3 << 48));
+
+        // YAML block structurals like `? `, `- ` and `:` are only valid if followed by a WHITESPACE
+        // character or end of line
+        block_state.characters.block_structurals =
+            block_structurals_candidates & (block_state.characters.whitespace << 1);
+
+        // Extract block structurals
+        let tmp_fl0 = (v_v0 & 0x18).comp_all(0);
+        let tmp_fl1 = (v_v1 & 0x18).comp_all(0);
+        let tmp_fl2 = (v_v2 & 0x18).comp_all(0);
+        let tmp_fl3 = (v_v3 & 0x18).comp_all(0);
+
+        let flow_structural_res_0 = tmp_fl0.to_bitmask64();
+        let flow_structural_res_1 = tmp_fl1.to_bitmask64();
+        let flow_structural_res_2 = tmp_fl2.to_bitmask64();
+        let flow_structural_res_3 = tmp_fl3.to_bitmask64();
+
+        block_state.characters.flow_structurals = !(flow_structural_res_0
+            | (flow_structural_res_1 << 16)
+            | (flow_structural_res_2 << 32)
+            | (flow_structural_res_3 << 48));
     }
 }
