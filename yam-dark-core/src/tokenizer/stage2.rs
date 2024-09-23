@@ -91,7 +91,7 @@ impl YamlParserState {
 /// # Arguments
 ///
 /// * `pre_checked`: `true` when working with [core::str] thus not requiring any validation, `false`
-/// otherwise. **Note:** if your [core::str] isn't UTF-8 formatted this will cause Undefined behavior.
+///   otherwise. **Note:** if your [core::str] isn't UTF-8 formatted this will cause Undefined behavior.
 ///
 /// returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
 /// is guaranteed to be correct for your CPU architecture.

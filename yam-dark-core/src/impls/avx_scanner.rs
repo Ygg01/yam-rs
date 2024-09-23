@@ -13,8 +13,8 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 #[doc(hidden)]
 pub struct AvxScanner {
-    v0: __m256i,
-    v1: __m256i,
+    _v0: __m256i,
+    _v1: __m256i,
 }
 
 unsafe impl Stage1Scanner for AvxScanner {
@@ -25,27 +25,27 @@ unsafe impl Stage1Scanner for AvxScanner {
         ChunkedUtf8ValidatorImp::new()
     }
 
-    fn from_chunk(values: &[u8; SIMD_CHUNK_LENGTH]) -> Self {
+    fn from_chunk(_values: &[u8; SIMD_CHUNK_LENGTH]) -> Self {
         todo!()
     }
 
-    fn cmp_ascii_to_input(&self, m: u8) -> u64 {
+    fn cmp_ascii_to_input(&self, _m: u8) -> u64 {
         todo!()
     }
 
     fn calculate_indents(
         &self,
-        chunk_state: &mut YamlChunkState,
-        prev_state: &mut YamlParserState,
+        _chunk_state: &mut YamlChunkState,
+        _prev_state: &mut YamlParserState,
     ) {
         todo!()
     }
 
-    fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64 {
+    fn unsigned_lteq_against_splat(&self, _cmp: i8) -> u64 {
         todo!()
     }
 
-    fn classify(&self, chunk_state: &mut YamlChunkState) {
+    fn classify(&self, _chunk_state: &mut YamlChunkState) {
         todo!()
     }
 }
