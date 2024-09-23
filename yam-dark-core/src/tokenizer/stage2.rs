@@ -86,15 +86,33 @@ impl YamlParserState {
     }
 }
 
+/// Function that returns right validator for the right architecture
+///
+/// # Arguments
+///
+/// * `pre_checked`: `true` when working with [core::str] thus not requiring any validation, `false`
+/// otherwise. **Note:** if your [core::str] isn't UTF-8 formatted this will cause Undefined behavior.
+///
+/// returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
+/// is guaranteed to be correct for your CPU architecture.
+///
+/// # Examples
+///
+/// ```
+///
+/// ```
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
     if pre_checked {
+        /// Safety: Always safe for preformatted utf8
         unsafe {
             // Is always safe for preformatted utf8
             return Box::new(NoopValidator::new());
         }
     }
 
+    /// Safety: Only unsafe thing here is from calling right Scanner for right CPU architecture
+    /// i.e. don't call Neon
     unsafe {
         if core_detect::is_x86_feature_detected!("avx2") {
             Box::new(AvxScanner::validator())
