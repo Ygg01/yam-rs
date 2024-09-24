@@ -52,12 +52,14 @@ fn main() {
     // print3(0b1111101);
     // let x = 0b10111;
     // print3(x);
-    print3(0b1011);
+    // print3(0b1011);
     // find_even_end(0b11011);
     // print3(0b11101);
     // print3(0b1011010);
     // print3(0b1011101);
     // print3(0b110);
+    let x = true;
+    println!("{}", u64::from(x));
 }
 
 #[allow(dead_code)]

@@ -197,6 +197,8 @@ pub struct YamlCharacterChunk {
     pub block_structurals: u64,
     /// Flow operators used in YAML
     pub flow_structurals: u64,
+    /// Bitmask showing if chunk character is in_comment
+    pub in_comment: u64,
 }
 
 impl YamlCharacterChunk {
@@ -392,6 +394,7 @@ pub unsafe trait Stage1Scanner {
         let double_quotes = simd.cmp_ascii_to_input(b'"');
 
         simd.classify_yaml_characters(&mut chunk_state);
+        simd.scan_for_comments(&mut chunk_state, prev_state);
 
         // Pre-requisite
         // LINE FEED needs to be gathered before calling `calculate_indents`
@@ -401,6 +404,23 @@ pub unsafe trait Stage1Scanner {
         simd.scan_single_quote_bitmask(&mut chunk_state, prev_state);
 
         prev_state.merge_state(chunk, buffers, &mut chunk_state)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn scan_for_comments(
+        &self,
+        chunk_state: &mut YamlChunkState,
+        prev_iter_state: &mut YamlParserState,
+    ) {
+        let character = self.cmp_ascii_to_input(b'#');
+        let shifted_spaces = (chunk_state.characters.spaces << 1)
+            ^ u64::from(prev_iter_state.is_previous_white_space);
+
+        let comment_start = (character & shifted_spaces) | u64::from(prev_iter_state.is_in_comment);
+
+        // TODO actual comment shadowing
+
+        prev_iter_state.is_previous_white_space = (chunk_state.characters.spaces >> 63) == 1;
     }
 
     /// Returns a bitvector indicating where there are characters that end an odd-length sequence
@@ -428,7 +448,7 @@ pub unsafe trait Stage1Scanner {
     /// ```rust
     /// use crate::yam_dark_core::Stage1Scanner;
     /// use crate::yam_dark_core::NativeScanner;
-    /// let mut prev_iteration_odd = 0;
+    /// let mut prev_iteration_odd = false;
     ///
     /// let chunk = b" \\ \\\\  \\\\\\    \\   \\\\  \\\\    \\   \\\\        \\     \\    \\\\    \\    ";
     /// let scanner = NativeScanner::from_chunk(chunk);
@@ -436,12 +456,12 @@ pub unsafe trait Stage1Scanner {
     /// assert_eq!(result, 0b1000000000010000010000000000000100000000000001000010000000100);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_for_odd_backslashes(&self, prev_iteration_odd: &mut u32) -> u64 {
+    fn scan_for_odd_backslashes(&self, prev_iteration_odd: &mut bool) -> u64 {
         Self::scan_for_mask(self.cmp_ascii_to_input(b'\\'), prev_iteration_odd, ODD_BITS)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_for_mask(bits: u64, prev_iteration_odd: &mut u32, mask: u64) -> u64 {
+    fn scan_for_mask(bits: u64, prev_iteration_odd: &mut bool, mask: u64) -> u64 {
         let start_edges = bits & !(bits << 1);
         let prev_iter_odd = u64::from(*prev_iteration_odd);
 
@@ -460,7 +480,7 @@ pub unsafe trait Stage1Scanner {
         // push in a bit zero as a potential end
         // if we had an odd-numbered run at the
         // end of the previous iteration
-        *prev_iteration_odd = u32::from(iter_ends_odd_backslash);
+        *prev_iteration_odd = iter_ends_odd_backslash;
         let even_carry_ends = even_carries & !bits;
         let odd_carry_ends = odd_carries & !bits;
         let even_start_odd_end = even_carry_ends & mask;
@@ -497,8 +517,11 @@ pub unsafe trait Stage1Scanner {
     ) {
         let quotes = self.cmp_ascii_to_input(b'\'');
 
-        let even_ends =
-            Self::scan_for_mask(quotes, &mut prev_iter_state.prev_iter_odd_quote, EVEN_BITS);
+        let even_ends = Self::scan_for_mask(
+            quotes,
+            &mut prev_iter_state.is_prev_iter_odd_single_quote,
+            EVEN_BITS,
+        );
 
         let even_mask = Self::calculate_mask_from_end(quotes, even_ends >> 1);
 
@@ -591,7 +614,7 @@ pub unsafe trait Stage1Scanner {
         chunk_state: &mut YamlChunkState,
         prev_iter_state: &mut YamlParserState,
     ) {
-        let odds_ends = self.scan_for_odd_backslashes(&mut prev_iter_state.prev_iter_odd_backslash);
+        let odds_ends = self.scan_for_odd_backslashes(&mut prev_iter_state.is_prev_double_quotes);
 
         chunk_state.double_quote.quote_bits = self.cmp_ascii_to_input(b'"');
         chunk_state.double_quote.quote_bits &= !odds_ends;

@@ -58,15 +58,15 @@ trait YamlIndex {}
 #[doc(hidden)]
 #[derive(Default)]
 pub struct YamlParserState {
-    pub(crate) prev_iter_ends_pseudo_pred: u64,
-    pub(crate) prev_iter_ends_odd_backslash: u64,
-    pub(crate) prev_iter_inside_quote: u64,
-    pub(crate) prev_iter_odd_backslash: u32,
-    pub(crate) prev_iter_odd_quote: u32,
     pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
     pub(crate) last_row: u32,
+    pub(crate) is_prev_double_quotes: bool,
+    pub(crate) is_prev_iter_odd_single_quote: bool,
     pub(crate) is_indent_frozen: bool,
+    pub(crate) is_previous_white_space: bool,
+    pub(crate) prev_iter_inside_quote: u64,
+    pub(crate) is_in_comment: bool,
 }
 
 impl YamlParserState {
@@ -96,11 +96,6 @@ impl YamlParserState {
 /// returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
 /// is guaranteed to be correct for your CPU architecture.
 ///
-/// # Examples
-///
-/// ```
-///
-/// ```
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
     if pre_checked {
