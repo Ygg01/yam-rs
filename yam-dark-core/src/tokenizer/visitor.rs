@@ -1,10 +1,9 @@
-use crate::error::Error;
-use crate::tokenizer::stage2::ParseResult;
-use crate::YamlChunkState;
-use alloc::string::{String, ToString};
+use alloc::format;
+use alloc::string::String;
+use yam_core::error::{YamlError, YamlResult};
 
 pub trait YamlVisitor<'de> {
-    fn visit_error(&mut self, error: Error) -> ParseResult<YamlChunkState>;
+    fn visit_error(&mut self, error: YamlError) -> YamlResult<()>;
 }
 
 pub struct EventStringVisitor {
@@ -12,10 +11,10 @@ pub struct EventStringVisitor {
 }
 
 impl<'vis> YamlVisitor<'vis> for EventStringVisitor {
-    fn visit_error(&mut self, error: Error) -> Result<YamlChunkState, Error> {
+    fn visit_error(&mut self, error: YamlError) -> YamlResult<()> {
         self.buffer.push_str("\nERR ");
         self.buffer.push('(');
-        self.buffer.push_str(&error.to_string());
+        self.buffer.push_str(format!("{:?}", error).as_str());
         self.buffer.push(')');
         Err(error)
     }

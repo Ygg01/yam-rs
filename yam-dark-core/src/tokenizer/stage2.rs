@@ -22,20 +22,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use alloc::boxed::Box;
-use alloc::string::String;
-use alloc::vec::Vec;
-use core::marker::PhantomData;
-use simdutf8::basic::imp::ChunkedUtf8Validator;
-
-use crate::error::Error;
 use crate::impls::{AvxScanner, NativeScanner};
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlChunkState};
 use crate::tokenizer::visitor::{EventStringVisitor, YamlVisitor};
 use crate::util::{ChunkyIterator, NoopValidator};
 use crate::SIMD_CHUNK_LENGTH;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
+use simdutf8::basic::imp::ChunkedUtf8Validator;
+use yam_core::error::{YamlError, YamlResult};
 
-pub type ParseResult<T> = Result<T, Error>;
+pub type ParseResult<T> = Result<T, YamlError>;
 
 pub struct Parser<'de> {
     idx: usize,
@@ -97,7 +96,7 @@ impl YamlParserState {
         &mut self,
         p0: &B,
         p1: YamlChunkState,
-    ) -> ParseResult<YamlChunkState> {
+    ) -> YamlResult<()> {
         todo!()
     }
 }
@@ -159,25 +158,21 @@ impl<'de> Parser<'de> {
         event_visitor: &mut V,
         buffer: &mut B,
         validator: &mut Box<dyn ChunkedUtf8Validator>,
-    ) -> Result<(), ()> {
+    ) -> YamlResult<()> {
         let mut iter = ChunkyIterator::from_bytes(input);
         let mut state = YamlParserState::default();
         let next_fn = get_stage1_next::<B>();
 
-        // SIMD-ified part
-        for chunk in &mut iter {
-            let res: Result<YamlChunkState, Error> = unsafe {
+        iter.try_for_each(|chunk| {
+            let res: Result<YamlChunkState, YamlError> = unsafe {
                 validator.update_from_chunks(chunk);
                 next_fn(chunk, buffer, &mut state)
             };
             match res {
-                Err(e) => {
-                    event_visitor.visit_error(e);
-                    return Err(());
-                }
+                Err(e) => event_visitor.visit_error(e),
                 Ok(chunk_state) => state.process_chunk(buffer, chunk_state),
-            };
-        }
+            }
+        })?;
 
         // Remaining part
         for _rem in iter.finalize() {}
