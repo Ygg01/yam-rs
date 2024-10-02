@@ -391,13 +391,13 @@ pub unsafe trait Stage1Scanner {
     {
         let mut chunk_state = YamlChunkState::default();
         let mut simd = Self::from_chunk(chunk);
-        let double_quotes = simd.cmp_ascii_to_input(b'"');
 
         simd.classify_yaml_characters(&mut chunk_state);
-        simd.scan_for_comments(&mut chunk_state, prev_state);
 
         // Pre-requisite
-        // LINE FEED needs to be gathered before calling `calculate_indents`
+        // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
+        // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
+        simd.scan_for_comments(&mut chunk_state, prev_state);
         simd.calculate_indents(&mut chunk_state, prev_state);
 
         simd.scan_double_quote_bitmask(&mut chunk_state, prev_state);
@@ -523,7 +523,7 @@ pub unsafe trait Stage1Scanner {
     ///  let expected = 0b0000000000000000000000000000000000000000000000000000010000010;
     ///  assert_eq!(block_state.single_quote.odd_quotes, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.odd_quotes);
     /// ```
-    // #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
         &self,
         chunk_state: &mut YamlChunkState,
@@ -570,6 +570,7 @@ pub unsafe trait Stage1Scanner {
     ///     expected, actual
     ///  );
     /// ```
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
         util::select_right_bits_branch_less(quote_bits, even_ends)
     }
