@@ -186,168 +186,70 @@ pub fn u8x64_lteq(a: [u8; SIMD_CHUNK_LENGTH], cmp: u8) -> u64 {
         | (if a[63] <= cmp { 1 << 63 } else { 0 })
 }
 
-#[derive(Copy, Clone)]
+/// A struct representing a vector of 16 `u8` values.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct U8X16(pub [u8; 16]);
-
-impl U8X16 {}
 
 impl U8X16 {
     #[inline]
+    /// Creates a new `U8X16` instance where all elements are set to the specified input value.
+    ///
+    /// This function is inlined to improve performance.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - A `u8` value that will be used to set all elements of the `U8X16` instance.
+    ///
+    /// # Returns
+    ///
+    /// A `U8X16` instance where each element is initialized to the `input` value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use yam_dark_core::util::U8X16;
+    /// let value = 5;
+    /// let vector = U8X16::splat(value);
+    /// assert_eq!(vector, U8X16([5; 16]));
+    /// ```
+    ///
     pub fn splat(input: u8) -> Self {
         U8X16([input; 16])
     }
 
-    pub fn from_merge_cols(low: [u8; 8], high: [u8; 8], mask: u16) -> Self {
-        U8X16([
-            low[0],
-            low[1],
-            low[2],
-            low[3],
-            low[4],
-            low[5],
-            low[6],
-            low[7],
-            if mask & 0x80 == 0 {
-                high[0]
-            } else {
-                high[0] + low[7] + 1
-            },
-            if mask & 0x100 == 0 {
-                high[1]
-            } else {
-                high[1] + low[7] + 1
-            },
-            if mask & 0x200 == 0 {
-                high[2]
-            } else {
-                high[2] + low[7] + 1
-            },
-            if mask & 0x400 == 0 {
-                high[3]
-            } else {
-                high[3] + low[7] + 1
-            },
-            if mask & 0x800 == 0 {
-                high[4]
-            } else {
-                high[4] + low[7] + 1
-            },
-            if mask & 0x1000 == 0 {
-                high[5]
-            } else {
-                high[5] + low[7] + 1
-            },
-            if mask & 0x2000 == 0 {
-                high[6]
-            } else {
-                high[6] + low[7] + 1
-            },
-            if mask & 0x4000 == 0 {
-                high[7]
-            } else {
-                high[7] + low[7] + 1
-            },
-        ])
-    }
-
-    pub fn from_merge_rows(low: [u8; 8], high: [u8; 8], mask: u16, prev: u8) -> Self {
-        U8X16([
-            low[0] + prev,
-            low[1] + prev,
-            low[2] + prev,
-            low[3] + prev,
-            low[4] + prev,
-            low[5] + prev,
-            low[6] + prev,
-            low[7] + prev,
-            if mask & 0x80 == 0 {
-                high[0] + prev
-            } else {
-                high[0] + low[7] + prev
-            },
-            if mask & 0x80 == 0 {
-                high[1] + prev
-            } else {
-                high[1] + low[7] + prev
-            },
-            if mask & 0x80 == 0 {
-                high[2] + prev
-            } else {
-                high[2] + low[7] + prev
-            },
-            if mask & 0x80 == 0 {
-                high[3] + prev
-            } else {
-                high[3] + low[7] + prev
-            },
-            if mask & 0x80 == 0 {
-                high[4] + prev
-            } else {
-                high[4] + low[7] + prev
-            },
-            if mask & 0x80 == 0 {
-                high[5] + prev
-            } else {
-                high[5] + low[7] + prev
-            },
-            if mask & 0x80 == 0 {
-                high[6] + prev
-            } else {
-                high[6] + low[7] + prev
-            },
-            if mask & 0x80 == 0 {
-                high[7] + prev
-            } else {
-                high[7] + low[7] + prev
-            },
-        ])
-    }
-
-    pub fn add_u8(&mut self, rhs: u8) {
-        self.0[0] += rhs;
-        self.0[1] += rhs;
-        self.0[2] += rhs;
-        self.0[3] += rhs;
-        self.0[4] += rhs;
-        self.0[5] += rhs;
-        self.0[6] += rhs;
-        self.0[7] += rhs;
-        self.0[8] += rhs;
-        self.0[9] += rhs;
-        self.0[10] += rhs;
-        self.0[11] += rhs;
-        self.0[12] += rhs;
-        self.0[13] += rhs;
-        self.0[14] += rhs;
-        self.0[15] += rhs;
-    }
-
-    pub fn mask_value(&self, mask: u16) -> U8X16 {
-        U8X16([
-            if mask & (1 << 0) != 0 { self.0[0] } else { 0 },
-            if mask & (1 << 1) != 0 { self.0[1] } else { 0 },
-            if mask & (1 << 2) != 0 { self.0[2] } else { 0 },
-            if mask & (1 << 3) != 0 { self.0[3] } else { 0 },
-            if mask & (1 << 4) != 0 { self.0[4] } else { 0 },
-            if mask & (1 << 5) != 0 { self.0[5] } else { 0 },
-            if mask & (1 << 6) != 0 { self.0[6] } else { 0 },
-            if mask & (1 << 7) != 0 { self.0[7] } else { 0 },
-            if mask & (1 << 8) != 0 { self.0[8] } else { 0 },
-            if mask & (1 << 9) != 0 { self.0[9] } else { 0 },
-            if mask & (1 << 10) != 0 { self.0[10] } else { 0 },
-            if mask & (1 << 11) != 0 { self.0[11] } else { 0 },
-            if mask & (1 << 12) != 0 { self.0[12] } else { 0 },
-            if mask & (1 << 13) != 0 { self.0[13] } else { 0 },
-            if mask & (1 << 14) != 0 { self.0[14] } else { 0 },
-            if mask & (1 << 15) != 0 { self.0[15] } else { 0 },
-        ])
-    }
-
+    /// Conversion method that takes an array of sixteen `u8` and returns an [U8X16]
+    ///
+    /// # Arguments
+    ///
+    /// * `input`: array of sixteen bytes (`u8`).
+    ///
+    /// returns: [U8X16]
     #[inline]
     pub fn from_array(input: [u8; 16]) -> Self {
         U8X16(input)
     }
 
+    /// Compares each element of the `U8X16` with a given `u8` value.
+    /// If an element is equal to the given value, the corresponding element
+    /// in the resulting `U8X16` is set to `0xFF`; otherwise, it is set to `0x00`.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmp` - A `u8` value that each element of the `U8X16` will be compared against.
+    ///
+    /// # Returns
+    ///
+    /// A `U8X16` instance where each element is either `0xFF` if the corresponding
+    /// element in the original `U8X16` is equal to the `cmp` value, or `0x00` if it is not.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use yam_dark_core::util::U8X16;
+    /// let vector = U8X16::from_array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+    /// let result = vector.comp_all(10);
+    /// assert_eq!(result, U8X16::from_array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
+    /// ```
     #[inline]
     pub fn comp_all(&self, cmp: u8) -> U8X16 {
         U8X16::from_array([
@@ -445,17 +347,6 @@ impl U8X16 {
             *input.get_unchecked(14),
             *input.get_unchecked(15),
         ])
-    }
-
-    #[inline]
-    pub fn shift_right(&self, k: usize) -> U8X16 {
-        let mut copy = *self;
-        copy.0.rotate_right(k);
-
-        for i in 0..k {
-            copy.0[i] = 0;
-        }
-        copy
     }
 }
 
