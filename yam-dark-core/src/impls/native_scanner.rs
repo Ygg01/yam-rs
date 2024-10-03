@@ -183,8 +183,8 @@ unsafe impl Stage1Scanner for NativeScanner {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
-        let cnt: usize = bits.count_ones() as usize;
-        let mut l = base.len();
+        let count_ones: usize = bits.count_ones() as usize;
+        let mut base_len = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
         let idx_64_v: [i32; 4] = [
             core::mem::transmute::<u32, i32>(idx_minus_64),
@@ -199,9 +199,9 @@ unsafe impl Stage1Scanner for NativeScanner {
         // We later indiscriminatory write over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        let final_len = l + cnt;
+        let final_len = base_len + count_ones;
 
-        let is_unaligned = l % 4 != 0;
+        let is_unaligned = base_len % 4 != 0;
         let write_fn = if is_unaligned {
             core::ptr::write_unaligned
         } else {
@@ -224,8 +224,8 @@ unsafe impl Stage1Scanner for NativeScanner {
                 idx_64_v[2] + v2,
                 idx_64_v[3] + v3,
             ];
-            write_fn(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v);
-            l += 4;
+            write_fn(base.as_mut_ptr().add(base_len).cast::<[i32; 4]>(), v);
+            base_len += 4;
         }
         // We have written all the data
         base.set_len(final_len);
