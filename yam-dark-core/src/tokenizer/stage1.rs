@@ -26,10 +26,10 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use simdutf8::basic::imp::ChunkedUtf8Validator;
-
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
-use crate::{util, NativeScanner, ParseResult, EVEN_BITS, ODD_BITS, SIMD_CHUNK_LENGTH};
+use crate::{util, EvenOrOddBits, NativeScanner, ParseResult, SIMD_CHUNK_LENGTH};
+use simdutf8::basic::imp::ChunkedUtf8Validator;
+use EvenOrOddBits::OddBits;
 
 /// Represents the state of YAML chunk processing.
 ///
@@ -437,20 +437,17 @@ pub unsafe trait Stage1Scanner {
         parser_state.is_previous_white_space = (chunk_state.characters.spaces >> 63) == 1;
     }
 
-    /// Returns a bitvector indicating where there are characters that end an odd-length sequence
-    /// of backslashes. An odd-length sequence of backslashes changes the behavior of the next
-    /// character that follows. An even-length sequence of backslashes, as well as the largest
-    /// even-length prefix of an odd-length sequence of backslashes, modify the behavior of the
-    /// backslashes themselves.
+    /// Returns a bitmask indicating where there are characters that end an odd-length sequence
+    /// of ones.
     ///
-    /// The `prev_iteration_odd` reference parameter is also updated to indicate whether the iteration
-    /// ends on an odd-length sequence of backslashes. This modification affects the subsequent search
-    /// for odd-length sequences of backslashes.
+    /// The `prev_iteration_result` reference parameter is also updated to indicate whether the iteration
+    /// needs to be taken into account by subsequent search.
     ///
     /// # Arguments
     ///
-    /// * `prev_iteration_odd` - A mutable reference to a `u64` representing the previous iteration's
-    ///                          odd-length sequence of backslashes.
+    /// * `prev_iteration_result` - A mutable reference to a `u64` representing the previous iteration's
+    ///                          result of backslashes. It will be updated with post result info.
+    /// * `mask` - A bitmask determining ODD or Even Mask to be used.
     ///
     /// # Returns
     ///
@@ -460,27 +457,24 @@ pub unsafe trait Stage1Scanner {
     /// # Examples
     ///
     /// ```rust
+    /// use yam_dark_core::EvenOrOddBits::OddBits;
+    /// use yam_dark_core::{EvenOrOddBits};
     /// use crate::yam_dark_core::Stage1Scanner;
     /// use crate::yam_dark_core::NativeScanner;
     /// let mut prev_iteration_odd = false;
     ///
     /// let chunk = b" \\ \\\\  \\\\\\    \\   \\\\  \\\\    \\   \\\\        \\     \\    \\\\    \\    ";
     /// let scanner = NativeScanner::from_chunk(chunk);
-    /// let result = scanner.scan_for_odd_backslashes(&mut prev_iteration_odd);
+    /// let result = NativeScanner::scan_for_mask(scanner.cmp_ascii_to_input(b'\\'), &mut prev_iteration_odd, OddBits);
     /// assert_eq!(result, 0b1000000000010000010000000000000100000000000001000010000000100);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_for_odd_backslashes(&self, prev_iteration_odd: &mut bool) -> u64 {
-        Self::scan_for_mask(self.cmp_ascii_to_input(b'\\'), prev_iteration_odd, ODD_BITS)
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_for_mask(bits: u64, prev_iteration_odd: &mut bool, mask: u64) -> u64 {
+    fn scan_for_mask(bits: u64, prev_iteration_result: &mut bool, mask: EvenOrOddBits) -> u64 {
         let start_edges = bits & !(bits << 1);
-        let prev_iter_odd = u64::from(*prev_iteration_odd);
+        let prev_iter_odd = u64::from(*prev_iteration_result);
 
         // flip lowest if we have an odd-length run at the end of the prior iteration
-        let even_start_mask = EVEN_BITS ^ prev_iter_odd;
+        let even_start_mask = (EvenOrOddBits::EvenBits as u64) ^ prev_iter_odd;
         let even_starts = start_edges & even_start_mask;
         let odd_starts = start_edges & !even_start_mask;
         let even_carries = bits.wrapping_add(even_starts);
@@ -494,11 +488,11 @@ pub unsafe trait Stage1Scanner {
         // push in a bit zero as a potential end
         // if we had an odd-numbered run at the
         // end of the previous iteration
-        *prev_iteration_odd = iter_ends_odd_backslash;
+        *prev_iteration_result = iter_ends_odd_backslash;
         let even_carry_ends = even_carries & !bits;
         let odd_carry_ends = odd_carries & !bits;
-        let even_start_odd_end = even_carry_ends & mask;
-        let odd_start_even_end = odd_carry_ends & !mask;
+        let even_start_odd_end = even_carry_ends & mask as u64;
+        let odd_start_even_end = odd_carry_ends & !(mask as u64);
         even_start_odd_end | odd_start_even_end
     }
 
@@ -534,7 +528,7 @@ pub unsafe trait Stage1Scanner {
         let even_ends = Self::scan_for_mask(
             quotes,
             &mut prev_iter_state.is_prev_iter_odd_single_quote,
-            EVEN_BITS,
+            EvenOrOddBits::EvenBits,
         );
 
         let even_mask = Self::calculate_mask_from_end(quotes, even_ends >> 1);
@@ -629,7 +623,9 @@ pub unsafe trait Stage1Scanner {
         chunk_state: &mut YamlChunkState,
         prev_iter_state: &mut YamlParserState,
     ) {
-        let odds_ends = self.scan_for_odd_backslashes(&mut prev_iter_state.is_prev_double_quotes);
+        let prev_iteration_odd = &mut prev_iter_state.is_prev_double_quotes;
+        let odds_ends =
+            Self::scan_for_mask(self.cmp_ascii_to_input(b'\\'), prev_iteration_odd, OddBits);
 
         chunk_state.double_quote.quote_bits = self.cmp_ascii_to_input(b'"');
         chunk_state.double_quote.quote_bits &= !odds_ends;

@@ -19,8 +19,12 @@ pub mod util;
 pub const SIMD_CHUNK_LENGTH: usize = 64;
 pub const SIMD_JSON_PADDING: usize = 32;
 
-pub const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
-pub const ODD_BITS: u64 = !EVEN_BITS;
+#[repr(u64)]
+#[derive(Clone, Copy)]
+pub enum EvenOrOddBits {
+    EvenBits = 0x5555_5555_5555_5555,
+    OddBits = 0xAAAA_AAAA_AAAA_AAAA,
+}
 const LOW_NIBBLE: [u8; 16] = [64, 0, 0, 0, 0, 0, 0, 0, 0, 32, 40, 16, 4, 50, 0, 1];
 const HIGH_NIBBLE: [u8; 16] = [32, 0, 70, 9, 0, 16, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0];
 
