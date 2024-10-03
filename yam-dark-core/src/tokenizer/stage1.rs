@@ -308,6 +308,56 @@ pub unsafe trait Stage1Scanner {
     /// ```
     fn calculate_indents(&self, chunk_state: &mut YamlChunkState, prev_state: &mut YamlParserState);
 
+    /// Checks if the value of `cmp` is less than or equal to the value of `self`.
+    ///
+    /// Returns the result as a `u64` value.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmp` - An `i8` value representing the number to be compared against `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use yam_dark_core::{NativeScanner, Stage1Scanner, YamlCharacterChunk};
+    ///
+    /// let bin_str = b"                                                                ";
+    /// let mut chunk = YamlCharacterChunk::default();
+    /// let scanner = NativeScanner::from_chunk(bin_str);
+    /// let result = scanner.unsigned_lteq_against_splat(0x20);
+    /// assert_eq!(result, 0b1111111111111111111111111111111111111111111111111111111111111111);
+    /// ```
+    fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64;
+
+    /// Scans the whitespace and structurals in the given YAML chunk state.
+    /// This method sets [`YamlCharacterChunk`] part of [`YamlChunkState`].
+    ///
+    /// # Arguments
+    ///
+    /// - `block_state` - A mutable reference to the [`YamlChunkState`] for scanning.
+    ///
+    /// # Nibble mask
+    ///
+    /// Based on structure in structure.md, we compute low and high nibble mask and use them to swizzle
+    /// higher and lower component of a byte. E.g. if a byte is `0x23`, we use the `low_nibble[2]` and
+    /// `high_nibble[3]` for swizzling.
+    ///
+    /// # Example
+    /// ```rust
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    ///  let mut block_state = YamlChunkState::default();
+    ///  let mut prev_iter_state = YamlParserState::default();
+    ///  let chunk = b" -                                                              ";
+    ///  let scanner = NativeScanner::from_chunk(chunk);
+    ///  scanner.classify_yaml_characters(&mut block_state);
+    ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
+    ///  assert_eq!(
+    ///     block_state.characters.block_structurals,
+    ///     expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.odd_quotes
+    ///  );
+    /// ```
+    fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
+
     /// Computes a quote mask based on the given quote bit mask.
     ///
     /// The `compute_quote_mask` function takes an input `quote_bits` of type `u64` and calculates
@@ -342,27 +392,6 @@ pub unsafe trait Stage1Scanner {
         quote_mask = quote_mask ^ (quote_mask << 32);
         quote_mask
     }
-
-    /// Checks if the value of `cmp` is less than or equal to the value of `self`.
-    ///
-    /// Returns the result as a `u64` value.
-    ///
-    /// # Arguments
-    ///
-    /// * `cmp` - An `i8` value representing the number to be compared against `self`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use yam_dark_core::{NativeScanner, Stage1Scanner, YamlCharacterChunk};
-    ///
-    /// let bin_str = b"                                                                ";
-    /// let mut chunk = YamlCharacterChunk::default();
-    /// let scanner = NativeScanner::from_chunk(bin_str);
-    /// let result = scanner.unsigned_lteq_against_splat(0x20);
-    /// assert_eq!(result, 0b1111111111111111111111111111111111111111111111111111111111111111);
-    /// ```
-    fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64;
 
     /// This function processes the next chunk of a YAML input.
     ///
@@ -568,35 +597,6 @@ pub unsafe trait Stage1Scanner {
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
         util::select_right_bits_branch_less(quote_bits, even_ends)
     }
-
-    /// Scans the whitespace and structurals in the given YAML chunk state.
-    /// This method sets [`YamlCharacterChunk`] part of [`YamlChunkState`].
-    ///
-    /// # Arguments
-    ///
-    /// - `block_state` - A mutable reference to the [`YamlChunkState`] for scanning.
-    ///
-    /// # Nibble mask
-    ///
-    /// Based on structure in structure.md, we compute low and high nibble mask and use them to swizzle
-    /// higher and lower component of a byte. E.g. if a byte is `0x23`, we use the `low_nibble[2]` and
-    /// `high_nibble[3]` for swizzling.
-    ///
-    /// # Example
-    /// ```rust
-    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
-    ///  let mut block_state = YamlChunkState::default();
-    ///  let mut prev_iter_state = YamlParserState::default();
-    ///  let chunk = b" -                                                              ";
-    ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  scanner.classify_yaml_characters(&mut block_state);
-    ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
-    ///  assert_eq!(
-    ///     block_state.characters.block_structurals,
-    ///     expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.odd_quotes
-    ///  );
-    /// ```
-    fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
 
     /// Scans the input for double quote bitmask.
     ///
