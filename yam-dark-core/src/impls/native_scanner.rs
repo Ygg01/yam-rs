@@ -289,18 +289,6 @@ unsafe impl Stage1Scanner for NativeScanner {
         // We have written all the data
         base.structurals.set_len(final_len);
     }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_sign_loss)]
-    fn compute_quote_mask(quote_bits: u64) -> u64 {
-        let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
-        quote_mask = quote_mask ^ (quote_mask << 2);
-        quote_mask = quote_mask ^ (quote_mask << 4);
-        quote_mask = quote_mask ^ (quote_mask << 8);
-        quote_mask = quote_mask ^ (quote_mask << 16);
-        quote_mask = quote_mask ^ (quote_mask << 32);
-        quote_mask
-    }
 }
 
 #[test]
