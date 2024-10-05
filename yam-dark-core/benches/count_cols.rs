@@ -16,142 +16,151 @@ a  st
     .as_bytes();
 
 #[inline]
-fn calculate_byte_col(index_mask: usize, reset_bool: bool, prev_indent: &mut u32) -> [u32; 8] {
+fn calculate_byte_col(index_mask: usize, reset_bool: bool, prev_indent: &mut u8) -> [u8; 8] {
     let byte_col1 = U8_BYTE_COL_TABLE[index_mask];
     let rows1 = U8_ROW_TABLE[index_mask];
     let row_calc = calculate_cols(byte_col1, rows1, prev_indent);
-    let mask_sec = (-(reset_bool as i32)) as u32;
+    let mask_sec = (-(reset_bool as i8)) as u8;
     *prev_indent = (row_calc[7] + 1) & mask_sec;
     row_calc
 }
 
 #[inline]
-fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &mut u32) -> [u32; 8] {
+fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &mut u8) -> [u8; 8] {
     [
-        cols[0] as u32 + *prev_col,
+        cols[0] + *prev_col,
         if rows_data[0] == 0 {
-            cols[1] as u32 + *prev_col
+            cols[1] + *prev_col
         } else {
-            cols[1] as u32
+            cols[1]
         },
         if rows_data[1] == 0 {
-            cols[2] as u32 + *prev_col
+            cols[2] + *prev_col
         } else {
-            cols[2] as u32
+            cols[2]
         },
         if rows_data[2] == 0 {
-            cols[3] as u32 + *prev_col
+            cols[3] + *prev_col
         } else {
-            cols[3] as u32
+            cols[3]
         },
         if rows_data[3] == 0 {
-            cols[4] as u32 + *prev_col
+            cols[4] + *prev_col
         } else {
-            cols[4] as u32
+            cols[4]
         },
         if rows_data[4] == 0 {
-            cols[5] as u32 + *prev_col
+            cols[5] + *prev_col
         } else {
-            cols[5] as u32
+            cols[5]
         },
         if rows_data[5] == 0 {
-            cols[6] as u32 + *prev_col
+            cols[6] + *prev_col
         } else {
-            cols[6] as u32
+            cols[6]
         },
         if rows_data[6] == 0 {
-            cols[7] as u32 + *prev_col
+            cols[7] + *prev_col
         } else {
-            cols[7] as u32
+            cols[7]
         },
     ]
 }
 
 #[inline]
-fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
+fn calculate_byte_rows(index_mask: usize, prev_row: &mut u8) -> [u8; 8] {
     let rows1 = U8_ROW_TABLE[index_mask];
     calculate_rows(rows1, prev_row)
 }
 
 #[inline]
-fn calculate_rows(rows: [u8; 8], prev_row: &mut u32) -> [u32; 8] {
+fn calculate_rows(rows: [u8; 8], prev_row: &mut u8) -> [u8; 8] {
     let x = [
         *prev_row,
-        *prev_row + rows[0] as u32,
-        *prev_row + rows[1] as u32,
-        *prev_row + rows[2] as u32,
-        *prev_row + rows[3] as u32,
-        *prev_row + rows[4] as u32,
-        *prev_row + rows[5] as u32,
-        *prev_row + rows[6] as u32,
+        *prev_row + rows[0],
+        *prev_row + rows[1],
+        *prev_row + rows[2],
+        *prev_row + rows[3],
+        *prev_row + rows[4],
+        *prev_row + rows[5],
+        *prev_row + rows[6],
     ];
-    *prev_row += rows[7] as u32;
+    *prev_row += rows[7];
     x
 }
 
 #[doc(hidden)]
 pub fn count_col_rows(
     newline_mask: u64,
-    prev_byte_col: &mut u32,
-    prev_byte_row: &mut u32,
-    byte_cols: &mut [u32; SIMD_CHUNK_LENGTH],
-    byte_rows: &mut [u32; SIMD_CHUNK_LENGTH],
+
+    byte_cols: &mut [u8; SIMD_CHUNK_LENGTH],
+    byte_rows: &mut [u8; SIMD_CHUNK_LENGTH],
 ) {
+    let mut prev_byte_col = 0;
+    let mut prev_byte_row = 0;
     // First 8 bits
     let mask = (newline_mask & 0xFF) as usize;
-    let col_result = calculate_byte_col(mask, newline_mask & 0x80 == 0, prev_byte_col);
+    let col_result = calculate_byte_col(mask, newline_mask & 0x80 == 0, &mut prev_byte_col);
     byte_cols[0..8].copy_from_slice(&col_result);
 
-    let rows_result = calculate_byte_rows(mask, prev_byte_row);
+    let rows_result = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[0..8].copy_from_slice(&rows_result);
 
     // Second 8 bits
     let mask = ((newline_mask & 0xFF00) >> 8) as usize;
-    let col_result = calculate_byte_col(mask, newline_mask & 0x8000 == 0, prev_byte_col);
+    let col_result = calculate_byte_col(mask, newline_mask & 0x8000 == 0, &mut prev_byte_col);
     byte_cols[8..16].copy_from_slice(&col_result);
 
-    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[8..16].copy_from_slice(&col_rows);
 
     // Third 8 bits
     let mask = ((newline_mask & 0xFF_0000) >> 16) as usize;
-    let col_result = calculate_byte_col(mask, newline_mask & 0x80_0000 == 0, prev_byte_col);
+    let col_result = calculate_byte_col(mask, newline_mask & 0x80_0000 == 0, &mut prev_byte_col);
     byte_cols[16..24].copy_from_slice(&col_result);
 
-    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[16..24].copy_from_slice(&col_rows);
 
     // Fourth 8 bits
     let mask = ((newline_mask & 0xFF00_0000) >> 24) as usize;
-    let col_result = calculate_byte_col(mask, newline_mask & 0x8000_0000 == 0, prev_byte_col);
+    let col_result = calculate_byte_col(mask, newline_mask & 0x8000_0000 == 0, &mut prev_byte_col);
     byte_cols[24..32].copy_from_slice(&col_result);
 
-    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[24..32].copy_from_slice(&col_rows);
 
     // Fifth 8 bits
     let mask = ((newline_mask & 0xFF_0000_0000) >> 32) as usize;
-    let col_result = calculate_byte_col(mask, newline_mask & 0x80_0000_0000 == 0, prev_byte_col);
+    let col_result =
+        calculate_byte_col(mask, newline_mask & 0x80_0000_0000 == 0, &mut prev_byte_col);
     byte_cols[32..40].copy_from_slice(&col_result);
 
-    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[32..40].copy_from_slice(&col_rows);
 
     // Sixth 8 bits
     let mask = ((newline_mask & 0xFF00_0000_0000) >> 40) as usize;
-    let col_result = calculate_byte_col(mask, newline_mask & 0x8000_0000_0000 == 0, prev_byte_col);
+    let col_result = calculate_byte_col(
+        mask,
+        newline_mask & 0x8000_0000_0000 == 0,
+        &mut prev_byte_col,
+    );
     byte_cols[40..48].copy_from_slice(&col_result);
 
-    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[40..48].copy_from_slice(&col_rows);
 
     // Seventh 8 bits
     let mask = ((newline_mask & 0xFF_0000_0000_0000) >> 48) as usize;
-    let col_result =
-        calculate_byte_col(mask, newline_mask & 0x80_0000_0000_0000 == 0, prev_byte_col);
+    let col_result = calculate_byte_col(
+        mask,
+        newline_mask & 0x80_0000_0000_0000 == 0,
+        &mut prev_byte_col,
+    );
     byte_cols[48..56].copy_from_slice(&col_result);
 
-    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[48..56].copy_from_slice(&col_rows);
 
     // Eight 8 bits
@@ -159,11 +168,11 @@ pub fn count_col_rows(
     let col_result = calculate_byte_col(
         mask,
         newline_mask & 0x8000_0000_0000_0000 == 0,
-        prev_byte_col,
+        &mut prev_byte_col,
     );
     byte_cols[56..64].copy_from_slice(&col_result);
 
-    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[56..64].copy_from_slice(&col_rows);
 }
 
@@ -206,16 +215,8 @@ fn col_count_indent(c: &mut Criterion) {
         b.iter(|| {
             let mut prev_indent = 0;
             let mut prev_iter_char = 1;
-            let mut prev_row = 0;
-            let mut prev_col = 0;
 
-            count_col_rows(
-                newline_mask,
-                &mut prev_col,
-                &mut prev_row,
-                &mut byte_cols,
-                &mut byte_rows,
-            );
+            count_col_rows(newline_mask, &mut byte_cols, &mut byte_rows);
             count_indent_dependent(
                 newline_mask,
                 space_mask,
@@ -226,13 +227,7 @@ fn col_count_indent(c: &mut Criterion) {
             );
             black_box(indents[3] == 0);
 
-            count_col_rows(
-                newline_mask2,
-                &mut prev_col,
-                &mut prev_row,
-                &mut byte_cols,
-                &mut byte_rows,
-            );
+            count_col_rows(newline_mask2, &mut byte_cols, &mut byte_rows);
             count_indent_dependent(
                 newline_mask2,
                 space_mask2,
@@ -261,8 +256,6 @@ fn col_count_indent_naive(c: &mut Criterion) {
     let newline_mask2 = u8x64_eq(chunk2, b'\n');
     let space_mask2 = u8x64_eq(chunk2, b' ');
     let mut indents = [0; 64];
-    let mut prev_col = 0;
-    let mut prev_row = 0;
     let mut byte_cols = [0; 64];
     let mut byte_rows = [0; 64];
 
@@ -271,13 +264,7 @@ fn col_count_indent_naive(c: &mut Criterion) {
             let mut prev_indent = 0;
             let mut prev_iter_char = 1;
 
-            count_col_rows(
-                newline_mask,
-                &mut prev_col,
-                &mut prev_row,
-                &mut byte_cols,
-                &mut byte_rows,
-            );
+            count_col_rows(newline_mask, &mut byte_cols, &mut byte_rows);
             count_indent_naive(
                 newline_mask,
                 space_mask,
@@ -287,13 +274,7 @@ fn col_count_indent_naive(c: &mut Criterion) {
             );
             black_box(indents[56] == 0);
 
-            count_col_rows(
-                newline_mask2,
-                &mut prev_col,
-                &mut prev_row,
-                &mut byte_cols,
-                &mut byte_rows,
-            );
+            count_col_rows(newline_mask2, &mut byte_cols, &mut byte_rows);
             count_indent_naive(
                 newline_mask2,
                 space_mask2,
@@ -353,9 +334,9 @@ fn count_naive(
 pub fn count_indent_naive(
     newline_mask: u64,
     space_mask: u64,
-    prev_iter_char: &mut u32,
-    prev_indent: &mut u32,
-    indents: &mut [u32; SIMD_CHUNK_LENGTH],
+    prev_iter_char: &mut u8,
+    prev_indent: &mut u8,
+    indents: &mut [u8; SIMD_CHUNK_LENGTH],
 ) {
     for (pos, item) in indents.iter_mut().enumerate().take(64) {
         let is_space = (space_mask & (1 << pos)) != 0;
@@ -392,7 +373,7 @@ pub fn count_indent_naive(
 /// * `swizzle` array must have values in `0..=7` range.
 /// * `input` vector
 ///
-unsafe fn swizzle_u32x8(input: &mut [u32], swizzle: &[u8; 8]) {
+unsafe fn swizzle_u32x8(input: &mut [u8], swizzle: &[u8; 8]) {
     *input.get_unchecked_mut(0) = *input.get_unchecked(*swizzle.get_unchecked(0) as usize);
     *input.get_unchecked_mut(1) = *input.get_unchecked(*swizzle.get_unchecked(1) as usize);
     *input.get_unchecked_mut(2) = *input.get_unchecked(*swizzle.get_unchecked(2) as usize);
@@ -420,9 +401,9 @@ pub fn count_indent_dependent(
     newline_mask: u64,
     space_mask: u64,
     prev_iter_char: &mut u8,
-    prev_indent: &mut u32,
-    byte_cols: &[u32; SIMD_CHUNK_LENGTH],
-    indents: &mut [u32; SIMD_CHUNK_LENGTH],
+    prev_indent: &mut u8,
+    byte_cols: &[u8; SIMD_CHUNK_LENGTH],
+    indents: &mut [u8; SIMD_CHUNK_LENGTH],
 ) {
     ///
     /// # Arguments:
@@ -436,12 +417,12 @@ pub fn count_indent_dependent(
     ///
     #[inline]
     fn swizzle_slice(
-        byte_indents: &mut [u32; SIMD_CHUNK_LENGTH],
+        byte_indents: &mut [u8; SIMD_CHUNK_LENGTH],
         starts: usize,
         spaces_mask: usize,
         newline_mask: usize,
         prev_iter_char: &mut u8,
-        prev_indent: &mut u32,
+        prev_indent: &mut u8,
     ) {
         if *prev_iter_char == 0 {
             byte_indents[starts] = *prev_indent;
