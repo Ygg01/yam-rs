@@ -50,7 +50,15 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64) {
+    unsafe fn flatten_bits(_base: &mut Vec<u32>, _idx: u32, _bits: u64) {
+        todo!()
+    }
+
+    unsafe fn flatten_bits_yaml(
+        _base: &mut YamlParserState,
+        _yaml_chunk_state: &YamlChunkState,
+        _bits: u64,
+    ) {
         todo!()
     }
 }
