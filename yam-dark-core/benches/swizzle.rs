@@ -3,7 +3,7 @@ use rand::prelude::*;
 
 use yam_dark_core::util::U8X16;
 use yam_dark_core::YamlChunkState;
-use yam_dark_core::{util, NativeScanner, Stage1Scanner, HIGH_NIBBLE_MASK, LOW_NIBBLE_MASK};
+use yam_dark_core::{util, NativeScanner, Stage1Scanner, HIGH_NIBBLE, LOW_NIBBLE};
 
 unsafe fn find_whitespace_and_structurals(
     input: [u8; 64],
@@ -22,32 +22,20 @@ unsafe fn find_whitespace_and_structurals(
     let zero_mask: [u8; 16] = [0x0; 16];
 
     let v_v0 = v128_and(
-        u8x16_swizzle(LOW_NIBBLE_MASK, v128_and(v0, low_nib_and_mask)),
-        u8x16_swizzle(
-            HIGH_NIBBLE_MASK,
-            v128_and(u8x16_shr(v0, 4), high_nib_and_mask),
-        ),
+        u8x16_swizzle(LOW_NIBBLE, v128_and(v0, low_nib_and_mask)),
+        u8x16_swizzle(HIGH_NIBBLE, v128_and(u8x16_shr(v0, 4), high_nib_and_mask)),
     );
     let v_v1 = v128_and(
-        u8x16_swizzle(LOW_NIBBLE_MASK, v128_and(v1, low_nib_and_mask)),
-        u8x16_swizzle(
-            HIGH_NIBBLE_MASK,
-            v128_and(u8x16_shr(v1, 4), high_nib_and_mask),
-        ),
+        u8x16_swizzle(LOW_NIBBLE, v128_and(v1, low_nib_and_mask)),
+        u8x16_swizzle(HIGH_NIBBLE, v128_and(u8x16_shr(v1, 4), high_nib_and_mask)),
     );
     let v_v2 = v128_and(
-        u8x16_swizzle(LOW_NIBBLE_MASK, v128_and(v2, low_nib_and_mask)),
-        u8x16_swizzle(
-            HIGH_NIBBLE_MASK,
-            v128_and(u8x16_shr(v2, 4), high_nib_and_mask),
-        ),
+        u8x16_swizzle(LOW_NIBBLE, v128_and(v2, low_nib_and_mask)),
+        u8x16_swizzle(HIGH_NIBBLE, v128_and(u8x16_shr(v2, 4), high_nib_and_mask)),
     );
     let v_v3 = v128_and(
-        u8x16_swizzle(LOW_NIBBLE_MASK, v128_and(v3, low_nib_and_mask)),
-        u8x16_swizzle(
-            HIGH_NIBBLE_MASK,
-            v128_and(u8x16_shr(v3, 4), high_nib_and_mask),
-        ),
+        u8x16_swizzle(LOW_NIBBLE, v128_and(v3, low_nib_and_mask)),
+        u8x16_swizzle(HIGH_NIBBLE, v128_and(u8x16_shr(v3, 4), high_nib_and_mask)),
     );
     let tmp_v0 = u8x16_eq(v128_and(v_v0, structural_shufti_mask), zero_mask);
     let tmp_v1 = u8x16_eq(v128_and(v_v1, structural_shufti_mask), zero_mask);
@@ -90,24 +78,24 @@ unsafe fn find_whitespace_and_structurals_u8x16(
     let v2 = unsafe { U8X16::from_slice(&input[32..48]) };
     let v3 = unsafe { U8X16::from_slice(&input[48..64]) };
 
-    let v_v0 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
-        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v0 >> 4) & high_nib_and_mask);
-    let v_v1 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
-        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v1 >> 4) & high_nib_and_mask);
-    let v_v2 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
-        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v2 >> 4) & high_nib_and_mask);
-    let v_v3 = util::u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
-        & util::u8x16_swizzle(HIGH_NIBBLE_MASK, (v3 >> 4) & high_nib_and_mask);
+    let v_v0 = util::u8x16_swizzle(LOW_NIBBLE, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE, (v0 >> 4) & high_nib_and_mask);
+    let v_v1 = util::u8x16_swizzle(LOW_NIBBLE, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE, (v1 >> 4) & high_nib_and_mask);
+    let v_v2 = util::u8x16_swizzle(LOW_NIBBLE, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE, (v2 >> 4) & high_nib_and_mask);
+    let v_v3 = util::u8x16_swizzle(LOW_NIBBLE, v0 & low_nib_and_mask)
+        & util::u8x16_swizzle(HIGH_NIBBLE, (v3 >> 4) & high_nib_and_mask);
 
     let tmp_v0 = (v_v0 & 0x7).comp_all(0);
     let tmp_v1 = (v_v1 & 0x7).comp_all(0);
     let tmp_v2 = (v_v2 & 0x7).comp_all(0);
     let tmp_v3 = (v_v3 & 0x7).comp_all(0);
 
-    let structural_res_0 = tmp_v0.to_bitmask() as u64;
-    let structural_res_1 = tmp_v1.to_bitmask() as u64;
-    let structural_res_2 = tmp_v2.to_bitmask() as u64;
-    let structural_res_3 = tmp_v3.to_bitmask() as u64;
+    let structural_res_0 = tmp_v0.to_bitmask64();
+    let structural_res_1 = tmp_v1.to_bitmask64();
+    let structural_res_2 = tmp_v2.to_bitmask64();
+    let structural_res_3 = tmp_v3.to_bitmask64();
 
     *structurals = !(structural_res_0
         | (structural_res_1 << 16)
@@ -119,10 +107,10 @@ unsafe fn find_whitespace_and_structurals_u8x16(
     let tmp_ws2 = (v_v2 & 0x18).comp_all(0);
     let tmp_ws3 = (v_v3 & 0x18).comp_all(0);
 
-    let ws_res_0 = tmp_ws0.to_bitmask() as u64;
-    let ws_res_1 = tmp_ws1.to_bitmask() as u64;
-    let ws_res_2 = tmp_ws2.to_bitmask() as u64;
-    let ws_res_3 = tmp_ws3.to_bitmask() as u64;
+    let ws_res_0 = tmp_ws0.to_bitmask64();
+    let ws_res_1 = tmp_ws1.to_bitmask64();
+    let ws_res_2 = tmp_ws2.to_bitmask64();
+    let ws_res_3 = tmp_ws3.to_bitmask64();
 
     *whitespace = !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48))
 }
