@@ -65,9 +65,9 @@ pub struct YamlChunkState {
     pub double_quote: YamlDoubleQuoteChunk,
     pub single_quote: YamlSingleQuoteChunk,
     pub characters: YamlCharacterChunk,
-    pub rows: Vec<u32>,
-    pub cols: Vec<u32>,
-    pub indents: Vec<u32>,
+    pub rows: Vec<u8>,
+    pub cols: Vec<u8>,
+    pub indents: Vec<u8>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
 }
@@ -377,13 +377,7 @@ pub unsafe trait Stage1Scanner {
     /// ```
     fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
 
-    unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64);
-
-    unsafe fn flatten_bits_yaml(
-        base: &mut YamlParserState,
-        yaml_chunk_state: &YamlChunkState,
-        bits: u64,
-    );
+    fn flatten_bits_yaml(base: &mut YamlParserState, yaml_chunk_state: &YamlChunkState, bits: u64);
 
     /// Computes a quote mask based on the given quote bit mask.
     ///

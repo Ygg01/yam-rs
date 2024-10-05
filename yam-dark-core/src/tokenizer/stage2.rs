@@ -70,9 +70,9 @@ impl Buffer for Buffers {}
 #[derive(Default)]
 pub struct YamlParserState {
     pub(crate) structurals: Vec<usize>,
-    pub(crate) byte_cols: Vec<usize>,
-    pub(crate) byte_rows: Vec<usize>,
-    pub(crate) indents: Vec<usize>,
+    pub(crate) byte_cols: Vec<u32>,
+    pub(crate) byte_rows: Vec<u32>,
+    pub(crate) indents: Vec<u32>,
     pub(crate) idx: usize,
     pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
