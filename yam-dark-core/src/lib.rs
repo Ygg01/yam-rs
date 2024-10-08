@@ -1,4 +1,3 @@
-#![feature(slice_as_chunks)]
 #![no_std]
 extern crate alloc;
 extern crate core_detect;
