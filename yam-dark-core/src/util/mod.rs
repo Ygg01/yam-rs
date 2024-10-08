@@ -84,6 +84,67 @@ pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
     result
 }
 
+#[doc(hidden)]
+#[inline]
+pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u8) -> [u8; 8] {
+    let pre_calc_row = U8_ROW_TABLE[index_mask];
+    let rows = [
+        *prev_row,
+        *prev_row + pre_calc_row[0],
+        *prev_row + pre_calc_row[1],
+        *prev_row + pre_calc_row[2],
+        *prev_row + pre_calc_row[3],
+        *prev_row + pre_calc_row[4],
+        *prev_row + pre_calc_row[5],
+        *prev_row + pre_calc_row[6],
+    ];
+    *prev_row += pre_calc_row[7];
+    rows
+}
+
+#[doc(hidden)]
+#[inline]
+pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &mut u8) -> [u8; 8] {
+    [
+        cols[0] + *prev_col,
+        if rows_data[0] == 0 {
+            cols[1] + *prev_col
+        } else {
+            cols[1]
+        },
+        if rows_data[1] == 0 {
+            cols[2] + *prev_col
+        } else {
+            cols[2]
+        },
+        if rows_data[2] == 0 {
+            cols[3] + *prev_col
+        } else {
+            cols[3]
+        },
+        if rows_data[3] == 0 {
+            cols[4] + *prev_col
+        } else {
+            cols[4]
+        },
+        if rows_data[4] == 0 {
+            cols[5] + *prev_col
+        } else {
+            cols[5]
+        },
+        if rows_data[5] == 0 {
+            cols[6] + *prev_col
+        } else {
+            cols[6]
+        },
+        if rows_data[6] == 0 {
+            cols[7] + *prev_col
+        } else {
+            cols[7]
+        },
+    ]
+}
+
 #[test]
 fn test_branch_less_right() {
     let actual = select_right_bits_branch_less(

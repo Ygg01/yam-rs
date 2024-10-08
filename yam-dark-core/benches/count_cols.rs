@@ -1,6 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
-use yam_dark_core::util::{INDENT_SWIZZLE_TABLE, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE};
+use yam_dark_core::util::{
+    calculate_byte_rows, calculate_cols, INDENT_SWIZZLE_TABLE, U8X8, U8_BYTE_COL_TABLE,
+    U8_ROW_TABLE,
+};
 use yam_dark_core::{u8x64_eq, ChunkyIterator, SIMD_CHUNK_LENGTH};
 
 const YAML: &[u8] = r#"
@@ -23,70 +26,6 @@ fn calculate_byte_col(index_mask: usize, reset_bool: bool, prev_indent: &mut u8)
     let mask_sec = (-(reset_bool as i8)) as u8;
     *prev_indent = (row_calc[7] + 1) & mask_sec;
     row_calc
-}
-
-#[inline]
-fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &mut u8) -> [u8; 8] {
-    [
-        cols[0] + *prev_col,
-        if rows_data[0] == 0 {
-            cols[1] + *prev_col
-        } else {
-            cols[1]
-        },
-        if rows_data[1] == 0 {
-            cols[2] + *prev_col
-        } else {
-            cols[2]
-        },
-        if rows_data[2] == 0 {
-            cols[3] + *prev_col
-        } else {
-            cols[3]
-        },
-        if rows_data[3] == 0 {
-            cols[4] + *prev_col
-        } else {
-            cols[4]
-        },
-        if rows_data[4] == 0 {
-            cols[5] + *prev_col
-        } else {
-            cols[5]
-        },
-        if rows_data[5] == 0 {
-            cols[6] + *prev_col
-        } else {
-            cols[6]
-        },
-        if rows_data[6] == 0 {
-            cols[7] + *prev_col
-        } else {
-            cols[7]
-        },
-    ]
-}
-
-#[inline]
-fn calculate_byte_rows(index_mask: usize, prev_row: &mut u8) -> [u8; 8] {
-    let rows1 = U8_ROW_TABLE[index_mask];
-    calculate_rows(rows1, prev_row)
-}
-
-#[inline]
-fn calculate_rows(rows: [u8; 8], prev_row: &mut u8) -> [u8; 8] {
-    let x = [
-        *prev_row,
-        *prev_row + rows[0],
-        *prev_row + rows[1],
-        *prev_row + rows[2],
-        *prev_row + rows[3],
-        *prev_row + rows[4],
-        *prev_row + rows[5],
-        *prev_row + rows[6],
-    ];
-    *prev_row += rows[7];
-    x
 }
 
 #[doc(hidden)]
