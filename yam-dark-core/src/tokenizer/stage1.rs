@@ -28,7 +28,7 @@ use alloc::vec::Vec;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::util::{calculate_byte_rows, calculate_cols, U8_BYTE_COL_TABLE, U8_ROW_TABLE};
-use crate::{util, EvenOrOddBits, NativeScanner, ParseResult, SIMD_CHUNK_LENGTH};
+use crate::{u8x64_eq, util, EvenOrOddBits, NativeScanner, ParseResult, SIMD_CHUNK_LENGTH};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
 
@@ -365,14 +365,14 @@ pub unsafe trait Stage1Scanner {
     /// // Needs to be called before calculate indent
     /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
-    /// scanner.calculate_indents(&mut chunk, &mut prev_iter_state);
+    /// scanner.calculate_row_cols(&mut chunk, &mut prev_iter_state);
     /// assert_eq!(
     ///     chunk.cols,
     ///     range1_to_64
     /// );
     /// assert_eq!(chunk.rows, vec![0; 64]);
     /// ```
-    fn calculate_indents(
+    fn calculate_row_cols(
         &self,
         chunk_state: &mut YamlChunkState,
         prev_state: &mut YamlParserState,
@@ -384,7 +384,7 @@ pub unsafe trait Stage1Scanner {
         chunk_state.rows[0..8].copy_from_slice(&row0);
         chunk_state.cols[0..8].copy_from_slice(&col0);
 
-        let mut prev_col = col0[7];
+        let mut prev_col = col0[7] + 1;
         let mut prev_row = row0[7];
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 8) & 0xFF) as usize;
@@ -392,56 +392,63 @@ pub unsafe trait Stage1Scanner {
         chunk_state.cols[8..16].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
-            &mut prev_col,
+            &prev_col,
         ));
+        prev_col += chunk_state.cols[15];
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 16) & 0xFF) as usize;
         chunk_state.rows[16..24].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         chunk_state.cols[16..24].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
-            &mut prev_col,
+            &prev_col,
         ));
+        prev_col += chunk_state.cols[23];
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 24) & 0xFF) as usize;
         chunk_state.rows[24..32].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         chunk_state.cols[24..32].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
-            &mut prev_col,
+            &prev_col,
         ));
+        prev_col += chunk_state.cols[31];
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 32) & 0xFF) as usize;
         chunk_state.rows[32..40].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         chunk_state.cols[32..40].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
-            &mut prev_col,
+            &prev_col,
         ));
+        prev_col += chunk_state.cols[39];
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 40) & 0xFF) as usize;
         chunk_state.rows[40..48].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         chunk_state.cols[40..48].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
-            &mut prev_col,
+            &prev_col,
         ));
+        prev_col += chunk_state.cols[47];
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 48) & 0xFF) as usize;
         chunk_state.rows[48..56].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         chunk_state.cols[48..56].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
-            &mut prev_col,
+            &prev_col,
         ));
+        prev_col += chunk_state.cols[55];
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 56) & 0xFF) as usize;
         chunk_state.rows[56..64].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         chunk_state.cols[56..64].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
-            &mut prev_col,
+            &prev_col,
         ));
+        prev_col += chunk_state.cols[63];
     }
 
     /// Computes a quote mask based on the given quote bit mask.
@@ -513,7 +520,7 @@ pub unsafe trait Stage1Scanner {
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
         simd.scan_for_comments(&mut chunk_state, prev_state);
-        simd.calculate_indents(&mut chunk_state, prev_state);
+        simd.calculate_row_cols(&mut chunk_state, prev_state);
 
         simd.scan_double_quote_bitmask(&mut chunk_state, prev_state);
         simd.scan_single_quote_bitmask(&mut chunk_state, prev_state);
@@ -794,4 +801,19 @@ fn test_lteq() {
         result,
         0b1111111111111111111111111111111111111111111111111111111111111111
     );
+}
+
+#[test]
+fn test_count() {
+    let bin_str = b"                                                                ";
+    let mut chunk = YamlChunkState::default();
+    let mut prev_iter_state = YamlParserState::default();
+    let range1_to_64 = (0..=63).collect::<Vec<_>>();
+    let scanner = NativeScanner::from_chunk(bin_str);
+    // Needs to be called before calculate indent
+    chunk.characters.spaces = u8x64_eq(bin_str, b' ');
+    chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    scanner.calculate_row_cols(&mut chunk, &mut prev_iter_state);
+    assert_eq!(chunk.cols, range1_to_64);
+    assert_eq!(chunk.rows, vec![0; 64]);
 }
