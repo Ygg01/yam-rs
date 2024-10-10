@@ -136,7 +136,7 @@ unsafe impl Stage1Scanner for NativeScanner {
 
     fn flatten_bits_yaml(
         base: &mut YamlParserState,
-        _yaml_chunk_state: &YamlChunkState,
+        yaml_chunk_state: &YamlChunkState,
         mut bits: u64,
     ) {
         let count_ones: usize = bits.count_ones() as usize;
@@ -152,8 +152,6 @@ unsafe impl Stage1Scanner for NativeScanner {
         base.byte_rows.reserve(64);
         base.indents.reserve(64);
         let final_len = base_len + count_ones;
-
-        let is_unaligned = base_len % 4 != 0;
 
         while bits != 0 {
             let v0 = bits.trailing_zeros();
@@ -171,23 +169,69 @@ unsafe impl Stage1Scanner for NativeScanner {
                 base.idx + v2 as usize,
                 base.idx + v3 as usize,
             ];
+
             // SAFETY:
             // Get unchecked will be less than 64, because trailing zeros of u64 can't be greater than 64
             // these values will be added to base.last_row. Adding a value to base.last_row might panic but
             // shouldn't be a SAFETY problem.
-            let row = unsafe {
+            let cols: [u32; 4] = unsafe {
                 [
-                    *_yaml_chunk_state.rows.get_unchecked(v0 as usize) as u32 + base.last_row,
-                    *_yaml_chunk_state.rows.get_unchecked(v1 as usize) as u32 + base.last_row,
-                    *_yaml_chunk_state.rows.get_unchecked(v2 as usize) as u32 + base.last_row,
-                    *_yaml_chunk_state.rows.get_unchecked(v3 as usize) as u32 + base.last_row,
+                    *yaml_chunk_state.cols.get_unchecked(v0 as usize) as u32
+                        + if *yaml_chunk_state.rows.get_unchecked(v0 as usize) == 0 {
+                            base.last_col
+                        } else {
+                            0
+                        },
+                    *yaml_chunk_state.cols.get_unchecked(v1 as usize) as u32
+                        + if *yaml_chunk_state.rows.get_unchecked(v1 as usize) == 0 {
+                            base.last_col
+                        } else {
+                            0
+                        },
+                    *yaml_chunk_state.cols.get_unchecked(v2 as usize) as u32
+                        + if *yaml_chunk_state.rows.get_unchecked(v2 as usize) == 0 {
+                            base.last_col
+                        } else {
+                            0
+                        },
+                    *yaml_chunk_state.cols.get_unchecked(v3 as usize) as u32
+                        + if *yaml_chunk_state.rows.get_unchecked(v3 as usize) == 0 {
+                            base.last_col
+                        } else {
+                            0
+                        },
                 ]
             };
             // SAFETY:
-            //
+            // Get unchecked will be less than 64, because trailing zeros of u64 can't be greater than 64
+            // these values will be added to base.last_row. Adding a value to base.last_row might panic but
+            // shouldn't be a SAFETY problem.
+            let rows = unsafe {
+                [
+                    *yaml_chunk_state.rows.get_unchecked(v0 as usize) as u32 + base.last_row,
+                    *yaml_chunk_state.rows.get_unchecked(v1 as usize) as u32 + base.last_row,
+                    *yaml_chunk_state.rows.get_unchecked(v2 as usize) as u32 + base.last_row,
+                    *yaml_chunk_state.rows.get_unchecked(v3 as usize) as u32 + base.last_row,
+                ]
+            };
+            // SAFETY:
+            // Writing arrays into vec will always be aligned.
             unsafe {
-                write(base.structurals.as_mut_ptr().add(1).cast::<[usize; 4]>(), v);
-                write(base.byte_cols.as_mut_ptr().add(1).cast::<[u32; 4]>(), row);
+                write(
+                    base.structurals
+                        .as_mut_ptr()
+                        .add(base_len)
+                        .cast::<[usize; 4]>(),
+                    v,
+                );
+                write(
+                    base.byte_cols.as_mut_ptr().add(base_len).cast::<[u32; 4]>(),
+                    cols,
+                );
+                write(
+                    base.byte_rows.as_mut_ptr().add(base_len).cast::<[u32; 4]>(),
+                    rows,
+                );
             }
 
             base_len += 4;
