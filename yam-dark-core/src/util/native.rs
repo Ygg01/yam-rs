@@ -309,11 +309,11 @@ impl U8X16 {
     /// # Safety
     ///
     /// This function is marked as `unsafe` because it dereferences raw pointers and
-    /// may result in undefined behavior if the input slice is not **exactly** 16.
+    /// may result in undefined behavior if the input slice *MUST BE AT LEAST 16*  bytes long.
     ///
     /// # Arguments
     ///
-    /// * `input` - A slice of `u8` values from which to create the `U8X16` instance. Input must be exactly 16 bytes long.
+    /// * `input` - A slice of `u8` values from which to create the `U8X16` instance. Input must be at last 16 bytes long.
     ///
     /// # Returns
     ///
@@ -672,6 +672,7 @@ impl U8X8 {
 
     #[inline]
     pub fn add_offset_and_mask(&self, mask: Self, offset: u32) -> [u32; 8] {
+        // SAFETY: This is safe because self.0 is [u8; 8] so this will never cause UB.
         [
             if mask.0[0] == 0 {
                 unsafe { *self.0.get_unchecked(0) as u32 + offset }

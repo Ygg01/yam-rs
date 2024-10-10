@@ -2,6 +2,7 @@
 use alloc::vec;
 #[allow(unused_imports)]
 use alloc::vec::Vec;
+use core::ptr::write;
 use util::u8x16_swizzle;
 
 use crate::tokenizer::stage1::{Stage1Scanner, YamlChunkState};
@@ -50,6 +51,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         let high_nib_and_mask = U8X16::splat(0x7F);
 
         // Step 2: Fill U8X16 SIMD-like vectors with content from chunk
+        // SAFETY: All inner chunk slices are 16 bytes long.
         let v0 = unsafe { U8X16::from_slice(&self.inner_chunk[0..16]) };
         let v1 = unsafe { U8X16::from_slice(&self.inner_chunk[16..32]) };
         let v2 = unsafe { U8X16::from_slice(&self.inner_chunk[32..48]) };
@@ -139,14 +141,6 @@ unsafe impl Stage1Scanner for NativeScanner {
     ) {
         let count_ones: usize = bits.count_ones() as usize;
         let mut base_len = base.structurals.len();
-        let idx_64_v: [isize; 4] = unsafe {
-            [
-                core::mem::transmute::<usize, isize>(base.idx),
-                core::mem::transmute::<usize, isize>(base.idx),
-                core::mem::transmute::<usize, isize>(base.idx),
-                core::mem::transmute::<usize, isize>(base.idx),
-            ]
-        };
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
@@ -160,11 +154,6 @@ unsafe impl Stage1Scanner for NativeScanner {
         let final_len = base_len + count_ones;
 
         let is_unaligned = base_len % 4 != 0;
-        let write_fn = if is_unaligned {
-            core::ptr::write_unaligned
-        } else {
-            core::ptr::write
-        };
 
         while bits != 0 {
             let v0 = bits.trailing_zeros();
@@ -176,20 +165,29 @@ unsafe impl Stage1Scanner for NativeScanner {
             let v3 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
 
-            let v: [isize; 4] = [
-                idx_64_v[0] + v0 as isize,
-                idx_64_v[1] + v1 as isize,
-                idx_64_v[2] + v2 as isize,
-                idx_64_v[3] + v3 as isize,
+            let v: [usize; 4] = [
+                base.idx + v0 as usize,
+                base.idx + v1 as usize,
+                base.idx + v2 as usize,
+                base.idx + v3 as usize,
             ];
+            // SAFETY:
+            // Get unchecked will be less than 64, because trailing zeros of u64 can't be greater than 64
+            // these values will be added to base.last_row. Adding a value to base.last_row might panic but
+            // shouldn't be a SAFETY problem.
+            let row = unsafe {
+                [
+                    *_yaml_chunk_state.rows.get_unchecked(v0 as usize) as u32 + base.last_row,
+                    *_yaml_chunk_state.rows.get_unchecked(v1 as usize) as u32 + base.last_row,
+                    *_yaml_chunk_state.rows.get_unchecked(v2 as usize) as u32 + base.last_row,
+                    *_yaml_chunk_state.rows.get_unchecked(v3 as usize) as u32 + base.last_row,
+                ]
+            };
+            // SAFETY:
+            //
             unsafe {
-                write_fn(
-                    base.structurals
-                        .as_mut_ptr()
-                        .add(base_len)
-                        .cast::<[isize; 4]>(),
-                    v,
-                );
+                write(base.structurals.as_mut_ptr().add(1).cast::<[usize; 4]>(), v);
+                write(base.byte_cols.as_mut_ptr().add(1).cast::<[u32; 4]>(), row);
             }
 
             base_len += 4;

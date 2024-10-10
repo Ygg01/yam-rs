@@ -126,7 +126,7 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
     }
 
     /// Safety: Only unsafe thing here is from calling right Scanner for right CPU architecture
-    /// i.e. don't call Neon
+    /// i.e. don't call Neon on x86 architecture
     unsafe {
         if core_detect::is_x86_feature_detected!("avx2") {
             Box::new(AvxScanner::validator())
