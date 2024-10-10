@@ -168,6 +168,7 @@ impl<'de> Parser<'de> {
         let next_fn = get_stage1_next::<B>();
 
         iter.try_for_each(|chunk| {
+            // SAFETY: The chunk is always 64 bytes, so it is always compatible with validator.
             let res: Result<YamlChunkState, YamlError> = unsafe {
                 validator.update_from_chunks(chunk);
                 next_fn(chunk, buffer, &mut state)
