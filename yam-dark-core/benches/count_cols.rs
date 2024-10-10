@@ -4,7 +4,7 @@ use yam_dark_core::util::{
     calculate_byte_rows, calculate_cols, INDENT_SWIZZLE_TABLE, U8X8, U8_BYTE_COL_TABLE,
     U8_ROW_TABLE,
 };
-use yam_dark_core::{u8x64_eq, ChunkyIterator, SIMD_CHUNK_LENGTH};
+use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -29,12 +29,7 @@ fn calculate_byte_col(index_mask: usize, reset_bool: bool, prev_indent: &mut u8)
 }
 
 #[doc(hidden)]
-pub fn count_col_rows(
-    newline_mask: u64,
-
-    byte_cols: &mut [u8; SIMD_CHUNK_LENGTH],
-    byte_rows: &mut [u8; SIMD_CHUNK_LENGTH],
-) {
+pub fn count_col_rows(newline_mask: u64, byte_cols: &mut [u8; 64], byte_rows: &mut [u8; 64]) {
     let mut prev_byte_col = 0;
     let mut prev_byte_row = 0;
     // First 8 bits
@@ -275,7 +270,7 @@ pub fn count_indent_naive(
     space_mask: u64,
     prev_iter_char: &mut u8,
     prev_indent: &mut u8,
-    indents: &mut [u8; SIMD_CHUNK_LENGTH],
+    indents: &mut [u8; 64],
 ) {
     for (pos, item) in indents.iter_mut().enumerate().take(64) {
         let is_space = (space_mask & (1 << pos)) != 0;
@@ -341,8 +336,8 @@ pub fn count_indent_dependent(
     space_mask: u64,
     prev_iter_char: &mut u8,
     prev_indent: &mut u8,
-    byte_cols: &[u8; SIMD_CHUNK_LENGTH],
-    indents: &mut [u8; SIMD_CHUNK_LENGTH],
+    byte_cols: &[u8; 64],
+    indents: &mut [u8; 64],
 ) {
     ///
     /// # Arguments:
@@ -356,7 +351,7 @@ pub fn count_indent_dependent(
     ///
     #[inline]
     fn swizzle_slice(
-        byte_indents: &mut [u8; SIMD_CHUNK_LENGTH],
+        byte_indents: &mut [u8; 64],
         starts: usize,
         spaces_mask: usize,
         newline_mask: usize,

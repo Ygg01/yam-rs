@@ -7,17 +7,17 @@ use util::u8x16_swizzle;
 use crate::tokenizer::stage1::{Stage1Scanner, YamlChunkState};
 use crate::util::NoopValidator;
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
-use crate::{util, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE, SIMD_CHUNK_LENGTH};
+use crate::{util, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
 
 #[doc(hidden)]
 pub struct NativeScanner {
-    inner_chunk: [u8; SIMD_CHUNK_LENGTH],
+    inner_chunk: [u8; 64],
 }
 
 impl NativeScanner {}
 
 unsafe impl Stage1Scanner for NativeScanner {
-    type SimdType = [u8; SIMD_CHUNK_LENGTH];
+    type SimdType = [u8; 64];
     type Validator = NoopValidator;
 
     unsafe fn validator() -> Self::Validator {
@@ -25,7 +25,7 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn from_chunk(values: &[u8; SIMD_CHUNK_LENGTH]) -> Self {
+    fn from_chunk(values: &[u8; 64]) -> Self {
         NativeScanner {
             inner_chunk: *values,
         }

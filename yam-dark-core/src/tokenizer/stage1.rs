@@ -28,7 +28,7 @@ use alloc::vec::Vec;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::util::{calculate_byte_rows, calculate_cols, U8_BYTE_COL_TABLE, U8_ROW_TABLE};
-use crate::{u8x64_eq, util, EvenOrOddBits, NativeScanner, ParseResult, SIMD_CHUNK_LENGTH};
+use crate::{u8x64_eq, util, EvenOrOddBits, NativeScanner, ParseResult};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
 
@@ -207,7 +207,7 @@ impl YamlCharacterChunk {
 }
 
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
-    chunk: &'buffer [u8; SIMD_CHUNK_LENGTH],
+    chunk: &'buffer [u8; 64],
     buffers: &'input mut B,
     state: &'input mut YamlParserState,
 ) -> ParseResult<YamlChunkState>;
@@ -250,14 +250,14 @@ pub unsafe trait Stage1Scanner {
     /// use yam_dark_core::{Stage1Scanner, SIMD_CHUNK_LENGTH};
     /// use yam_dark_core::NativeScanner;
     ///
-    /// let data_chunk: [u8; SIMD_CHUNK_LENGTH] = [0; SIMD_CHUNK_LENGTH];
+    /// let data_chunk: [u8; 64] = [0; 64];
     /// let result = NativeScanner::from_chunk(&data_chunk);
     /// ```
     ///
     /// # Returns
     ///
     /// A new instance of [`Stage1Scanner`] constructed from the given `values`.
-    fn from_chunk(data_chunk: &[u8; SIMD_CHUNK_LENGTH]) -> Self;
+    fn from_chunk(data_chunk: &[u8; 64]) -> Self;
 
     /// Compares the ASCII value of the given input with the internal value
     /// of the struct and returns a 64-bit bitmask.
@@ -276,7 +276,7 @@ pub unsafe trait Stage1Scanner {
     /// use yam_dark_core::{Stage1Scanner, SIMD_CHUNK_LENGTH};
     /// use yam_dark_core::NativeScanner;
     ///
-    /// let values: [u8; SIMD_CHUNK_LENGTH] = [0; SIMD_CHUNK_LENGTH];
+    /// let values: [u8; 64] = [0; 64];
     /// let result = NativeScanner::from_chunk(&values);
     /// let bitmask = result.cmp_ascii_to_input(1);
     /// assert_eq!(bitmask, 0);
