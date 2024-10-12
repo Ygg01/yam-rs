@@ -151,6 +151,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         base.byte_cols.reserve(64);
         base.byte_rows.reserve(64);
         base.indents.reserve(64);
+
         let final_len = base_len + count_ones;
 
         while bits != 0 {
@@ -258,7 +259,7 @@ fn test_calculate_indents() {
     // Needs to be called before indent
     chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
-    scanner.calculate_row_cols(&mut chunk, &mut prev_iter_state);
+    scanner.calculate_row_cols_indents(&mut chunk, &mut prev_iter_state);
     assert_eq!(chunk.cols, range1_to_64);
     assert_eq!(chunk.rows, vec![0; 64]);
 }
