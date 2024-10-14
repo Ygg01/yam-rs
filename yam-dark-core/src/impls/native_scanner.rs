@@ -253,13 +253,18 @@ unsafe impl Stage1Scanner for NativeScanner {
 fn test_calculate_indents() {
     let bin_str = b"                                                                ";
     let mut chunk = YamlChunkState::default();
-    let mut prev_iter_state = YamlParserState::default();
     let range1_to_64 = (1..=64u8).collect::<Vec<_>>();
     let scanner = NativeScanner::from_chunk(bin_str);
     // Needs to be called before indent
     chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
-    scanner.calculate_row_cols_indents(&mut chunk, &mut prev_iter_state);
+    scanner.calculate_row_cols_indents(
+        &mut chunk.rows,
+        &mut chunk.cols,
+        &mut chunk.indents,
+        chunk.characters.line_feeds,
+        chunk.characters.spaces,
+    );
     assert_eq!(chunk.cols, range1_to_64);
     assert_eq!(chunk.rows, vec![0; 64]);
 }

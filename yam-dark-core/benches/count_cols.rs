@@ -565,7 +565,7 @@ fn count_batch(
     space_mask: u64,
     byte_rows: &mut [u8; 64],
     byte_cols: &mut [u8; 64],
-    indents: &mut Vec<u32>,
+    indents: &mut Vec<u8>,
 ) {
     let nl_ind0 = (newline_mask & 0xFF) as usize;
     let row0 = U8_ROW_TABLE[nl_ind0];
