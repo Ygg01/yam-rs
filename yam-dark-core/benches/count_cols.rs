@@ -128,100 +128,6 @@ pub fn count_table_u8x8(chunk: [u8; 64], prev_col: &mut u32) -> [u32; 64] {
     result
 }
 
-fn col_count_indent(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-col");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64 * 2));
-
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let chunk = chunk_iter.next().unwrap();
-    let newline_mask = u8x64_eq(chunk, b'\n');
-    let space_mask = u8x64_eq(chunk, b' ');
-
-    let chunk2 = chunk_iter.next().unwrap();
-    let newline_mask2 = u8x64_eq(chunk2, b'\n');
-    let space_mask2 = u8x64_eq(chunk2, b' ');
-    let mut indents = [0; 64];
-    let mut byte_cols = [0; 64];
-    let mut byte_rows = [0; 64];
-
-    group.bench_function("col_count_indent_dependent", |b| {
-        b.iter(|| {
-            let mut prev_indent = 0;
-            let mut prev_iter_char = 1;
-
-            count_col_rows(newline_mask, &mut byte_cols, &mut byte_rows);
-            count_indent_dependent(
-                newline_mask,
-                space_mask,
-                &mut prev_iter_char,
-                &mut prev_indent,
-                &byte_cols,
-                &mut indents,
-            );
-            black_box(indents[3] == 0);
-
-            count_col_rows(newline_mask2, &mut byte_cols, &mut byte_rows);
-            count_indent_dependent(
-                newline_mask2,
-                space_mask2,
-                &mut prev_iter_char,
-                &mut prev_indent,
-                &byte_cols,
-                &mut indents,
-            );
-            black_box(indents[30] == 0);
-        })
-    });
-    group.finish();
-}
-
-fn col_count_indent_naive(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-col");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64 * 2));
-
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let chunk = chunk_iter.next().unwrap();
-    let newline_mask = u8x64_eq(chunk, b'\n');
-    let space_mask = u8x64_eq(chunk, b' ');
-
-    let chunk2 = chunk_iter.next().unwrap();
-    let newline_mask2 = u8x64_eq(chunk2, b'\n');
-    let space_mask2 = u8x64_eq(chunk2, b' ');
-    let mut indents = [0; 64];
-    let mut byte_cols = [0; 64];
-    let mut byte_rows = [0; 64];
-
-    group.bench_function("col_count_indent_naive", |b| {
-        b.iter(|| {
-            let mut prev_indent = 0;
-            let mut prev_iter_char = 1;
-
-            count_col_rows(newline_mask, &mut byte_cols, &mut byte_rows);
-            count_indent_naive(
-                newline_mask,
-                space_mask,
-                &mut prev_iter_char,
-                &mut prev_indent,
-                &mut indents,
-            );
-            black_box(indents[56] == 0);
-
-            count_col_rows(newline_mask2, &mut byte_cols, &mut byte_rows);
-            count_indent_naive(
-                newline_mask2,
-                space_mask2,
-                &mut prev_iter_char,
-                &mut prev_indent,
-                &mut indents,
-            );
-            black_box(indents[60] == 0);
-        })
-    });
-    group.finish();
-}
-
 fn count_naive(
     newline_bits: u64,
     space_bits: u64,
@@ -639,7 +545,7 @@ criterion_group!(
     benches,
     // col_count_indent,
     // col_count_indent_naive,
-    // col_count_all_naive,
+    col_count_all_naive,
     col_count_batch,
 );
 criterion_main!(benches);
