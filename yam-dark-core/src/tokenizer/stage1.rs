@@ -363,13 +363,13 @@ pub unsafe trait Stage1Scanner {
     ///
     /// let bin_str = b"                                                                ";
     /// let mut chunk = YamlChunkState::default();
-    /// let range1_to_64 = (1..=64).collect::<Vec<_>>();
+    /// let range1_to_64 = (0..=63).collect::<Vec<_>>();
     /// let scanner = NativeScanner::from_chunk(bin_str);
     /// // Needs to be called before calculate indent
     /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
     /// // Will calculate col/row/indent
-    /// scanner.calculate_row_cols_indents(
+    /// scanner.calculate_cols_rows_indents(
     ///     &mut chunk.cols,
     ///     &mut chunk.rows,
     ///     &mut chunk.indents,
@@ -382,23 +382,26 @@ pub unsafe trait Stage1Scanner {
     /// );
     /// assert_eq!(chunk.rows, vec![0; 64]);
     /// ```
-    fn calculate_row_cols_indents(
+    fn calculate_cols_rows_indents(
         &self,
-        rows: &mut [u8],
         cols: &mut [u8],
+        rows: &mut [u8],
         indents: &mut Vec<u8>,
         newline_mask: u64,
         space_mask: u64,
     ) {
-        let nl_ind0 = (newline_mask & 0xFF) as usize;
-        let row0 = U8_ROW_TABLE[nl_ind0];
-        let col0 = U8_BYTE_COL_TABLE[nl_ind0];
+        let nl_ind = (newline_mask & 0xFF) as usize;
 
-        rows[0..8].copy_from_slice(&row0);
-        cols[0..8].copy_from_slice(&col0);
+        let mut prev_col = 0;
+        let mut prev_row = 0;
 
-        let mut prev_col = col0[7] + 1;
-        let mut prev_row = row0[7];
+        rows[0..8].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        cols[0..8].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &prev_col,
+        ));
+        prev_col = cols[7] + 1;
 
         let nl_ind = ((newline_mask >> 8) & 0xFF) as usize;
         rows[8..16].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
@@ -407,7 +410,7 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col += cols[15];
+        prev_col = cols[15] + 1;
 
         let nl_ind = ((newline_mask >> 16) & 0xFF) as usize;
         rows[16..24].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
@@ -416,7 +419,7 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col += cols[23];
+        prev_col = cols[23] + 1;
 
         let nl_ind = ((newline_mask >> 24) & 0xFF) as usize;
         rows[24..32].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
@@ -425,7 +428,7 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col += cols[31];
+        prev_col = cols[31] + 1;
 
         let nl_ind = ((newline_mask >> 32) & 0xFF) as usize;
         rows[32..40].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
@@ -434,7 +437,7 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col += cols[39];
+        prev_col = cols[39] + 1;
 
         let nl_ind = ((newline_mask >> 40) & 0xFF) as usize;
         rows[40..48].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
@@ -443,7 +446,7 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col += cols[47];
+        prev_col = cols[47] + 1;
 
         let nl_ind = ((newline_mask >> 48) & 0xFF) as usize;
         rows[48..56].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
@@ -452,7 +455,7 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col += cols[55];
+        prev_col = cols[55] + 1;
 
         let nl_ind = ((newline_mask >> 56) & 0xFF) as usize;
         rows[56..64].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
@@ -461,7 +464,7 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col += cols[63];
+        prev_col = cols[63] + 1;
         count_indent_native(newline_mask, space_mask, indents);
     }
 
@@ -534,7 +537,7 @@ pub unsafe trait Stage1Scanner {
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
         simd.scan_for_comments(&mut chunk_state, prev_state);
-        simd.calculate_row_cols_indents(
+        simd.calculate_cols_rows_indents(
             &mut chunk_state.rows,
             &mut chunk_state.cols,
             &mut chunk_state.indents,
@@ -825,21 +828,24 @@ fn test_lteq() {
 
 #[test]
 fn test_count() {
-    let bin_str = b"                                                                ";
+    let bin_str = b"           \n                                                    ";
     let mut chunk = YamlChunkState::default();
-    let mut prev_iter_state = YamlParserState::default();
-    let range1_to_64 = (0..=63).collect::<Vec<_>>();
+
+    let cols = (0..12).chain(0..52).collect::<Vec<_>>();
+    let mut rows = vec![0; 12];
+    rows.extend_from_slice(&vec![1; 52]);
+
     let scanner = NativeScanner::from_chunk(bin_str);
     // Needs to be called before calculate indent
     chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
-    scanner.calculate_row_cols_indents(
+    scanner.calculate_cols_rows_indents(
         &mut chunk.cols,
         &mut chunk.rows,
         &mut chunk.indents,
         chunk.characters.line_feeds,
         chunk.characters.spaces,
     );
-    assert_eq!(chunk.cols, range1_to_64);
-    assert_eq!(chunk.rows, vec![0; 64]);
+    assert_eq!(chunk.cols, cols);
+    assert_eq!(chunk.rows, rows);
 }
