@@ -148,35 +148,39 @@ pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 
 }
 
 #[doc(hidden)]
-pub fn count_indent_native(mut newline_mask: u64, mut space_mask: u64, indents: &mut Vec<u8>) {
+pub fn count_indent_native(mut newline_mask: u64, mut space_mask: u64, indents: &mut Vec<u32>) {
+    let vec_len = indents.len();
     let mut base_len = indents.len();
-    indents.reserve(64);
+    indents.reserve(68);
+    let count_cols = newline_mask.count_ones() + 1;
 
     while newline_mask != 0 {
-        let v0 = newline_mask.trailing_zeros() & 0x3F;
+        let part0 = (!space_mask).trailing_zeros();
+        let v0 = newline_mask.trailing_zeros()  & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
-        let part0 = space_mask % (1 << v0);
-        space_mask >>= v0;
+        space_mask >>= v0 + 1;
 
-        let v1 = newline_mask.trailing_zeros() & 0x3F;
+        let part1 = (!space_mask).trailing_zeros();
+        let v1 = newline_mask.trailing_zeros()  & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
-        let part1 = space_mask % (1 << v1);
-        space_mask >>= v1;
+        space_mask >>= v1 + 1;
 
+        let part2 = (!space_mask).trailing_zeros();
         let v2 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
-        let part2 = space_mask % (1 << v2);
-        space_mask >>= v2;
+        space_mask >>= v2 + 1;
 
+        let part3 = (!space_mask).trailing_zeros();
         let v3 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
-        let part3 = space_mask % (1 << v3);
-        space_mask >>= v3;
+        space_mask >>= v3 + 1;
 
         let v = [part0 as u32, part1 as u32, part2 as u32, part3 as u32];
         unsafe { write(indents.as_mut_ptr().add(base_len).cast::<[u32; 4]>(), v) }
         base_len += 4;
     }
+    // SAFETY: we have reserved enough space
+    unsafe { indents.set_len(vec_len + count_cols as usize) }
 }
 
 #[test]

@@ -85,7 +85,7 @@ impl Default for YamlChunkState {
             characters: YamlCharacterChunk::default(),
             rows: vec![0; 64],
             cols: vec![0; 64],
-            indents: vec![0; 64],
+            indents: Vec::new(),
             follows_non_quote_scalar: 0,
             error_mask: 0,
         }
@@ -386,7 +386,7 @@ pub unsafe trait Stage1Scanner {
         &self,
         cols: &mut [u8],
         rows: &mut [u8],
-        indents: &mut Vec<u8>,
+        indents: &mut Vec<u32>,
         newline_mask: u64,
         space_mask: u64,
     ) {
@@ -846,4 +846,32 @@ fn test_count() {
     );
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
+}
+
+#[test]
+fn test_count2() {
+    let bin_str = b"    ab     \n                                                    ";
+    let mut chunk = YamlChunkState::default();
+
+    let cols = (0..12).chain(0..52).collect::<Vec<_>>();
+    let mut rows = vec![0; 12];
+    rows.extend_from_slice(&vec![1; 52]);
+    let indents = vec![4, 52]; // or another default/expected value
+
+
+    let scanner = NativeScanner::from_chunk(bin_str);
+    // Needs to be called before calculate indent
+    chunk.characters.spaces = u8x64_eq(bin_str, b' ');
+    chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    scanner.calculate_cols_rows_indents(
+        &mut chunk.cols,
+        &mut chunk.rows,
+        &mut chunk.indents,
+        chunk.characters.line_feeds,
+        chunk.characters.spaces,
+    );
+    assert_eq!(chunk.cols, cols);
+    assert_eq!(chunk.rows, rows);
+    assert_eq!(chunk.indents, indents);
+
 }
