@@ -148,20 +148,27 @@ pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 
 }
 
 #[doc(hidden)]
-pub fn count_indent_native(mut newline_mask: u64, mut space_mask: u64, indents: &mut Vec<u32>) {
-    let vec_len = indents.len();
+pub fn count_indent_native(
+    mut newline_mask: u64,
+    mut space_mask: u64,
+    indents: &mut Vec<u32>,
+    previous_indent: &mut u32,
+) {
+    let start_len = indents.len();
     let mut base_len = indents.len();
+
+    // Reserve enough space for the worst case
     indents.reserve(68);
     let count_cols = newline_mask.count_ones() + 1;
 
     while newline_mask != 0 {
         let part0 = (!space_mask).trailing_zeros();
-        let v0 = newline_mask.trailing_zeros()  & 0x3F;
+        let v0 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
         space_mask >>= v0 + 1;
 
         let part1 = (!space_mask).trailing_zeros();
-        let v1 = newline_mask.trailing_zeros()  & 0x3F;
+        let v1 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
         space_mask >>= v1 + 1;
 
@@ -175,12 +182,31 @@ pub fn count_indent_native(mut newline_mask: u64, mut space_mask: u64, indents: 
         newline_mask &= newline_mask.wrapping_sub(1);
         space_mask >>= v3 + 1;
 
-        let v = [part0 as u32, part1 as u32, part2 as u32, part3 as u32];
+        let v = [part0, part1, part2, part3];
         unsafe { write(indents.as_mut_ptr().add(base_len).cast::<[u32; 4]>(), v) }
         base_len += 4;
     }
-    // SAFETY: we have reserved enough space
-    unsafe { indents.set_len(vec_len + count_cols as usize) }
+    // We do some safety vector snipping here, then handle previous indent.
+
+    let last_len = start_len + count_cols as usize;
+    // SAFETY: we have reserved enough space, but we will only use start_len + number of newlines + 1
+    // or start_len + count_cols
+    unsafe {
+        indents.set_len(last_len);
+    }
+    if *previous_indent > 0 {
+        // SAFETY: start_len is starting length and since indents are guaranteed to have at least 1
+        // element, we can safely access the element at start_len
+        unsafe {
+            *indents.get_unchecked_mut(start_len) = *previous_indent - 1;
+        }
+    }
+    // SAFETY: last element should be exactly last_len - 1 (because arrays are 0 based)
+    *previous_indent = unsafe {
+        // TODO do actual indent logic here
+        // TODO check what happens for 64 newlines
+        *indents.get_unchecked(last_len - 1)
+    }
 }
 
 #[test]

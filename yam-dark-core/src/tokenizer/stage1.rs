@@ -70,7 +70,6 @@ pub struct YamlChunkState {
     pub characters: YamlCharacterChunk,
     pub rows: Vec<u8>,
     pub cols: Vec<u8>,
-    pub indents: Vec<u8>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
 }
@@ -85,7 +84,6 @@ impl Default for YamlChunkState {
             characters: YamlCharacterChunk::default(),
             rows: vec![0; 64],
             cols: vec![0; 64],
-            indents: Vec::new(),
             follows_non_quote_scalar: 0,
             error_mask: 0,
         }
@@ -365,6 +363,7 @@ pub unsafe trait Stage1Scanner {
     /// let mut chunk = YamlChunkState::default();
     /// let range1_to_64 = (0..=63).collect::<Vec<_>>();
     /// let scanner = NativeScanner::from_chunk(bin_str);
+    /// let mut indents = Vec::new();
     /// // Needs to be called before calculate indent
     /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
@@ -372,7 +371,8 @@ pub unsafe trait Stage1Scanner {
     /// scanner.calculate_cols_rows_indents(
     ///     &mut chunk.cols,
     ///     &mut chunk.rows,
-    ///     &mut chunk.indents,
+    ///     &mut 0,
+    ///     &mut indents,
     ///     chunk.characters.line_feeds,
     ///     chunk.characters.spaces
     /// );
@@ -381,11 +381,13 @@ pub unsafe trait Stage1Scanner {
     ///     range1_to_64
     /// );
     /// assert_eq!(chunk.rows, vec![0; 64]);
+    /// // TODO indent check
     /// ```
     fn calculate_cols_rows_indents(
         &self,
         cols: &mut [u8],
         rows: &mut [u8],
+        prev_indents: &mut u32,
         indents: &mut Vec<u32>,
         newline_mask: u64,
         space_mask: u64,
@@ -465,7 +467,7 @@ pub unsafe trait Stage1Scanner {
             &prev_col,
         ));
         prev_col = cols[63] + 1;
-        count_indent_native(newline_mask, space_mask, indents);
+        count_indent_native(newline_mask, space_mask, indents, prev_indents);
     }
 
     /// Computes a quote mask based on the given quote bit mask.
@@ -540,7 +542,8 @@ pub unsafe trait Stage1Scanner {
         simd.calculate_cols_rows_indents(
             &mut chunk_state.rows,
             &mut chunk_state.cols,
-            &mut chunk_state.indents,
+            &mut prev_state.previous_indent,
+            &mut prev_state.indents,
             chunk_state.characters.line_feeds,
             chunk_state.characters.spaces,
         );
@@ -837,15 +840,18 @@ fn test_count() {
     // Needs to be called before calculate indent
     chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    let mut indents = Vec::new();
     scanner.calculate_cols_rows_indents(
         &mut chunk.cols,
         &mut chunk.rows,
-        &mut chunk.indents,
+        &mut 0,
+        &mut indents,
         chunk.characters.line_feeds,
         chunk.characters.spaces,
     );
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
+    // TODO check indents
 }
 
 #[test]
@@ -858,20 +864,20 @@ fn test_count2() {
     rows.extend_from_slice(&vec![1; 52]);
     let indents = vec![4, 52]; // or another default/expected value
 
-
     let scanner = NativeScanner::from_chunk(bin_str);
     // Needs to be called before calculate indent
     chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    let mut actual_indents = Vec::new();
     scanner.calculate_cols_rows_indents(
         &mut chunk.cols,
         &mut chunk.rows,
-        &mut chunk.indents,
+        &mut 0,
+        &mut actual_indents,
         chunk.characters.line_feeds,
         chunk.characters.spaces,
     );
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
-    assert_eq!(chunk.indents, indents);
-
+    assert_eq!(actual_indents, indents);
 }
