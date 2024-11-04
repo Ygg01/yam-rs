@@ -327,6 +327,5 @@ ERR"#;
 fn doc_after_err() {
     assert_eq_event_exact(X1_3HFZ_INPUT, X1_3HFZ_EVENTS);
     assert_eq_event_exact(X1_9HCY_INPUT, X1_9HCY_EVENTS);
-    // TODO check these with YAML group.
     assert_eq_event_exact(X1_EB22_INPUT, X1_EB22_EVENTS);
 }
