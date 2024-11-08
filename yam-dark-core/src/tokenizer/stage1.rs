@@ -734,7 +734,7 @@ pub unsafe trait Stage1Scanner {
     ///  let chunk = b" \"  \"                                                           ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
     ///  let result = scanner.scan_double_quote_bitmask(&mut block_state, &mut prev_iter_state);
-    ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
+    ///  let expected = 0b000000000000000000000000000000000000000000000000000000010010;
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_double_quote_bitmask(
@@ -838,16 +838,16 @@ fn test_count() {
 
     let scanner = NativeScanner::from_chunk(bin_str);
     // Needs to be called before calculate indent
-    chunk.characters.spaces = u8x64_eq(bin_str, b' ');
-    chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    let space_mask = u8x64_eq(bin_str, b' ');
+    let newline_mask = u8x64_eq(bin_str, b'\n');
     let mut indents = Vec::new();
     scanner.calculate_cols_rows_indents(
         &mut chunk.cols,
         &mut chunk.rows,
         &mut 0,
         &mut indents,
-        chunk.characters.line_feeds,
-        chunk.characters.spaces,
+        newline_mask,
+        space_mask,
     );
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
@@ -856,28 +856,35 @@ fn test_count() {
 
 #[test]
 fn test_count2() {
-    let bin_str = b"    ab     \n                                                    ";
+    let bin_str = b"    ab     \n          c                   \n                     ";
     let mut chunk = YamlChunkState::default();
 
-    let cols = (0..12).chain(0..52).collect::<Vec<_>>();
+    let cols = (0..12).chain(0..31).chain(0..21).collect::<Vec<_>>();
+
     let mut rows = vec![0; 12];
-    rows.extend_from_slice(&vec![1; 52]);
-    let indents = vec![4, 52]; // or another default/expected value
+    rows.extend_from_slice(&vec![1; 31]);
+    rows.extend_from_slice(&vec![2; 21]);
+
+    let indents = vec![4, 10, 21]; // or another default/expected value
 
     let scanner = NativeScanner::from_chunk(bin_str);
+
     // Needs to be called before calculate indent
-    chunk.characters.spaces = u8x64_eq(bin_str, b' ');
-    chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    let space_mask = u8x64_eq(bin_str, b' ');
+    let newline_mask = u8x64_eq(bin_str, b'\n');
+
     let mut actual_indents = Vec::new();
     scanner.calculate_cols_rows_indents(
         &mut chunk.cols,
         &mut chunk.rows,
         &mut 0,
         &mut actual_indents,
-        chunk.characters.line_feeds,
-        chunk.characters.spaces,
+        newline_mask,
+        space_mask,
     );
+
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
     assert_eq!(actual_indents, indents);
+
 }
