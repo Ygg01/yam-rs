@@ -154,11 +154,10 @@ fn from_part_indent(part_indent: u32) -> (u32, bool) {
 }
 
 fn into_part_indent(indent: u32, is_frozen: bool) -> u32 {
-    assert!(indent <= 2<<31);
+    assert!(indent <= 2 << 31);
     let frozen_bit = is_frozen as u32;
     (indent << 1) | frozen_bit
 }
-
 
 #[doc(hidden)]
 pub fn count_indent_native(

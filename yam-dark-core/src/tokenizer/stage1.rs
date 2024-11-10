@@ -886,5 +886,4 @@ fn test_count2() {
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
     assert_eq!(actual_indents, indents);
-
 }
