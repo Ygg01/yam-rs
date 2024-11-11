@@ -538,7 +538,7 @@ fn count_batch(
         &mut prev_col,
     ));
 
-    count_indent_native(newline_mask, space_mask, indents, &mut 0);
+    count_indent_native(newline_mask, space_mask, indents, true, &mut 0);
 }
 
 criterion_group!(

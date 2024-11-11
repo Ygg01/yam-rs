@@ -467,7 +467,8 @@ pub unsafe trait Stage1Scanner {
             &prev_col,
         ));
         prev_col = cols[63] + 1;
-        count_indent_native(newline_mask, space_mask, indents, prev_indents);
+        // TODO pass real is_running
+        count_indent_native(newline_mask, space_mask, indents, true, prev_indents);
     }
 
     /// Computes a quote mask based on the given quote bit mask.
@@ -877,7 +878,7 @@ fn test_count2() {
     scanner.calculate_cols_rows_indents(
         &mut chunk.cols,
         &mut chunk.rows,
-        &mut 0,
+        &mut 1,
         &mut actual_indents,
         newline_mask,
         space_mask,
