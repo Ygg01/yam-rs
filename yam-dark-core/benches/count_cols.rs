@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_dark_core::util::{
-    calculate_byte_rows, calculate_cols, INDENT_SWIZZLE_TABLE, U8X8,
-    U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    calculate_byte_rows, calculate_cols, INDENT_SWIZZLE_TABLE, U8X8, U8_BYTE_COL_TABLE,
+    U8_ROW_TABLE,
 };
 use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
@@ -170,7 +170,6 @@ fn count_naive(
         }
     }
 }
-
 
 ///
 ///
@@ -484,7 +483,6 @@ fn col_count_all_naive(c: &mut Criterion) {
 //     };
 // }
 
-
 fn col_count_batch(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-col-batch");
     group.significance_level(0.05).sample_size(100);
@@ -503,7 +501,6 @@ fn col_count_batch(c: &mut Criterion) {
     let mut byte_cols = [0; 64];
     let mut byte_rows = [0; 64];
     let mut byte_indents = [0; 64];
-
 
     group.bench_function("col_batch", |b| {
         b.iter(|| {
@@ -528,7 +525,6 @@ fn col_count_batch(c: &mut Criterion) {
     });
     group.finish();
 }
-
 
 #[doc(hidden)]
 pub fn count_indent_naive(
@@ -644,7 +640,7 @@ fn count_batch(
         &mut prev_col,
     ));
 
-    count_indent_naive(newline_mask, space_mask,  byte_indent, &mut false);
+    count_indent_naive(newline_mask, space_mask, byte_indent, &mut false);
 }
 
 criterion_group!(

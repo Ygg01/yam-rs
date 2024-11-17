@@ -1,5 +1,3 @@
-use alloc::vec::Vec;
-use core::ptr::write;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
@@ -146,7 +144,6 @@ pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 
         },
     ]
 }
-
 
 #[test]
 fn test_branch_less_right() {
