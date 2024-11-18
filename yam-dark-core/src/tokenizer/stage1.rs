@@ -24,8 +24,8 @@
 #![allow(unused)]
 
 use alloc::vec;
-use core::ptr::write;
 use alloc::vec::Vec;
+use core::ptr::write;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::util::{
@@ -367,12 +367,12 @@ pub unsafe trait Stage1Scanner {
     /// let mut chunk = YamlChunkState::default();
     /// let range1_to_64 = (0..=63).collect::<Vec<_>>();
     /// let scanner = NativeScanner::from_chunk(bin_str);
-    /// let mut indents = Vec::new();
+    ///
     /// // Needs to be called before calculate indent
     /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
     /// // Will calculate col/row/indent
-    /// scanner.calculate_cols_rows(
+    /// NativeScanner::calculate_cols_rows(
     ///     &mut chunk.cols,
     ///     &mut chunk.rows,
     ///     chunk.characters.line_feeds,
@@ -462,15 +462,17 @@ pub unsafe trait Stage1Scanner {
     }
 
     fn calculate_indents(
-        indents: &mut Vec<u8>, 
-        mut newline_mask: u64, 
+        indents: &mut Vec<u8>,
+        mut newline_mask: u64,
         spaces: u64,
-        is_indent_running: &mut bool, 
+        is_indent_running: &mut bool,
     ) {
         let mut i = 0;
         let count_cols = newline_mask.count_ones() + 1;
-        let mut neg_indents_mask =
-            !select_left_bits_branch_less(spaces, (newline_mask << 1) ^ (*is_indent_running as u64));
+        let mut neg_indents_mask = !select_left_bits_branch_less(
+            spaces,
+            (newline_mask << 1) ^ (*is_indent_running as u64),
+        );
         // To calculate indent we need to:
         // 1. Count trailing ones in space_mask this is the current indent
         // 2. Count the trailing zeros in newline mask to know how long the line is
@@ -500,10 +502,7 @@ pub unsafe trait Stage1Scanner {
             let v = [part0, part1, part2, part3];
             let running = [part0 == v0, part1 == v1, part2 == v2, part3 == v3];
             unsafe {
-                write(
-                    indents.as_mut_ptr().add(i ).cast::<[u32; 4]>(),
-                    v,
-                );
+                write(indents.as_mut_ptr().add(i).cast::<[u32; 4]>(), v);
             }
             i += 4;
         }
