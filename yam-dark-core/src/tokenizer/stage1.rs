@@ -29,7 +29,7 @@ use core::ptr::write;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::util::{
-    calculate_byte_rows, calculate_cols, select_left_bits_branch_less, U8_BYTE_COL_TABLE,
+    calculate_byte_rows, calculate_cols, select_right_bits_branch_less, U8_BYTE_COL_TABLE,
     U8_ROW_TABLE,
 };
 use crate::{u8x64_eq, util, EvenOrOddBits, NativeScanner, ParseResult};
@@ -469,7 +469,7 @@ pub unsafe trait Stage1Scanner {
     ) {
         let mut i = 0;
         let count_cols = newline_mask.count_ones() + 1;
-        let mut neg_indents_mask = !select_left_bits_branch_less(
+        let mut neg_indents_mask = !select_right_bits_branch_less(
             spaces,
             (newline_mask << 1) ^ (*is_indent_running as u64),
         );
@@ -627,7 +627,7 @@ pub unsafe trait Stage1Scanner {
         let not_whitespace = !chunk_state.characters.line_feeds;
 
         chunk_state.characters.in_comment =
-            util::select_left_bits_branch_less(not_whitespace, comment_start);
+            util::select_right_bits_branch_less(not_whitespace, comment_start);
 
         // Update values for next iteration.
         parser_state.is_in_comment = chunk_state.characters.in_comment >> 63 == 1;
@@ -763,7 +763,7 @@ pub unsafe trait Stage1Scanner {
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
-        util::select_right_bits_branch_less(quote_bits, even_ends)
+        util::select_left_bits_branch_less(quote_bits, even_ends)
     }
 
     /// Scans the input for double quote bitmask.
