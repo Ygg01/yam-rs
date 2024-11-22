@@ -134,11 +134,11 @@ fn count_naive(
     byte_cols: &mut [u8; 64],
     byte_rows: &mut [u8; 64],
     byte_indent: &mut [u8; 64],
-    prev_indent: &mut u8,
+    _prev_indent: &mut u8,
     is_indent_frozen: &mut bool,
 ) {
-    // let mut curr_row = 0;
-    // let mut curr_col = 0;
+    let mut curr_row = 0;
+    let mut curr_col = 0;
     let mut curr_indent = 0;
     for pos in 0..64 {
         let is_newline = newline_bits & (1 << pos) != 0;
@@ -151,21 +151,21 @@ fn count_naive(
         }
 
         if is_newline {
-            // unsafe {
-            //     *byte_cols.get_unchecked_mut(pos) = curr_col + 1;
-            //     *byte_rows.get_unchecked_mut(pos) = curr_row;
-            // }
-            // curr_col = 0;
+            unsafe {
+                *byte_cols.get_unchecked_mut(pos) = curr_col + 1;
+                *byte_rows.get_unchecked_mut(pos) = curr_row;
+            }
+            curr_col = 0;
             curr_indent = 0;
-            // curr_row += 1;
+            curr_row += 1;
             *is_indent_frozen = false;
             continue;
         }
 
-        // curr_col += 1;
+        curr_col += 1;
         unsafe {
-            // *byte_cols.get_unchecked_mut(pos) = curr_col;
-            // *byte_rows.get_unchecked_mut(pos) = curr_row;
+            *byte_cols.get_unchecked_mut(pos) = curr_col;
+            *byte_rows.get_unchecked_mut(pos) = curr_row;
             *byte_indent.get_unchecked_mut(pos) = curr_indent;
         }
     }
