@@ -468,7 +468,7 @@ pub unsafe trait Stage1Scanner {
         is_indent_running: &mut bool,
     ) {
         let mut i = 0;
-        let count_cols = newline_mask.count_ones() + 1;
+        let count_cols = (newline_mask.count_ones() + 1);
         let mut neg_indents_mask = select_right_bits_branch_less(
             space_mask,
             (newline_mask << 1) ^ (*is_indent_running as u64),
@@ -488,19 +488,24 @@ pub unsafe trait Stage1Scanner {
             let part1 = neg_indents_mask.trailing_ones() & 127;
             let v1 = newline_mask.trailing_zeros() + 1;
             newline_mask = newline_mask.overflowing_shr(v1).0;
-            neg_indents_mask = neg_indents_mask.overflowing_shr(v1).0  | 1 << 63;
+            neg_indents_mask = neg_indents_mask.overflowing_shr(v1).0 | 1 << 63;
 
             let part2 = neg_indents_mask.trailing_ones() & 127;
             let v2 = newline_mask.trailing_zeros() + 1;
             newline_mask = newline_mask.overflowing_shr(v2).0;
-            neg_indents_mask = neg_indents_mask.overflowing_shr(v2).0  | 1 << 63;
+            neg_indents_mask = neg_indents_mask.overflowing_shr(v2).0 | 1 << 63;
 
             let part3 = neg_indents_mask.trailing_ones() & 127;
             let v3 = newline_mask.trailing_zeros() + 1;
             newline_mask = newline_mask.overflowing_shr(v3).0;
-            neg_indents_mask = neg_indents_mask.overflowing_shr(v3).0  | 1 << 63;
+            neg_indents_mask = neg_indents_mask.overflowing_shr(v3).0 | 1 << 63;
 
-            let v = [part0 as usize, part1 as usize, part2 as usize, part3 as usize];
+            let v = [
+                part0 as usize,
+                part1 as usize,
+                part2 as usize,
+                part3 as usize,
+            ];
             unsafe {
                 write(indents.as_mut_ptr().add(i).cast::<[usize; 4]>(), v);
             }
@@ -897,10 +902,9 @@ fn test_count() {
     assert_eq!(chunk.cols, expected_cols);
     assert_eq!(chunk.rows, expected_row);
 
-    let expected_indents =  vec![11, 52];
+    let expected_indents = vec![11, 52];
     NativeScanner::calculate_indents(&mut chunk.indents, newline_mask, space_mask, &mut true);
     assert_eq!(chunk.indents, expected_indents);
-    
 }
 
 #[test]
