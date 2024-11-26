@@ -2,7 +2,7 @@
 extern crate alloc;
 extern crate core_detect;
 
-pub use crate::tokenizer::stage1::{
+pub use crate::tokenizer::chunk::{
     YamlCharacterChunk, YamlChunkState, YamlDoubleQuoteChunk, YamlSingleQuoteChunk,
 };
 pub use crate::tokenizer::stage2::YamlParserState;

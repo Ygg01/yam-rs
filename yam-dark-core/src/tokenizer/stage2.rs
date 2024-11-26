@@ -23,9 +23,10 @@
 // SOFTWARE.
 
 use crate::impls::{AvxScanner, NativeScanner};
-use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlChunkState};
+use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
 use crate::tokenizer::visitor::{EventStringVisitor, YamlVisitor};
 use crate::util::{ChunkyIterator, NoopValidator};
+use crate::YamlChunkState;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
