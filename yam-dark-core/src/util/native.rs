@@ -1,5 +1,3 @@
-#![allow(clippy::too_many_arguments)]
-
 use core::ops::{Add, AddAssign, BitAnd, Shr};
 
 /// Returns an `u64` value representing the bitmask of each element in the given u8 that is equal to [cmp]
@@ -30,8 +28,9 @@ use core::ops::{Add, AddAssign, BitAnd, Shr};
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[must_use]
 pub fn u8x64_eq(a: &[u8; 64], cmp: u8) -> u64 {
-    (if a[0] == cmp { 1 } else { 0 })
+    u64::from(a[0] == cmp)
         | (if a[1] == cmp { 1 << 1 } else { 0 })
         | (if a[2] == cmp { 1 << 2 } else { 0 })
         | (if a[3] == cmp { 1 << 3 } else { 0 })
@@ -97,7 +96,7 @@ pub fn u8x64_eq(a: &[u8; 64], cmp: u8) -> u64 {
         | (if a[63] == cmp { 1 << 63 } else { 0 })
 }
 
-/// Checks if each element in a [u8; SIMD_CHUNK_LENGTH] array is less than or equal to the given `cmp` value.
+/// Checks if each element in a [u8; 64] array is less than or equal to the given `cmp` value.
 ///
 /// # Arguments
 ///
@@ -119,8 +118,9 @@ pub fn u8x64_eq(a: &[u8; 64], cmp: u8) -> u64 {
 /// assert_eq!(result, 0b0000000000000000000000000000000000000000000000000000001111111111);
 /// ```
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[must_use]
 pub fn u8x64_lteq(a: [u8; 64], cmp: u8) -> u64 {
-    (if a[0] <= cmp { 1 } else { 0 })
+    u64::from(a[0] <= cmp)
         | (if a[1] <= cmp { 1 << 1 } else { 0 })
         | (if a[2] <= cmp { 1 << 2 } else { 0 })
         | (if a[3] <= cmp { 1 << 3 } else { 0 })
@@ -213,6 +213,7 @@ impl U8X16 {
     /// assert_eq!(vector, U8X16([5; 16]));
     /// ```
     ///
+    #[must_use]
     pub fn splat(input: u8) -> Self {
         U8X16([input; 16])
     }
@@ -225,6 +226,7 @@ impl U8X16 {
     ///
     /// returns: [U8X16]
     #[inline]
+    #[must_use]
     pub fn from_array(input: [u8; 16]) -> Self {
         U8X16(input)
     }
@@ -251,6 +253,7 @@ impl U8X16 {
     /// assert_eq!(result, U8X16::from_array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
     /// ```
     #[inline]
+    #[must_use]
     pub fn comp_all(&self, cmp: u8) -> U8X16 {
         U8X16::from_array([
             if self.0[0] == cmp { 0xFF } else { 0x00 },
@@ -285,23 +288,24 @@ impl U8X16 {
     ///
     /// The converted 64-bit bitmask integer.
     #[inline]
+    #[must_use]
     pub fn to_bitmask64(&self) -> u64 {
-        (self.0[0] & 0b1000_0000 != 0) as u64
-            | (((self.0[1] & 0b1000_0000 != 0) as u64) << 1)
-            | (((self.0[2] & 0b1000_0000 != 0) as u64) << 2)
-            | (((self.0[3] & 0b1000_0000 != 0) as u64) << 3)
-            | (((self.0[4] & 0b1000_0000 != 0) as u64) << 4)
-            | (((self.0[5] & 0b1000_0000 != 0) as u64) << 5)
-            | (((self.0[6] & 0b1000_0000 != 0) as u64) << 6)
-            | (((self.0[7] & 0b1000_0000 != 0) as u64) << 7)
-            | (((self.0[8] & 0b1000_0000 != 0) as u64) << 8)
-            | (((self.0[9] & 0b1000_0000 != 0) as u64) << 9)
-            | (((self.0[10] & 0b1000_0000 != 0) as u64) << 10)
-            | (((self.0[11] & 0b1000_0000 != 0) as u64) << 11)
-            | (((self.0[12] & 0b1000_0000 != 0) as u64) << 12)
-            | (((self.0[13] & 0b1000_0000 != 0) as u64) << 13)
-            | (((self.0[14] & 0b1000_0000 != 0) as u64) << 14)
-            | (((self.0[15] & 0b1000_0000 != 0) as u64) << 15)
+        u64::from(self.0[0] & 0b1000_0000 != 0)
+            | (u64::from(self.0[1] & 0b1000_0000 != 0) << 1)
+            | (u64::from(self.0[2] & 0b1000_0000 != 0) << 2)
+            | (u64::from(self.0[3] & 0b1000_0000 != 0) << 3)
+            | (u64::from(self.0[4] & 0b1000_0000 != 0) << 4)
+            | (u64::from(self.0[5] & 0b1000_0000 != 0) << 5)
+            | (u64::from(self.0[6] & 0b1000_0000 != 0) << 6)
+            | (u64::from(self.0[7] & 0b1000_0000 != 0) << 7)
+            | (u64::from(self.0[8] & 0b1000_0000 != 0) << 8)
+            | (u64::from(self.0[9] & 0b1000_0000 != 0) << 9)
+            | (u64::from(self.0[10] & 0b1000_0000 != 0) << 10)
+            | (u64::from(self.0[11] & 0b1000_0000 != 0) << 11)
+            | (u64::from(self.0[12] & 0b1000_0000 != 0) << 12)
+            | (u64::from(self.0[13] & 0b1000_0000 != 0) << 13)
+            | (u64::from(self.0[14] & 0b1000_0000 != 0) << 14)
+            | (u64::from(self.0[15] & 0b1000_0000 != 0) << 15)
     }
 
     /// Creates a new `U8X16` instance from a slice of `u8` values.
@@ -328,6 +332,7 @@ impl U8X16 {
     /// let result = unsafe { U8X16::from_slice(input) };
     /// ```
     #[inline]
+    #[must_use]
     pub unsafe fn from_slice(input: &[u8]) -> Self {
         U8X16([
             *input.get_unchecked(0),
@@ -487,6 +492,7 @@ impl Shr<usize> for U8X16 {
 
 #[doc(hidden)]
 #[inline]
+#[must_use]
 pub fn u8x16_swizzle(mask: [u8; 16], x: U8X16) -> U8X16 {
     U8X16([
         if x.0[0] > 0x0f {
@@ -574,76 +580,77 @@ pub fn u8x16_swizzle(mask: [u8; 16], x: U8X16) -> U8X16 {
 
 #[doc(hidden)]
 #[inline]
+#[must_use]
 pub fn mask_merge(v0: U8X16, v1: U8X16, v2: U8X16, v3: U8X16) -> [u32; 64] {
     [
         // first 16 cols
-        v0.0[0] as u32,
-        v0.0[1] as u32,
-        v0.0[2] as u32,
-        v0.0[3] as u32,
-        v0.0[4] as u32,
-        v0.0[5] as u32,
-        v0.0[6] as u32,
-        v0.0[7] as u32,
-        v0.0[8] as u32,
-        v0.0[9] as u32,
-        v0.0[10] as u32,
-        v0.0[11] as u32,
-        v0.0[12] as u32,
-        v0.0[13] as u32,
-        v0.0[14] as u32,
-        v0.0[15] as u32,
+        u32::from(v0.0[0]),
+        u32::from(v0.0[1]),
+        u32::from(v0.0[2]),
+        u32::from(v0.0[3]),
+        u32::from(v0.0[4]),
+        u32::from(v0.0[5]),
+        u32::from(v0.0[6]),
+        u32::from(v0.0[7]),
+        u32::from(v0.0[8]),
+        u32::from(v0.0[9]),
+        u32::from(v0.0[10]),
+        u32::from(v0.0[11]),
+        u32::from(v0.0[12]),
+        u32::from(v0.0[13]),
+        u32::from(v0.0[14]),
+        u32::from(v0.0[15]),
         // second 16 cols
-        v1.0[0] as u32,
-        v1.0[1] as u32,
-        v1.0[2] as u32,
-        v1.0[3] as u32,
-        v1.0[4] as u32,
-        v1.0[5] as u32,
-        v1.0[6] as u32,
-        v1.0[7] as u32,
-        v1.0[8] as u32,
-        v1.0[9] as u32,
-        v1.0[10] as u32,
-        v1.0[11] as u32,
-        v1.0[12] as u32,
-        v1.0[13] as u32,
-        v1.0[14] as u32,
-        v1.0[15] as u32,
+        u32::from(v1.0[0]),
+        u32::from(v1.0[1]),
+        u32::from(v1.0[2]),
+        u32::from(v1.0[3]),
+        u32::from(v1.0[4]),
+        u32::from(v1.0[5]),
+        u32::from(v1.0[6]),
+        u32::from(v1.0[7]),
+        u32::from(v1.0[8]),
+        u32::from(v1.0[9]),
+        u32::from(v1.0[10]),
+        u32::from(v1.0[11]),
+        u32::from(v1.0[12]),
+        u32::from(v1.0[13]),
+        u32::from(v1.0[14]),
+        u32::from(v1.0[15]),
         // third 16 cols
-        v2.0[0] as u32,
-        v2.0[1] as u32,
-        v2.0[2] as u32,
-        v2.0[3] as u32,
-        v2.0[4] as u32,
-        v2.0[5] as u32,
-        v2.0[6] as u32,
-        v2.0[7] as u32,
-        v2.0[8] as u32,
-        v2.0[9] as u32,
-        v2.0[10] as u32,
-        v2.0[11] as u32,
-        v2.0[12] as u32,
-        v2.0[13] as u32,
-        v2.0[14] as u32,
-        v2.0[15] as u32,
+        u32::from(v2.0[0]),
+        u32::from(v2.0[1]),
+        u32::from(v2.0[2]),
+        u32::from(v2.0[3]),
+        u32::from(v2.0[4]),
+        u32::from(v2.0[5]),
+        u32::from(v2.0[6]),
+        u32::from(v2.0[7]),
+        u32::from(v2.0[8]),
+        u32::from(v2.0[9]),
+        u32::from(v2.0[10]),
+        u32::from(v2.0[11]),
+        u32::from(v2.0[12]),
+        u32::from(v2.0[13]),
+        u32::from(v2.0[14]),
+        u32::from(v2.0[15]),
         // fourth 16 cols
-        v3.0[0] as u32,
-        v3.0[1] as u32,
-        v3.0[2] as u32,
-        v3.0[3] as u32,
-        v3.0[4] as u32,
-        v3.0[5] as u32,
-        v3.0[6] as u32,
-        v3.0[7] as u32,
-        v3.0[8] as u32,
-        v3.0[9] as u32,
-        v3.0[10] as u32,
-        v3.0[11] as u32,
-        v3.0[12] as u32,
-        v3.0[13] as u32,
-        v3.0[14] as u32,
-        v3.0[15] as u32,
+        u32::from(v3.0[0]),
+        u32::from(v3.0[1]),
+        u32::from(v3.0[2]),
+        u32::from(v3.0[3]),
+        u32::from(v3.0[4]),
+        u32::from(v3.0[5]),
+        u32::from(v3.0[6]),
+        u32::from(v3.0[7]),
+        u32::from(v3.0[8]),
+        u32::from(v3.0[9]),
+        u32::from(v3.0[10]),
+        u32::from(v3.0[11]),
+        u32::from(v3.0[12]),
+        u32::from(v3.0[13]),
+        u32::from(v3.0[14]),
+        u32::from(v3.0[15]),
     ]
 }
 
@@ -652,6 +659,7 @@ pub struct U8X8(pub [u8; 8]);
 
 impl U8X8 {
     #[inline]
+    #[must_use]
     pub fn from_array(input: [u8; 8]) -> Self {
         // Safety:
         // This is perfectly safe since bounds are known at compile time
@@ -671,61 +679,63 @@ impl U8X8 {
     }
 
     #[inline]
+    #[must_use]
     pub fn add_offset_and_mask(&self, mask: Self, offset: u32) -> [u32; 8] {
         // SAFETY: This is safe because self.0 is [u8; 8] so this will never cause UB.
         [
             if mask.0[0] == 0 {
-                unsafe { *self.0.get_unchecked(0) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(0)) + offset }
             } else {
-                self.0[0] as u32
+                u32::from(self.0[0])
             },
             if mask.0[1] == 0 {
-                unsafe { *self.0.get_unchecked(1) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(1)) + offset }
             } else {
-                self.0[1] as u32
+                u32::from(self.0[1])
             },
             if mask.0[2] == 0 {
-                unsafe { *self.0.get_unchecked(2) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(2)) + offset }
             } else {
-                self.0[2] as u32
+                u32::from(self.0[2])
             },
             if mask.0[3] == 0 {
-                unsafe { *self.0.get_unchecked(3) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(3)) + offset }
             } else {
-                self.0[3] as u32
+                u32::from(self.0[3])
             },
             if mask.0[4] == 0 {
-                unsafe { *self.0.get_unchecked(4) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(4)) + offset }
             } else {
-                self.0[4] as u32
+                u32::from(self.0[4])
             },
             if mask.0[5] == 0 {
-                unsafe { *self.0.get_unchecked(5) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(5)) + offset }
             } else {
-                self.0[5] as u32
+                u32::from(self.0[5])
             },
             if mask.0[6] == 0 {
-                unsafe { *self.0.get_unchecked(6) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(6)) + offset }
             } else {
-                self.0[6] as u32
+                u32::from(self.0[6])
             },
             if mask.0[7] == 0 {
-                unsafe { *self.0.get_unchecked(7) as u32 + offset }
+                unsafe { u32::from(*self.0.get_unchecked(7)) + offset }
             } else {
-                self.0[7] as u32
+                u32::from(self.0[7])
             },
         ]
     }
 
     #[inline]
+    #[must_use]
     pub fn to_bitmask(&self) -> u8 {
-        (self.0[0] & 0b1000_0000 != 0) as u8
-            | (self.0[1] & 0b1000_0000 != 0) as u8
-            | (self.0[2] & 0b1000_0000 != 0) as u8
-            | (self.0[3] & 0b1000_0000 != 0) as u8
-            | (self.0[4] & 0b1000_0000 != 0) as u8
-            | (self.0[5] & 0b1000_0000 != 0) as u8
-            | (self.0[6] & 0b1000_0000 != 0) as u8
-            | (self.0[7] & 0b1000_0000 != 0) as u8
+        u8::from(self.0[0] & 0b1000_0000 != 0)
+            | u8::from(self.0[1] & 0b1000_0000 != 0)
+            | u8::from(self.0[2] & 0b1000_0000 != 0)
+            | u8::from(self.0[3] & 0b1000_0000 != 0)
+            | u8::from(self.0[4] & 0b1000_0000 != 0)
+            | u8::from(self.0[5] & 0b1000_0000 != 0)
+            | u8::from(self.0[6] & 0b1000_0000 != 0)
+            | u8::from(self.0[7] & 0b1000_0000 != 0)
     }
 }

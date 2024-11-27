@@ -25,7 +25,7 @@ impl<'a> Iterator for ChunkyIterator<'a> {
             self.bytes = tail;
             // SAFETY: We explicitly check for the correct number of elements,
             //   and do not let the references outlive the slice.
-            Some(unsafe { &*(first.as_ptr() as *const [u8; 64]) })
+            Some(unsafe { &*first.as_ptr().cast::<[u8; 64]>() })
         }
     }
 }

@@ -38,6 +38,7 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_sign_loss)]
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64 {
         u8x64_lteq(self.inner_chunk, cmp as u8)
     }
@@ -97,15 +98,15 @@ unsafe impl Stage1Scanner for NativeScanner {
             !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48));
 
         // Extract block structurals
-        let tmp_bl0 = (v_v0 & 0xB).comp_all(0);
-        let tmp_bl1 = (v_v1 & 0xB).comp_all(0);
-        let tmp_bl2 = (v_v2 & 0xB).comp_all(0);
-        let tmp_bl3 = (v_v3 & 0xB).comp_all(0);
+        let tmp_block0 = (v_v0 & 0xB).comp_all(0);
+        let tmp_block1 = (v_v1 & 0xB).comp_all(0);
+        let tmp_block2 = (v_v2 & 0xB).comp_all(0);
+        let tmp_block3 = (v_v3 & 0xB).comp_all(0);
 
-        let block_structural_res_0 = tmp_bl0.to_bitmask64();
-        let block_structural_res_1 = tmp_bl1.to_bitmask64();
-        let block_structural_res_2 = tmp_bl2.to_bitmask64();
-        let block_structural_res_3 = tmp_bl3.to_bitmask64();
+        let block_structural_res_0 = tmp_block0.to_bitmask64();
+        let block_structural_res_1 = tmp_block1.to_bitmask64();
+        let block_structural_res_2 = tmp_block2.to_bitmask64();
+        let block_structural_res_3 = tmp_block3.to_bitmask64();
 
         let block_structurals_candidates = !(block_structural_res_0
             | (block_structural_res_1 << 16)
@@ -118,15 +119,15 @@ unsafe impl Stage1Scanner for NativeScanner {
             block_structurals_candidates & (block_state.characters.whitespace << 1);
 
         // Extract block structurals
-        let tmp_fl0 = (v_v0 & 0x18).comp_all(0);
-        let tmp_fl1 = (v_v1 & 0x18).comp_all(0);
-        let tmp_fl2 = (v_v2 & 0x18).comp_all(0);
-        let tmp_fl3 = (v_v3 & 0x18).comp_all(0);
+        let tmp_flow0 = (v_v0 & 0x18).comp_all(0);
+        let tmp_flow1 = (v_v1 & 0x18).comp_all(0);
+        let tmp_flow2 = (v_v2 & 0x18).comp_all(0);
+        let tmp_flow3 = (v_v3 & 0x18).comp_all(0);
 
-        let flow_structural_res_0 = tmp_fl0.to_bitmask64();
-        let flow_structural_res_1 = tmp_fl1.to_bitmask64();
-        let flow_structural_res_2 = tmp_fl2.to_bitmask64();
-        let flow_structural_res_3 = tmp_fl3.to_bitmask64();
+        let flow_structural_res_0 = tmp_flow0.to_bitmask64();
+        let flow_structural_res_1 = tmp_flow1.to_bitmask64();
+        let flow_structural_res_2 = tmp_flow2.to_bitmask64();
+        let flow_structural_res_3 = tmp_flow3.to_bitmask64();
 
         block_state.characters.flow_structurals = !(flow_structural_res_0
             | (flow_structural_res_1 << 16)
@@ -177,25 +178,25 @@ unsafe impl Stage1Scanner for NativeScanner {
             // shouldn't be a SAFETY problem.
             let cols: [u32; 4] = unsafe {
                 [
-                    *yaml_chunk_state.cols.get_unchecked(v0 as usize) as u32
+                    u32::from(*yaml_chunk_state.cols.get_unchecked(v0 as usize))
                         + if *yaml_chunk_state.rows.get_unchecked(v0 as usize) == 0 {
                             base.last_col
                         } else {
                             0
                         },
-                    *yaml_chunk_state.cols.get_unchecked(v1 as usize) as u32
+                    u32::from(*yaml_chunk_state.cols.get_unchecked(v1 as usize))
                         + if *yaml_chunk_state.rows.get_unchecked(v1 as usize) == 0 {
                             base.last_col
                         } else {
                             0
                         },
-                    *yaml_chunk_state.cols.get_unchecked(v2 as usize) as u32
+                    u32::from(*yaml_chunk_state.cols.get_unchecked(v2 as usize))
                         + if *yaml_chunk_state.rows.get_unchecked(v2 as usize) == 0 {
                             base.last_col
                         } else {
                             0
                         },
-                    *yaml_chunk_state.cols.get_unchecked(v3 as usize) as u32
+                    u32::from(*yaml_chunk_state.cols.get_unchecked(v3 as usize))
                         + if *yaml_chunk_state.rows.get_unchecked(v3 as usize) == 0 {
                             base.last_col
                         } else {
@@ -209,10 +210,10 @@ unsafe impl Stage1Scanner for NativeScanner {
             // shouldn't be a SAFETY problem.
             let rows = unsafe {
                 [
-                    *yaml_chunk_state.rows.get_unchecked(v0 as usize) as u32 + base.last_row,
-                    *yaml_chunk_state.rows.get_unchecked(v1 as usize) as u32 + base.last_row,
-                    *yaml_chunk_state.rows.get_unchecked(v2 as usize) as u32 + base.last_row,
-                    *yaml_chunk_state.rows.get_unchecked(v3 as usize) as u32 + base.last_row,
+                    u32::from(*yaml_chunk_state.rows.get_unchecked(v0 as usize)) + base.last_row,
+                    u32::from(*yaml_chunk_state.rows.get_unchecked(v1 as usize)) + base.last_row,
+                    u32::from(*yaml_chunk_state.rows.get_unchecked(v2 as usize)) + base.last_row,
+                    u32::from(*yaml_chunk_state.rows.get_unchecked(v3 as usize)) + base.last_row,
                 ]
             };
             // SAFETY:
