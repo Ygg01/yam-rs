@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub enum Node<'input> {
     /// A string, located inside the input slice
     String(&'input str),
@@ -21,9 +22,10 @@ pub enum Node<'input> {
     Static(StaticNode),
 }
 
+#[allow(dead_code)]
 pub enum StaticNode {
     /// The null value
-    Value,
+    Null,
     /// A boolean value
     Bool(bool),
     /// A floating point value

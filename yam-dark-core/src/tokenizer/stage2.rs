@@ -26,12 +26,12 @@ use crate::impls::{AvxScanner, NativeScanner};
 use crate::tape::Node;
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
 use crate::util::NoopValidator;
-use crate::YamlChunkState;
+use crate::{ChunkyIterator, YamlChunkState};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
-use yam_core::error::YamlError;
+use yam_core::error::{YamlError, YamlResult};
 
 pub type ParseResult<T> = Result<T, YamlError>;
 
@@ -47,6 +47,44 @@ pub trait Buffer {}
 pub struct Buffers {
     string_buffer: Vec<u8>,
     structural_indexes: Vec<u32>,
+}
+
+fn fill_tape<'de, B: Buffer>(
+    input: &'de [u8],
+    buffer: &mut B,
+    tape: &mut [Node<'de>],
+) -> ParseResult<()> {
+    Deserializer::fill_tape(input, buffer, tape)
+}
+
+impl<'de> Deserializer<'de> {
+    fn fill_tape<B: Buffer>(
+        input: &'de [u8],
+        buffer: &mut B,
+        tape: &mut [Node<'de>],
+    ) -> YamlResult<()> {
+        let mut iter = ChunkyIterator::from_bytes(input);
+        let mut state = YamlParserState::default();
+        let mut validator = get_validator(false);
+
+        let next_fn = get_stage1_next::<B>();
+
+        for chunk in iter {
+            // SAFETY: The get_validator function should return the correct validator for any given
+            // CPU architecture.
+            // PANIC safe: the chunk is always 64 characters long
+            unsafe {
+                validator.update_from_chunks(chunk);
+            }
+
+            // SAFETY: The next_fn should return the correct function for any given CPU
+            let chunk_state: YamlChunkState = unsafe { next_fn(chunk, buffer, &mut state) };
+            state.process_chunk(buffer, chunk_state)?;
+        }
+
+        // TODO finalize sections
+        Ok(())
+    }
 }
 
 impl Buffer for Buffers {}
@@ -87,12 +125,11 @@ pub struct YamlParserState {
 }
 
 impl YamlParserState {
-    pub(crate) fn merge_state<T: Buffer>(
-        &mut self,
-        chunk: &[u8; 64],
-        buffers: &mut T,
-        block_state: &mut YamlChunkState,
-    ) -> ParseResult<YamlChunkState> {
+    pub(crate) fn process_chunk<B: Buffer>(
+        &self,
+        p0: &mut B,
+        p1: YamlChunkState,
+    ) -> YamlResult<()> {
         todo!()
     }
 }

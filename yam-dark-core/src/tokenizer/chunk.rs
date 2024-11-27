@@ -1,3 +1,4 @@
+#[allow(unused_imports)] // imports are used in tests
 use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 use alloc::vec;
 use alloc::vec::Vec;
