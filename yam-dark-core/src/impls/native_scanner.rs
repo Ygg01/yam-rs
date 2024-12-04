@@ -166,10 +166,10 @@ unsafe impl Stage1Scanner for NativeScanner {
             bits &= bits.wrapping_sub(1);
 
             let v: [usize; 4] = [
-                base.idx + v0 as usize,
-                base.idx + v1 as usize,
-                base.idx + v2 as usize,
-                base.idx + v3 as usize,
+                base.pos + v0 as usize,
+                base.pos + v1 as usize,
+                base.pos + v2 as usize,
+                base.pos + v3 as usize,
             ];
 
             // SAFETY:

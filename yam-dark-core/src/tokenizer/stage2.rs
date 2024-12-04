@@ -41,12 +41,32 @@ pub struct Deserializer<'de> {
     _data: &'de PhantomData<()>,
 }
 
-pub trait Buffer {}
+pub trait Buffer {
+    fn get_buffer(&self) -> &[u8];
+    unsafe fn get_byte_unsafely(&self, pos: usize) -> u8 {
+        *self.get_buffer().get_unchecked(pos)
+    }
+}
 
 #[derive(Default)]
-pub struct Buffers {
+pub struct OwnedBuffer {
     string_buffer: Vec<u8>,
-    structural_indexes: Vec<u32>,
+}
+
+#[derive(Default)]
+pub struct BorrowBuffer<'buff> {
+    string_buffer: &'buff [u8],
+}
+
+impl Buffer for OwnedBuffer {
+    fn get_buffer(&self) -> &[u8] {
+        self.string_buffer.as_slice()
+    }
+}
+impl<'b> Buffer for BorrowBuffer<'b> {
+    fn get_buffer(&self) -> &[u8] {
+        self.string_buffer
+    }
 }
 
 fn fill_tape<'de, B: Buffer>(
@@ -82,16 +102,41 @@ impl<'de> Deserializer<'de> {
             state.process_chunk(buffer, &chunk_state)?;
         }
 
-        Self::build_tape(&state, tape)
+        Self::build_tape(&mut state, buffer, tape)
     }
 
-    fn build_tape(state: &YamlParserState, tape: &mut [Node]) -> YamlResult<()> {
-        //TODO state machine
-        Ok(())
+    fn build_tape<B: Buffer>(
+        state: &mut YamlParserState,
+        buffer: &mut B,
+        _tape: &mut [Node],
+    ) -> YamlResult<()> {
+        let mut idx = 0;
+        let mut chr = b'\0';
+
+        macro_rules! update_char {
+            () => {
+                if state.pos < state.structurals.len() {
+                    // SAFETY: this method will be safe if YamlParserState structurals are safe
+                    let chr = unsafe {
+                        buffer.get_byte_unsafely(*state.structurals.get_unchecked(state.pos))
+                    };
+                    state.pos += 1;
+                    chr
+                } else {
+                    // Return error and defer to cleanup.
+                    break YamlResult::Err(YamlError::UnexpectedEof);
+                }
+            };
+        }
+
+        let result = loop {
+            //early bailout
+            let x = update_char!();
+        };
+
+        result
     }
 }
-
-impl Buffer for Buffers {}
 
 /// Represents the state of the YAML parser.
 ///
@@ -116,7 +161,7 @@ pub struct YamlParserState {
     pub(crate) byte_cols: Vec<u32>,
     pub(crate) byte_rows: Vec<u32>,
     pub(crate) indents: Vec<u32>,
-    pub(crate) idx: usize,
+    pub(crate) pos: usize,
     pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
     pub(crate) last_row: u32,
@@ -135,6 +180,10 @@ impl YamlParserState {
         p0: &mut B,
         p1: &YamlChunkState,
     ) -> YamlResult<()> {
+        todo!()
+    }
+
+    pub(crate) fn next_state() -> YamlResult<()> {
         todo!()
     }
 }
