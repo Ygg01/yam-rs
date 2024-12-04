@@ -9,9 +9,10 @@ pub use crate::tokenizer::chunk::{
 };
 pub use crate::tokenizer::stage2::YamlParserState;
 pub use crate::util::u8x64_eq;
+use alloc::string::String;
+use core::str::Utf8Error;
 pub use impls::NativeScanner;
 pub use tokenizer::stage1::Stage1Scanner;
-use yam_core::error::YamlError;
 
 pub mod impls;
 mod tape;
@@ -20,6 +21,18 @@ pub mod util;
 
 pub const SIMD_CHUNK_LENGTH: usize = 64;
 pub const SIMD_JSON_PADDING: usize = 32;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum YamlError {
+    Utf8(Utf8Error),
+    Io(String),
+    UnexpectedEof,
+    /// Input decoding error. If `encoding` feature is disabled, contains `None`,
+    /// otherwise contains the UTF-8 decoding error
+    NonDecodable(Option<Utf8Error>),
+}
+
+pub type YamlResult<T> = Result<T, YamlError>;
 
 #[repr(u64)]
 #[derive(Clone, Copy)]
