@@ -119,7 +119,7 @@ impl<'de> Deserializer<'de> {
     }
 
     fn build_tape<B: Buffer>(
-        state: &mut YamlParserState,
+        parser_state: &mut YamlParserState,
         buffer: &mut B,
         _tape: &mut [Node],
     ) -> YamlResult<()> {
@@ -128,12 +128,14 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! update_char {
             () => {
-                if state.pos < state.structurals.len() {
+                if parser_state.pos < parser_state.structurals.len() {
                     // SAFETY: this method will be safe if YamlParserState structurals are safe
                     let chr = unsafe {
-                        buffer.get_byte_unsafely(*state.structurals.get_unchecked(state.pos))
+                        buffer.get_byte_unsafely(
+                            *parser_state.structurals.get_unchecked(parser_state.pos),
+                        )
                     };
-                    state.pos += 1;
+                    parser_state.pos += 1;
                     chr
                 } else {
                     // Return error and defer to cleanup.
@@ -144,7 +146,15 @@ impl<'de> Deserializer<'de> {
 
         let result = loop {
             //early bailout
-            let x = update_char!();
+            match parser_state.state {
+                State::PreDocStart => {
+                    chr = update_char!();
+                    match chr {
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
         };
 
         Self::cleanup();
