@@ -77,6 +77,19 @@ fn fill_tape<'de, B: Buffer>(
     Deserializer::fill_tape(input, buffer, tape)
 }
 
+#[derive(Debug, Default)]
+pub(crate) enum State {
+    #[default]
+    PreDocStart,
+    AfterDocBlock,
+    InDocEnd,
+    FlowSeq,
+    FlowMap,
+    DocBlock,
+    BlockSeq,
+    BlockMap,
+}
+
 impl<'de> Deserializer<'de> {
     fn fill_tape<B: Buffer>(
         input: &'de [u8],
@@ -111,7 +124,7 @@ impl<'de> Deserializer<'de> {
         _tape: &mut [Node],
     ) -> YamlResult<()> {
         let mut idx = 0;
-        let mut chr = b'\0';
+        let mut chr = b' ';
 
         macro_rules! update_char {
             () => {
@@ -134,34 +147,68 @@ impl<'de> Deserializer<'de> {
             let x = update_char!();
         };
 
+        Self::cleanup();
+
         result
+    }
+
+    fn cleanup() {
+        todo!()
     }
 }
 
-/// Represents the state of the YAML parser.
+/// Represents the internal state of a YAML parser.
 ///
-/// This struct is used internally to keep track of various aspects of the parser's state
-/// as it processes a YAML document.
+/// The `YamlParserState` struct is used to track the parser's state as it processes
+/// a YAML document. This state includes various counters and flags needed to
+/// correctly parse and understand the structure and content of the document.
 ///
 /// # Fields (for internal use only)
 ///
-/// - `last_indent`: The indentation level of the last parsed line.
-/// - `last_col`: The column number of the last parsed character.
-/// - `last_row`: The row number of the last parsed character.
-/// - `is_prev_double_quotes`: Indicates whether the previous character was a double quote.
-/// - `is_prev_iter_odd_single_quote`: Indicates whether the previous iteration ended with an odd number of single quotes.
-/// - `is_indent_frozen`: Indicates whether the current indentation level is frozen (cannot be changed).
-/// - `is_previous_white_space`: Indicates whether the previous character was whitespace.
-/// - `prev_iter_inside_quote`: A bitmask indicating whether each character in the previous chunk was inside quotes.
-/// - `is_in_comment`: Indicates whether the parser is currently inside a comment.
+/// ## State fields:
+/// - `state`: current state of the Parser
+///
+/// ## Structural fields:
+/// - `structurals`: A vector of position indices marking structural elements
+///   like start and end positions of nodes in the YAML document.
+/// - `byte_cols`: For each structurals byte this its corresponding byte column.
+/// - `byte_rows`: For each structurals byte this its corresponding byte row.
+/// - `indents`: For each structurals byte this its corresponding indentation.
+/// - `pos`: The current  position in the structural array.
+///
+/// ## Previous chunk fields
+/// - `last_indent`: The indentation level of the last chunk processed.
+/// - `last_col`: The column position of the last chunk processed.
+/// - `last_row`: The row position of the last chunk processed.
+/// - `previous_indent`: The indentation level before the current chunk.
+/// - `prev_iter_inside_quote`: Tracks the quoting state of the previous iteration
+///   to determine the continuation of strings across lines.
+/// - `is_indent_running`: A flag indicating if the parser is currently processing
+///   an indentation level.
+/// - `is_previous_white_space`: Indicates if the last processed character was a whitespace.
+/// - `is_prev_iter_odd_single_quote`: Tracks if there's an odd number of single quotes
+///   up to the previous iteration, affecting string parsing.
+/// - `is_prev_double_quotes`: Indicates if the string being parsed is inside double quotes.
+/// - `is_in_comment`: A flag that tracks if the parser is currently inside a comment segment.
+///
+/// This struct is part of the internal workings of a YAML parsing library, often
+/// utilized by the parsing modules such as `stage1` and `stage2` for processing
+/// various stages of parsing a YAML document.
+
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct YamlParserState {
+    // State field
+    pub(crate) state: State,
+
+    // Structural fields
     pub(crate) structurals: Vec<usize>,
     pub(crate) byte_cols: Vec<u32>,
     pub(crate) byte_rows: Vec<u32>,
     pub(crate) indents: Vec<u32>,
     pub(crate) pos: usize,
+
+    // Previous chunk fields
     pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
     pub(crate) last_row: u32,
