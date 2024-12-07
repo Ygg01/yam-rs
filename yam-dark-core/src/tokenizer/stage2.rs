@@ -69,6 +69,14 @@ impl<'b> Buffer for BorrowBuffer<'b> {
     }
 }
 
+impl<'a> BorrowBuffer<'a> {
+    fn new(string_buffer: &'a str) -> Self {
+        Self {
+            string_buffer: string_buffer.as_bytes(),
+        }
+    }
+}
+
 fn fill_tape<'de, B: Buffer>(
     input: &'de [u8],
     buffer: &mut B,
@@ -150,7 +158,6 @@ impl<'de> Deserializer<'de> {
                 State::PreDocStart => {
                     chr = update_char!();
                     match chr {
-                        b"-" => {}
                         _ => {}
                     }
                 }
@@ -288,4 +295,23 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_stage1_next<B: Buffer>() -> NextFn<B> {
     NativeScanner::next::<B>
+}
+
+#[test]
+fn test_parsing_basic_processing1() {
+    let input = r#"""
+        test
+    """#;
+    let mut buffer = BorrowBuffer::new(input);
+    let mut state = YamlParserState::default();
+    let mut validator = get_validator(false);
+
+    let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
+
+    if let Some(chunk) = chunk_iter.next() {
+        let chunk_state = NativeScanner::next(chunk, &mut buffer, &mut state);
+        let res = state.process_chunk(&mut buffer, &chunk_state);
+    } else {
+        panic!("No chunk");
+    }
 }
