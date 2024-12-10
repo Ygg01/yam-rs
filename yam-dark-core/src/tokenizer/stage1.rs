@@ -207,7 +207,7 @@ pub unsafe trait Stage1Scanner {
     /// assert_eq!(chunk.rows, vec![0; 64]);
     /// // TODO indent check
     /// ```
-    fn calculate_cols_rows(cols: &mut [u8], rows: &mut [u8], line_feeds: u64) {
+    fn calculate_cols_rows(cols: &mut [u32], rows: &mut [u32], line_feeds: u64) {
         let nl_ind = (line_feeds & 0xFF) as usize;
 
         let mut prev_col = 0;

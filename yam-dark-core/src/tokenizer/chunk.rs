@@ -37,8 +37,8 @@ pub struct YamlChunkState {
     pub double_quote: YamlDoubleQuoteChunk,
     pub single_quote: YamlSingleQuoteChunk,
     pub characters: YamlCharacterChunk,
-    pub rows: Vec<u8>,
-    pub cols: Vec<u8>,
+    pub rows: Vec<u32>,
+    pub cols: Vec<u32>,
     pub indents: Vec<usize>,
     pub(crate) error_mask: u64,
 }

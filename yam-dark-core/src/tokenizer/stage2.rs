@@ -251,10 +251,10 @@ pub struct YamlParserState {
 impl YamlParserState {
     pub(crate) fn process_chunk<B: Buffer>(
         &self,
-        p0: &mut B,
-        p1: &YamlChunkState,
+        buffer: &mut B,
+        chunk_state: &YamlChunkState,
     ) -> YamlResult<()> {
-        todo!()
+        Ok(())
     }
 
     pub(crate) fn next_state() -> YamlResult<()> {

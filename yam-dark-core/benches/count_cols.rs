@@ -1,8 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_dark_core::util::{
-    calculate_byte_rows, calculate_cols, INDENT_SWIZZLE_TABLE, U8X8, U8_BYTE_COL_TABLE,
-    U8_ROW_TABLE,
+    calculate_byte_rows, calculate_cols, INDENT_SWIZZLE_TABLE, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
 use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
@@ -19,17 +18,17 @@ a  st
     .as_bytes();
 
 #[inline]
-fn calculate_byte_col(index_mask: usize, reset_bool: bool, prev_indent: &mut u8) -> [u8; 8] {
+fn calculate_byte_col(index_mask: usize, reset_bool: bool, prev_indent: &mut u32) -> [u32; 8] {
     let byte_col1 = U8_BYTE_COL_TABLE[index_mask];
     let rows1 = U8_ROW_TABLE[index_mask];
     let row_calc = calculate_cols(byte_col1, rows1, prev_indent);
-    let mask_sec = (-(reset_bool as i8)) as u8;
+    let mask_sec = (-(reset_bool as i32)) as u32;
     *prev_indent = (row_calc[7] + 1) & mask_sec;
     row_calc
 }
 
 #[doc(hidden)]
-pub fn count_col_rows(newline_mask: u64, byte_cols: &mut [u8; 64], byte_rows: &mut [u8; 64]) {
+pub fn count_col_rows(newline_mask: u64, byte_cols: &mut [u32; 64], byte_rows: &mut [u32; 64]) {
     let mut prev_byte_col = 0;
     let mut prev_byte_row = 0;
     // First 8 bits
@@ -108,24 +107,6 @@ pub fn count_col_rows(newline_mask: u64, byte_cols: &mut [u8; 64], byte_rows: &m
 
     let col_rows = calculate_byte_rows(mask, &mut prev_byte_row);
     byte_rows[56..64].copy_from_slice(&col_rows);
-}
-
-#[inline]
-pub fn count_table_u8x8(chunk: [u8; 64], prev_col: &mut u32) -> [u32; 64] {
-    let mut shift_mask = u8x64_eq(&chunk, b'\n');
-
-    let mut result = [0; 64];
-    for i in 0..8 {
-        let ind = (shift_mask & 0x0000_0000_0000_00FF) as usize;
-        let byte_col = U8X8::from_array(U8_BYTE_COL_TABLE[ind]);
-        let rows = U8X8::from_array(U8_ROW_TABLE[ind]);
-        let row_calc: [u32; 8] = byte_col.add_offset_and_mask(rows, *prev_col);
-        result[i * 8..i * 8 + 8].copy_from_slice(&row_calc[..]);
-        *prev_col = row_calc[7];
-        shift_mask >>= 8;
-    }
-
-    result
 }
 
 fn count_naive(
@@ -532,7 +513,7 @@ pub fn count_indent_naive(
     space_bits: u64,
     // byte_cols: &mut [u8; 64],
     // byte_rows: &mut [u8; 64],
-    byte_indent: &mut [u8; 64],
+    byte_indent: &mut [u32; 64],
     is_indent_frozen: &mut bool,
 ) {
     // let mut curr_row = 0;
@@ -570,10 +551,9 @@ pub fn count_indent_naive(
 fn count_batch(
     newline_mask: u64,
     space_mask: u64,
-    byte_rows: &mut [u8; 64],
-    byte_cols: &mut [u8; 64],
-    // indents: &mut Vec<u32>,
-    byte_indent: &mut [u8; 64],
+    byte_rows: &mut [u32; 64],
+    byte_cols: &mut [u32; 64],
+    byte_indent: &mut [u32; 64],
 ) {
     let nl_ind0 = (newline_mask & 0xFF) as usize;
     let row0 = U8_ROW_TABLE[nl_ind0];
