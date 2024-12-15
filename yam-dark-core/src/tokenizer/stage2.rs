@@ -310,7 +310,7 @@ fn test_parsing_basic_processing1() {
 
     let chunk = chunk_iter.next().expect("Missing chunk!");
     let chunk_state = NativeScanner::next(chunk, &mut buffer, &mut state);
-    let res = state.process_chunk(&mut buffer, &chunk_state);
+    let res = state.process_chunk::<BorrowBuffer, NativeScanner>(&mut buffer, &chunk_state);
 
     let expected_structurals = vec![0usize];
     assert_eq!(expected_structurals, state.structurals);
