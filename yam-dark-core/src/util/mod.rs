@@ -151,43 +151,55 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
     rows
 }
 
+pub unsafe fn add_rows_unchecked(dst: &mut [u32], src: &[u32], prev_row: &mut u32, idx: usize) {
+    *dst.get_unchecked_mut(idx) = *prev_row;
+    *dst.get_unchecked_mut(idx + 1) = *src.get_unchecked(0) + *prev_row;
+    *dst.get_unchecked_mut(idx + 2) = *src.get_unchecked(1) + *prev_row;
+    *dst.get_unchecked_mut(idx + 3) = *src.get_unchecked(2) + *prev_row;
+    *dst.get_unchecked_mut(idx + 4) = *src.get_unchecked(3) + *prev_row;
+    *dst.get_unchecked_mut(idx + 5) = *src.get_unchecked(4) + *prev_row;
+    *dst.get_unchecked_mut(idx + 6) = *src.get_unchecked(5) + *prev_row;
+    *dst.get_unchecked_mut(idx + 7) = *src.get_unchecked(6) + *prev_row;
+    *prev_row += *dst.get_unchecked(idx + 7)
+}
+
 #[doc(hidden)]
 #[inline]
 #[must_use]
-pub fn calculate_cols(cols: [u32; 8], rows_data: [u32; 8], prev_col: &u32) -> [u32; 8] {
+pub fn calculate_cols(cols: [u32; 8], rows: [u32; 8], prev_col: &u32) -> [u32; 8] {
     [
         cols[0] + *prev_col,
-        if rows_data[0] == 0 {
+        if rows[0] == 0 {
             cols[1] + *prev_col
         } else {
             cols[1]
         },
-        if rows_data[1] == 0 {
+        if rows[1] == 0 {
             cols[2] + *prev_col
         } else {
             cols[2]
         },
-        if rows_data[2] == 0 {
+        if rows[2] == 0 {
             cols[3] + *prev_col
         } else {
             cols[3]
         },
-        if rows_data[3] == 0 {
+        if rows[3] == 0 {
             cols[4] + *prev_col
         } else {
             cols[4]
         },
-        if rows_data[4] == 0 {
+        if rows[4] == 0 {
             cols[5] + *prev_col
         } else {
             cols[5]
         },
-        if rows_data[5] == 0 {
+        if rows[5] == 0 {
             cols[6] + *prev_col
         } else {
             cols[6]
         },
-        if rows_data[6] == 0 {
+        if rows[6] == 0 {
             cols[7] + *prev_col
         } else {
             cols[7]
