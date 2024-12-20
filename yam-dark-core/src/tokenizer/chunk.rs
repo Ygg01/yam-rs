@@ -1,6 +1,7 @@
 #[allow(unused_imports)] // imports are used in tests
 use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 
+#[derive(Default)]
 /// Represents the state of YAML chunk processing.
 ///
 /// `YamlChunkState` is used to track the state of various chunks of YAML content,
@@ -36,19 +37,6 @@ pub struct YamlChunkState {
     pub single_quote: YamlSingleQuoteChunk,
     pub characters: YamlCharacterChunk,
     pub(crate) error_mask: u64,
-}
-
-impl Default for YamlChunkState {
-    fn default() -> Self {
-        // Safety
-        // To ensure cols/rows/indents are always 64 elements long.
-        YamlChunkState {
-            double_quote: YamlDoubleQuoteChunk::default(),
-            single_quote: YamlSingleQuoteChunk::default(),
-            characters: YamlCharacterChunk::default(),
-            error_mask: 0,
-        }
-    }
 }
 
 #[derive(Default)]
@@ -177,7 +165,8 @@ fn test_single_quotes1() {
     let chunk = b" ' ''  '''                                                      ";
     let scanner = NativeScanner::from_chunk(chunk);
     scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
-    let expected = 0b000000000000000000000000000000000000000000000000001110000010;
+    let expected =
+        0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011_1000_0010;
     assert_eq!(
         expected, block_state.single_quote.odd_quotes,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
@@ -193,7 +182,9 @@ fn test_single_quotes2() {
     let chunk = b" ' ''  '' '                                                     ";
     let scanner = NativeScanner::from_chunk(chunk);
     scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
-    let expected = 0b0000000000000000000000000000000000000000000000000010000000010;
+    let expected =
+        0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100_0000_0010;
+
     assert_eq!(
         expected, block_state.single_quote.odd_quotes,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
@@ -207,7 +198,8 @@ fn test_structurals() {
     let chunk = b" -                                                              ";
     let scanner = NativeScanner::from_chunk(chunk);
     scanner.classify_yaml_characters(&mut block_state);
-    let expected = 0b000000000000000000000000000000000000000000000000000000000010;
+    let expected =
+        0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0010;
     assert_eq!(
         block_state.characters.block_structurals, expected,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
@@ -222,6 +214,6 @@ fn test_lteq() {
     let result = scanner.unsigned_lteq_against_splat(0x20);
     assert_eq!(
         result,
-        0b1111111111111111111111111111111111111111111111111111111111111111
+        0b1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111
     );
 }
