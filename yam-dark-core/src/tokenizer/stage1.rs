@@ -28,7 +28,7 @@ use alloc::vec::Vec;
 use core::ptr::write;
 
 use crate::tokenizer::chunk::YamlChunkState;
-use crate::tokenizer::stage2::{Buffer, YamlParserState};
+use crate::tokenizer::stage2::{Buffer, YamlIndentInfo, YamlParserState};
 use crate::util::{
     add_cols_unchecked, add_rows_unchecked, calculate_byte_rows, calculate_cols,
     select_right_bits_branch_less, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
@@ -340,12 +340,20 @@ pub unsafe trait Stage1Scanner {
         *is_indent_running = last_bit;
     }
 
-    fn calculate_positions_vectorized(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
-        Self::calculate_cols_rows_vectorized(state, chunk_state);
-        Self::calculate_indents_vectorized(state, chunk_state);
+    fn calculate_positions_vectorized(
+        state: &mut YamlParserState,
+        chunk_state: &YamlChunkState,
+        info: &mut YamlIndentInfo,
+    ) {
+        Self::calculate_cols_rows_vectorized(state, chunk_state, info);
+        Self::calculate_indents_vectorized(state, chunk_state, info);
     }
 
-    fn calculate_cols_rows_vectorized(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
+    fn calculate_cols_rows_vectorized(
+        state: &mut YamlParserState,
+        chunk_state: &YamlChunkState,
+        info: &mut YamlIndentInfo,
+    ) {
         let nl_ind = (chunk_state.characters.line_feeds & 0xFF) as usize;
         unsafe {
             add_rows_unchecked(&mut state.byte_rows, nl_ind, &mut state.last_row, state.pos);
@@ -467,7 +475,12 @@ pub unsafe trait Stage1Scanner {
         state.pos += 64;
     }
 
-    fn calculate_indents_vectorized(state: &mut YamlParserState, chunk_state: &YamlChunkState) {}
+    fn calculate_indents_vectorized(
+        state: &mut YamlParserState,
+        chunk_state: &YamlChunkState,
+        info: &mut YamlIndentInfo,
+    ) {
+    }
 
     #[deprecated]
     fn calculate_cols_rows_indents(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
