@@ -162,7 +162,11 @@ pub unsafe trait Stage1Scanner {
     /// ```
     fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
 
-    fn flatten_bits_yaml(base: &mut YamlParserState, yaml_chunk_state: &YamlChunkState);
+    fn flatten_bits_yaml(
+        base: &mut YamlParserState,
+        yaml_chunk_state: &YamlChunkState,
+        indent_info: &mut YamlIndentInfo,
+    );
 
     #[deprecated]
     /// Calculates the indents of the given chunk and updates the `chunk_state` accordingly.
@@ -345,11 +349,11 @@ pub unsafe trait Stage1Scanner {
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
     ) {
-        Self::calculate_cols_rows_vectorized(state, chunk_state, info);
+        Self::calculate_indent_info_vectorized(state, chunk_state, info);
         Self::calculate_indents_vectorized(state, chunk_state, info);
     }
 
-    fn calculate_cols_rows_vectorized(
+    fn calculate_indent_info_vectorized(
         state: &mut YamlParserState,
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,

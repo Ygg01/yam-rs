@@ -32,7 +32,6 @@ use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use core::mem::take;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub type ParseResult<T> = Result<T, YamlError>;
@@ -274,11 +273,8 @@ impl YamlParserState {
         chunk_state: &YamlChunkState,
         indent_info: &mut YamlIndentInfo,
     ) -> YamlResult<()> {
-        S::calculate_indents_vectorized(self, chunk_state, indent_info);
-        S::flatten_bits_yaml(self, chunk_state);
-
-        // reset indent info
-        take(indent_info);
+        S::calculate_indent_info_vectorized(self, chunk_state, indent_info);
+        S::flatten_bits_yaml(self, chunk_state, indent_info);
 
         if chunk_state.error_mask == 0 {
             Ok(())

@@ -6,6 +6,7 @@ use core::ptr::write;
 use util::u8x16_swizzle;
 
 use crate::tokenizer::stage1::Stage1Scanner;
+use crate::tokenizer::stage2::YamlIndentInfo;
 use crate::util::NoopValidator;
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
 use crate::{util, YamlChunkState, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
@@ -133,7 +134,11 @@ unsafe impl Stage1Scanner for NativeScanner {
             | (flow_structural_res_3 << 48));
     }
 
-    fn flatten_bits_yaml(base: &mut YamlParserState, yaml_chunk_state: &YamlChunkState) {
+    fn flatten_bits_yaml(
+        base: &mut YamlParserState,
+        yaml_chunk_state: &YamlChunkState,
+        indent_info: &mut YamlIndentInfo,
+    ) {
         let mut bits = yaml_chunk_state.characters.all_structurals();
         let count_ones: usize = bits.count_ones() as usize;
         let mut base_len = base.structurals.len();
