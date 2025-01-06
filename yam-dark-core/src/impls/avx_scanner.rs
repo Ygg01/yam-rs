@@ -1,6 +1,7 @@
 use crate::{Stage1Scanner, YamlChunkState, YamlParserState};
 
 use crate::tokenizer::stage2::YamlIndentInfo;
+
 #[cfg(target_arch = "x86")]
 use core::arch::x86::{
     __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,

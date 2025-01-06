@@ -262,7 +262,7 @@ pub fn calculate_indents_vector(
     is_indent_running: &mut bool,
 ) {
     let mut i = 0;
-    let count_cols = (newline_mask.count_ones() + 1);
+    let count_cols = newline_mask.count_ones() + 1;
     let mut neg_indents_mask = select_right_bits_branch_less(
         space_mask,
         (newline_mask << 1) ^ u64::from(*is_indent_running),
