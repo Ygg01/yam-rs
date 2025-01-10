@@ -229,7 +229,7 @@ pub struct YamlParserState {
     pub(crate) structurals: Vec<usize>,
     pub(crate) byte_cols: Vec<u32>,
     pub(crate) byte_rows: Vec<u32>,
-    pub(crate) indents: Vec<usize>,
+    pub(crate) indents: Vec<u32>,
     pub(crate) pos: usize,
 
     // Sparse fields
