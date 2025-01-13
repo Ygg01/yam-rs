@@ -154,6 +154,12 @@ unsafe impl Stage1Scanner for NativeScanner {
 
         let final_len = base_len + count_ones;
 
+        macro_rules! u32x4 {
+            ($field:expr, $data:ident, $pos:expr) => {
+                core::ptr::write($field.as_mut_ptr().add($pos).cast::<[u32; 4]>(), $data);
+            };
+        }
+
         while bits != 0 {
             let v0 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
@@ -217,9 +223,9 @@ unsafe impl Stage1Scanner for NativeScanner {
                         .cast::<[usize; 4]>(),
                     v,
                 );
-                Self::write_u32x4(&mut base.byte_cols, base_len, cols);
-                Self::write_u32x4(&mut base.byte_rows, base_len, rows);
-                Self::write_u32x4(&mut base.indents, base_len, indents);
+                u32x4!(&mut base.byte_cols, cols, base_len);
+                u32x4!(&mut base.byte_rows, rows, base_len);
+                u32x4!(&mut base.byte_rows, indents, base_len);
             }
 
             base_len += 4;
@@ -233,12 +239,5 @@ unsafe impl Stage1Scanner for NativeScanner {
             base.byte_rows.set_len(final_len);
             base.indents.set_len(final_len);
         }
-    }
-}
-
-impl NativeScanner {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub(crate) unsafe fn write_u32x4(field: &mut Vec<u32>, pos: usize, data: [u32; 4]) {
-        write(field.as_mut_ptr().add(pos).cast::<[u32; 4]>(), data);
     }
 }
