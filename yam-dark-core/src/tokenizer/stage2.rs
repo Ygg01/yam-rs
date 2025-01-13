@@ -273,8 +273,14 @@ impl YamlParserState {
         chunk_state: &YamlChunkState,
         indent_info: &mut YamlIndentInfo,
     ) -> YamlResult<()> {
-        S::calculate_indent_info_vectorized(self, chunk_state, indent_info);
+        // First we find all interesting structural bits
         S::flatten_bits_yaml(self, chunk_state, indent_info);
+
+        // Then we calculate rows, cols for structurals
+        S::calculate_col_rows(self, chunk_state, indent_info);
+
+        // And based on rows/cols for structurals, we calculate indents
+        S::calculate_indents(self, chunk_state, indent_info);
 
         if chunk_state.error_mask == 0 {
             Ok(())
