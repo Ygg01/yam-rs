@@ -142,28 +142,28 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
     let pre_calc_row = U8_ROW_TABLE[index_mask];
     let rows = [
         *prev_row,
-        *prev_row + pre_calc_row[0],
-        *prev_row + pre_calc_row[1],
-        *prev_row + pre_calc_row[2],
-        *prev_row + pre_calc_row[3],
-        *prev_row + pre_calc_row[4],
-        *prev_row + pre_calc_row[5],
-        *prev_row + pre_calc_row[6],
+        *prev_row + pre_calc_row[0] as u32,
+        *prev_row + pre_calc_row[1] as u32,
+        *prev_row + pre_calc_row[2] as u32,
+        *prev_row + pre_calc_row[3] as u32,
+        *prev_row + pre_calc_row[4] as u32,
+        *prev_row + pre_calc_row[5] as u32,
+        *prev_row + pre_calc_row[6] as u32,
     ];
-    *prev_row += pre_calc_row[7];
+    *prev_row += pre_calc_row[7] as u32;
     rows
 }
 
 pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mut u32, idx: usize) {
     let src = U8_ROW_TABLE[newlines];
     *dst.get_unchecked_mut(idx) = *prev_row;
-    *dst.get_unchecked_mut(idx + 1) = *src.get_unchecked(0) + *prev_row;
-    *dst.get_unchecked_mut(idx + 2) = *src.get_unchecked(1) + *prev_row;
-    *dst.get_unchecked_mut(idx + 3) = *src.get_unchecked(2) + *prev_row;
-    *dst.get_unchecked_mut(idx + 4) = *src.get_unchecked(3) + *prev_row;
-    *dst.get_unchecked_mut(idx + 5) = *src.get_unchecked(4) + *prev_row;
-    *dst.get_unchecked_mut(idx + 6) = *src.get_unchecked(5) + *prev_row;
-    *dst.get_unchecked_mut(idx + 7) = *src.get_unchecked(6) + *prev_row;
+    *dst.get_unchecked_mut(idx + 1) = *src.get_unchecked(0) as u32 + *prev_row;
+    *dst.get_unchecked_mut(idx + 2) = *src.get_unchecked(1) as u32 + *prev_row;
+    *dst.get_unchecked_mut(idx + 3) = *src.get_unchecked(2) as u32 + *prev_row;
+    *dst.get_unchecked_mut(idx + 4) = *src.get_unchecked(3) as u32 + *prev_row;
+    *dst.get_unchecked_mut(idx + 5) = *src.get_unchecked(4) as u32 + *prev_row;
+    *dst.get_unchecked_mut(idx + 6) = *src.get_unchecked(5) as u32 + *prev_row;
+    *dst.get_unchecked_mut(idx + 7) = *src.get_unchecked(6) as u32 + *prev_row;
     *prev_row += *dst.get_unchecked(idx + 7)
 }
 
@@ -214,43 +214,43 @@ pub unsafe fn add_cols_unchecked(dst: &mut [u32], newlines: usize, prev_col: &mu
 #[doc(hidden)]
 #[inline]
 #[must_use]
-pub fn calculate_cols(cols: [u32; 8], rows: [u32; 8], prev_col: &u32) -> [u32; 8] {
+pub fn calculate_cols(cols: [u8; 8], rows: [u8; 8], prev_col: &u32) -> [u32; 8] {
     [
-        cols[0] + *prev_col,
+        u32::from(cols[0]) + *prev_col,
         if rows[0] == 0 {
-            cols[1] + *prev_col
+            u32::from(cols[1]) + *prev_col
         } else {
-            cols[1]
+            u32::from(cols[1])
         },
         if rows[1] == 0 {
-            cols[2] + *prev_col
+            u32::from(cols[2]) + *prev_col
         } else {
-            cols[2]
+            u32::from(cols[2])
         },
         if rows[2] == 0 {
-            cols[3] + *prev_col
+            u32::from(cols[3]) + *prev_col
         } else {
-            cols[3]
+            u32::from(cols[3])
         },
         if rows[3] == 0 {
-            cols[4] + *prev_col
+            u32::from(cols[4]) + *prev_col
         } else {
-            cols[4]
+            u32::from(cols[4])
         },
         if rows[4] == 0 {
-            cols[5] + *prev_col
+            u32::from(cols[5]) + *prev_col
         } else {
-            cols[5]
+            u32::from(cols[5])
         },
         if rows[5] == 0 {
-            cols[6] + *prev_col
+            u32::from(cols[6]) + *prev_col
         } else {
-            cols[6]
+            u32::from(cols[6])
         },
         if rows[6] == 0 {
-            cols[7] + *prev_col
+            u32::from(cols[7]) + *prev_col
         } else {
-            cols[7]
+            u32::from(cols[7])
         },
     ]
 }
