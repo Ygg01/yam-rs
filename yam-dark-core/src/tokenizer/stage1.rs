@@ -167,7 +167,7 @@ pub unsafe trait Stage1Scanner {
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
     ) {
-        // Avoid copy/paste with this handy macro
+        // Avoid copy/paste with this inline macro
         macro_rules! add_cols_rows_unchecked {
             ($e:expr) => {
                 let nl_ind = ((chunk_state.characters.line_feeds >> $e) & 0xFF) as usize;
