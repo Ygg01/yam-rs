@@ -225,6 +225,12 @@ const EXPLICIT_BLOCK_MAP1: &'static str = r#"
   : value
 "#;
 
+const EXPLICIT_BLOCK_MAP_MIX: &'static str = r#"
+  ? test
+  : value
+  tx: x
+"#;
+
 const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
   +MAP
     =VAL test
@@ -232,17 +238,47 @@ const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
     =VAL value
   -MAP"#;
 
-// const EXPLICIT_BLOCK_MAP2: &'static str = r#"
-//    ? test
-//   : value
-// "#;
-//
-// const EXPLICIT_BLOCK_MAP3: &'static str = r#"
-//    ? test
-//     : value
-// "#;
+const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL test
+    -KEY-
+    =VAL value
+    -SEP-
+    =VAL tx
+    -KEY-
+    =VAL x
+  -MAP"#;
+
+const EXPLICIT_BLOCK_MAP_ERR1: &'static str = r#"
+   ? test
+  : value
+"#;
+
+const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL test
+    ERR(MappingExpectedIndent { actual: 2, expected: 3 })
+    -KEY-
+    =VAL value
+  -MAP"#;
+
+const EXPLICIT_BLOCK_MAP_ERR2: &'static str = r#"
+  ? test
+   : value
+"#;
+
+const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL test
+    ERR(MappingExpectedIndent { actual: 3, expected: 2 })
+    -KEY-
+    =VAL value
+  -MAP"#;
 
 #[test]
 pub fn explicit_block_map() {
     assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
+    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
+    assert_eq_event(EXPLICIT_BLOCK_MAP_ERR1, EXPLICIT_BLOCK_MAP_ERR1_EXPECTED);
+    assert_eq_event(EXPLICIT_BLOCK_MAP_ERR2, EXPLICIT_BLOCK_MAP_ERR2_EXPECTED);
 }
