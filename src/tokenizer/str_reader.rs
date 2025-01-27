@@ -42,19 +42,19 @@ impl<'a> Iterator for EventIterator<'a> {
                         MarkEnd(end) => {
                             let scalar = self.reader.slice[start..end].to_owned();
 
-                            if let Some(x) = self.lines.back_mut() {
-                                // account for indent and newline
-                                if x[self.indent + 1..].starts_with("=VAL") {
-                                    x.push_str(scalar.as_str());
-                                };
-                            } else {
-                                ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
-                                ind.extend("=VAL ".as_bytes());
-                                ind.extend(scalar.as_bytes().to_vec());
-                                unsafe {
-                                    self.lines.push_back(String::from_utf8_unchecked(ind));
+                            match self.lines.back_mut() {
+                                Some(line) if line[self.indent + 1..].starts_with("=VAL") => {
+                                    line.push_str(scalar.as_str());
                                 }
-                            }
+                                _ => {
+                                    ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                                    ind.extend("=VAL ".as_bytes());
+                                    ind.extend(scalar.as_bytes().to_vec());
+                                    unsafe {
+                                        self.lines.push_back(String::from_utf8_unchecked(ind));
+                                    }
+                                }
+                            };
                         }
                         NewLine(n) => {
                             if let Some(x) = self.lines.back_mut() {
