@@ -1548,7 +1548,6 @@ ERR
 -MAP
 -DOC";
 
-
 const X2_1_G9HC_INPUT: &str = r"
 seq:
  &anchor
@@ -2130,7 +2129,6 @@ const X3_Y79Y_004_INPUT: &str = r"
 -	-
  ";
 
-
 const X1_Y79Y_006_INPUT: &str = r"
 ?	-";
 
@@ -2241,11 +2239,11 @@ const X3_Y79Y_009_EVENTS: &str = r"
 #[test]
 fn block_tab_indents() {
     assert_eq_event(X1_DC7X_INPUT, X1_DC7X_EVENTS);
-    
+
     assert_eq_event(X1_Y79Y_004_INPUT, X1_Y79Y_004_EVENTS);
     assert_eq_event(X2_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
     assert_eq_event(X3_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
-    
+
     assert_eq_event(X1_Y79Y_006_INPUT, X1_Y79Y_006_EVENTS);
     assert_eq_event(X2_Y79Y_006_INPUT, X2_Y79Y_006_EVENTS);
     assert_eq_event(X3_Y79Y_006_INPUT, X3_Y79Y_006_EVENTS);
@@ -2255,9 +2253,7 @@ fn block_tab_indents() {
     assert_eq_event(X1_Y79Y_009_INPUT, X1_Y79Y_009_EVENTS);
     assert_eq_event(X2_Y79Y_009_INPUT, X2_Y79Y_009_EVENTS);
     assert_eq_event(X3_Y79Y_009_INPUT, X3_Y79Y_009_EVENTS);
-
 }
-
 
 const X1_FH7J_INPUT: &str = r"
 - !!null : a";
@@ -2272,9 +2268,7 @@ const X1_FH7J_EVENTS: &str = r"
 -SEQ
 -DOC";
 
-
 #[test]
 fn block_tags_empty() {
-  assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
+    assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
 }
-

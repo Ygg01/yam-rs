@@ -19,7 +19,7 @@ use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{
-    is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
+    is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab, self,
 };
 use crate::tokenizer::ErrorType;
 
@@ -374,12 +374,12 @@ impl Lexer {
             let curr_state = self.curr_state();
 
             match curr_state {
-                PreDocStart => self.fetch_pre_doc(reader),
                 DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                     self.fetch_block_map(reader, curr_state);
                 }
                 BlockSeq(_, _) => self.fetch_block_seq(reader, curr_state),
                 FlowSeq | FlowMap(_) => self.fetch_flow_node(reader),
+                PreDocStart => self.fetch_pre_doc(reader),
                 AfterDocBlock => self.fetch_after_doc(reader),
                 InDocEnd => self.fetch_end_doc(reader),
             }
@@ -388,289 +388,6 @@ impl Lexer {
         if reader.eof() {
             self.stream_end = true;
             self.finish_eof();
-        }
-    }
-
-    fn finish_eof(&mut self) {
-        for state in self.stack.iter().rev() {
-            let token = match *state {
-                BlockSeq(_, BeforeFirst) => {
-                    self.tokens.push_back(SCALAR_PLAIN);
-                    self.tokens.push_back(SCALAR_END);
-                    SEQ_END
-                }
-                BlockSeq(_, _) => SEQ_END,
-                BlockMapExp(_, AfterColon | BeforeColon) | BlockMap(_, AfterColon) => {
-                    self.tokens.push_back(SCALAR_PLAIN);
-                    self.tokens.push_back(SCALAR_END);
-                    MAP_END
-                }
-                BlockMapExp(_, _) | BlockMap(_, _) | FlowMap(_) => MAP_END,
-                FlowSeq => {
-                    self.tokens.push_back(ERROR_TOKEN);
-                    self.errors.push(MissingFlowClosingBracket);
-                    SEQ_END
-                }
-                DocBlock | AfterDocBlock => DOC_END,
-                _ => continue,
-            };
-            self.tokens.push_back(token);
-        }
-    }
-
-    fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        use DirectiveState::NoDirective;
-        use HeaderState::{Bare, Directive, HeaderEnd, HeaderStart};
-
-        let mut header_state = Bare;
-
-        loop {
-            let chr = match reader.peek_byte() {
-                None => {
-                    match header_state {
-                        Directive(_) => self.push_error(ExpectedDocumentEndOrContents),
-                        HeaderStart => {
-                            self.push_empty_token();
-                            self.tokens.push_back(DOC_END);
-                        }
-                        _ => {}
-                    }
-                    self.stream_end = true;
-                    return;
-                }
-                Some(b'#') => {
-                    self.read_line(reader);
-                    continue;
-                }
-                Some(x) if is_white_tab_or_break(x) => {
-                    self.skip_separation_spaces(reader);
-                    continue;
-                }
-                Some(x) => x,
-            };
-
-            match (header_state, chr) {
-                (Bare, b'%') => {
-                    let mut directive_state = NoDirective;
-                    if !self.try_read_yaml_directive(reader, &mut directive_state)
-                        && !self.try_read_tag(reader)
-                    {}
-                    header_state = Directive(directive_state);
-                }
-                (Bare, b'.') => {
-                    if reader.peek_stream_ending() {
-                        reader.consume_bytes(3);
-                    }
-                }
-                (Directive(mut directive_state), b'%') => {
-                    if !self.try_read_yaml_directive(reader, &mut directive_state)
-                        && !self.try_read_tag(reader)
-                    {}
-                }
-                (HeaderEnd, b'%') => {
-                    header_state = Directive(NoDirective);
-                }
-                (Directive(_) | Bare, b'-') => {
-                    if reader.peek_stream_ending() {
-                        reader.consume_bytes(3);
-                        self.last_map_line = Some(reader.line());
-                        self.tokens.push_back(DOC_START_EXP);
-                        header_state = HeaderStart;
-                    } else {
-                        self.tokens.push_back(DOC_START);
-                        self.set_state(DocBlock);
-                        break;
-                    }
-                }
-                (Directive(_), b'.') => {
-                    self.tokens.push_back(DOC_START);
-                    if reader.peek_stream_ending() {
-                        reader.consume_bytes(3);
-                        self.tokens.push_front(ERROR_TOKEN);
-                        self.errors.push(UnexpectedEndOfStream);
-                        self.tokens.push_back(DOC_END_EXP);
-                    } else {
-                        self.push_error(UnexpectedSymbol('.'));
-                    }
-                    break;
-                }
-                (HeaderEnd | HeaderStart, b'.') => {
-                    if reader.peek_stream_ending() {
-                        reader.consume_bytes(3);
-                        self.push_empty_token();
-                        self.tokens.push_back(DOC_END_EXP);
-                        header_state = match header_state {
-                            HeaderStart => HeaderEnd,
-                            _ => Bare,
-                        };
-                    } else {
-                        self.tokens.push_back(DOC_START);
-                        self.set_state(DocBlock);
-                        break;
-                    }
-                }
-                (HeaderEnd | HeaderStart, b'-') => {
-                    if reader.peek_stream_ending() {
-                        reader.consume_bytes(3);
-                        self.push_empty_token();
-                        self.tokens.push_back(DOC_END);
-                        self.tokens.push_back(DOC_START_EXP);
-                    } else {
-                        self.set_state(DocBlock);
-                        break;
-                    }
-                }
-                (Bare | Directive(_), _) => {
-                    self.tokens.push_back(DOC_START);
-                    self.set_state(DocBlock);
-                    break;
-                }
-                (HeaderStart, _) => {
-                    self.set_state(DocBlock);
-                    break;
-                }
-                (HeaderEnd, _) => {
-                    reader.skip_space_tab();
-                    if reader
-                        .peek_byte()
-                        .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#')
-                    {
-                        self.push_error(ExpectedDocumentEnd);
-                    }
-                    self.set_state(DocBlock);
-                    break;
-                }
-            }
-        }
-    }
-
-    fn try_read_yaml_directive<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        directive_state: &mut DirectiveState,
-    ) -> bool {
-        if reader.col() == 0 && reader.try_read_slice_exact("%YAML") {
-            reader.skip_space_tab();
-            return match reader.peek_chars() {
-                b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
-                    directive_state.add_directive();
-                    if *directive_state == DirectiveState::TwoDirectiveError {
-                        self.tokens.push_back(ERROR_TOKEN);
-                        self.errors.push(TwoDirectivesFound);
-                    }
-                    self.tokens.push_back(DIR_YAML);
-                    self.tokens.push_back(reader.pos());
-                    self.tokens.push_back(reader.consume_bytes(3));
-                    reader.skip_space_tab();
-                    let invalid_char = reader
-                        .peek_byte()
-                        .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#');
-                    if invalid_char {
-                        self.prepend_error(InvalidAnchorDeclaration);
-                        self.read_line(reader);
-                    }
-                    true
-                }
-                b"..." | b"---" => false,
-                _ => {
-                    self.read_line(reader);
-                    false
-                }
-            };
-        }
-        false
-    }
-
-    fn try_read_tag<B, R: Reader<B>>(&mut self, reader: &mut R) -> bool {
-        self.continue_processing = false;
-        reader.try_read_slice_exact("%TAG");
-        reader.skip_space_tab();
-
-        if let Ok(key) = reader.read_tag_handle() {
-            reader.skip_space_tab();
-            if let Some(val) = reader.read_tag_uri() {
-                self.tags.insert(key, val);
-            }
-            true
-        } else {
-            false
-        }
-    }
-
-    fn fetch_after_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let mut consume_line = false;
-
-        let is_stream_ending = reader.peek_stream_ending();
-        let chars = reader.peek_chars();
-        match chars {
-            b"..." if is_stream_ending => {
-                let col = reader.col();
-                reader.consume_bytes(3);
-                if col != 0 {
-                    self.push_error(UnexpectedIndentDocEnd {
-                        actual: col,
-                        expected: 0,
-                    });
-                }
-                self.tokens.push_back(DOC_END_EXP);
-                self.set_block_state(InDocEnd, 0);
-            }
-            [peek, b'#', ..] if is_white_tab(*peek) => {
-                // comment
-                self.read_line(reader);
-            }
-            [b'#', ..] if reader.col() > 0 => {
-                // comment that doesnt
-                self.push_error(MissingWhitespaceBeforeComment);
-                self.read_line(reader);
-            }
-            [chr, ..] if is_white_tab_or_break(*chr) => {
-                self.skip_separation_spaces(reader);
-            }
-            [chr, ..] => {
-                consume_line = true;
-                self.tokens.push_back(DOC_END);
-                self.push_error(UnexpectedSymbol(*chr as char));
-                self.set_block_state(PreDocStart, 0);
-            }
-            [] => {}
-        }
-        if consume_line {
-            self.read_line(reader);
-        }
-    }
-
-    fn fetch_end_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        reader.skip_space_tab();
-        match reader.peek_byte() {
-            Some(b'#') => {
-                self.read_line(reader);
-            }
-            Some(b'%') => {
-                self.set_state(PreDocStart);
-            }
-            Some(b'-') => {
-                if reader.peek_stream_ending() {
-                    reader.consume_bytes(3);
-                    self.tokens.push_back(DOC_START_EXP);
-                }
-            }
-            Some(b'.') => {
-                if reader.peek_stream_ending() {
-                    reader.consume_bytes(3);
-                    self.tokens.push_back(DOC_END_EXP);
-                }
-            }
-            Some(chr) if chr == b' ' || chr == b'\t' || chr == b'\r' || chr == b'\n' => {
-                self.set_state(PreDocStart);
-            }
-            Some(_) => {
-                self.read_line(reader);
-                self.push_error(ExpectedDocumentStartOrContents);
-            }
-            None => {
-                self.stream_end = true;
-            }
         }
     }
 
@@ -875,10 +592,7 @@ impl Lexer {
             };
             let actual = self.space_indent;
             if self.space_indent < expected {
-                self.push_error(InvalidAnchorIndent {
-                    actual,
-                    expected,
-                })
+                self.push_error(InvalidAnchorIndent { actual, expected })
             }
         }
         self.update_col(reader);
@@ -1850,11 +1564,10 @@ impl Lexer {
             || matches!(curr_state, BlockMap(_, _) if col > indent)
         {
             self.next_substate();
-        }else if let Some(unwind) = self.find_matching_state(
+        } else if let Some(unwind) = self.find_matching_state(
             indent_pos,
             |state, i| matches!(state, BlockMap(ind, _) | BlockMapExp(ind, _) if ind == i),
-        )
-        {
+        ) {
             self.pop_block_states(unwind);
             self.next_substate();
         } else {
@@ -2548,6 +2261,289 @@ impl Lexer {
         }
 
         next_state
+    }
+
+    fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        use DirectiveState::NoDirective;
+        use HeaderState::{Bare, Directive, HeaderEnd, HeaderStart};
+
+        let mut header_state = Bare;
+
+        loop {
+            let chr = match reader.peek_byte() {
+                None => {
+                    match header_state {
+                        Directive(_) => self.push_error(ExpectedDocumentEndOrContents),
+                        HeaderStart => {
+                            self.push_empty_token();
+                            self.tokens.push_back(DOC_END);
+                        }
+                        _ => {}
+                    }
+                    self.stream_end = true;
+                    return;
+                }
+                Some(b'#') => {
+                    self.read_line(reader);
+                    continue;
+                }
+                Some(x) if is_white_tab_or_break(x) => {
+                    self.skip_separation_spaces(reader);
+                    continue;
+                }
+                Some(x) => x,
+            };
+
+            match (header_state, chr) {
+                (Bare, b'%') => {
+                    let mut directive_state = NoDirective;
+                    if !self.try_read_yaml_directive(reader, &mut directive_state)
+                        && !self.try_read_tag(reader)
+                    {}
+                    header_state = Directive(directive_state);
+                }
+                (Bare, b'.') => {
+                    if reader.peek_stream_ending() {
+                        reader.consume_bytes(3);
+                    }
+                }
+                (Directive(mut directive_state), b'%') => {
+                    if !self.try_read_yaml_directive(reader, &mut directive_state)
+                        && !self.try_read_tag(reader)
+                    {}
+                }
+                (HeaderEnd, b'%') => {
+                    header_state = Directive(NoDirective);
+                }
+                (Directive(_) | Bare, b'-') => {
+                    if reader.peek_stream_ending() {
+                        reader.consume_bytes(3);
+                        self.last_map_line = Some(reader.line());
+                        self.tokens.push_back(DOC_START_EXP);
+                        header_state = HeaderStart;
+                    } else {
+                        self.tokens.push_back(DOC_START);
+                        self.set_state(DocBlock);
+                        break;
+                    }
+                }
+                (Directive(_), b'.') => {
+                    self.tokens.push_back(DOC_START);
+                    if reader.peek_stream_ending() {
+                        reader.consume_bytes(3);
+                        self.tokens.push_front(ERROR_TOKEN);
+                        self.errors.push(UnexpectedEndOfStream);
+                        self.tokens.push_back(DOC_END_EXP);
+                    } else {
+                        self.push_error(UnexpectedSymbol('.'));
+                    }
+                    break;
+                }
+                (HeaderEnd | HeaderStart, b'.') => {
+                    if reader.peek_stream_ending() {
+                        reader.consume_bytes(3);
+                        self.push_empty_token();
+                        self.tokens.push_back(DOC_END_EXP);
+                        header_state = match header_state {
+                            HeaderStart => HeaderEnd,
+                            _ => Bare,
+                        };
+                    } else {
+                        self.tokens.push_back(DOC_START);
+                        self.set_state(DocBlock);
+                        break;
+                    }
+                }
+                (HeaderEnd | HeaderStart, b'-') => {
+                    if reader.peek_stream_ending() {
+                        reader.consume_bytes(3);
+                        self.push_empty_token();
+                        self.tokens.push_back(DOC_END);
+                        self.tokens.push_back(DOC_START_EXP);
+                    } else {
+                        self.set_state(DocBlock);
+                        break;
+                    }
+                }
+                (Bare | Directive(_), _) => {
+                    self.tokens.push_back(DOC_START);
+                    self.set_state(DocBlock);
+                    break;
+                }
+                (HeaderStart, _) => {
+                    self.set_state(DocBlock);
+                    break;
+                }
+                (HeaderEnd, _) => {
+                    reader.skip_space_tab();
+                    if reader
+                        .peek_byte()
+                        .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#')
+                    {
+                        self.push_error(ExpectedDocumentEnd);
+                    }
+                    self.set_state(DocBlock);
+                    break;
+                }
+            }
+        }
+    }
+
+    fn try_read_yaml_directive<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        directive_state: &mut DirectiveState,
+    ) -> bool {
+        if reader.col() == 0 && reader.try_read_slice_exact("%YAML") {
+            reader.skip_space_tab();
+            return match reader.peek_chars() {
+                b"1.0" | b"1.1" | b"1.2" | b"1.3" => {
+                    directive_state.add_directive();
+                    if *directive_state == DirectiveState::TwoDirectiveError {
+                        self.tokens.push_back(ERROR_TOKEN);
+                        self.errors.push(TwoDirectivesFound);
+                    }
+                    self.tokens.push_back(DIR_YAML);
+                    self.tokens.push_back(reader.pos());
+                    self.tokens.push_back(reader.consume_bytes(3));
+                    reader.skip_space_tab();
+                    let invalid_char = reader
+                        .peek_byte()
+                        .map_or(false, |c| c != b'\r' && c != b'\n' && c != b'#');
+                    if invalid_char {
+                        self.prepend_error(InvalidAnchorDeclaration);
+                        self.read_line(reader);
+                    }
+                    true
+                }
+                b"..." | b"---" => false,
+                _ => {
+                    self.read_line(reader);
+                    false
+                }
+            };
+        }
+        false
+    }
+
+    fn try_read_tag<B, R: Reader<B>>(&mut self, reader: &mut R) -> bool {
+        self.continue_processing = false;
+        reader.try_read_slice_exact("%TAG");
+        reader.skip_space_tab();
+
+        if let Ok(key) = reader.read_tag_handle() {
+            reader.skip_space_tab();
+            if let Some(val) = reader.read_tag_uri() {
+                self.tags.insert(key, val);
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    fn fetch_after_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        let mut consume_line = false;
+
+        let is_stream_ending = reader.peek_stream_ending();
+        let chars = reader.peek_chars();
+        match chars {
+            b"..." if is_stream_ending => {
+                let col = reader.col();
+                reader.consume_bytes(3);
+                if col != 0 {
+                    self.push_error(UnexpectedIndentDocEnd {
+                        actual: col,
+                        expected: 0,
+                    });
+                }
+                self.tokens.push_back(DOC_END_EXP);
+                self.set_block_state(InDocEnd, 0);
+            }
+            [peek, b'#', ..] if is_white_tab(*peek) => {
+                // comment
+                self.read_line(reader);
+            }
+            [b'#', ..] if reader.col() > 0 => {
+                // comment that doesnt
+                self.push_error(MissingWhitespaceBeforeComment);
+                self.read_line(reader);
+            }
+            [chr, ..] if is_white_tab_or_break(*chr) => {
+                self.skip_separation_spaces(reader);
+            }
+            [chr, ..] => {
+                consume_line = true;
+                self.tokens.push_back(DOC_END);
+                self.push_error(UnexpectedSymbol(*chr as char));
+                self.set_block_state(PreDocStart, 0);
+            }
+            [] => {}
+        }
+        if consume_line {
+            self.read_line(reader);
+        }
+    }
+
+    fn fetch_end_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        reader.skip_space_tab();
+        match reader.peek_byte() {
+            Some(b'#') => {
+                self.read_line(reader);
+            }
+            Some(b'%') => {
+                self.set_state(PreDocStart);
+            }
+            Some(b'-') => {
+                if reader.peek_stream_ending() {
+                    reader.consume_bytes(3);
+                    self.tokens.push_back(DOC_START_EXP);
+                }
+            }
+            Some(b'.') => {
+                if reader.peek_stream_ending() {
+                    reader.consume_bytes(3);
+                    self.tokens.push_back(DOC_END_EXP);
+                }
+            }
+            Some(chr) if chr == b' ' || chr == b'\t' || chr == b'\r' || chr == b'\n' => {
+                self.set_state(PreDocStart);
+            }
+            Some(_) => {
+                self.read_line(reader);
+                self.push_error(ExpectedDocumentStartOrContents);
+            }
+            None => {
+                self.stream_end = true;
+            }
+        }
+    }
+
+    fn finish_eof(&mut self) {
+        for state in self.stack.iter().rev() {
+            let token = match *state {
+                BlockSeq(_, BeforeFirst) => {
+                    self.tokens.push_back(SCALAR_PLAIN);
+                    self.tokens.push_back(SCALAR_END);
+                    SEQ_END
+                }
+                BlockSeq(_, _) => SEQ_END,
+                BlockMapExp(_, AfterColon | BeforeColon) | BlockMap(_, AfterColon) => {
+                    self.tokens.push_back(SCALAR_PLAIN);
+                    self.tokens.push_back(SCALAR_END);
+                    MAP_END
+                }
+                BlockMapExp(_, _) | BlockMap(_, _) | FlowMap(_) => MAP_END,
+                FlowSeq => {
+                    self.tokens.push_back(ERROR_TOKEN);
+                    self.errors.push(MissingFlowClosingBracket);
+                    SEQ_END
+                }
+                DocBlock | AfterDocBlock => DOC_END,
+                _ => continue,
+            };
+            self.tokens.push_back(token);
+        }
     }
 }
 
