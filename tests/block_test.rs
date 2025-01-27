@@ -828,9 +828,26 @@ const TAG1_EVENTS: &str = r#"
   =VAL <tag:yaml.org,2002:str> :a
  -DOC"#;
 
+const COMPLEX_TAG2_INPUT: &str = r#"
+- !!str c
+--- !!str
+d
+e"#;
+
+const COMPLEX_TAG2_EVENTS: &str = r#"
+ +DOC
+  +SEQ
+   =VAL <tag:yaml.org,2002:str> :c
+  -SEQ
+ -DOC
+ +DOC ---
+  =VAL <tag:yaml.org,2002:str> :d e
+ -DOC"#;
+
 #[test]
 fn parse_tag() {
     assert_eq_event(TAG1_INPUT, TAG1_EVENTS);
+    assert_eq_event(COMPLEX_TAG2_INPUT, COMPLEX_TAG2_EVENTS);
 }
 
 const MULTI_LINE_INPUT: &str = r#"
