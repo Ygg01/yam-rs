@@ -417,6 +417,7 @@ pub unsafe trait Stage1Scanner {
             ^ u64::from(prev_iter_state.is_previous_white_space);
 
         let comment_start = (character & shifted_spaces) | u64::from(prev_iter_state.is_in_comment);
+        let not_whitespace = !chunk_state.characters.line_feeds;
 
         // TODO actual comment shadowing
 

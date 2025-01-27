@@ -31,6 +31,7 @@ impl ChunkedUtf8Validator for NoopValidator {
 }
 
 #[doc(hidden)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
     let mut result = 0;
 
@@ -57,8 +58,34 @@ pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
     result
 }
 
+#[doc(hidden)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
+pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
+    let mut result = input & mask;
+
+    let mut a = input;
+    result |= (result << 1) & a;
+
+    a &= a << 1;
+    result |= (result << 2) & a;
+
+    a &= a << 2;
+    result |= (result << 4) & a;
+
+    a &= a << 4;
+    result |= (result << 8) & a;
+
+    a &= a << 8;
+    result |= (result << 16) & a;
+
+    a &= a << 16;
+    result |= (result << 32) & a;
+
+    result
+}
+
 #[test]
-fn test_branch_less() {
+fn test_branch_less_right() {
     let actual = select_right_bits_branch_less(
         0b1111_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_0000_0110,
         0b1000_0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100,
@@ -68,6 +95,22 @@ fn test_branch_less() {
     assert_eq!(
         actual, expected,
         "\nExpected: {:#018b}\n  Actual: {:#018b}",
+        expected, actual
+    );
+}
+
+#[test]
+fn test_branch_less_left() {
+    let actual = select_left_bits_branch_less(
+        0b1110_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_1110_0110,
+        0b0010_0010_0000_0000_0000_1100_0000_0000_0000_0000_0000_0000_0000_0000_0100_0010,
+    );
+
+    let expected =
+        0b1110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1100_0110;
+    assert_eq!(
+        actual, expected,
+        "\nExpected: {:#066b}\n  Actual: {:#066b}",
         expected, actual
     );
 }
