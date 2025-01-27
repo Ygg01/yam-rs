@@ -200,5 +200,5 @@ fn decode_hex(input: &[u8], size: u8) -> EscapeControl {
         return EscapeControl::Append(ret_bytes);
     }
 
-    return EscapeControl::Append(replacement_char);
+    EscapeControl::Append(replacement_char)
 }
