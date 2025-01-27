@@ -146,11 +146,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     path.push("tests");
     path.push("yaml-test-suite");
 
-    let tests = collect_tests(
-        &path,
-        filter_list,
-        false,
-    )?;
+    let tests = collect_tests(&path, filter_list, false)?;
 
     libtest_mimic::run(&args, tests).exit();
 }
