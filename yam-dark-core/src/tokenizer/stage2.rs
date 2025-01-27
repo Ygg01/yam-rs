@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::error::Error;
-use crate::impls::{AvxScanner, NativeScanner};
+use crate::impls::NativeScanner;
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlChunkState};
 use crate::util::{ChunkyIterator, NoopValidator};
 
@@ -114,7 +114,7 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
         }
     }
     if core_detect::is_x86_feature_detected!("avx2") {
-        Box::new(AvxScanner::validator())
+        Box::new(NativeScanner::validator())
     } else {
         Box::new(NativeScanner::validator())
     }
@@ -123,7 +123,7 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_stage1_next<B: Buffer>() -> NextFn<B> {
     if core_detect::is_x86_feature_detected!("avx2") {
-        AvxScanner::next::<B>
+        NativeScanner::next::<B>
     } else {
         NativeScanner::next::<B>
     }
