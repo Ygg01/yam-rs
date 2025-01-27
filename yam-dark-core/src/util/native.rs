@@ -194,6 +194,131 @@ impl U8X16 {
         U8X16([input; 16])
     }
 
+    pub fn from_merge_cols(low: [u8; 8], high: [u8; 8], mask: u16) -> Self {
+        U8X16([
+            low[0],
+            low[1],
+            low[2],
+            low[3],
+            low[4],
+            low[5],
+            low[6],
+            low[7],
+            if mask & 0x80 == 0 {
+                high[0]
+            } else {
+                high[0] + low[7] + 1
+            },
+            if mask & 0x100 == 0 {
+                high[1]
+            } else {
+                high[1] + low[7] + 1
+            },
+            if mask & 0x200 == 0 {
+                high[2]
+            } else {
+                high[2] + low[7] + 1
+            },
+            if mask & 0x400 == 0 {
+                high[3]
+            } else {
+                high[3] + low[7] + 1
+            },
+            if mask & 0x800 == 0 {
+                high[4]
+            } else {
+                high[4] + low[7] + 1
+            },
+            if mask & 0x1000 == 0 {
+                high[5]
+            } else {
+                high[5] + low[7] + 1
+            },
+            if mask & 0x2000 == 0 {
+                high[6]
+            } else {
+                high[6] + low[7] + 1
+            },
+            if mask & 0x4000 == 0 {
+                high[7]
+            } else {
+                high[7] + low[7] + 1
+            },
+        ])
+    }
+
+    pub fn from_merge_rows(low: [u8; 8], high: [u8; 8], mask: u16, prev: u8) -> Self {
+        U8X16([
+            low[0] + prev,
+            low[1] + prev,
+            low[2] + prev,
+            low[3] + prev,
+            low[4] + prev,
+            low[5] + prev,
+            low[6] + prev,
+            low[7] + prev,
+            if mask & 0x80 == 0 {
+                high[0] + prev
+            } else {
+                high[0] + low[7] + prev
+            },
+            if mask & 0x80 == 0 {
+                high[1] + prev
+            } else {
+                high[1] + low[7] + prev
+            },
+            if mask & 0x80 == 0 {
+                high[2] + prev
+            } else {
+                high[2] + low[7] + prev
+            },
+            if mask & 0x80 == 0 {
+                high[3] + prev
+            } else {
+                high[3] + low[7] + prev
+            },
+            if mask & 0x80 == 0 {
+                high[4] + prev
+            } else {
+                high[4] + low[7] + prev
+            },
+            if mask & 0x80 == 0 {
+                high[5] + prev
+            } else {
+                high[5] + low[7] + prev
+            },
+            if mask & 0x80 == 0 {
+                high[6] + prev
+            } else {
+                high[6] + low[7] + prev
+            },
+            if mask & 0x80 == 0 {
+                high[7] + prev
+            } else {
+                high[7] + low[7] + prev
+            },
+        ])
+    }
+
+    pub fn add_u8(&mut self, rhs: u8) {
+        self.0[0] += rhs;
+        self.0[1] += rhs;
+        self.0[2] += rhs;
+        self.0[3] += rhs;
+        self.0[4] += rhs;
+        self.0[5] += rhs;
+        self.0[6] += rhs;
+        self.0[7] += rhs;
+        self.0[8] += rhs;
+        self.0[9] += rhs;
+        self.0[10] += rhs;
+        self.0[11] += rhs;
+        self.0[12] += rhs;
+        self.0[13] += rhs;
+        self.0[14] += rhs;
+        self.0[15] += rhs;
+    }
+
     pub fn mask_value(&self, mask: u16) -> U8X16 {
         U8X16([
             if mask & (1 << 0) != 0 { self.0[0] } else { 0 },
@@ -218,6 +343,52 @@ impl U8X16 {
     #[inline]
     pub fn from_array(input: [u8; 16]) -> Self {
         U8X16(input)
+    }
+
+    #[inline]
+    pub fn add_offset_and_mask(&self, mask: Self) -> U8X16 {
+        U8X16([
+            if mask.0[0] == 0 { self.0[0] } else { self.0[0] },
+            if mask.0[1] == 0 { self.0[1] } else { self.0[1] },
+            if mask.0[2] == 0 { self.0[2] } else { self.0[2] },
+            if mask.0[3] == 0 { self.0[3] } else { self.0[3] },
+            if mask.0[4] == 0 { self.0[4] } else { self.0[4] },
+            if mask.0[5] == 0 { self.0[5] } else { self.0[5] },
+            if mask.0[6] == 0 { self.0[6] } else { self.0[6] },
+            if mask.0[7] == 0 { self.0[7] } else { self.0[7] },
+            if mask.0[8] == 0 { self.0[8] } else { self.0[8] },
+            if mask.0[9] == 0 { self.0[9] } else { self.0[9] },
+            if mask.0[10] == 0 {
+                self.0[10]
+            } else {
+                self.0[10]
+            },
+            if mask.0[11] == 0 {
+                self.0[11]
+            } else {
+                self.0[11]
+            },
+            if mask.0[12] == 0 {
+                self.0[12]
+            } else {
+                self.0[12]
+            },
+            if mask.0[13] == 0 {
+                self.0[13]
+            } else {
+                self.0[13]
+            },
+            if mask.0[14] == 0 {
+                self.0[14]
+            } else {
+                self.0[14]
+            },
+            if mask.0[15] == 0 {
+                self.0[15]
+            } else {
+                self.0[15]
+            },
+        ])
     }
 
     #[inline]
@@ -660,6 +831,52 @@ impl U8X8 {
                 *input.get_unchecked(7),
             ])
         }
+    }
+
+    #[inline]
+    pub fn add_offset_and_mask(&self, mask: Self, offset: u32) -> [u32; 8] {
+        [
+            if mask.0[0] == 0 {
+                self.0[0] as u32 + offset
+            } else {
+                self.0[0] as u32
+            },
+            if mask.0[1] == 0 {
+                self.0[1] as u32 + offset
+            } else {
+                self.0[1] as u32
+            },
+            if mask.0[2] == 0 {
+                self.0[2] as u32 + offset
+            } else {
+                self.0[2] as u32
+            },
+            if mask.0[3] == 0 {
+                self.0[3] as u32 + offset
+            } else {
+                self.0[3] as u32
+            },
+            if mask.0[4] == 0 {
+                self.0[4] as u32 + offset
+            } else {
+                self.0[4] as u32
+            },
+            if mask.0[5] == 0 {
+                self.0[5] as u32 + offset
+            } else {
+                self.0[5] as u32
+            },
+            if mask.0[6] == 0 {
+                self.0[6] as u32 + offset
+            } else {
+                self.0[6] as u32
+            },
+            if mask.0[7] == 0 {
+                self.0[7] as u32 + offset
+            } else {
+                self.0[7] as u32
+            },
+        ]
     }
 
     #[inline]
