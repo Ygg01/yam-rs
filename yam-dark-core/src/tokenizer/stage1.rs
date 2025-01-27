@@ -32,7 +32,7 @@ use crate::util::{
     calculate_byte_rows, calculate_cols, select_right_bits_branch_less, U8_BYTE_COL_TABLE,
     U8_ROW_TABLE,
 };
-use crate::{util, EvenOrOddBits, ParseResult};
+use crate::{util, EvenOrOddBits};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
 
@@ -40,7 +40,7 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
     chunk: &'buffer [u8; 64],
     buffers: &'input mut B,
     state: &'input mut YamlParserState,
-) -> ParseResult<YamlChunkState>;
+) -> YamlChunkState;
 
 /// A trait representing a stage 1 scanner for parsing `YAML` input.
 ///
@@ -409,7 +409,7 @@ pub unsafe trait Stage1Scanner {
         chunk: &[u8; 64],
         buffers: &mut T,
         prev_iter_state: &mut YamlParserState,
-    ) -> ParseResult<YamlChunkState>
+    ) -> YamlChunkState
     where
         Self: Sized,
     {
@@ -431,7 +431,7 @@ pub unsafe trait Stage1Scanner {
         simd.scan_double_quote_bitmask(&mut chunk_state, prev_iter_state);
         simd.scan_single_quote_bitmask(&mut chunk_state, prev_iter_state);
 
-        prev_iter_state.merge_state(chunk, buffers, &mut chunk_state)
+        chunk_state
     }
 
     /// This function processes the comments for current chunk of characters.
