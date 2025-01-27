@@ -10,6 +10,7 @@ use crate::error::Error;
 pub use crate::tokenizer::stage1::{
     YamlCharacterChunk, YamlChunkState, YamlDoubleQuoteChunk, YamlSingleQuoteChunk,
 };
+pub use crate::tokenizer::stage2::YamlParserState;
 pub use crate::util::u8x64_eq;
 
 mod error;
