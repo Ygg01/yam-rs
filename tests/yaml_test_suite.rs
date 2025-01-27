@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::fmt::Write;
 use steel_yaml::tokenizer::{Event, EventIterator, StrReader};
-use steel_yaml::YamlParser;
 
 const TEST_SIZE: usize = 360;
 
@@ -123,7 +122,7 @@ fn collect_tests(path: &Path, filter_list: Vec<&str>) -> Result<Vec<Trial>, Box<
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Arguments::from_args();
-
+    // args.filter = Some(String::from("2EBW"));
     let filter_list = vec![".git", "name", "tags"];
 
     let tests = collect_tests(

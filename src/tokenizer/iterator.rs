@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::{fmt::Write, io, str::from_utf8_unchecked};
 
+use crate::escaper::escape_plain;
 use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
 use crate::Lexer;
@@ -291,6 +292,10 @@ where
                                 }
                             }
                         }
+                        let cow = match scalar_type {
+                            ScalarType::Plain => escape_plain(cow),
+                            _ => cow,
+                        };
                         return Some((
                             Scalar {
                                 scalar_type,
@@ -311,6 +316,7 @@ where
         }
     }
 }
+
 
 pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     let mut line = String::new();
