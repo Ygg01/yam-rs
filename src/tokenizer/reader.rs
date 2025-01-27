@@ -59,7 +59,7 @@ impl<'a> Iterator for LookAroundBytes<'a> {
     }
 }
 
-pub trait Reader {
+pub trait Reader<B> {
     fn eof(&self) -> bool;
     fn col(&self) -> usize;
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;

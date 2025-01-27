@@ -115,7 +115,7 @@ impl Spanner {
         self.tokens.is_empty()
     }
 
-    pub fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
+    pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.skip_separation_spaces(true);
         match self.curr_state {
             PreDocStart => {
@@ -271,7 +271,7 @@ impl Spanner {
         }
     }
 
-    fn fetch_flow_col<R: Reader>(&mut self, reader: &mut R, indent: usize) {
+    fn fetch_flow_col<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         let peek = reader.peek_byte().unwrap_or(b'\0');
         reader.consume_bytes(1);
 
@@ -309,7 +309,7 @@ impl Spanner {
         }
     }
 
-    fn fetch_block_seq<R: Reader>(&mut self, reader: &mut R, indent: usize) {
+    fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         if let Some(new_state) = reader.read_block_seq(indent) {
             self.tokens.push_back(SequenceStart);
             self.push_state(new_state);
@@ -318,13 +318,13 @@ impl Spanner {
         }
     }
 
-    fn fetch_block_map_key<R: Reader>(&mut self, reader: &mut R, indent: usize) {
+    fn fetch_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
         self.push_state(BlockKeyExp(indent));
         self.tokens.push_back(MappingStart);
     }
 
-    fn fetch_tag<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let start = reader.consume_bytes(1);
         if let Some((mid, end)) = reader.read_tag() {
             self.tokens.push_back(TagStart(start));
@@ -334,7 +334,7 @@ impl Spanner {
         }
     }
 
-    fn fetch_plain_scalar<R: Reader>(
+    fn fetch_plain_scalar<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
         start_indent: usize,
@@ -351,7 +351,7 @@ impl Spanner {
         self.tokens.extend(tokens);
     }
 
-    fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_explicit_map<B, R: Reader<B>>(&mut self, reader: &mut R) {
         if !self.is_map() {
             self.tokens.push_back(MappingStart);
         }
@@ -364,7 +364,7 @@ impl Spanner {
         }
     }
 
-    fn process_map_key<R: Reader>(&mut self, reader: &mut R, indent: usize) {
+    fn process_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
 
         if self.is_key() {
