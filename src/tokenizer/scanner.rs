@@ -5,7 +5,7 @@ use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
 
 use crate::tokenizer::reader::IndentType::{EndInstead, EqualIndent, LessOrEqualIndent};
-use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, Reader, StrReader};
+use crate::tokenizer::reader::{is_flow_indicator, is_indicator, is_tab_space, is_white_tab, is_white_tab_or_break, ns_plain_safe, Reader, StrReader};
 use crate::tokenizer::scanner::ParserState::{
     BlockKey, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
 };
@@ -322,7 +322,7 @@ impl Scanner {
     }
 
     fn switch_to_block_seq<R: Reader>(&mut self, reader: &mut R, indent: usize) {
-        if reader.peek_byte_at_check(1, is_whitespace) {
+        if reader.peek_byte_at_check(1, is_white_tab_or_break) {
             let new_indent: usize = reader.col();
             if reader.peek_byte_at_check(1, is_newline) {
                 reader.consume_bytes(1);
@@ -339,7 +339,6 @@ impl Scanner {
         }
     }
 
-    
     fn fetch_block_seq<R: Reader>(&self, reader: &mut R, indent: usize) {
         todo!()
     }
@@ -389,7 +388,6 @@ impl Scanner {
         let mut is_multiline = !context.is_implicit();
         let indent = context.indent();
 
-        // assume first char will be correct and consume it
         self.read_plain_one_line(reader);
 
         // if multiline then we process next plain scalar
@@ -428,12 +426,11 @@ impl Scanner {
     ) -> Vec<SpanToken> {
         let mut tokens = vec![];
 
-
         if reader.read_break().is_none() {
             tokens.push(ErrorToken(ErrorType::ExpectedNewlineInFolded));
         } else {
             let mut break_as_space = true;
-            while reader.peek_byte_is( b' ')  {
+            while reader.peek_byte_is(b' ') {
                 match reader.try_read_indent(LessOrEqualIndent(context.indent())) {
                     EndInstead => break,
                     EqualIndent(_) if context.is_flow() => {
@@ -463,8 +460,17 @@ impl Scanner {
     fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R) -> bool {
         let start = reader.pos();
         let in_flow_collection = self.curr_state.in_flow_collection();
+
         let mut offset = 0;
-        while !reader.is_eof(offset as usize) {
+        let mut is_valid = !reader.is_eof(offset)
+            && (!reader.peek_byte_at_check(0, is_white_tab_or_break)
+                || !reader.peek_byte_at_check(0, is_indicator)
+                || (reader.peek_byte_is(b'-') && !reader.peek_byte_at_check(1, is_white_tab))
+                || ((reader.peek_byte_is(b'?') || reader.peek_byte_is(b':'))
+                    && !reader.peek_byte_at_check(1, is_white_tab_or_break)));
+
+
+        while is_valid {
             offset += reader.skip_space_tab(true);
             let read = reader.position_until(offset, |pos, x0, x1| {
                 is_invalid_plain_scalar(pos, x0, x1, in_flow_collection)
@@ -474,16 +480,16 @@ impl Scanner {
                 if in_flow_collection
                     && reader.peek_byte_at(offset).map_or(false, is_flow_indicator)
                 {
-                    break;
+                    is_valid = false;
                 }
             } else {
-                break;
+                is_valid = false;
             }
         }
         if offset > 0 {
             self.tokens.push_back(MarkStart(start));
             self.tokens.push_back(MarkEnd(start + offset));
-            reader.consume_bytes(offset as usize);
+            reader.consume_bytes(offset);
         }
         return offset > 0;
     }
@@ -493,7 +499,7 @@ impl Scanner {
             self.tokens.push_back(MappingStart);
         }
 
-        if !reader.peek_byte_at_check(1, is_whitespace) {
+        if !reader.peek_byte_at_check(1, is_white_tab_or_break) {
             self.fetch_plain_scalar(reader, self.curr_state);
             return;
         }
@@ -544,30 +550,21 @@ fn is_invalid_plain_scalar(
     x1: u8,
     in_flow_collection: bool,
 ) -> ControlFlow<usize, usize> {
-    if in_flow_collection {
-        if is_flow_indicator(x0) {
-            return Break(pos);
-        } else if is_flow_indicator(x1) && is_whitespace(x0) {
-            return Break(pos);
-        } else if is_flow_indicator(x1) {
-            return Break(pos + 1);
-        }
-    }
 
     // ns-plain-char  prevent ` #`
-    if is_whitespace(x0) && x1 == b'#' {
+    if is_white_tab_or_break(x0) && x1 == b'#' {
         return Break(pos);
     }
 
     // ns-plain-char prevent `: `
     // or `:{`  in flow collections
-    if x0 == b':' && (is_whitespace(x1) || (in_flow_collection && is_flow_indicator(x1))) {
+    if x0 == b':' && !ns_plain_safe(x1, in_flow_collection) {
         return Break(pos);
     }
 
-    if is_whitespace(x0) {
+    if !ns_plain_safe(x0, in_flow_collection) {
         return Break(pos);
-    } else if is_whitespace(x1) {
+    } else if !ns_plain_safe(x1, in_flow_collection) {
         return Break(pos + 1);
     };
 

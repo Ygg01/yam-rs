@@ -89,7 +89,7 @@ impl IndentType {
     pub(crate) fn is_nonzero(&self) -> bool {
         match self {
             LessIndent(0) | EqualIndent(0) | LessOrEqualIndent(0) => false,
-            _ => true
+            _ => true,
         }
     }
 }
@@ -206,11 +206,14 @@ impl<'r> Reader for StrReader<'r> {
     fn find_next_whitespace(&self) -> Option<usize> {
         self.slice.as_bytes()[self.pos..]
             .iter()
-            .position(|p| is_whitespace(*p))
+            .position(|p| is_white_tab_or_break(*p))
     }
 
     fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType {
-        if self.eof() && indent_type.is_nonzero(){
+        if !indent_type.is_nonzero() {
+            return EqualIndent(0);
+        }
+        if self.eof() {
             return EndInstead;
         }
         let consume = match self.slice.as_bytes()[self.pos..]
@@ -255,7 +258,7 @@ impl<'r> Reader for StrReader<'r> {
     fn skip_whitespace(&mut self) -> usize {
         let n = self.slice.as_bytes()[self.pos..]
             .iter()
-            .position(|b| !is_whitespace(*b))
+            .position(|b| !is_white_tab_or_break(*b))
             .unwrap_or(0);
         self.consume_bytes(n);
         n
@@ -505,9 +508,27 @@ pub fn test_try_read_indent() {
 }
 
 #[inline]
-pub(crate) fn is_whitespace(chr: u8) -> bool {
+pub(crate) fn is_white_tab_or_break(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) fn ns_plain_safe(chr: u8, is_in: bool) -> bool {
+    match chr {
+        b' ' | b'\t' | b'\r' | b'\n' => false,
+        b',' | b'[' | b']' | b'{' | b'}' if is_in => false,
+        _ => true,
+    }
+}
+
+
+#[inline]
+pub(crate) fn is_white_tab(chr: u8) -> bool {
+    match chr {
+        b' ' | b'\t' => true,
         _ => false,
     }
 }
@@ -524,6 +545,15 @@ pub(crate) fn is_newline(chr: u8) -> bool {
 pub(crate) fn is_flow_indicator(chr: u8) -> bool {
     match chr {
         b',' | b'[' | b']' | b'{' | b'}' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) fn is_indicator(chr: u8) -> bool {
+    match chr {
+        b'-' | b'?' | b':' | b',' | b'[' | b']' | b'{' | b'}' | b'#' | b'&' | b'*' | b'!'
+        | b'|' | b'>' | b'\'' | b'"' | b'%' | b'@' | b'`' => true,
         _ => false,
     }
 }
