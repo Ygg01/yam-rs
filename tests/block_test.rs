@@ -622,10 +622,10 @@ const NESTED_MAPS_EVENTS: &str = r#"
     =VAL "key1
     =VAL &alias1 :scalar1
    -MAP
-   =VAL :top3
-   +MAP &node3
-    =ALI *alias1
-    =VAL :scalar3
+   =VAL :top2
+   +MAP
+    =ALI *alias
+    =VAL &alias2 :scalar2
    -MAP
   -MAP
  -DOC"#;
