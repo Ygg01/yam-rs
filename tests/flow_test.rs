@@ -260,11 +260,11 @@ fn simple_doc() {
     assert_eq_event(SIMPLE_DOC, SIMPLE_DOC_EXPECTED);
 }
 
-const SEQ_ERR: &str = r#"
+const DOC_END_ERR: &str = r#"
 ---
 [a, b] ]"#;
 
-const SEQ_ERR_EXPECTED: &str = r#"
+const DOC_END_ERR_EVENTS: &str = r#"
  +DOC ---
   +SEQ []
    =VAL :a
@@ -275,7 +275,7 @@ const SEQ_ERR_EXPECTED: &str = r#"
 
 #[test]
 fn doc_end_err() {
-    assert_eq_event(SEQ_ERR, SEQ_ERR_EXPECTED);
+    assert_eq_event(DOC_END_ERR, DOC_END_ERR_EVENTS);
 }
 
 const SEQ_KEY: &str = r#"
@@ -349,4 +349,19 @@ fn seq_as_key() {
     assert_eq_event(SEQ_KEY2, SEQ_KEY2_EXPECTED);
     assert_eq_event(SEQ_KEY3, SEQ_KEY3_EXPECTED);
     assert_eq_event(SEQ_KEY4, SEQ_KEY4_EXPECTED);
+}
+
+const SEQ_ERR: &str = r#"
+ [-]"#;
+
+const SEQ_ERR_EVENTS: &str = r#"
+ +DOC
+  +SEQ []
+   ERR
+  -SEQ
+ -DOC"#;
+
+#[test]
+fn seq_err() {
+    assert_eq_event(SEQ_ERR, SEQ_ERR_EVENTS);
 }
