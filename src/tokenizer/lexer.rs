@@ -110,7 +110,6 @@ pub enum BlockSeqState {
     AfterMinus,
 }
 
-
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum LexerState {
     #[default]
@@ -336,7 +335,7 @@ impl<B> Lexer<B> {
                 DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
                     self.fetch_block_map(reader, curr_state);
                 }
-                BlockSeq(_, seq_state) => self.fetch_block_seq(reader, curr_state, seq_state),
+                BlockSeq(_, _) => self.fetch_block_seq(reader, curr_state),
                 FlowSeq(_, seq_state) => self.fetch_flow_seq(reader, seq_state),
                 FlowMap(_, _) | FlowKeyExp(_, _) => self.fetch_flow_map(reader, curr_state),
                 AfterDocBlock => self.fetch_after_doc(reader),
@@ -602,7 +601,7 @@ impl<B> Lexer<B> {
         }
     }
 
-    fn fetch_block_seq<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState, seq_state: BlockSeqState) {
+    fn fetch_block_seq<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         self.continue_processing = false;
         match reader.peek_chars(&mut self.buf) {
             [b'{', ..] => self.process_flow_map_start(reader),
@@ -715,7 +714,7 @@ impl<B> Lexer<B> {
         );
     }
 
-    // #[inline(always)]
+    #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
         self.errors.push(error);
@@ -1135,12 +1134,18 @@ impl<B> Lexer<B> {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
             match curr_state {
-                BlockMap(ind, BeforeKey) if ind == scalar_start => self.push_error(ErrorType::UnexpectedScalarAtMapEnd),
-                BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => self.push_error(ErrorType::UnexpectedScalarAtMapEnd),
+                BlockMap(ind, BeforeKey) if ind == scalar_start => {
+                    self.push_error(ErrorType::UnexpectedScalarAtMapEnd)
+                }
+                BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => {
+                    self.push_error(ErrorType::UnexpectedScalarAtMapEnd)
+                }
                 BlockMapExp(_, _) | BlockMap(_, _) => self.next_map_state(),
-                BlockSeq(_, BlockSeqState::BeforeMinus) => self.push_error(ErrorType::UnexpectedScalarAtSeqEnd),
+                BlockSeq(_, BlockSeqState::BeforeMinus) => {
+                    self.push_error(ErrorType::UnexpectedScalarAtSeqEnd)
+                }
                 BlockSeq(_, _) => self.set_block_seq_state(BlockSeqState::BeforeMinus),
-                _ => {},
+                _ => {}
             }
             self.emit_prev_anchor();
             self.tokens.extend(tokens);
@@ -1383,7 +1388,10 @@ impl<B> Lexer<B> {
         let is_key = ends_with == ScalarEnd::Map
             || (ends_with != ScalarEnd::Plain
                 && matches!(reader.peek_chars(&mut self.buf), [b':', x, ..] if is_white_tab_or_break(*x)))
-                && matches!(curr_state, BlockMap(_, BeforeKey) | BlockSeq(_, _) | DocBlock);
+                && matches!(
+                    curr_state,
+                    BlockMap(_, BeforeKey) | BlockSeq(_, _) | DocBlock
+                );
 
         let scalar_start = match curr_state {
             BlockSeq(ind, _) if !is_key => ind,
@@ -1489,7 +1497,8 @@ impl<B> Lexer<B> {
             BlockSeq(ind, _) if indent > ind => true,
             BlockSeq(ind, _) if indent == ind => false,
             _ => {
-                if let Some(last_seq) = self.stack.iter().rposition(|x| matches!(x, BlockSeq(_, _))) {
+                if let Some(last_seq) = self.stack.iter().rposition(|x| matches!(x, BlockSeq(_, _)))
+                {
                     if let Some(unwind) = self.find_matching_state(
                         indent,
                         |state, indent| matches!(state, BlockSeq(ind, _) if ind == indent),
@@ -1985,7 +1994,10 @@ impl<B> Lexer<B> {
             let (start, end) = reader.read_line();
             if start != end {
                 if new_line_token > 0 {
-                    if !literal && previous_indent == newline_indent {
+                    if !literal
+                        && previous_indent == newline_indent
+                        && indentation.map_or(false, |x| previous_indent <= x.into())
+                    {
                         tokens.push(NewLine as usize);
                         tokens.push(new_line_token - 1);
                     } else {
