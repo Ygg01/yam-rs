@@ -1857,7 +1857,7 @@ ERR
 -DOC";
 
 #[test]
-fn block_tab() {
+fn block_map_tab() {
     assert_eq_event(X3_DK95_INPUT, X3_DK95_EVENTS);
     assert_eq_event(X1_DK95_INPUT, X1_DK95_EVENTS);
     assert_eq_event(X2_DK95_INPUT, X2_DK95_EVENTS);
@@ -1880,7 +1880,26 @@ ERR
 -MAP
 -DOC";
 
+const X1_EW3V_INPUT: &str = r"
+k1: v1
+  key2: v2
+";
+
+const X1_EW3V_EVENTS: &str = r"
++DOC
++MAP
+=VAL :k1
+ERR
+=VAL :v1
++MAP
+=VAL :key2
+=VAL :v2
+-MAP
+-MAP
+-DOC";
+
 #[test]
-fn block_err() {
+fn block_map_err_indent() {
+    assert_eq_event(X1_EW3V_INPUT, X1_EW3V_EVENTS);
     assert_eq_event(X1_DMG6_INPUT, X1_DMG6_EVENTS);
 }
