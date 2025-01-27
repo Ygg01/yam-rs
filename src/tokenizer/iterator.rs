@@ -227,8 +227,10 @@ impl<'a> Display for Event<'a> {
             ErrorEvent => {
                 write!(f, "ERR")
             }
-            // Event::Alias(_) => todo!(),
-            // Event::Anchor(_) => todo!(),
+            Event::Alias(value) => {
+                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
+                write!(f, "=ALI {}", val_str)
+            }
             _ => Ok(()),
         }
     }
@@ -389,8 +391,23 @@ where
                             curr_indent,
                         ));
                     }
-                    AliasToken => todo!(),
-                    AnchorToken => todo!(),
+                    AliasToken => {
+                        if let (Some(start), Some(end)) =
+                            (self.state.pop_token(), self.state.pop_token())
+                        {
+                            return Some((
+                                Alias(Cow::Borrowed(self.reader.slice(start, end))),
+                                curr_indent,
+                            ));
+                        }
+                    }
+                    AnchorToken => {
+                        if let (Some(start), Some(end)) =
+                            (self.state.pop_token(), self.state.pop_token())
+                        {
+                            self.anchor = Some(Cow::Borrowed(self.reader.slice(start, end)));
+                        }
+                    }
                     TagStart => {
                         if let (Some(start), Some(mid), Some(end)) = (
                             self.state.pop_token(),

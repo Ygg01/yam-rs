@@ -245,9 +245,7 @@ impl Lexer {
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_map(reader, state_indent),
                     Some(b'[') => self.fetch_flow_seq(reader, state_indent),
-                    Some(b'&') => {
-                        reader.consume_anchor_alias(&mut self.tokens, AnchorToken);
-                    }
+                    Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
                         self.process_colon(reader);

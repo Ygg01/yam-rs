@@ -209,7 +209,6 @@ const BLOCK_PLAIN2_EXPECTED: &str = r#"
   =VAL :a b c d\ne
  -DOC"#;
 
-
 #[test]
 pub fn plain_block() {
     assert_eq_event(BLOCK_PLAIN, BLOCK_PLAIN_EXPECTED);
@@ -231,10 +230,9 @@ const BLOCK_FOLDED_EVENTS: &str = r#"
   =VAL >a b\nc\n\nd\n
  -DOC"#;
 
-
 #[test]
 pub fn plain_fold() {
-  assert_eq_event(BLOCK_FOLDED, BLOCK_FOLDED_EVENTS);
+    assert_eq_event(BLOCK_FOLDED, BLOCK_FOLDED_EVENTS);
 }
 
 const BLOCK_PLAIN_MULTI: &str = r#"
