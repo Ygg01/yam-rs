@@ -94,27 +94,54 @@ ERR
 -MAP
 -DOC";
 
+const X_9CWY_INPUT: &str = r"
+key:
+ - item1
+ - item2
+invalid
+";
+const X_9CWY_EVENTS: &str = r"
++DOC
++MAP
+=VAL :key
++SEQ
+=VAL :item1
+=VAL :item2
+-SEQ
+ERR
+ERR
+=VAL :invalid
+-MAP
+-DOC";
+
 #[test]
 pub fn block_seq_err() {
     assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS);
     assert_eq_event(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS);
     assert_eq_event(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS);
+    assert_eq_event(X_9CWY_INPUT, X_9CWY_EVENTS);
 }
 
-const BLOCK_NESTED_SEQ_INPUT: &str = r"
-  - - a
-    - b
-  - c
+const X1_3ALJ_INPUT: &str = r"
+ - - s1_i1
+   - s1_i2
+ - s2
 ";
 
-const BLOCK_NESTED_SEQ_EVENTS: &str = r"
+const X2_3ALJ_INPUT: &str = r"
+- - s1_i1
+  - s1_i2
+- s2
+";
+
+const X_3ALJ_EVENTS: &str = r"
 +DOC
 +SEQ
 +SEQ
-=VAL :a
-=VAL :b
+=VAL :s1_i1
+=VAL :s1_i2
 -SEQ
-=VAL :c
+=VAL :s2
 -SEQ
 -DOC";
 
@@ -141,7 +168,8 @@ const BLOCK_NESTED_SEQ2_EVENTS: &str = r"
 
 #[test]
 pub fn seq_block_nested() {
-    assert_eq_event(BLOCK_NESTED_SEQ_INPUT, BLOCK_NESTED_SEQ_EVENTS);
+    assert_eq_event(X1_3ALJ_INPUT, X_3ALJ_EVENTS);
+    assert_eq_event(X2_3ALJ_INPUT, X_3ALJ_EVENTS);
     assert_eq_event(BLOCK_NESTED_SEQ2_INPUT, BLOCK_NESTED_SEQ2_EVENTS);
 }
 
@@ -513,9 +541,26 @@ const PLAIN_MULTI_EVENTS: &str = r"
 =VAL :1st line\n2nd non 3rd non
 -DOC";
 
+const X_8XDJ_INPUT: &str = r"
+key: word1
+#  xxx
+  word2
+";
+
+const X_8XDJ_INPUTS: &str = r"
++DOC
++MAP
+=VAL :key
+=VAL :word1
+ERR
+=VAL :word2
+-MAP
+-DOC";
+
 #[test]
 pub fn block_plain_multiline() {
-    assert_eq_event(PLAIN_MULTI_INPUT, PLAIN_MULTI_EVENTS)
+    assert_eq_event(PLAIN_MULTI_INPUT, PLAIN_MULTI_EVENTS);
+    assert_eq_event(X_8XDJ_INPUT, X_8XDJ_INPUTS);
 }
 
 const MAP2_INPUT: &str = r"
@@ -1089,13 +1134,30 @@ const NESTED_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X_9C9N_INPUT: &str = r"
+flow: [a,
+b,
+ c]";
 
+const X_9C9N_EVENTS: &str = r"
++DOC
++MAP
+=VAL :flow
++SEQ []
+=VAL :a
+ERR
+=VAL :b
+=VAL :c
+-SEQ
+-MAP
+-DOC";
 
 #[test]
 pub fn block_map_complex() {
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
     assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
     assert_eq_event(NESTED_INPUT, NESTED_EVENTS);
+    assert_eq_event(X_9C9N_INPUT, X_9C9N_EVENTS);
 }
 
 const X_7ZZ5_INPUT: &str = r"
@@ -1170,12 +1232,11 @@ const X_8UDB_EVENT: &str = r#"
 
 #[test]
 pub fn block_flow_mix() {
-  assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
-  assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
-  assert_eq_event(X2_87E4_INPUT, X_87E4_EVENTS);
-  assert_eq_event(X_8KB6_INPUT, X_8KB6_EVENTS);
-  assert_eq_event(X_8UDB_INPUT, X_8UDB_EVENT)
-
+    assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
+    assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
+    assert_eq_event(X2_87E4_INPUT, X_87E4_EVENTS);
+    assert_eq_event(X_8KB6_INPUT, X_8KB6_EVENTS);
+    assert_eq_event(X_8UDB_INPUT, X_8UDB_EVENT);
 }
 
 const MAPS_WITH_QUOTES_INPUT: &str = r#"

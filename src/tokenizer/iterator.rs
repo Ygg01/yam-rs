@@ -76,7 +76,7 @@ impl<'a, R, RB, B> EventIterator<'a, R, RB, B> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ScalarType {
     Plain,
     Folded,
