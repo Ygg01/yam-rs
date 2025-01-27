@@ -9,7 +9,7 @@ use reader::{is_flow_indicator, is_plain_unsafe};
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
 use crate::tokenizer::{reader, ErrorType, Reader};
 
-use super::reader::{is_newline, is_tag_char};
+use super::reader::{is_newline, is_tag_char, is_tag_char_short};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -349,7 +349,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 let mid: usize = self.pos + find_pos;
                 let amount = self.slice[mid..line_end]
                     .iter()
-                    .position(|c| !is_uri_char(*c))
+                    .position(|c| !is_tag_char_short(*c))
                     .unwrap_or(line_end.saturating_sub(mid));
                 let end = self.consume_bytes(amount + find_pos);
                 (None, start, mid, end)
