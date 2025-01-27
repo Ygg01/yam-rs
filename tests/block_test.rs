@@ -885,6 +885,25 @@ ERR
 -MAP
 -DOC"#;
 
+const ERR_INVALID_KEY3_INPUT: &str = r"
+top1:
+  key1: val1
+top2
+";
+
+const ERR_INVALID_KEY3_EVENTS: &str = r"
++DOC
++MAP
+=VAL :top1
++MAP
+=VAL :key1
+=VAL :val1
+-MAP
+ERR
+=VAL :top2
+-MAP
+-DOC";
+
 const ERR_TRAIL_INPUT: &str = r#"
 'key': "quote" trail
 "#;
@@ -901,10 +920,11 @@ ERR
 
 #[test]
 pub fn block_map_err() {
-    assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
-    assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
-    assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
-    assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
+  assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
+  assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
+  assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
+  assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
+  assert_eq_event(ERR_INVALID_KEY3_INPUT, ERR_INVALID_KEY3_EVENTS);
 }
 
 const COMPLEX_KEYS_INPUT: &str = r##"

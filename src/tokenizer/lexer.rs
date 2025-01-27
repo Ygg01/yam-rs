@@ -743,10 +743,8 @@ impl<B> Lexer<B> {
         self.process_block_scalar(
             curr_state,
             is_key,
-            scalar_start,
+            Scalar { scalar_start, is_multiline, tokens },
             had_tab,
-            is_multiline,
-            tokens,
             scalar_line,
         );
     }
@@ -795,10 +793,8 @@ impl<B> Lexer<B> {
             self.process_block_scalar(
                 self.curr_state(),
                 true,
-                alias_start,
+                Scalar { scalar_start: alias_start, is_multiline: false, tokens:  vec![ALIAS, alias.0, alias.1], },
                 had_tab,
-                false,
-                vec![ALIAS, alias.0, alias.1],
                 reader.line(),
             );
         } else {
@@ -1041,11 +1037,7 @@ impl<B> Lexer<B> {
     fn process_double_quote_block<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let had_tab = self.has_tab;
         let scalar_line: u32 = reader.line();
-        let Scalar {
-            scalar_start,
-            is_multiline,
-            tokens,
-        } = self.process_double_quote(reader);
+        let scalar = self.process_double_quote(reader);
         reader.skip_space_tab();
 
         let is_key = reader.peek_byte().map_or(false, |chr| chr == b':');
@@ -1053,10 +1045,8 @@ impl<B> Lexer<B> {
         self.process_block_scalar(
             curr_state,
             is_key,
-            scalar_start,
+            scalar,
             had_tab,
-            is_multiline,
-            tokens,
             scalar_line,
         );
     }
@@ -1139,21 +1129,15 @@ impl<B> Lexer<B> {
         &mut self,
         curr_state: LexerState,
         is_key: bool,
-        scalar_start: u32,
+        scalar: Scalar,
         had_tab: bool,
-        is_multiline: bool,
-        tokens: Vec<usize>,
         scalar_line: u32,
     ) {
         if is_key {
-            let scal = self.col_start.unwrap_or(scalar_start);
+            let scal = self.col_start.unwrap_or(scalar.scalar_start);
             let is_map_start = curr_state.is_map_start(scal);
-            let scalar_start = scalar_start;
-            self.prev_scalar = Scalar {
-                scalar_start,
-                is_multiline,
-                tokens,
-            };
+            let scalar_start = scalar;
+            self.prev_scalar = scalar_start;
             if !matches!(curr_state, BlockMapExp(_, _)) {
                 if self.last_map_line == Some(scalar_line) {
                     self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
@@ -1172,16 +1156,16 @@ impl<B> Lexer<B> {
                 }
                 self.tokens.push_back(MAP_START_BLOCK);
                 self.emit_meta_nodes();
-                self.push_state(BlockMap(scalar_start, BeforeColon), scalar_line);
+                self.push_state(BlockMap(self.prev_scalar.scalar_start, BeforeColon), scalar_line);
             }
         } else {
             if self.last_map_line != Some(scalar_line)
-                && curr_state.is_incorrectly_indented(scalar_start)
+                && curr_state.is_incorrectly_indented(scalar.scalar_start)
             {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
             match curr_state {
-                BlockMap(ind, BeforeKey) if ind == scalar_start => {
+                BlockMap(ind, BeforeKey) if ind == scalar.scalar_start => {
                     self.push_error(ErrorType::UnexpectedScalarAtMapEnd)
                 }
                 BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => {
@@ -1195,7 +1179,7 @@ impl<B> Lexer<B> {
                 _ => {}
             }
             self.emit_meta_nodes();
-            self.tokens.extend(tokens);
+            self.tokens.extend(scalar.tokens);
         }
     }
 
@@ -1442,11 +1426,7 @@ impl<B> Lexer<B> {
         let has_tab = self.has_tab;
         let scalar_line = reader.line();
 
-        let Scalar {
-            scalar_start,
-            is_multiline,
-            tokens,
-        } = self.get_plain_scalar(reader, curr_state, &mut ends_with);
+        let scalar = self.get_plain_scalar(reader, curr_state, &mut ends_with);
 
         let is_key = ends_with == ScalarEnd::Map
             || (ends_with != ScalarEnd::Plain
@@ -1458,27 +1438,30 @@ impl<B> Lexer<B> {
 
         let scalar_start = match curr_state {
             BlockSeq(ind, _) if !is_key => ind,
-            _ => scalar_start,
+            _ => scalar.scalar_start,
         };
         self.pop_other_states(is_key, curr_state, scalar_start);
 
         self.process_block_scalar(
             curr_state,
             is_key,
-            scalar_start,
+            scalar,
             has_tab,
-            is_multiline,
-            tokens,
             scalar_line,
         );
     }
 
     fn pop_other_states(&mut self, is_key: bool, curr_state: LexerState, scalar_start: u32) {
-        let find_unwind = if is_key && matches!(curr_state, BlockSeq(_, _)) {
+        let pop_map = match curr_state {
+            BlockSeq(_, _) if is_key => true,
+            BlockMap(_, BeforeKey) => true,
+            _ => false,
+        };
+        let find_unwind = if pop_map {
             self.find_matching_state(scalar_start,
                 |curr_state, curr_indent| { matches!(curr_state, BlockMap(ind,_) if ind  == curr_indent)
             })
-        } else if !is_key && !matches!(curr_state, BlockMap(_, _)) {
+        } else if !is_key && matches!(curr_state, BlockSeq(_, _) | BlockMapExp(_, _)) {
             self.find_matching_state(
                 scalar_start,
                 |curr_state, curr_indent| matches!(curr_state, BlockSeq(ind, _) if ind == curr_indent),
@@ -1586,7 +1569,7 @@ impl<B> Lexer<B> {
                 self.push_error(ErrorType::InvalidAnchorDeclaration);
             }
             self.emit_meta_nodes();
-            self.push_state(BlockSeq(indent, BlockSeqState::AfterMinus), reader.line());
+            self.push_state(BlockSeq(self.col_start.unwrap_or(indent), BlockSeqState::AfterMinus), reader.line());
             self.tokens.push_back(SEQ_START_BLOCK);
         }
         self.set_block_seq_state(BlockSeqState::AfterMinus);
@@ -1879,11 +1862,7 @@ impl<B> Lexer<B> {
     fn process_single_quote_block<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let has_tab = self.has_tab;
         let scalar_line = reader.line();
-        let Scalar {
-            scalar_start,
-            is_multiline,
-            tokens,
-        } = self.process_single_quote(reader);
+        let scalar = self.process_single_quote(reader);
         reader.skip_space_tab();
 
         let ends_with = reader.peek_byte().map_or(false, |chr| chr == b':');
@@ -1891,10 +1870,8 @@ impl<B> Lexer<B> {
         self.process_block_scalar(
             curr_state,
             ends_with,
-            scalar_start,
+            scalar,
             has_tab,
-            is_multiline,
-            tokens,
             scalar_line,
         );
     }
