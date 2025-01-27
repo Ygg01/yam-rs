@@ -183,12 +183,26 @@ ERR
 -MAP
 -DOC"#;
 
+
+const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
+---
+"quote"# invalid comment
+
+"##;
+
+const DQUOTE_COMMENT_ERR_EVENTS: &str = r#"
++DOC ---
+=VAL "quote
+ERR
+-DOC"#;
+
 #[test]
 fn dquote_err() {
     assert_eq_event(DQUOTE_END_INPUT, DQUOTE_END_EVENTS);
     assert_eq_event(DQUOTE_ERR2_INPUT, DQUOTE_ERR2_EVENTS);
     assert_eq_event(DQUOTE_MISS_EOF_INPUT, DQUOTE_MISS_EOF_EVENTS);
     assert_eq_event(DQUOTE_INDENT_ERR_INPUT, DQUOTE_INDENT_ERR_EVENTS);
+    assert_eq_event(DQUOTE_COMMENT_ERR_INPUT, DQUOTE_COMMENT_ERR_EVENTS);
 }
 
 const DQUOTE_LEADING_TAB1_INPUT: &str = r#" "1 test

@@ -1116,7 +1116,6 @@ impl<B> Lexer<B> {
         self.had_anchor = false;
     }
 
-    #[inline]
     fn skip_separation_spaces<R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -1127,7 +1126,13 @@ impl<B> Lexer<B> {
             let mut found_eol = true;
             let mut has_tab = false;
 
-            while !reader.eof() && reader.peek_byte().map_or(false, is_white_tab_or_break) {
+            if reader.peek_byte_is(b'#') {
+                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+            }
+            loop {
+                if !reader.peek_byte().map_or(false, is_white_tab_or_break) || reader.eof() {
+                    break;
+                }
                 reader.skip_detect_space_tab(&mut has_tab);
 
                 if allow_comments && reader.peek_byte_is(b'#') {
