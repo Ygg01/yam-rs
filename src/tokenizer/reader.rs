@@ -6,7 +6,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
 use super::lexer::LexerState;
-use super::{ErrorType};
+use super::ErrorType;
 
 pub struct LookAroundBytes<'a> {
     iter: &'a [u8],

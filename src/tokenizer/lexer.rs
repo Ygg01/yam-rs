@@ -9,7 +9,6 @@ use ErrorType::{ExpectedIndent, ExpectedMapBlock, ImplicitKeysNeedToBeInline};
 use LexerState::PreDocStart;
 use SeqState::BeforeFirstElem;
 
-use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::lexer::LexerState::{
     AfterDocEnd, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, FlowKeyExp, FlowMap,
     FlowSeq,
@@ -17,6 +16,7 @@ use crate::tokenizer::lexer::LexerState::{
 use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::{AfterColon, BeforeColon, BeforeKey};
 use crate::tokenizer::lexer::SeqState::{BeforeElem, InSeq};
+use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
@@ -351,12 +351,7 @@ impl Lexer {
     }
 
     fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        reader.read_block_scalar(
-            true,
-            &self.curr_state(),
-            &mut self.tokens,
-            &mut self.errors,
-        )
+        reader.read_block_scalar(true, &self.curr_state(), &mut self.tokens, &mut self.errors)
     }
 
     fn process_block_folded<B, R: Reader<B>>(&mut self, reader: &mut R) {
@@ -377,7 +372,7 @@ impl Lexer {
     fn parse_anchor<B, R: Reader<B>>(&mut self, reader: &mut R) {
         self.update_col(reader);
         let anchor = reader.consume_anchor_alias();
-    
+
         let line = self.skip_separation_spaces(reader, true);
         match line {
             0 => {
@@ -400,7 +395,7 @@ impl Lexer {
         self.skip_separation_spaces(reader, true);
 
         let next_is_colon = reader.peek_byte_is(b':');
-        
+
         if next_is_colon {
             self.process_map(scalar_start, false, b':');
         } else {
@@ -571,7 +566,11 @@ impl Lexer {
     }
 
     #[inline]
-    fn skip_separation_spaces<B, R: Reader<B>>(&mut self, reader: &mut R, allow_comments: bool) -> usize {
+    fn skip_separation_spaces<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        allow_comments: bool,
+    ) -> usize {
         let lines = reader.skip_separation_spaces(allow_comments);
         if lines > 0 {
             self.reset_col();
@@ -588,7 +587,7 @@ impl Lexer {
         self.tokens.push_back(SEQ_START);
 
         while !reader.eof() {
-            self.skip_separation_spaces(reader, true);            
+            self.skip_separation_spaces(reader, true);
             let curr_state = self.curr_state();
 
             match curr_state {
@@ -1017,7 +1016,7 @@ impl Lexer {
         match self.col_start {
             Some(x) => x,
             None => {
-                let col = reader.col(); 
+                let col = reader.col();
                 self.col_start = Some(col);
                 col
             }
@@ -1052,8 +1051,6 @@ impl Lexer {
             _ => false,
         }
     }
-
-
 }
 
 const DOC_END: usize = usize::MAX;

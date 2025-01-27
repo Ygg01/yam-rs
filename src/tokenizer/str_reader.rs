@@ -8,11 +8,11 @@ use memchr::{memchr, memchr3_iter};
 use reader::{is_flow_indicator, ns_plain_safe};
 use ErrorType::ExpectedIndent;
 
+use crate::tokenizer::lexer::LexerState;
+use crate::tokenizer::lexer::LexerState::{BlockMapExp, BlockSeq};
 use crate::tokenizer::reader::{
     is_indicator, is_uri_char, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
-use crate::tokenizer::lexer::LexerState;
-use crate::tokenizer::lexer::LexerState::{BlockMapExp, BlockSeq};
 use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, Reader, Slicer};
@@ -343,6 +343,12 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut indentation: usize = 0;
 
         match (self.peek_byte_unwrap(0), self.peek_byte_unwrap(1)) {
+            (_, b'0') | (b'0', _) => {
+                self.consume_bytes(2);
+                tokens.push_back(ErrorToken as usize);
+                errors.push(ErrorType::ExpectedChompBetween1and9);
+                return;
+            }
             (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
                 self.consume_bytes(2);
                 chomp = ChompIndicator::Strip;
@@ -368,23 +374,34 @@ impl<'r> Reader<()> for StrReader<'r> {
             _ => {}
         }
 
-        // allow comment in first line of block scalar
-        self.skip_space_tab(true);
-        if self.peek_byte_is(b'#') {
-            self.read_line();
-        } else if self.read_break().is_none() {
-            tokens.push_back(ErrorToken as usize);
-            errors.push(ErrorType::ExpectedNewline);
-            return;
-        }
-
-        let mut new_line_token = 0;
         let token = if literal {
             ScalarLit as usize
         } else {
             ScalarFold as usize
         };
+
+        // allow comment in first line of block scalar
+        self.skip_space_tab(true);
+        match self.peek_byte() {
+            Some(b'#'| b'\r' | b'\n')  => {
+                self.read_line();
+            },
+            Some(chr) => {
+                self.read_line();
+                tokens.push_back(ErrorToken as usize);
+                errors.push(ErrorType::UnexpectedSymbol(chr as char));
+                return;
+            }
+            _ => {},
+        }
+
+        let mut new_line_token = 0;
+
         tokens.push_back(token);
+        if self.eof() {
+            tokens.push_back(ScalarEnd as usize);
+            return;
+        }
         let mut trailing = vec![];
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
