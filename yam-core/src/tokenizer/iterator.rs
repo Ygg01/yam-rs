@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 
@@ -403,7 +403,7 @@ where
 
 pub fn assert_eq_event(input: &str, events: &str) {
     use core::fmt::Write;
-    
+
     let mut line = String::with_capacity(events.as_bytes().len());
     let scan: EventIterator<'_, StrReader, _> = EventIterator::from(input);
     scan.for_each(|ev| {

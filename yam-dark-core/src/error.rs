@@ -2,9 +2,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq)]
-pub enum ErrorType {
-
-}
+pub enum ErrorType {}
 
 #[derive(Debug, PartialEq)]
 pub struct Error {
@@ -14,9 +12,7 @@ pub struct Error {
 
 impl Error {
     pub fn generic(t: ErrorType) -> Self {
-        Self {
-            error: t,
-        }
+        Self { error: t }
     }
 }
 

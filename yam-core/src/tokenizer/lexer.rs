@@ -1,12 +1,12 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use core::hint::unreachable_unchecked;
 use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
-use hashbrown::HashMap;
-use core::mem::take;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
+use core::hint::unreachable_unchecked;
+use core::mem::take;
+use hashbrown::HashMap;
 
 use LexerState::PreDocStart;
 
@@ -741,7 +741,9 @@ impl Lexer {
                 }
                 matches!(self.curr_state(),BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent)
             }
-            BlockMap(prev_indent, ExpectComplexValue | ExpectComplexColon) if prev_indent == indent => {
+            BlockMap(prev_indent, ExpectComplexValue | ExpectComplexColon)
+                if prev_indent == indent =>
+            {
                 push_empty(tokens, &mut self.prev_prop);
                 false
             }
@@ -835,9 +837,7 @@ impl Lexer {
                 }
                 false
             }
-            BlockMap(ind, ExpectComplexColon) if ind == col_pos => {
-                false
-            }
+            BlockMap(ind, ExpectComplexColon) if ind == col_pos => false,
             BlockMap(_, ExpectComplexKey) => is_inline_key,
             BlockMap(ind, ExpectValue) => {
                 if is_inline_key {
@@ -1174,7 +1174,10 @@ impl Lexer {
             node.spans.push(ALIAS);
             node.spans.push(alias.0);
             node.spans.push(alias.1);
-        } else if chr == b':' && self.is_valid_map(reader, &mut node.spans) && self.curr_state().in_flow_collection() {
+        } else if chr == b':'
+            && self.is_valid_map(reader, &mut node.spans)
+            && self.curr_state().in_flow_collection()
+        {
             push_empty(&mut node.spans, &mut PropSpans::default());
             node.line_start = reader.line();
             node.col_start = reader.col();
@@ -1232,8 +1235,14 @@ impl Lexer {
                 try_parse_anchor_alias(reader, ANCHOR, &mut node.spans);
             }
         }
-        if !self.curr_state().in_flow_collection() && !reader.peek_byte().map_or(true, is_white_tab_or_break) {
-            push_error(ExpectedWhiteSpaceAfterProperty, &mut node.spans, &mut self.errors);
+        if !self.curr_state().in_flow_collection()
+            && !reader.peek_byte().map_or(true, is_white_tab_or_break)
+        {
+            push_error(
+                ExpectedWhiteSpaceAfterProperty,
+                &mut node.spans,
+                &mut self.errors,
+            );
         }
         node
     }
@@ -1380,7 +1389,6 @@ impl Lexer {
         let is_nested = init_state != MapState::default();
 
         self.push_state(FlowMap(init_state));
-        
 
         if !prop_node.is_empty() {
             node.merge_tokens(take(prop_node).spans);
@@ -1444,7 +1452,11 @@ impl Lexer {
             let scalar_spans = self.get_flow_node(reader, prop_node);
             self.check_flow_indent(scalar_spans.col_start, &mut node.spans);
             let ws_offset = reader.count_whitespace();
-            if matches!(self.curr_state(), FlowMap(ExpectValue)) && reader.peek_byte_at(ws_offset).map_or(false, |c| c != b',' && c != b'}' && c != b']'){
+            if matches!(self.curr_state(), FlowMap(ExpectValue))
+                && reader
+                    .peek_byte_at(ws_offset)
+                    .map_or(false, |c| c != b',' && c != b'}' && c != b']')
+            {
                 push_error(ErrorType::InvalidMapEnd, &mut node.spans, &mut self.errors)
             }
             skip_colon_space = is_skip_colon_space(&scalar_spans);
@@ -2021,11 +2033,7 @@ impl Lexer {
                 LiteralStringState::from_indentation(block_indent + u32::from(len - b'0')),
             ),
             [b'#', ..] => {
-                push_error(
-                    UnexpectedComment,
-                    &mut self.tokens,
-                    &mut self.errors,
-                );
+                push_error(UnexpectedComment, &mut self.tokens, &mut self.errors);
                 reader.consume_bytes(1);
                 return LiteralStringState::End;
             }
