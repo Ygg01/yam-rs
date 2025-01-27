@@ -19,6 +19,8 @@ fn parse_empty_document() {
 const NULL_YAML_INPUT: &'static str = r#"
 null
 "#;
+
+const NULL_YAML_INPUT2: &'static str = "\r\nnull\r\n";
 const NULL_YAML_EXPECTED: &'static str = r#"
   =VAL null"#;
 
@@ -37,6 +39,7 @@ const MULTILINE_EXPECTED: &'static str = r#"
 #[test]
 fn parse_flow_scalars() {
     assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EXPECTED);
+    assert_eq_event(NULL_YAML_INPUT2, NULL_YAML_EXPECTED);
     assert_eq_event(MULTI_WORD_INPUT, MULTI_WORD_EXPECTED);
     assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
 }
