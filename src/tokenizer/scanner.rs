@@ -388,7 +388,7 @@ impl Scanner {
         let mut is_multiline = !context.is_implicit();
         let indent = context.indent();
 
-        self.read_plain_one_line(reader);
+        self.read_plain_one_line(reader, &mut is_multiline);
 
         // if multiline then we process next plain scalar
         while {
@@ -410,7 +410,7 @@ impl Scanner {
                 if reader.col() != 0 {
                     reader.skip_space_tab(true);
                 }
-                if self.read_plain_one_line(reader) {
+                if self.read_plain_one_line(reader, &mut is_multiline) {
                     self.tokens.extend(folded_str);
                 }
             } else {
@@ -457,7 +457,7 @@ impl Scanner {
         tokens
     }
 
-    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R) -> bool {
+    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R, multi_line: &mut bool) -> bool {
         let start = reader.pos();
         let in_flow_collection = self.curr_state.in_flow_collection();
 
@@ -490,6 +490,8 @@ impl Scanner {
             self.tokens.push_back(MarkStart(start));
             self.tokens.push_back(MarkEnd(start + offset));
             reader.consume_bytes(offset);
+        } else {
+            *multi_line = false;
         }
         return offset > 0;
     }

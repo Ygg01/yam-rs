@@ -501,7 +501,7 @@ pub fn test_try_read_indent() {
     try_read("     #", EqualIndent(6), EndInstead, 0);
 
     try_read("     #", LessIndent(4), LessIndent(3), 3);
-    try_read("     #", LessIndent(0), EndInstead, 0);
+    try_read("     #", LessIndent(0), EqualIndent(0), 0);
 
     try_read("     #", LessOrEqualIndent(4), EqualIndent(4), 4);
     try_read("     #", LessOrEqualIndent(7), LessIndent(5), 5);
