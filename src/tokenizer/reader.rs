@@ -1,4 +1,4 @@
-use core::slice::memchr::memchr;
+use memchr::{memchr, memchr2};
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -23,7 +23,8 @@ pub(crate) trait Reader {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         self.try_read_slice(needle, true)
     }
-    fn read_fast_until(&mut self, needle: &[u8]) -> FastRead;
+    fn read_fast1(&mut self, needle: u8) -> Option<usize>;
+    fn find_fast2(&mut self, needle1: u8, needle2: u8) -> Option<usize>;
     fn skip_space_tab(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
 }
@@ -71,14 +72,20 @@ impl<'r> Reader for StrReader<'r> {
         read
     }
 
-    fn read_fast_until(&mut self, needle: &[u8]) -> FastRead {
-        let (read, n) = match fast_find(needle, &self.slice.as_bytes()[self.pos..]) {
-            Some(0) => (FastRead::Char(self.slice.as_bytes()[self.pos]), 1),
-            Some(size) => (FastRead::InterNeedle(self.pos, self.pos + size), size),
-            None => (FastRead::EOF, 0),
-        };
-        self.pos += n;
-        read
+    #[inline]
+    fn read_fast1(&mut self, needle: u8) -> Option<usize> {
+        if let Some(n) = memchr(needle, &self.slice.as_bytes()[self.pos..]) {
+            return Some(n);
+        }
+        None
+    }
+
+    #[inline]
+    fn find_fast2(&mut self, needle1: u8, needle2: u8) -> Option<usize> {
+        if let Some(n) = memchr2(needle1, needle2, &self.slice.as_bytes()[self.pos..]) {
+            return Some(n);
+        }
+        None
     }
 
     fn skip_space_tab(&mut self) -> usize {
@@ -91,9 +98,9 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn read_line(&mut self) -> (usize, usize) {
-        if let Some(n) = fast_find(&[b'\r', b'\n'], &self.slice.as_bytes()[self.pos..]) {
-            let x = (self.pos, self.pos+n);
-            self.consume_bytes(n+1);
+        if let Some(n) = self.find_fast2(b'\r', b'\n') {
+            let x = (self.pos, self.pos + n);
+            self.consume_bytes(n + 1);
             if self.peek_byte_is(b'\n') {
                 self.consume_bytes(1);
             };
@@ -112,10 +119,15 @@ pub fn test_readline() {
 
     assert_eq!((0, 5), win_reader.read_line());
     assert_eq!(None, win_reader.peek_byte());
+    assert_eq!(0, win_reader.col);
+
     assert_eq!((0, 5), lin_reader.read_line());
     assert_eq!(None, lin_reader.peek_byte());
+    assert_eq!(0, lin_reader.col);
+
     assert_eq!((0, 5), mac_reader.read_line());
     assert_eq!(None, mac_reader.peek_byte());
+    assert_eq!(0, mac_reader.col);
 }
 
 #[inline]
@@ -126,21 +138,6 @@ pub(crate) fn is_tab_space(b: u8) -> bool {
     }
 }
 
-#[inline]
-pub(crate) fn fast_find(needle: &[u8], haystack: &[u8]) -> Option<usize> {
-    #[cfg(feature = "jetscii")]
-    {
-        debug_assert!(needle.len() <= 16);
-        let mut needle_arr = [0; 16];
-        needle_arr[..needle.len()].copy_from_slice(needle);
-        jetscii::Bytes::new(needle_arr, needle.len() as i32, |b| needle.contains(&b)).find(haystack)
-    }
-
-    #[cfg(not(feature = "jetscii"))]
-    {
-        haystack.iter().position(|b| needle.contains(b))
-    }
-}
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum FastRead {

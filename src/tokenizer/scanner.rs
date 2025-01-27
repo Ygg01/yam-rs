@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
+
 use crate::error::YamlError;
+use crate::tokenizer::StrIterator;
 use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::State::StreamStart;
-use crate::tokenizer::{StrIterator};
 
 #[derive(Clone, Default)]
 pub struct Scanner {
@@ -56,12 +57,12 @@ impl Scanner {
     }
 
     pub(crate) fn read_start_stream<T: Reader>(&mut self, reader: &mut T)  {
-        self.try_read_comments(reader);
+        self.try_skip_comments(reader);
         self.state = State::DocStart;
         self.tokens.push_back(SpanToken::StreamStart);
     }
 
-    fn try_read_comments<T: Reader>(&self, reader: &mut T)  {
+    fn try_skip_comments<T: Reader>(&self, reader: &mut T)  {
 
         while {
             // do
