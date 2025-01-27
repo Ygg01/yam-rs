@@ -41,7 +41,7 @@ impl Default for Spanner {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub(crate) enum ParserState {
+pub enum ParserState {
     PreDocStart,
     RootBlock,
     FlowSeq(usize),
@@ -321,19 +321,9 @@ impl Spanner {
     }
 
     fn fetch_block_seq<R: Reader>(&mut self, reader: &mut R, indent: usize) {
-        if reader.peek_byte_at_check(1, is_white_tab_or_break) {
-            let new_indent: usize = reader.col();
-            if reader.peek_byte_at_check(1, is_newline) {
-                reader.consume_bytes(1);
-                reader.read_break();
-            } else {
-                reader.consume_bytes(2);
-            }
-
-            if new_indent >= indent {
-                self.tokens.push_back(SequenceStart);
-                self.push_state(BlockSeq(new_indent));
-            }
+        if let Some(new_state) = reader.read_block_seq(indent) {
+            self.tokens.push_back(SequenceStart);
+            self.push_state(new_state);
         } else {
             self.fetch_plain_scalar(reader, indent);
         }

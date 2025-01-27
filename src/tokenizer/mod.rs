@@ -4,11 +4,11 @@ pub use reader::Reader;
 pub use reader::StrReader;
 pub use spanner::SpanToken;
 pub use spanner::Spanner;
-pub use str_reader::EventIterator;
+pub use iterator::EventIterator;
 
 mod reader;
 mod spanner;
-mod str_reader;
+mod iterator;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ErrorType {
