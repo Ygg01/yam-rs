@@ -1114,7 +1114,7 @@ impl Lexer {
         if reader.peek_byte_at(ws_offset).map_or(false, |c| c == b':')
             && !matches!(self.curr_state(), FlowMap(_) | BlockMap(_, _) | DocBlock)
         {
-            reader.consume_bytes(ws_offset);
+            self.skip_sep_spaces(reader);
             if start_line != reader.line() {
                 reader.consume_bytes(1);
                 node.merge_spans(prev_node);
@@ -1305,7 +1305,6 @@ impl Lexer {
                             &mut self.errors,
                         );
                     }
-                   
                 }
                 seq_state = BeforeElem;
             } else if chr == b'?' && is_white_tab_or_break(peek_next) {
@@ -1332,8 +1331,7 @@ impl Lexer {
             && matches!(prev_state, FlowSeq | DocBlock)
             && reader.peek_byte_at(1).map_or(true, is_white_tab_or_break)
         {
-            reader.consume_bytes(1 + offset);
-            self.skip_space_tab(reader);
+            self.skip_sep_spaces(reader);
             if line_begin == reader.line() {
                 let map_start = if prev_state.in_flow_collection() {
                     MAP_START_EXP
