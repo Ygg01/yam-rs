@@ -29,6 +29,7 @@ use crate::util::NoopValidator;
 use crate::{ChunkyIterator, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::boxed::Box;
+use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -305,13 +306,12 @@ fn test_parsing_basic_processing1() {
     let mut buffer = BorrowBuffer::new(input);
     let mut state = YamlParserState::default();
     let mut validator = get_validator(false);
-
     let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
 
-    if let Some(chunk) = chunk_iter.next() {
-        let chunk_state = NativeScanner::next(chunk, &mut buffer, &mut state);
-        let res = state.process_chunk(&mut buffer, &chunk_state);
-    } else {
-        panic!("No chunk");
-    }
+    let chunk = chunk_iter.next().expect("Missing chunk!");
+    let chunk_state = NativeScanner::next(chunk, &mut buffer, &mut state);
+    let res = state.process_chunk(&mut buffer, &chunk_state);
+
+    let expected_structurals = vec![0usize];
+    assert_eq!(expected_structurals, state.structurals);
 }
