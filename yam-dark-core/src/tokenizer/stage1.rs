@@ -87,7 +87,7 @@ pub trait Stage1Scanner {
 
     fn cmp_ascii_to_input(&self, m: u8) -> u64;
 
-    fn leading_spaces(&self, spaces: &YamlCharacterChunk) -> (u32, u32);
+    fn leading_spaces(&self, spaces: &mut YamlCharacterChunk) -> (u32, u32);
 
     fn compute_quote_mask(quote_bits: u64) -> u64;
 
@@ -219,6 +219,22 @@ pub trait Stage1Scanner {
         even_start_odd_end | odd_start_even_end
     }
 
+    /// Scans for single quote bitmask.
+    ///
+    /// # Arguments
+    ///
+    /// - `block_state`: A mutable reference to a current [YamlChunkState].
+    /// - `prev_iter_state`: A mutable reference to previous iteration [YamlParserState].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use yam_dark_core::YamlChunkState;
+    /// let mut block_state = YamlChunkState::new();
+    /// let mut prev_iter_state = YamlParserState::new();
+    ///
+    /// scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
         &self,

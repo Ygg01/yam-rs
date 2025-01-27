@@ -29,7 +29,7 @@ impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn leading_spaces(&self, chunks: &YamlCharacterChunk) -> (u32, u32) {
+    fn leading_spaces(&self, chunks: &mut YamlCharacterChunk) -> (u32, u32) {
         // TODO actual spaces implementation
         let z = chunks.spaces.leading_zeros();
         (z, z)
