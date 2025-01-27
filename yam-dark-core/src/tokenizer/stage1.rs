@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
-use crate::{NativeScanner, ParseResult, EVEN_BITS, ODD_BITS};
+use crate::{util, NativeScanner, ParseResult, EVEN_BITS, ODD_BITS};
 
 #[derive(Default)]
 pub struct YamlChunkState {
@@ -383,28 +383,44 @@ pub unsafe trait Stage1Scanner {
         let even_ends =
             Self::scan_for_mask(quotes, &mut prev_iter_state.prev_iter_odd_quote, EVEN_BITS);
 
-        let end_edge_even = end_edge & EVEN_BITS;
-        let end_edge_odd = end_edge & ODD_BITS;
+        let even_mask = Self::calculate_mask_from_end(quotes, even_ends >> 1);
 
-        let (max, min, part) = if end_edge_even < end_edge_odd {
-            (end_edge_odd, end_edge_even, EVEN_BITS)
-        } else {
-            (end_edge_even, end_edge_odd, ODD_BITS)
-        };
-
-        let edge_diff = max - min;
-
-        let edge_carry = edge_diff & start_edge;
-        let max_edge_masked = edge_carry & part;
-
-        let other_edge = start_edge ^ edge_carry;
-        let min_edge_masked = other_edge & !part;
-
-        let even_limits = even_ends | max_edge_masked | min_edge_masked;
-        let even_mask = Self::compute_quote_mask(even_limits);
         chunk_state.single_quote.odd_quotes = quotes & !even_mask;
         chunk_state.single_quote.escaped_quotes = even_mask;
     }
+
+
+    /// Calculates a mask from the provided quote bits and an even boundary value.
+    /// Given a set of bitmask and highest bits in consecutive group of `1` it will select all neighboring ones to the right (using big endian number notation)
+    ///
+    /// # Arguments
+    ///
+    /// * `quote_bits`: A 64-bit unsigned integer representing bitmask
+    /// * `even_ends`: Highest bit of a group of `1` in `quote_bits`, used for selecting those bits
+    ///
+    /// # Returns
+    ///
+    /// A 64-bit unsigned integer representing the bits that were selected based on the `even_ends`
+    ///
+    /// # Examples
+    /// ```
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner};
+    ///
+    ///  let actual = NativeScanner::calculate_mask_from_end(
+    ///     0b1111_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_0000_0110,
+    ///     0b1000_0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100
+    ///  );
+    ///  let expected = 0b1111_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0110;
+    ///  assert_eq!(
+    ///     actual, expected,
+    ///     "\nExpected: {:#018b}\n  Actual: {:#018b}",
+    ///     expected, actual
+    ///  );
+    /// ```
+    fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
+        util::select_consecutive_bits_branchless(quote_bits, even_ends)
+    }
+
 
     /// Scans the whitespace and structurals in the given YAML chunk state.
     ///
