@@ -138,14 +138,16 @@ fn col_count_small(c: &mut Criterion) {
             let mut prev_row = 0;
             let mut count_row = [0; 64];
             let mut count_col = [0; 64];
+            let mut count_indent = [0; 64];
             count_table_small(
                 mask,
                 &mut prev_col,
                 &mut prev_row,
                 &mut count_col,
                 &mut count_row,
+                &mut count_indent,
             );
-            black_box(count_col[0] > 0 && count_row[0] == 0);
+            black_box(count_col[0] > 0 && count_row[3] == 0);
         })
     });
     group.finish();

@@ -30,12 +30,14 @@ impl ChunkedUtf8Validator for NoopValidator {
     }
 }
 
+#[doc(hidden)]
 pub fn count_table_small(
     newline_mask: u64,
     prev_byte_col: &mut u32,
     prev_byte_row: &mut u32,
     byte_cols: &mut [u32; 64],
     byte_rows: &mut [u32; 64],
+    byte_indents: &mut [u32; 64],
 ) {
     #[inline]
     fn calculate_byte_col(index_mask: u64, reset_bool: bool, prev_indent: &mut u32) -> [u32; 8] {
@@ -47,6 +49,7 @@ pub fn count_table_small(
         row_calc
     }
 
+    #[inline]
     fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &mut u32) -> [u32; 8] {
         [
             cols[0] as u32 + *prev_col,
@@ -88,11 +91,13 @@ pub fn count_table_small(
         ]
     }
 
+    #[inline]
     fn calculate_byte_rows(index_mask: u64, prev_row: &mut u32) -> [u32; 8] {
         let rows1 = U8_ROW_TABLE[index_mask as usize];
         calculate_rows(rows1, prev_row)
     }
 
+    #[inline]
     fn calculate_rows(rows: [u8; 8], prev_row: &mut u32) -> [u32; 8] {
         let x = [
             *prev_row,
@@ -180,12 +185,14 @@ fn test_quick_count() {
     let mut prev_rows = 0;
     let mut actual_cols = [0; 64];
     let mut actual_rows = [0; 64];
+    let mut actual_indent = [0; 64];
     count_table_small(
         mask,
         &mut prev_value,
         &mut prev_rows,
         &mut actual_cols,
         &mut actual_rows,
+        &mut actual_indent,
     );
     assert_eq!(&actual_cols[0..24], &expected_value[0..24]);
     assert_eq!(prev_value, 40);
