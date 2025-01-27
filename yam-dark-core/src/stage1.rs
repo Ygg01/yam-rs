@@ -2,21 +2,35 @@ use crate::ParseResult;
 
 #[derive(Default)]
 pub struct YamlBlockState {
-    string: YamlStringBlock,
+    double_quote: YamlDoubleQuoteBlock,
+    single_quote: YamlSingleQuoteBlock,
     characters: YamlCharacterBlock,
     follows_non_quote_scalar: u64,
 }
 
 #[derive(Default)]
-pub struct YamlStringBlock {
+pub struct YamlDoubleQuoteBlock {
+    /// Escaped characters
     escaped: u64,
+    /// Real double quotes
     quote: u64,
+    /// String characters
+    in_string: u64,
+}
+
+#[derive(Default)]
+pub struct YamlSingleQuoteBlock {
+    /// Real single quotes
+    quote: u64,
+    /// String characters
     in_string: u64,
 }
 
 #[derive(Default)]
 pub struct YamlCharacterBlock {
+    /// Whitespaces
     whitespace: u64,
+    /// Operators
     op: u64,
 }
 
