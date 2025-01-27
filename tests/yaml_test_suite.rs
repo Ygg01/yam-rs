@@ -29,6 +29,9 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
     actual_event.push_str("+STR\r\n");
     let mut is_error = false;
     for (ev, _) in ev_iterator {
+        if matches!(ev, Event::Directive { ..})  {
+            continue;
+        }
         if ev == Event::ErrorEvent {
             is_error = true;
             break;

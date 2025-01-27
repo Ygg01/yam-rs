@@ -4,7 +4,7 @@ use std::fmt::Write;
 
 use steel_yaml::tokenizer::{EventIterator, StrReader};
 
-pub fn assert_eq_event(input_yaml: &str, expect: &str) {
+pub fn assert_eq_event(input_yaml: &str, events: &str) {
     let mut line = String::new();
     let scan: EventIterator<StrReader> = EventIterator::from(input_yaml);
     scan.for_each(|(ev, indent)| {
@@ -13,5 +13,5 @@ pub fn assert_eq_event(input_yaml: &str, expect: &str) {
         write!(line, "{:}", ev).unwrap();
     });
 
-    assert_eq!(expect, line, "Error in {input_yaml}");
+    assert_eq!(events, line, "Error in {input_yaml}");
 }
