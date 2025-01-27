@@ -34,13 +34,13 @@ pub(crate) trait Stage1Parse {
     /// Which we can divide into 4 sets
     ///
     /// | Code points                                     |   Value | Chars                               |
-    /// | ----------------------------------------------- | --------- | --------------------------------------- |
-    /// | 0x20, 0x21, 0x23, 0x25, 0x26, 0x2A, 0x2C, 0x2D, | 1         | ` `, `!`,  `#` ,  `%`, `&`, `*`,`,`,`-` |
-    /// | 0x3A, 0x3F                                      | 2         | `:`, `?`                                |
-    /// | 0x5B, 0x5D, 0x7B, 0x7D                          | 4         | `[`, `]`, `{`, `}`                      |
-    /// | 0x09, 0x0A, 0x0D                                | 8         | `\t`, `\n`, `\r`                        |
-    /// | other                                           | 0         |                                         |
-    unsafe fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64);
+    /// | ----------------------------------------------------------------| --------- | --------------------------------------- |
+    /// | `0x20`, `0x21`, `0x23`, `0x25`, `0x26`, `0x2A`, `0x2C`, `0x2D`  | 1         | ` `, `!`,  `#` ,  `%`, `&`, `*`,`,`,`-` |
+    /// | `0x3A`, `0x3F`                                                  | 2         | `:`, `?`                                |
+    /// | `0x5B`, `0x5D`, `0x7B`, `0x7D`                                  | 4         | `[`, `]`, `{`, `}`                      |
+    /// | `0x09`, `0x0A`, `0x0D`                                          | 8         | `\t`, `\n`, `\r`                        |
+    /// | other                                                           | 0         |                                         |
+    unsafe fn scan(&self, whitespace: &mut u64, structurals: &mut u64);
 
     unsafe fn unsigned_lteq_against_input(&self, max_val: Self::SimdRepresentation) -> u64;
 
