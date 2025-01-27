@@ -46,8 +46,8 @@ fn main() {
     // print3(0b01111101);
     // print3(0b010111101);
     print3(0b0111100);
-    print3(0b1011111);
-    print3(0b10111);
+    // print3(0b1011111);
+    // print3(0b10111);
 }
 
 fn find_odd(bits: u8) -> u8 {
@@ -68,13 +68,16 @@ fn find_odd(bits: u8) -> u8 {
 fn print3(input: u8) {
     println!("\nin    = {:#010b}", input);
 
-    let left_pad = input & (input << 1);
-    let right_pad = input & (input >> 1);
+    let sa = input & !(input << 1);
+    let in_wos = input & !sa;
+    println!("wos   = {:#010b}", in_wos);
+
+    let left_pad = in_wos & (in_wos << 1);
+    let right_pad = in_wos & (in_wos >> 1);
 
     let inn = left_pad & right_pad;
     println!("inn   = {:#010b}", inn);
 
-    let sa = input & !(input << 1);
     // let ee = input & !(input >>1);
     let out = (left_pad | right_pad);
     println!("out   = {:#010b}", out);
@@ -82,23 +85,26 @@ fn print3(input: u8) {
     let odd = find_odd(inn) ^ inn;
     println!("odd   = {:#010b}", odd);
 
-    let mut xxx = input ^ odd;
+    let xxx = input ^ odd;
     println!("xxx   = {:#010b}", xxx);
 
-    xxx ^= xxx << 1;
-    xxx ^= xxx << 2;
-    xxx ^= xxx << 4;
-    println!("xx2   = {:#010b}", xxx);
+    let xxx = scale(xxx);
 
-    let mut yyy = input ^ out;
+    let yyy = input ^ out;
     println!("yyy   = {:#010b}", xxx);
+    let yyy = scale(yyy);
 
-    yyy ^= yyy << 1;
-    yyy ^= yyy << 2;
-    yyy ^= yyy << 4;
-    println!("yy2   = {:#010b}", yyy);
+    let fin = xxx | yyy;
+    println!("final = {:#010b}", fin);
+}
 
-    println!("final = {:#010b}", xxx | yyy);
+fn scale(xxx: u8) -> u8 {
+    let mut scale = xxx;
+    scale ^= scale << 1;
+    scale ^= scale << 2;
+    scale ^= scale << 4;
+    println!("^^^   = {:#010b}", scale);
+    scale
 }
 
 fn calculate_indent(mask: u8) -> [u8; 8] {
