@@ -336,8 +336,7 @@ macro_rules! impl_quote {
             match reader.peek_byte() {
                 Some(b'\n' | b'\r') => {
                     if self.update_newlines(reader, newspaces, start_str) && !allow_tab {
-                        tokens.insert(0, ERROR_TOKEN);
-                        self.errors.push(ErrorType::TabsNotAllowedAsIndentation);
+                        self.prepend_error_token(ErrorType::TabsNotAllowedAsIndentation, tokens);
                     }
                     QuoteState::Start
                 }
@@ -942,8 +941,7 @@ impl Lexer {
     fn check_flow_indent(&mut self, actual: u32, spans: &mut Vec<usize>) {
         let expected = self.indent();
         if actual < expected {
-            spans.insert(0, ERROR_TOKEN);
-            self.errors.push(ExpectedIndent { actual, expected });
+            self.prepend_error_token(ExpectedIndent { actual, expected }, spans);
         }
     }
 
@@ -1115,7 +1113,6 @@ impl Lexer {
                 self.pop_state();
             } else {
                 self.push_error_token(ImplicitKeysNeedToBeInline, &mut spans);
-
             }
         } else if end_found {
             self.pop_state();
@@ -1336,7 +1333,7 @@ impl Lexer {
         let x = self.skip_separation_spaces(reader);
         *newspaces = Some(x.num_breaks.saturating_sub(1) as usize);
         *start_str = reader.pos();
-        x.has_leading_tab
+        self.last_block_indent.map_or(false, |indent| indent >= x.num_indent)
     }
 
     fn process_block_scalar(
@@ -1412,8 +1409,9 @@ impl Lexer {
                 BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => {
                     self.push_error(UnexpectedScalarAtNodeEnd);
                 }
-                BlockMapExp(_, _) | BlockMap(_, _)
-                | BlockSeq(_, BeforeElem | BeforeFirst) => self.next_substate(),
+                BlockMapExp(_, _) | BlockMap(_, _) | BlockSeq(_, BeforeElem | BeforeFirst) => {
+                    self.next_substate()
+                }
                 BlockSeq(_, InSeqElem) => {
                     self.push_error(ErrorType::ExpectedSeqStart);
                 }
@@ -2130,11 +2128,6 @@ impl Lexer {
         }
     }
 
-    #[inline]
-    fn reset_col(&mut self) {
-        self.col_start = None;
-    }
-
     fn process_single_quote_block<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -2214,7 +2207,7 @@ impl Lexer {
 
                     break;
                 }
-                LiteralStringState::End  => break,
+                LiteralStringState::End => break,
             };
         }
 
@@ -2402,10 +2395,10 @@ impl Lexer {
             prev_indent,
         );
         match next_state {
-            v @ (LiteralStringState::Comment |   LiteralStringState::End) => return v,
+            v @ (LiteralStringState::Comment | LiteralStringState::End) => return v,
             x => x,
         };
-        
+
         reader.consume_bytes(indent as usize);
         let (start, end, _) = reader.get_read_line();
         if start == end {
@@ -2420,14 +2413,20 @@ impl Lexer {
                     tokens.push(*new_lines as usize);
                 }
             }
-            match self.last_block_indent  {
-                Some(i) if i >=  curr_indent => {
+            match self.last_block_indent {
+                Some(i) if i >= curr_indent => {
                     *new_lines = 0;
                     if reader.peek_byte_is(b'\t') {
                         self.has_tab = true;
                         next_state = LiteralStringState::TabError;
                     } else {
-                        self.prepend_error_token(ErrorType::ExpectedIndent { actual: i, expected: curr_indent }, tokens);
+                        self.prepend_error_token(
+                            ErrorType::ExpectedIndent {
+                                actual: i,
+                                expected: curr_indent,
+                            },
+                            tokens,
+                        );
                         next_state = LiteralStringState::End;
                     }
                 }
@@ -2439,13 +2438,11 @@ impl Lexer {
                     *new_lines = 1;
                 }
             };
-            
         }
-        
+
         next_state
     }
 }
-
 
 fn next_process_indentation<B, R: Reader<B>>(
     curr_indent: u32,
