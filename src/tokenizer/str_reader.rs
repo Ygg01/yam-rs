@@ -233,6 +233,19 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
+    fn peek_non_space_byte(&self, needle: u8) -> Option<usize> {
+        self.slice[self.pos..]
+            .iter()
+            .position(|chr| !is_white_tab_or_break(*chr))
+            .and_then(|chr_pos| {
+                if self.slice[self.pos + chr_pos] != needle {
+                    None
+                } else {
+                    Some(chr_pos + 1)
+                }
+            })
+    }
+
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool {
         if self.peek_byte_is(b'%') {
             if self.try_read_slice_exact("%YAML") {

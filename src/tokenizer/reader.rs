@@ -84,6 +84,7 @@ pub trait Reader<B> {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self) -> (usize, usize);
     fn not_safe_char(&self) -> bool;
+    fn peek_non_space_byte(&self, needle: u8) -> Option<usize>;
     // Refactor
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn read_plain_one_line(

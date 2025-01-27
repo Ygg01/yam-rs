@@ -215,7 +215,7 @@ const SEQ_PLAIN_EXPECTED: &str = r#"
 #[test]
 pub fn seq_plain() {
     assert_eq_event(SEQ_PLAIN, SEQ_PLAIN_EXPECTED);
-    // assert_eq_event(SEQ_PLAIN2, SEQ_PLAIN_EXPECTED);
+    assert_eq_event(SEQ_PLAIN2, SEQ_PLAIN_EXPECTED);
 }
 
 const BLOCK_MAP_INPUT: &str = r#"
