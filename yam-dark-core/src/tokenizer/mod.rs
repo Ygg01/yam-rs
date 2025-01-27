@@ -1,2 +1,1 @@
-mod events;
 mod lexer;

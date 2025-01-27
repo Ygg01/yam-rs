@@ -11,7 +11,7 @@ keywords = ["yaml", "simd", "parser"]
 
 [dependencies]
 simdutf8 = { version = "0.1.4", features = ["aarch64_neon", "public_imp"] }
-
+yam-core = { path = "../yam-core"}
 
 [features]
 no-inline = []

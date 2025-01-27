@@ -71,7 +71,6 @@ pub(crate) struct YamlParserState {
 impl<'de> Parser<'de> {
     pub(crate) fn build_events(
         input: &[u8],
-        yaml_indexes:
     ) -> ParseResult<()> {
         todo!()
     }
