@@ -68,6 +68,7 @@ pub struct YamlChunkState {
     pub characters: YamlCharacterChunk,
     pub rows: Vec<u8>,
     pub cols: Vec<u8>,
+    pub indents: Vec<u8>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
 }
@@ -82,6 +83,7 @@ impl Default for YamlChunkState {
             characters: YamlCharacterChunk::default(),
             rows: vec![0; 64],
             cols: vec![0; 64],
+            indents: vec![0; 64],
             follows_non_quote_scalar: 0,
             error_mask: 0,
         }
@@ -344,7 +346,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// It's important for implementation to first check where spaces `0x20` and line feed characters are located
     /// Since newline on Windows is `\r\n` Unicode `0x0A` and `0x0D` respectively we can approximate a newline with `\n`.
-    /// Spaces are important because only `0x20` is a valid YAML indentation mechanism.
+    /// Spaces are important because only ` `(code point `0x20`) is a valid YAML indentation mechanism.
     ///
     /// # Arguments
     ///
@@ -365,14 +367,15 @@ pub unsafe trait Stage1Scanner {
     /// // Needs to be called before calculate indent
     /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
-    /// scanner.calculate_row_cols(&mut chunk, &mut prev_iter_state);
+    /// // Will calculate col/row/indent
+    /// scanner.calculate_row_cols_indents(&mut chunk, &mut prev_iter_state);
     /// assert_eq!(
     ///     chunk.cols,
     ///     range1_to_64
     /// );
     /// assert_eq!(chunk.rows, vec![0; 64]);
     /// ```
-    fn calculate_row_cols(
+    fn calculate_row_cols_indents(
         &self,
         chunk_state: &mut YamlChunkState,
         prev_state: &mut YamlParserState,
@@ -520,7 +523,7 @@ pub unsafe trait Stage1Scanner {
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
         simd.scan_for_comments(&mut chunk_state, prev_state);
-        simd.calculate_row_cols(&mut chunk_state, prev_state);
+        simd.calculate_row_cols_indents(&mut chunk_state, prev_state);
 
         simd.scan_double_quote_bitmask(&mut chunk_state, prev_state);
         simd.scan_single_quote_bitmask(&mut chunk_state, prev_state);
@@ -813,7 +816,7 @@ fn test_count() {
     // Needs to be called before calculate indent
     chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
-    scanner.calculate_row_cols(&mut chunk, &mut prev_iter_state);
+    scanner.calculate_row_cols_indents(&mut chunk, &mut prev_iter_state);
     assert_eq!(chunk.cols, range1_to_64);
     assert_eq!(chunk.rows, vec![0; 64]);
 }

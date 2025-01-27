@@ -50,7 +50,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn calculate_row_cols(
+    fn calculate_row_cols_indents(
         &self,
         _chunk_state: &mut YamlChunkState,
         _prev_state: &mut YamlParserState,
