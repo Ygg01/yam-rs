@@ -98,10 +98,15 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
     state: &'input mut YamlParserState,
 ) -> ParseResult<YamlChunkState>;
 
-/// A trait representing a stage 1 scanner for parsing YAML input.
+/// A trait representing a stage 1 scanner for parsing `YAML` input.
 ///
 /// This trait provides methods for validating and scanning chunks of data, and finding important
 /// parts like structural starts and so on.
+///
+/// # Safety
+///
+/// This trait MUST ALWAYS return valid positions in given stream in bytes. They will be used for unchecked
+/// access to the underlying bytes.
 pub unsafe trait Stage1Scanner {
     /// Type [`Stage1Scanner`] uses to perform it's SIMD-ifed actions.
     type SimdType;
@@ -207,7 +212,16 @@ pub unsafe trait Stage1Scanner {
     /// let quote_mask = NativeScanner::compute_quote_mask(quote_bits);
     /// assert_eq!(quote_mask, 0b11111);
     /// ```
-    fn compute_quote_mask(quote_bits: u64) -> u64;
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn compute_quote_mask(quote_bits: u64) -> u64 {
+        let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
+        quote_mask = quote_mask ^ (quote_mask << 2);
+        quote_mask = quote_mask ^ (quote_mask << 4);
+        quote_mask = quote_mask ^ (quote_mask << 8);
+        quote_mask = quote_mask ^ (quote_mask << 16);
+        quote_mask = quote_mask ^ (quote_mask << 32);
+        quote_mask
+    }
 
     /// Checks if the value of `cmp` is less than or equal to the value of `self`.
     ///
@@ -229,36 +243,6 @@ pub unsafe trait Stage1Scanner {
     /// assert_eq!(result, 0b1111111111111111111111111111111111111111111111111111111111111111);
     /// ```
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64;
-
-    /// Counts the number of odd bits in a given 64-bit bitmask.
-    ///
-    /// # Arguments
-    ///
-    /// * `bitmask` - A 64-bit unsigned integer representing the quote bits.
-    ///
-    /// # Returns
-    ///
-    /// Returns `0` if bitmask contains even number of `1` bits, and `1` if it contains odd number
-    /// of `1` bits. Zero bits is considered even.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use crate::yam_dark_core::NativeScanner;
-    /// use crate::yam_dark_core::Stage1Scanner;
-    ///
-    /// let quote_bits = 0b10101010;
-    /// let count = NativeScanner::count_odd_bits(quote_bits);
-    /// assert_eq!(count, 0);
-    ///
-    /// let quote_bits = 0b1000101;
-    /// let count = NativeScanner::count_odd_bits(quote_bits);
-    /// assert_eq!(count, 1);
-    /// ```
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn count_odd_bits(bitmask: u64) -> u32 {
-        bitmask.count_ones() % 2
-    }
 
     /// This function processes the next chunk of a YAML input.
     ///
@@ -371,7 +355,7 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments
     ///
     /// - `block_state`: A mutable reference to a current [`YamlChunkState`]. It will  update the
-    /// [YamlSingleQuoteChunk] with data for scanned single quotes.
+    ///   [YamlSingleQuoteChunk] with data for scanned single quotes.
     /// - `prev_iter_state`: A mutable reference to previous iteration [`YamlParserState`].
     ///
     /// # Example
@@ -394,8 +378,6 @@ pub unsafe trait Stage1Scanner {
         prev_iter_state: &mut YamlParserState,
     ) {
         let quotes = self.cmp_ascii_to_input(b'\'');
-        let end_edge = quotes & !(quotes >> 1);
-        let start_edge = quotes & !(quotes << 1);
 
         let even_ends =
             Self::scan_for_mask(quotes, &mut prev_iter_state.prev_iter_odd_quote, EVEN_BITS);

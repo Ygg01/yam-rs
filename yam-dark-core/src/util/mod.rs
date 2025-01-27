@@ -190,11 +190,11 @@ pub fn count_indent_naive(
     prev_indent: &mut u32,
     indents: &mut [u32; 64],
 ) {
-    for pos in 0..64 {
+    for (pos, item) in indents.iter_mut().enumerate().take(64) {
         let is_space = (space_mask & (1 << pos)) != 0;
         let is_newline = (newline_mask & (1 << pos)) != 0;
 
-        indents[pos] = *prev_indent;
+        *item = *prev_indent;
 
         match (is_space, is_newline) {
             (true, true) => unreachable!("Character can't be both space and newline at same time"),
