@@ -388,6 +388,23 @@ pub fn block_map() {
     assert_eq_event(MAP_NESTED_INPUT, MAP_NESTED_EVENTS);
 }
 
+const DQUOTE_ESC_INPUT: &str = r##"
+quote: "a\/b"
+"##;
+
+const DQUOTE_ESC_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :quote
+   =VAL "a/b
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn block_quote_map() {
+  assert_eq_event(DQUOTE_ESC_INPUT, DQUOTE_ESC_EVENTS);
+}
+
 const EMPTY_MAP_INPUT: &str = r#"
 :"#;
 

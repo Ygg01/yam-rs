@@ -776,7 +776,6 @@ impl Lexer {
         let start_line = reader.line();
         let tokens = reader.read_double_quote(&mut self.errors);
         let is_multiline = start_line != reader.line();
-        self.skip_separation_spaces(reader, true);
         Scalar {
             scalar_start,
             is_multiline,
@@ -790,7 +789,6 @@ impl Lexer {
         let start_line = reader.line();
         let tokens = reader.read_single_quote(self.curr_state().is_implicit());
         let is_multiline = start_line != reader.line();
-        self.skip_separation_spaces(reader, true);
         Scalar {
             scalar_start,
             is_multiline,
