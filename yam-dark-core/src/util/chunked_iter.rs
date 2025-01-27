@@ -1,7 +1,6 @@
 #![allow(unused)]
-use core::slice::from_raw_parts;
 use crate::SIMD_INPUT_LENGTH;
-
+use core::slice::from_raw_parts;
 
 pub struct ChunkyIterator<'a> {
     bytes: &'a [u8],
@@ -19,7 +18,10 @@ impl<'a> Iterator for ChunkyIterator<'a> {
             let ptr = self.bytes.as_ptr();
             // SAFETY: We manually verified the bounds of the split.
             let (first, tail) = unsafe {
-                (from_raw_parts(ptr, SIMD_INPUT_LENGTH), from_raw_parts(ptr.add(SIMD_INPUT_LENGTH), len - SIMD_INPUT_LENGTH))
+                (
+                    from_raw_parts(ptr, SIMD_INPUT_LENGTH),
+                    from_raw_parts(ptr.add(SIMD_INPUT_LENGTH), len - SIMD_INPUT_LENGTH),
+                )
             };
             self.bytes = tail;
             // SAFETY: We explicitly check for the correct number of elements,
@@ -31,9 +33,7 @@ impl<'a> Iterator for ChunkyIterator<'a> {
 
 impl<'a> ChunkyIterator<'a> {
     pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
-        ChunkyIterator {
-            bytes
-        }
+        ChunkyIterator { bytes }
     }
     pub(crate) fn finalize(&self) -> &[u8] {
         self.bytes
@@ -45,9 +45,7 @@ fn test_chunk() {
     let a = [0u8; 64];
     let b = [1u8; 64];
     let x = [a, b].concat();
-    let mut iter = ChunkyIterator {
-        bytes: &x,
-    };
+    let mut iter = ChunkyIterator { bytes: &x };
     assert_eq!(iter.next(), Some(&a));
     assert_eq!(iter.next(), Some(&b));
     assert_eq!(iter.next(), None);
@@ -60,9 +58,7 @@ fn test_chunk_rem() {
     let b = [1u8; 64];
     let mut x = [a, b].concat();
     x.push(3);
-    let mut iter = ChunkyIterator {
-        bytes: &x,
-    };
+    let mut iter = ChunkyIterator { bytes: &x };
     assert_eq!(iter.next(), Some(&a));
     assert_eq!(iter.next(), Some(&b));
     assert_eq!(iter.next(), None);
@@ -75,9 +71,7 @@ fn test_chunk_rem_minus() {
     let b = [1u8; 64];
     let mut x = [a, b].concat();
     x.drain(67..);
-    let mut iter = ChunkyIterator {
-        bytes: &x,
-    };
+    let mut iter = ChunkyIterator { bytes: &x };
     assert_eq!(iter.next(), Some(&a));
     assert_eq!(iter.next(), None);
     assert_eq!(iter.finalize(), &[1, 1, 1]);

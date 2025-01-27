@@ -1,8 +1,8 @@
 #![allow(unused)]
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-use crate::ParseResult;
 use crate::stage2::{Buffer, YamlParserState};
+use crate::ParseResult;
 
 #[derive(Default)]
 pub struct YamlBlockState {
@@ -53,7 +53,7 @@ pub trait Stage1Scanner {
     fn validator() -> Self::Validator;
 
     /// Scans a chunk and returns a YamlBlockState
-   
+
     fn next<T: Buffer>(
         chunk: &[u8; 64],
         buffers: &mut T,
