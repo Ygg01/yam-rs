@@ -18,7 +18,7 @@ pub enum YamlError {
 
 impl From<Utf8Error> for YamlError {
     /// Creates a new `Error::NonDecodable` from the given error
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from(error: Utf8Error) -> YamlError {
         YamlError::NonDecodable(Some(error))
     }
