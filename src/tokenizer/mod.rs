@@ -32,7 +32,6 @@ pub struct Entry<'a> {
     value: YamlToken<'a>,
 }
 
-
 #[inline(always)]
 pub(crate) fn is_empty(token_bound: (usize, usize)) -> bool {
     token_bound.0 == token_bound.1
