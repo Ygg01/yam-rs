@@ -34,6 +34,7 @@ pub enum ErrorType {
     UnexpectedEndOfScalar,
     DuplicateKey,
     ExpectedChompBetween1and9,
+    TabsNotAllowedAsIndentation,
 }
 
 pub trait Slicer<'a> {

@@ -1,8 +1,6 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
-use std::ops::ControlFlow;
-use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
 use super::lexer::LexerState;
@@ -75,12 +73,7 @@ pub trait Reader<B> {
             _ => false,
         }
     }
-    #[inline]
-    fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
-        let x = self.count_space_tab(allow_tab);
-        self.consume_bytes(x);
-        x
-    }
+    fn skip_space_tab(&mut self, allow_tab: bool, has_tab: &mut bool) -> usize;
     fn count_space_tab(&self, allow_tab: bool) -> usize;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
@@ -110,19 +103,10 @@ pub trait Reader<B> {
         errors: &mut Vec<ErrorType>,
     ) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
-    fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
+    fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&self) -> Result<(usize, usize), ErrorType>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
-}
-
-#[inline]
-pub const fn is_tab_space(pos: usize, chr: u8, allow_tab: bool) -> ControlFlow<usize, usize> {
-    if chr == b' ' || (allow_tab && chr == b'\t') {
-        Continue(pos + 1)
-    } else {
-        Break(pos)
-    }
 }
 
 #[inline]

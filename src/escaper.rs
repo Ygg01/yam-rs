@@ -5,7 +5,6 @@ struct Escape<'a, F, M> {
     match_fn: M,
     iter: &'a [u8],
     pos: usize,
-
 }
 
 impl<'a, F, S> Escape<'a, F, S> {
@@ -46,8 +45,13 @@ where
                     let pos = self.pos + find_pos;
                     let step = bytes[0];
                     let len = bytes[1];
-                    self.pos =  pos + step as usize;
-                    return Some(NewPos { pos, step, len, bytes: [bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]});
+                    self.pos = pos + step as usize;
+                    return Some(NewPos {
+                        pos,
+                        step,
+                        len,
+                        bytes: [bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]],
+                    });
                 }
                 EscapeControl::Skip(x) => {
                     self.pos += x as usize + find_pos;
@@ -66,15 +70,13 @@ pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     _escape(
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n',
-        |input| {
-            match input {
-                [b'\\', b't', ..] | [b'\\', b'r', ..] | [b'\\', b'n', ..] => EscapeControl::Skip(2),
-                [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
-                [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
-                [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
-                [b'\\', ..] => EscapeControl::Append([1, 2, b'\\', b'\\', 0, 0, 0, 0]),
-                _ => EscapeControl::Break,
-            }
+        |input| match input {
+            [b'\\', b't', ..] | [b'\\', b'r', ..] | [b'\\', b'n', ..] => EscapeControl::Skip(2),
+            [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
+            [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
+            [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
+            [b'\\', ..] => EscapeControl::Append([1, 2, b'\\', b'\\', 0, 0, 0, 0]),
+            _ => EscapeControl::Break,
         },
     )
 }
@@ -83,18 +85,16 @@ pub fn escape_double_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     _escape(
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n' || chr == b'\r',
-        |input| {
-            match input {
-                [b'\\', b't', ..] | [b'\\', b'r', ..] | [b'\\', b'n', ..] => EscapeControl::Skip(2),
-                [b'\\', b'\t', ..] => EscapeControl::Append([2, 2, b'\\', b't', 0, 0, 0, 0]),
-                [b'\\', b'/', ..] => EscapeControl::Append([2, 1, b'/', 0, 0, 0, 0, 0]),
-                [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
-                [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
-                [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
-                [b'\\', ..] => EscapeControl::Append([1, 2, b'\\', b'\\', 0, 0, 0, 0]),
-                [b'\'', ..] => EscapeControl::Append([1, 2, b'\\', b'\'', 0, 0, 0, 0]),
-                _ => EscapeControl::Break,
-            }
+        |input| match input {
+            [b'\\', b't', ..] | [b'\\', b'r', ..] | [b'\\', b'n', ..] => EscapeControl::Skip(2),
+            [b'\\', b'\t', ..] => EscapeControl::Append([2, 2, b'\\', b't', 0, 0, 0, 0]),
+            [b'\\', b'/', ..] => EscapeControl::Append([2, 1, b'/', 0, 0, 0, 0, 0]),
+            [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
+            [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
+            [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
+            [b'\\', ..] => EscapeControl::Append([1, 2, b'\\', b'\\', 0, 0, 0, 0]),
+            [b'\'', ..] => EscapeControl::Append([1, 2, b'\\', b'\'', 0, 0, 0, 0]),
+            _ => EscapeControl::Break,
         },
     )
 }
@@ -110,7 +110,13 @@ where
     let mut escaped: Option<Vec<u8>> = None;
     let mut _cont = true;
 
-    for NewPos {pos, step, len, bytes} in  escape_iter {
+    for NewPos {
+        pos,
+        step,
+        len,
+        bytes,
+    } in escape_iter
+    {
         if escaped.is_none() {
             escaped = Some(Vec::with_capacity(raw.len()));
         }
