@@ -398,16 +398,18 @@ impl<B> Lexer<B> {
     }
 
     fn fetch_pre_doc<R: Reader<B>>(&mut self, reader: &mut R) {
-        match reader.peek_chars(&mut self.buf) {
+        let is_stream_ending = self.is_stream_ending(reader);
+        let chars = reader.peek_chars(&mut self.buf);
+        match chars {
             [b'%', ..] => {
                 self.set_curr_state(DirectiveSection, 0);
             }
-            b"---" => {
+            b"---" if is_stream_ending => {
                 reader.consume_bytes(3);
                 self.tokens.push_back(DOC_START_EXP);
                 self.set_curr_state(EndOfDirective, 0);
             }
-            b"..." => {
+            b"..." if is_stream_ending => {
                 reader.consume_bytes(3);
                 self.skip_separation_spaces(reader);
                 self.set_curr_state(InDocEnd, 0);
@@ -431,7 +433,9 @@ impl<B> Lexer<B> {
         reader: &mut R,
         directive_state: &mut DirectiveState,
     ) {
-        match reader.peek_chars(&mut self.buf) {
+        let is_stream_ending = self.is_stream_ending(reader);
+        let chars = reader.peek_chars(&mut self.buf);
+        match chars {
             [b'%', b'Y', ..] => {
                 if matches!(
                     directive_state,
@@ -452,7 +456,7 @@ impl<B> Lexer<B> {
                 self.read_line(reader);
             }
             [b'%', ..] => self.fetch_read_tag(reader, directive_state),
-            b"..." => {
+            b"..." if is_stream_ending => {
                 reader.consume_bytes(3);
                 self.tokens.push_back(DOC_START);
                 self.tokens.push_back(DOC_END_EXP);
@@ -460,7 +464,7 @@ impl<B> Lexer<B> {
                 self.set_curr_state(PreDocStart, 0);
                 self.continue_processing = false;
             }
-            b"---" => {
+            b"---" if is_stream_ending => {
                 reader.consume_bytes(3);
                 self.tokens.push_back(DOC_START_EXP);
                 self.set_curr_state(EndOfDirective, 0);
@@ -535,8 +539,10 @@ impl<B> Lexer<B> {
         self.skip_separation_spaces(reader);
         let col = reader.col();
 
-        match reader.peek_chars(&mut self.buf) {
-            b"---" => {
+        let is_stream_ending = self.is_stream_ending(reader);
+        let chars = reader.peek_chars(&mut self.buf);
+        match chars {
+            b"---" if is_stream_ending => {
                 reader.consume_bytes(3);
                 if col != 0 {
                     self.push_error(ErrorType::UnxpectedIndentDocEnd {
@@ -548,7 +554,7 @@ impl<B> Lexer<B> {
                 self.tokens.push_back(DOC_END);
                 self.tokens.push_back(DOC_START_EXP);
             }
-            b"..." => {
+            b"..." if is_stream_ending => {
                 reader.consume_bytes(3);
                 if col != 0 {
                     self.push_error(ErrorType::UnxpectedIndentDocEnd {
@@ -580,8 +586,10 @@ impl<B> Lexer<B> {
         let mut consume_line = false;
         self.skip_separation_spaces(reader);
 
-        match reader.peek_chars(&mut self.buf) {
-            b"..." => {
+        let is_stream_ending = self.is_stream_ending(reader);
+        let chars = reader.peek_chars(&mut self.buf);
+        match chars {
+            b"..." if is_stream_ending => {
                 let col = reader.col();
                 reader.consume_bytes(3);
                 if col != 0 {
@@ -621,13 +629,13 @@ impl<B> Lexer<B> {
                 self.set_curr_state(DirectiveSection, read_line);
             }
             Some(b'-') => {
-                if reader.peek_chars(&mut self.buf) == b"---" {
+                if self.is_stream_ending(reader) {
                     reader.consume_bytes(3);
                     self.tokens.push_back(DOC_START_EXP);
                 }
             }
             Some(b'.') => {
-                if reader.peek_chars(&mut self.buf) == b"..." {
+                if self.is_stream_ending(reader) {
                     reader.consume_bytes(3);
                     self.tokens.push_back(DOC_END_EXP);
                 }
@@ -647,7 +655,10 @@ impl<B> Lexer<B> {
 
     fn fetch_block_seq<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         self.continue_processing = false;
-        match reader.peek_chars(&mut self.buf) {
+        let is_stream_ending = self.is_stream_ending(reader);
+        let chars = reader.peek_chars(&mut self.buf);
+
+        match chars {
             [b'{', ..] => self.process_flow_map_start(reader),
             [b'[', ..] => self.process_flow_seq_start(reader),
             [b'&', ..] => self.parse_anchor(reader),
@@ -656,8 +667,8 @@ impl<B> Lexer<B> {
                 self.process_block_seq(reader, curr_state);
                 self.set_block_seq_state(BlockSeqState::AfterMinus);
             }
-            b"---" => self.unwind_to_root_start(reader),
-            b"..." => self.unwind_to_root_end(reader),
+            b"---" if is_stream_ending => self.unwind_to_root_start(reader),
+            b"..." if is_stream_ending => self.unwind_to_root_end(reader),
             [b'?', x, ..] if is_white_tab_or_break(*x) => {
                 self.fetch_exp_block_map_key(reader, curr_state)
             }
@@ -683,7 +694,10 @@ impl<B> Lexer<B> {
 
     fn fetch_block_map<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         self.continue_processing = false;
-        match reader.peek_chars(&mut self.buf) {
+        let is_stream_ending = self.is_stream_ending(reader);
+
+        let chars = reader.peek_chars(&mut self.buf);
+        match chars {
             [b'{', ..] => self.process_flow_map_start(reader),
             [b'[', ..] => self.process_flow_seq_start(reader),
             [b'&', ..] => self.parse_anchor(reader),
@@ -695,10 +709,10 @@ impl<B> Lexer<B> {
             [b'-', peek, ..] if !ns_plain_safe(*peek) => {
                 self.process_block_seq(reader, curr_state);
             }
-            b"..." => {
+            b"..." if is_stream_ending => {
                 self.unwind_to_root_end(reader);
             }
-            b"---" => {
+            b"---" if is_stream_ending => {
                 self.unwind_to_root_start(reader);
             }
             [b'?', peek, ..] if !ns_plain_safe(*peek) => {
@@ -1931,10 +1945,7 @@ impl<B> Lexer<B> {
             return tokens;
         }
         loop {
-            if reader.peek_chars(&mut self.buf) == b"..."
-                || reader.peek_chars(&mut self.buf) == b"---"
-                || reader.eof()
-            {
+            if reader.eof() || self.is_stream_ending(reader) {
                 break;
             }
 
@@ -1985,6 +1996,16 @@ impl<B> Lexer<B> {
         }
         self.chomp(new_lines, &chomp, &mut tokens);
         tokens
+    }
+
+    #[inline(always)]
+    fn is_stream_ending<R: Reader<B>>(&mut self, reader: &mut R) -> bool {
+        let chars = reader.peek_chars(&mut self.buf);
+        (chars == b"..." || chars == b"---")
+            && reader.peek_byte_at(3).map_or(true, |c| {
+                c == b'\t' || c == b' ' || c == b'\r' || c == b'\n' || c == b'[' || c == b'{'
+            })
+            && reader.col() == 0
     }
 
     fn process_trim<R: Reader<B>>(
