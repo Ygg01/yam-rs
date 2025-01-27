@@ -134,10 +134,31 @@ const BLOCK_STRINGS_EXPECTED2: &str = r#"
   -SEQ
  -DOC"#;
 
+const BLOCK_STRINGS_INPUT3: &str = r#"
+strip: |-
+  text
+clip: |
+  text
+keep: |
+  text"#;
+
+const BLOCK_STRINGS_EXPECTED3: &str = r#"
+ +DOC
+  +MAP
+   =VAL :strip
+   =VAL |text
+   =VAL :clip
+   =VAL |text\n
+   =VAL :keep
+   =VAL |text\n
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn literal_block() {
     assert_eq_event(BLOCK_STRINGS_INPUT, BLOCK_STRINGS_EXPECTED);
     assert_eq_event(BLOCK_STRINGS_INPUT2, BLOCK_STRINGS_EXPECTED2);
+    assert_eq_event(BLOCK_STRINGS_INPUT3, BLOCK_STRINGS_EXPECTED3);
 }
 
 const BLOCK_PLAIN: &str = r#"
