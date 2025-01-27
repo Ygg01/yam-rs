@@ -53,9 +53,22 @@ pub struct Buffers {
 
 impl Buffer for Buffers {}
 
-trait YamlIndex {}
-
-#[doc(hidden)]
+/// Represents the state of the YAML parser.
+///
+/// This struct is used internally to keep track of various aspects of the parser's state
+/// as it processes a YAML document.
+///
+/// # Fields (for internal use only)
+///
+/// - `last_indent`: The indentation level of the last parsed line.
+/// - `last_col`: The column number of the last parsed character.
+/// - `last_row`: The row number of the last parsed character.
+/// - `is_prev_double_quotes`: Indicates whether the previous character was a double quote.
+/// - `is_prev_iter_odd_single_quote`: Indicates whether the previous iteration ended with an odd number of single quotes.
+/// - `is_indent_frozen`: Indicates whether the current indentation level is frozen (cannot be changed).
+/// - `is_previous_white_space`: Indicates whether the previous character was whitespace.
+/// - `prev_iter_inside_quote`: A bitmask indicating whether each character in the previous chunk was inside quotes.
+/// - `is_in_comment`: Indicates whether the parser is currently inside a comment.
 #[derive(Default)]
 pub struct YamlParserState {
     pub(crate) last_indent: u32,

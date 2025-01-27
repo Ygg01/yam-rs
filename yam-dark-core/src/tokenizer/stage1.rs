@@ -42,12 +42,12 @@ use crate::{util, NativeScanner, ParseResult, EVEN_BITS, ODD_BITS, SIMD_CHUNK_LE
 ///
 /// # Fields
 ///
-/// * `double_quote` - State related to double-quoted YAML strings.
-/// * `single_quote` - State related to single-quoted YAML strings.
-/// * `characters` - Classifications of characters (e.g., whitespace, operators).
-/// * `rows` - Vector maintaining the row positions in the chunk.
-/// * `cols` - Vector maintaining the column positions in the chunk.
-/// * `indents` - Vector maintaining the indent levels in the chunk.
+/// * `double_quote` - [`YamlDoubleQuoteChunk`] struct containing double-quoted YAML strings information.
+/// * `single_quote` - [`YamlSingleQuoteChunk`] struct containing single-quoted YAML strings information.
+/// * `characters` - [`YamlCharacterChunk`] struct containing info for characters (e.g., whitespace, operators).
+/// * `rows` - [`Vec`] maintaining the row positions in the chunk.
+/// * `cols` - [`Vec`] maintaining the column positions in the chunk.
+/// * `indents` - [`Vec`] maintaining the indent levels in the chunk.
 /// * `follows_non_quote_scalar` - Bitmask indicating positions following non-quote scalar values.
 /// * `error_mask` - Bitmask indicating positions with errors.
 ///
