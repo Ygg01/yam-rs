@@ -150,7 +150,7 @@ impl<'a> StrReader<'a> {
         let remaining = slice.len().saturating_sub(start);
         let content = &slice[start..];
         let (n, newline) = memchr::memchr2_iter(b'\r', b'\n', content).next().map_or(
-            (remaining, remaining),
+            (remaining, 0),
             |p| {
                 if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
                     (p, 2)
@@ -169,7 +169,7 @@ impl<'a> StrReader<'a> {
         let content = &slice[start..];
         let (n, newline) = memchr::memchr3_iter(b'\r', b'\n', quote, content)
             .next()
-            .map_or((remaining, remaining), |p| {
+            .map_or((remaining, 0), |p| {
                 if content[p] == quote {
                     (p + 1, 0)
                 } else if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
