@@ -11,10 +11,12 @@ const BLOCK2_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_EXPECTED: &'static str = r#"
- +SEQ
-  =VAL :x
-  =VAL :y
- -SEQ"#;
+ +DOC
+  +SEQ
+   =VAL :x
+   =VAL :y
+  -SEQ
+ -DOC"#;
 
 mod common;
 
@@ -30,10 +32,12 @@ const BLOCK_ERR_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_ERR_EXPECTED: &'static str = r#"
- +SEQ
-  =VAL :x
-  ERR
- -SEQ"#;
+ +DOC
+  +SEQ
+   =VAL :x
+   ERR
+  -SEQ
+ -DOC"#;
 
 #[test]
 pub fn block_plain_err() {
@@ -46,12 +50,14 @@ const BLOCK_NESTED_SEQ_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_NESTED_SEQ_EXPECTED: &'static str = r#"
- +SEQ
+ +DOC
   +SEQ
-   =VAL :a
-   =VAL :b
+   +SEQ
+    =VAL :a
+    =VAL :b
+   -SEQ
   -SEQ
- -SEQ"#;
+ -DOC"#;
 
 #[test]
 pub fn block_nested() {
@@ -87,17 +93,21 @@ const BLOCK_STRINGS_INPUT2: &'static str = r#"
 "#;
 
 const BLOCK_STRINGS_EXPECTED: &'static str = r#"
- +SEQ
-  =VAL |# keep\n\n
-  =VAL |literal\nnext line\n
-  =VAL >folded are continued\n
-  =VAL >strip\n newline
- -SEQ"#;
+ +DOC
+  +SEQ
+   =VAL |# keep\n\n
+   =VAL |literal\nnext line\n
+   =VAL >folded are continued\n
+   =VAL >strip\n newline
+  -SEQ
+ -DOC"#;
 
 const BLOCK_STRINGS_EXPECTED2: &'static str = r#"
- +SEQ
-  =VAL >1\n 2\n3 4
- -SEQ"#;
+ +DOC
+  +SEQ
+   =VAL >1\n 2\n3 4
+  -SEQ
+ -DOC"#;
 
 #[test]
 pub fn literal_block() {
@@ -113,7 +123,9 @@ const BLOCK_PLAIN: &'static str = r#"
 "#;
 
 const BLOCK_PLAIN_EXPECTED: &'static str = r#"
- =VAL :a b c d e"#;
+ +DOC
+  =VAL :a b c d e
+ -DOC"#;
 
 #[test]
 pub fn plain_block() {
@@ -130,9 +142,11 @@ const SEQ_PLAIN2: &'static str = r#"
 "#;
 
 const SEQ_PLAIN_EXPECTED: &'static str = r#"
- +SEQ
-  =VAL :x - y
- -SEQ"#;
+ +DOC
+  +SEQ
+   =VAL :x - y
+  -SEQ
+ -DOC"#;
 
 #[test]
 pub fn seq_plain() {
@@ -148,12 +162,14 @@ const BLOCK_MAP_INPUT: &'static str = r#"
 "#;
 
 const BLOCK_MAP_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :a
-  =VAL :x u
-  =VAL :c
-  =VAL :
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :a
+   =VAL :x u
+   =VAL :c
+   =VAL :
+  -MAP
+ -DOC"#;
 
 const BLOCK_MAP_INPUT3: &'static str = r#"
 :
@@ -163,28 +179,32 @@ d:
 "#;
 
 const BLOCK_MAP_EXPECTED3: &'static str = r#"
- +MAP
-  =VAL :
-  =VAL :
-  =VAL :a
-  =VAL :b
-  =VAL :
-  =VAL :c
-  =VAL :d
-  =VAL :
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :
+   =VAL :
+   =VAL :a
+   =VAL :b
+   =VAL :
+   =VAL :c
+   =VAL :d
+   =VAL :
+  -MAP
+ -DOC"#;
 
 const BLOCK_MAP_INPUT2: &'static str = r#"
 c:
 d:"#;
 
 const BLOCK_MAP_EXPECTED2: &'static str = r#"
- +MAP
-  =VAL :c
-  =VAL :
-  =VAL :d
-  =VAL :
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :c
+   =VAL :
+   =VAL :d
+   =VAL :
+  -MAP
+ -DOC"#;
 
 #[test]
 pub fn block_map() {
@@ -204,10 +224,12 @@ const MULTILINE_COMMENT_BLOCK2: &'static str = r#"
 "#;
 
 const MULTILINE_COMMENT_BLOCK1_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :mul
-  =VAL :abc
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :mul
+   =VAL :abc
+  -MAP
+ -DOC"#;
 
 const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
   multi:
@@ -216,12 +238,14 @@ const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
 "#;
 
 const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :multi
-  =VAL :ab
-  ERR
-  =VAL :xyz
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :multi
+   =VAL :ab
+   ERR
+   =VAL :xyz
+  -MAP
+ -DOC"#;
 
 const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
   multi:
@@ -230,10 +254,12 @@ const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
 "#;
 
 const MULTILINE_COMMENT_BLOCK4_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :multi
-  =VAL :ab xyz
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :multi
+   =VAL :ab xyz
+  -MAP
+ -DOC"#;
 
 #[test]
 pub fn multiline_block_comment() {
@@ -255,18 +281,22 @@ const EXPLICIT_BLOCK_MAP_MIX: &'static str = r#"
 "#;
 
 const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :test
-  =VAL :value
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :test
+   =VAL :value
+  -MAP
+ -DOC"#;
 
 const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :test
-  =VAL :value
-  =VAL :tx
-  =VAL :x
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :test
+   =VAL :value
+   =VAL :tx
+   =VAL :x
+  -MAP
+ -DOC"#;
 
 #[test]
 pub fn explicit_block_map() {
@@ -280,11 +310,13 @@ const EXPLICIT_BLOCK_MAP_ERR1: &'static str = r#"
 "#;
 
 const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :test
-  ERR
-  =VAL :value
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :test
+   ERR
+   =VAL :value
+  -MAP
+ -DOC"#;
 
 const EXPLICIT_BLOCK_MAP_ERR2: &'static str = r#"
   ? test
@@ -292,11 +324,13 @@ const EXPLICIT_BLOCK_MAP_ERR2: &'static str = r#"
 "#;
 
 const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &'static str = r#"
- +MAP
-  =VAL :test
-  ERR
-  =VAL :value
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL :test
+   ERR
+   =VAL :value
+  -MAP
+ -DOC"#;
 
 #[test]
 pub fn explicit_block_map_err() {
@@ -311,10 +345,12 @@ const EXP_MAP_COMBINATION: &'static str = r#"
 "#;
 
 const EXP_MAP_COMBINATION_EXPECTED: &'static str = r#"
- +MAP
-  =VAL >test\n
-  =VAL :x
- -MAP"#;
+ +DOC
+  +MAP
+   =VAL >test\n
+   =VAL :x
+  -MAP
+ -DOC"#;
 
 #[test]
 pub fn explicit_block_combination() {
