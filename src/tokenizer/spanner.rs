@@ -1,7 +1,6 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
-use std::ops::ControlFlow::{Break, Continue};
 
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
@@ -497,7 +496,7 @@ impl Spanner {
 
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, start_indent: usize) {
         let mut allow_minus = false;
-        let mut first_in_block = !self.curr_state.in_flow_collection();
+        let mut first_line_block = !self.curr_state.in_flow_collection();
         let mut num_newlines = 0;
         let mut tokens = vec![];
         let mut curr_indent = reader.col();
@@ -534,7 +533,7 @@ impl Spanner {
 
             let chr = reader.peek_byte_unwrap(0);
 
-            if first_in_block && chr == b':' {
+            if first_line_block && chr == b':' {
                 if self.curr_state.is_new_block_col(curr_indent) {
                     self.push_state(BlockMap(curr_indent));
                     self.tokens.push_back(MappingStart);
@@ -552,7 +551,7 @@ impl Spanner {
 
             tokens.push(MarkStart(start));
             tokens.push(MarkEnd(end));
-            first_in_block = false;
+            first_line_block = false;
 
             if is_newline(chr) {
                 let folded_newline = self.skip_separation_spaces(reader, false);
@@ -636,42 +635,42 @@ impl Spanner {
             return None;
         }
 
-        let mut end = reader.consume_bytes(1);
+        let end = reader.consume_bytes(1);
         let (_, line_end, _) = reader.get_line_offset();
         let line_end = reader.eof_or_pos(line_end);
-        let mut newline = false;
+        let mut end_of_str = end;
 
-        while end < line_end {
-            let spaces = reader.count_space_tab_range_from(end.., true);
-            let read_iter = reader.position_until_range(end + spaces..=line_end, |pos, x0, x1| {
-                // ns-plain-char  prevent ` #`
-                if is_white_tab_or_break(x0) && x1 == b'#' {
-                    return Break(pos);
-                }
-
-                // ns-plain-char prevent `: `
-                // or `:{`  in flow collections
-                if x0 == b':' && !ns_plain_safe(x1, in_flow_collection) {
-                    return Break(pos);
-                }
-
-                if !ns_plain_safe(x0, in_flow_collection) {
-                    newline = is_newline(x0);
-                    return Break(pos);
-                } else if !ns_plain_safe(x1, in_flow_collection) {
-                    newline = is_newline(x1);
-                    return Break(pos + 1);
-                };
-
-                Continue(pos + 1)
-            });
-            if read_iter == 0 {
+        for (prev, curr, next, pos) in reader.get_lookahead_iterator(end..=line_end) {
+            // ns-plain-char  prevent ` #`
+            if curr == b'#' && is_white_tab_or_break(prev) {
                 break;
             }
-            end += read_iter + spaces;
-        }       
-        reader.set_pos(end);
-        Some((start, end))
+            // ns-plain-char prevent `: `
+            // or `:{`  in flow collections
+            if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
+                // commit any uncommited character, but ignore first character
+                if !is_white_tab(prev) && pos != end {
+                    end_of_str += 1;
+                }
+                break;
+            }
+
+            if is_flow_indicator(curr) {
+                break;
+            }
+
+            if is_white_tab(curr) {
+                // commit any uncommited character, but ignore first character
+                if !is_white_tab(prev) && pos != end {
+                    end_of_str += 1;
+                }
+                continue;
+            }
+            end_of_str = pos;
+        }
+
+        reader.set_pos(end_of_str);
+        Some((start, end_of_str))
     }
 
     fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R) {

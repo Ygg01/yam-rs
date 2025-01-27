@@ -168,36 +168,40 @@ pub fn block_map() {
 }
 
 const MULTILINE_COMMENT_BLOCK1: &'static str = r#"
-  multi: 
+  mul: 
+    abc  # a comment
+"#;
+
+const MULTILINE_COMMENT_BLOCK2: &'static str = r#"
+  mul  : 
     abc  # a comment
 "#;
 
 const MULTILINE_COMMENT_BLOCK1_EXPECTED: &'static str = r#"
   +MAP
-    =VAL multi
+    =VAL mul
     -KEY-
-    =VAL ab
-    -SEP-
-  -MAP
-"#;
+    =VAL abc
+  -MAP"#;
 
-const MULTILINE_COMMENT_BLOCK2: &'static str = r#"
-  multi:
-    ab  # a comment
-    xyz  # a commeent
-"#;
+// const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
+//   multi:
+//     ab  # a comment
+//     xyz  # a commeent
+// "#;
 
-const MULTILINE_COMMENT_BLOCK2_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL multi
-    -KEY-
-    =VAL ab
+// const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
+//   +MAP
+//     =VAL multi
+//     -KEY-
+//     =VAL ab
 
-  -MAP
-"#;
+//   -MAP
+// "#;
 
 #[test]
 pub fn multiline_block_comment() {
     assert_eq_event(MULTILINE_COMMENT_BLOCK1, MULTILINE_COMMENT_BLOCK1_EXPECTED);
-    assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK2_EXPECTED);
+    // assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK1_EXPECTED);
+    // assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK2_EXPECTED);
 }

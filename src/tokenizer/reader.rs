@@ -1,8 +1,8 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use std::{ops::ControlFlow, slice::Windows};
-use std::ops::{Range, RangeFrom, RangeInclusive};
+use std::ops::ControlFlow;
 use std::ops::ControlFlow::{Break, Continue};
+use std::ops::{Range, RangeFrom, RangeInclusive};
 
 use memchr::memchr3_iter;
 
@@ -24,30 +24,44 @@ impl<'a> StrReader<'a> {
     }
 }
 
-pub trait QueryUntil {
-    fn position_until_window<P>(&mut self, predicate: P) -> (usize, bool)
-        where
-            Self: Sized,
-            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
+pub struct LookAroundBytes<'a> {
+    iter: &'a [u8],
+    pos: usize,
+    end: usize,
 }
 
-impl<'a> QueryUntil for Windows<'a, u8> {
-    #[inline]
-    fn position_until_window<P>(&mut self, predicate: P) -> (usize, bool)
-        where
-            Self: Sized,
-            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
-    {
-        #[inline]
-        fn check<'a>(
-            mut predicate: impl FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
-        ) -> impl FnMut(usize, &'a [u8]) -> ControlFlow<usize, usize> {
-            move |pos, x| predicate(pos, x[0], x[1])
-        }
+impl<'a> LookAroundBytes<'a> {
+    pub(crate) fn new(iter: &'a [u8], range: RangeInclusive<usize>) -> LookAroundBytes<'a> {
+        let (&pos, &end) = (range.start(), range.end());
 
-        match self.try_fold(0usize, check(predicate)) {
-            Break(x) => (x, false),
-            Continue(x) => (x, true),
+        LookAroundBytes { iter, pos, end }
+    }
+}
+
+impl<'a> Iterator for LookAroundBytes<'a> {
+    type Item = (u8, u8, u8, usize);
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos <= self.end {
+            let prev = if self.pos < 1 {
+                b'\0'
+            } else {
+                unsafe { *self.iter.get_unchecked(self.pos - 1) }
+            };
+            let curr = unsafe { *self.iter.get_unchecked(self.pos) };
+            let next = unsafe {
+                if self.pos + 1 < self.iter.len() {
+                    *self.iter.get_unchecked(self.pos + 1)
+                } else {
+                    b'\0'
+                }
+            };
+            let x = Some((prev, curr, next, self.pos));
+            self.pos += 1;
+            x
+        } else {
+            None
         }
     }
 }
@@ -84,15 +98,13 @@ pub trait Reader {
         self.consume_bytes(x);
         x
     }
+    fn get_lookahead_iterator(&self, range: RangeInclusive<usize>) -> LookAroundBytes;
     #[inline]
     fn count_space_tab(&self, allow_tab: bool) -> usize {
         self.count_space_tab_range_from(self.pos().., allow_tab)
     }
     fn count_space_tab_range_from(&self, range: RangeFrom<usize>, allow_tab: bool) -> usize;
     fn count_space_tab_range(&self, range: Range<usize>, allow_tab: bool) -> usize;
-    fn position_until_range<P>(&self, range: RangeInclusive<usize>, predicate: P) -> usize
-        where
-            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
     fn skip_n_spaces(&mut self, skip: usize) -> Result<(), ErrorType>;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
@@ -154,6 +166,10 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
+    fn get_lookahead_iterator(&self, range: RangeInclusive<usize>) -> LookAroundBytes {
+        LookAroundBytes::new(&self.slice.as_bytes(), range)
+    }
+
     #[inline]
     fn count_space_tab_range_from(&self, range: RangeFrom<usize>, allow_tab: bool) -> usize {
         match self.slice.as_bytes()[range]
@@ -172,22 +188,6 @@ impl<'r> Reader for StrReader<'r> {
         {
             Continue(x) | Break(x) => x,
         }
-    }
-
-    fn position_until_range<P>(&self, range: RangeInclusive<usize>, mut predicate: P) -> usize
-        where
-            P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
-    {
-        let last_pos = range.end() - range.start();
-        let slice = &self.slice.as_bytes()[range.clone()];
-        let (mut pos, is_continue) = slice
-            .windows(2)
-            .position_until_window(&mut predicate);
-        let x = self.slice.as_bytes()[*range.end()];
-        if is_continue && pos == last_pos && predicate(pos, x, x).is_continue() {
-            pos += 1;
-        }
-        pos
     }
 
     fn skip_n_spaces(&mut self, num_spaces: usize) -> Result<(), ErrorType> {
@@ -270,16 +270,16 @@ impl<'r> Reader for StrReader<'r> {
         let start = self.pos;
         let remaining = slice.len() - start;
         let content = &slice[start..];
-        let (n, newline) =
-            memchr::memchr2_iter(b'\r', b'\n', content)
-                .next()
-                .map_or((remaining, remaining), |p| {
-                    if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
-                        (p, 2)
-                    } else {
-                        (p, 1)
-                    }
-                });
+        let (n, newline) = memchr::memchr2_iter(b'\r', b'\n', content).next().map_or(
+            (remaining, remaining),
+            |p| {
+                if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
+                    (p, 2)
+                } else {
+                    (p, 1)
+                }
+            },
+        );
         (start, start + n, start + n + newline)
     }
 
@@ -323,7 +323,7 @@ impl<'r> Reader for StrReader<'r> {
             needle3,
             &self.slice.as_bytes()[self.pos..],
         )
-            .next()
+        .next()
     }
 }
 
@@ -432,59 +432,6 @@ pub fn skip_whitespace() {
     assert_eq!(2, StrReader::new("\t null").skip_whitespace());
 }
 
-#[test]
-pub fn test_position_until() {
-    let look_ahead = StrReader::new("test #");
-    let range = 0..=look_ahead.slice.len() - 1;
-
-    #[inline]
-    pub(crate) fn is_tab_space(b: u8) -> bool {
-        match b {
-            b' ' | b'\t' => true,
-            _ => false,
-        }
-    }
-
-    assert_eq!(
-        4,
-        look_ahead.position_until_range(range.clone(), |pos, x0, x1| {
-            if is_tab_space(x0) && x1 == b'#' {
-                Break(pos)
-            } else {
-                Continue(pos + 1)
-            }
-        })
-    );
-
-    let look_behind = StrReader::new("test# ");
-
-    assert_eq!(
-        4,
-        look_behind.position_until_range(range.clone(), |pos, x0, x1| {
-            if x0 == b'#' && is_tab_space(x1) {
-                Break(pos)
-            } else {
-                Continue(pos + 1)
-            }
-        })
-    );
-
-    let look_any = StrReader::new("test# ");
-
-    assert_eq!(
-        5,
-        look_any.position_until_range(range, |pos, x0, x1| {
-            if is_tab_space(x0) {
-                Break(pos)
-            } else if is_tab_space(x1) {
-                Break(pos + 1)
-            } else {
-                Continue(pos + 1)
-            }
-        })
-    );
-}
-
 #[inline]
 pub(crate) fn is_white_tab_or_break(chr: u8) -> bool {
     match chr {
@@ -494,10 +441,10 @@ pub(crate) fn is_white_tab_or_break(chr: u8) -> bool {
 }
 
 #[inline]
-pub(crate) fn ns_plain_safe(chr: u8, is_in: bool) -> bool {
+pub(crate) fn ns_plain_safe(chr: u8, in_flow: bool) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => false,
-        b',' | b'[' | b']' | b'{' | b'}' if is_in => false,
+        b',' | b'[' | b']' | b'{' | b'}' if in_flow => false,
         _ => true,
     }
 }
