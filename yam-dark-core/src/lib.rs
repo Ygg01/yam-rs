@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+#![allow(clippy::too_many_arguments, clippy::module_name_repetitions)]
 #![no_std]
 extern crate alloc;
 extern crate core_detect;

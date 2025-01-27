@@ -172,6 +172,7 @@ pub struct YamlCharacterChunk {
 }
 
 impl YamlCharacterChunk {
+    #[must_use]
     pub const fn all_structurals(&self) -> u64 {
         self.flow_structurals | self.block_structurals
     }

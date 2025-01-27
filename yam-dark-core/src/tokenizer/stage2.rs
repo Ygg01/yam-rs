@@ -106,6 +106,7 @@ impl Buffer for Buffers {}
 /// - `prev_iter_inside_quote`: A bitmask indicating whether each character in the previous chunk was inside quotes.
 /// - `is_in_comment`: Indicates whether the parser is currently inside a comment.
 #[derive(Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct YamlParserState {
     pub(crate) structurals: Vec<usize>,
     pub(crate) byte_cols: Vec<u32>,
@@ -138,8 +139,8 @@ impl YamlParserState {
 ///
 /// # Arguments
 ///
-/// * `pre_checked`: `true` when working with [core::str] thus not requiring any validation, `false`
-///   otherwise. **Note:** if your [core::str] isn't UTF-8 formatted this will cause Undefined behavior.
+/// * `pre_checked`: `true` when working with [`core::str`] thus not requiring any validation, `false`
+///   otherwise. **Note:** if your [`core::str`] isn't UTF-8 formatted this will cause Undefined behavior.
 ///
 /// returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
 /// is guaranteed to be correct for your CPU architecture.

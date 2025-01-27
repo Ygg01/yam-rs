@@ -56,6 +56,7 @@ impl ChunkedUtf8Validator for NoopValidator {
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[must_use]
 pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
     let mut result = 0;
 
@@ -107,6 +108,7 @@ pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[must_use]
 pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
     let mut result = input & mask;
 
@@ -151,6 +153,7 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u8) -> [u8; 8] {
 
 #[doc(hidden)]
 #[inline]
+#[must_use]
 pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 8] {
     [
         cols[0] + *prev_col,

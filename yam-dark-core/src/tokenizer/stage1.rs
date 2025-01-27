@@ -22,6 +22,7 @@
 // SOFTWARE.
 
 #![allow(unused)]
+#![allow(clippy::module_name_repetitions)]
 
 use alloc::vec::Vec;
 use core::ptr::write;
@@ -293,7 +294,7 @@ pub unsafe trait Stage1Scanner {
         let count_cols = (newline_mask.count_ones() + 1);
         let mut neg_indents_mask = select_right_bits_branch_less(
             space_mask,
-            (newline_mask << 1) ^ (*is_indent_running as u64),
+            (newline_mask << 1) ^ u64::from(*is_indent_running),
         );
         let last_bit = (neg_indents_mask | newline_mask) & (1 << 63) != 0;
         indents.reserve(68);
@@ -378,6 +379,7 @@ pub unsafe trait Stage1Scanner {
     /// assert_eq!(quote_mask, 0b11111);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
     fn compute_quote_mask(quote_bits: u64) -> u64 {
         let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
         quote_mask = quote_mask ^ (quote_mask << 2);
@@ -441,8 +443,8 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `chunk_state` - A mutable reference to a [YamlChunkState] object that contains current chunk data.
-    /// * `parser_state` - A mutable reference to a [YamlParserState] object that stores parser's state information.
+    /// * `chunk_state` - A mutable reference to a [`YamlChunkState`] object that contains current chunk data.
+    /// * `parser_state` - A mutable reference to a [`YamlParserState`] object that stores parser's state information.
     ///
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_for_comments(
@@ -529,7 +531,7 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments
     ///
     /// - `block_state`: A mutable reference to a current [`YamlChunkState`]. It will  update the
-    ///   [YamlSingleQuoteChunk] with data for scanned single quotes.
+    ///   [`YamlSingleQuoteChunk`] with data for scanned single quotes.
     /// - `prev_iter_state`: A mutable reference to previous iteration [`YamlParserState`].
     ///
     /// # Example
@@ -593,6 +595,7 @@ pub unsafe trait Stage1Scanner {
     ///  );
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
         util::select_left_bits_branch_less(quote_bits, even_ends)
     }
