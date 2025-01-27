@@ -1,8 +1,8 @@
-extern crate steel_yaml;
+extern crate yam_core;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use steel_yaml::tokenizer::assert_eq_event;
+use yam_core::tokenizer::assert_eq_event;
 
 const IN1: &str = r#"
 [&map {a: b}]
