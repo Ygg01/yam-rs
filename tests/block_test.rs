@@ -2504,8 +2504,23 @@ const X1_K858_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_MJS9_INPUT: &str = r"
+>
+  a 
+
+  	 b
+  
+  c
+";
+
+const X1_MJS9_EVENTS: &str = r"
++DOC
+=VAL >a \n\n\t b\n\nc\n
+-DOC";
+
 #[test]
 fn block_chomp() {
+    assert_eq_event(X1_MJS9_INPUT, X1_MJS9_EVENTS);
     assert_eq_event(X1_K858_INPUT, X1_K858_EVENTS);
 }
 
@@ -2546,8 +2561,53 @@ const X2_KK5P_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_M5DY_INPUT: &str = r"
+? [ New York Yankees,
+    Atlanta Braves ]
+: [ 2001-07-02, 2001-08-12,
+    2001-08-14 ]
+";
+
+const X1_M5DY_EVENTS: &str = r"
++DOC
++MAP
++SEQ []
+=VAL :New York Yankees
+=VAL :Atlanta Braves
+-SEQ
++SEQ []
+=VAL :2001-07-02
+=VAL :2001-08-12
+=VAL :2001-08-14
+-SEQ
+-MAP
+-DOC";
+
+const X2_M5DY_INPUT: &str = r"
+? a
+:
+  - c1
+
+? b
+: c";
+
+const X2_M5DY_EVENTS: &str = r"
++DOC
++MAP
+=VAL :a
++SEQ
+=VAL :c1
+-SEQ
+=VAL :b
+=VAL :c
+-MAP
+-DOC";
+
 #[test]
-fn block_complex_exp() {
+fn block_complex_exp_mix() {
+    assert_eq_event(X1_M5DY_INPUT, X1_M5DY_EVENTS);
+    assert_eq_event(X2_M5DY_INPUT, X2_M5DY_EVENTS);
+
     assert_eq_event(X2_KK5P_INPUT, X2_KK5P_EVENTS);
     assert_eq_event(X1_KK5P_INPUT, X1_KK5P_EVENTS);
 }
