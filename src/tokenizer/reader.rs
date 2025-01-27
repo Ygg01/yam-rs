@@ -92,7 +92,11 @@ pub trait Reader<B> {
         tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
     );
-    fn read_double_quote(&mut self, is_multiline: &mut bool) -> Vec<usize>;
+    fn read_double_quote(
+        &mut self,
+        is_multiline: &mut bool,
+        errors: &mut Vec<ErrorType>,
+    ) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool);
     fn consume_anchor_alias(&mut self) -> (usize, usize);

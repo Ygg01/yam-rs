@@ -894,3 +894,19 @@ const DQUOTE_EVENTS: &str = r#"
 fn block_multiline_dquote() {
     assert_eq_event(DQUOTE_INPUT, DQUOTE_EVENTS);
 }
+
+const DQUOTE_END_INPUT: &str = r##"
+"
+---
+""##;
+
+const DQUOTE_END_EVENTS: &str = r#"
+ +DOC
+  ERR
+  =VAL "---
+ -DOC"#;
+
+#[test]
+fn block_dquote_end_of_stream() {
+    assert_eq_event(DQUOTE_END_INPUT, DQUOTE_END_EVENTS);
+}

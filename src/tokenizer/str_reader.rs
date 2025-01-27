@@ -147,7 +147,7 @@ impl<'a> StrReader<'a> {
     fn get_line_offset(&self) -> (usize, usize, usize) {
         let slice = self.slice;
         let start = self.pos;
-        let remaining = slice.len() - start;
+        let remaining = slice.len().saturating_sub(start);
         let content = &slice[start..];
         let (n, newline) = memchr::memchr2_iter(b'\r', b'\n', content).next().map_or(
             (remaining, remaining),
@@ -221,14 +221,20 @@ impl<'a> StrReader<'a> {
     fn quote_trim(
         &mut self,
         start_str: &mut usize,
-        line_end: usize,
         newspaces: &mut Option<usize>,
+        errors: &mut Vec<ErrorType>,
         tokens: &mut Vec<usize>,
     ) -> QuoteState {
+        self.update_newlines(&mut None, start_str);
+        let (_, line_end, _) = self.get_line_offset();
+        if self.col == 0 && (matches!(self.peek_chars(), b"..." | b"---")) {
+            errors.push(ErrorType::UnexpectedEndOfStream);
+            tokens.insert(0, ErrorToken as usize);
+        };
         let match_pos = self.slice[self.pos..line_end]
             .iter()
             .rev()
-            .position(|chr| *chr != b' ' && *chr != b'\t')
+            .position(|chr| *chr != b' ' && *chr != b'\t' && *chr != b'-')
             .map_or(line_end, |find| line_end.saturating_sub(find));
         let len = match_pos.saturating_sub(*start_str);
         emit_token_mut(start_str, match_pos, newspaces, tokens);
@@ -533,7 +539,11 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_double_quote(&mut self, is_multiline: &mut bool) -> Vec<usize> {
+    fn read_double_quote(
+        &mut self,
+        is_multiline: &mut bool,
+        errors: &mut Vec<ErrorType>,
+    ) -> Vec<usize> {
         let mut start_str = self.consume_bytes(1);
         let mut tokens = vec![ScalarDoubleQuote as usize];
         let mut newspaces = None;
@@ -550,7 +560,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                     &mut tokens,
                 ),
                 QuoteState::Trim => {
-                    self.quote_trim(&mut start_str, line_end, &mut newspaces, &mut tokens)
+                    self.quote_trim(&mut start_str, &mut newspaces, errors, &mut tokens)
                 }
                 QuoteState::End => break,
             };
