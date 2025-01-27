@@ -478,6 +478,7 @@ pub fn test_complex_block() {
 const MIX_BLOCK: &str = r##"
 -
   key: x
+  val: 8
 - 
   val: y
 "##;
@@ -488,6 +489,8 @@ const MIX_BLOCK_EXPECTED: &str = r##"
    +MAP
     =VAL :key
     =VAL :x
+    =VAL :val
+    =VAL :8
    -MAP
    +MAP
     =VAL :val
