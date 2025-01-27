@@ -10,8 +10,8 @@ use LexerState::PreDocStart;
 use SeqState::BeforeFirstElem;
 
 use crate::tokenizer::lexer::LexerState::{
-    AfterDocEnd, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, EndOfDirective,
-    FlowKeyExp, FlowMap, FlowSeq,
+    AfterDocBlock, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, EndOfDirective,
+    FlowKeyExp, FlowMap, FlowSeq, InDocEnd
 };
 use crate::tokenizer::lexer::LexerToken::*;
 use crate::tokenizer::lexer::MapState::{AfterColon, BeforeColon, BeforeKey};
@@ -69,16 +69,19 @@ pub enum LexerState {
     PreDocStart,
     DirectiveSection,
     EndOfDirective,
-    DocBlock,
+    AfterDocBlock,
+    InDocEnd,
+    // Flow nodes
     // u32 is the index of the token insertion point for flow nodes
     FlowSeq(u32, SeqState),
     FlowMap(u32, MapState),
     FlowKeyExp(u32, MapState),
+    // Blocks nodes
     // u32 is the indent of block node
+    DocBlock,
     BlockSeq(u32),
     BlockMap(u32, MapState),
     BlockMapExp(u32, MapState),
-    AfterDocEnd,
 }
 
 impl LexerState {
@@ -157,17 +160,18 @@ impl Lexer {
                 BlockSeq(_) => self.fetch_block_seq(reader, curr_state),
                 FlowSeq(_, seq_state) => self.fetch_flow_seq(reader, seq_state),
                 FlowMap(_, _) | FlowKeyExp(_, _) => self.fetch_flow_map(reader, curr_state),
-                AfterDocEnd => self.fetch_after_doc(reader),
+                AfterDocBlock => self.fetch_after_doc(reader),
+                InDocEnd => self.fetch_end_doc(reader),
             }
         }
 
         if reader.eof() {
             self.stream_end = true;
-            self.pop_current_states();
+            self.finish_eof();
         }
     }
 
-    fn pop_current_states(&mut self) {
+    fn finish_eof(&mut self) {
         for state in self.stack.iter().rev() {
             let token = match *state {
                 BlockSeq(_) => SEQ_END,
@@ -181,125 +185,41 @@ impl Lexer {
                     self.errors.push(ErrorType::DirectiveEndMark);
                     ERROR_TOKEN
                 }
-                DocBlock | AfterDocEnd => DOC_END,
                 EndOfDirective => {
                     self.tokens.push_back(SCALAR_PLAIN);
                     self.tokens.push_back(SCALAR_END);
                     DOC_END
                 }
+                DocBlock | AfterDocBlock  => DOC_END,
                 _ => continue,
             };
             self.tokens.push_back(token);
         }
     }
 
-    fn fetch_after_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        if reader.eof() {
-            // self.tokens.push_back(DOC_END);
-        } else if reader.try_read_slice_exact("...") {
-            self.tokens.push_back(DOC_END_EXP);
-            self.set_curr_state(PreDocStart);
-        } else {
-            let chr = reader.peek_byte().unwrap_or(b'\0');
-            reader.read_line();
-            self.tokens.push_back(DOC_END);
-            self.push_error(UnexpectedSymbol(chr as char));
-            self.set_curr_state(PreDocStart);
-        }
-        
-    }
-
-    fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
-        self.continue_processing = false;
-        match reader.peek_chars() {
-            [b'{', ..] => self.process_flow_map_start(reader),
-            [b'[', ..] => self.process_flow_seq_start(reader),
-            [b'&', ..] => self.parse_anchor(reader),
-            [b'*', ..] => self.parse_alias(reader),
-            [b'-', x, ..] if is_white_tab_or_break(*x) => {
-                self.process_block_seq(reader, curr_state);
-            }
-            b"---" => self.unwind_to_root_start(reader),
-            b"..." => self.unwind_to_root_end(reader),
-            [b'?', x, ..] if is_white_tab_or_break(*x) => {
-                self.fetch_exp_block_map_key(reader, curr_state)
-            }
-            [b'!', ..] => self.fetch_tag(reader),
-            [b'|', ..] => self.process_block_literal(reader),
-            [b'>', ..] => self.process_block_folded(reader),
-            [b'\'', ..] => self.process_quote(reader, curr_state),
-            [b'"', ..] => self.process_double_quote_block(reader, curr_state),
-            [b'#', ..] => {
-                // comment
-                reader.read_line();
-            }
-            [peek_chr, ..] => self.fetch_plain_scalar_block(reader, curr_state, *peek_chr),
-            [] => self.stream_end = true,
-        }
-    }
-
-    fn fetch_map_like_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
-        self.continue_processing = false;
-        match reader.peek_chars() {
-            [b'{', ..] => self.process_flow_map_start(reader),
-            [b'[', ..] => self.process_flow_seq_start(reader),
-            [b'&', ..] => self.parse_anchor(reader),
-            [b'*', ..] => self.parse_alias(reader),
-            [b':'] => self.process_block_colon(reader, curr_state),
-            [b':', peek, ..] if is_white_tab_or_break(*peek) => {
-                self.process_block_colon(reader, curr_state)
-            }
-            [b'-', peek, ..] if is_white_tab_or_break(*peek) => {
-                self.process_block_seq(reader, curr_state);
-            }
-            b"..." => {
-                self.unwind_to_root_end(reader);
-            }
-            b"---" => {
-                self.unwind_to_root_start(reader);
-            }
-            [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
-                self.fetch_exp_block_map_key(reader, curr_state)
-            }
-            [b'!', ..] => self.fetch_tag(reader),
-            [b'|', ..] => {
-                self.process_block_literal(reader);
-                self.set_next_map_state();
-            }
-            [b'>', ..] => {
-                self.process_block_folded(reader);
-                self.set_next_map_state();
-            }
-            [b'\'', ..] => {
-                self.set_next_map_state();
-                self.process_quote(reader, curr_state);
-            }
-            [b'"', ..] => {
-                self.set_next_map_state();
-                self.process_double_quote_block(reader, curr_state);
-            }
-            [b'#', ..] => {
-                // comment
-                reader.read_line();
-            }
-            [peek, ..] => self.fetch_plain_scalar_block(reader, curr_state, *peek),
-            _ => self.stream_end = true,
-        }
-    }
 
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        if reader.peek_byte_is(b'%') {
-            self.set_curr_state(DirectiveSection);
-        } else if reader.peek_byte_is(b'#') {
-            reader.read_line();
-        } else if reader.try_read_slice_exact("---") {
-            self.tokens.push_back(DOC_START_EXP);
-            self.set_curr_state(DocBlock);
-        } else if reader.try_read_slice_exact("...") {
-            reader.skip_separation_spaces(true);
-        } else if !reader.eof() {
-            self.tokens.push_back(DOC_START);
-            self.set_curr_state(DocBlock);
+
+        match reader.peek_chars() {
+            [b'%', ..] => {
+                self.set_curr_state(DirectiveSection);
+            }
+            b"---" => {
+                reader.consume_bytes(3);
+                self.tokens.push_back(DOC_START_EXP);
+                self.set_curr_state(EndOfDirective);
+            }
+            b"..." => {
+                reader.consume_bytes(3);
+                reader.skip_separation_spaces(true);
+                self.set_curr_state(InDocEnd);
+            }
+            [b'#',.. ] => {reader.read_line();},
+            [_, ..] => {
+                self.tokens.push_back(DOC_START);
+                self.set_curr_state(DocBlock);
+            }
+            [] => {}
         }
     }
 
@@ -410,6 +330,7 @@ impl Lexer {
                 }
                 self.push_empty_token();
                 self.tokens.push_back(DOC_END_EXP);
+                self.set_curr_state(InDocEnd);
             }
             [b'%', ..] => {
                 self.prepend_error(ErrorType::ExpectedDocumentEndOrContents);
@@ -423,6 +344,131 @@ impl Lexer {
             [..] => {}
         };
     }
+
+    fn fetch_after_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        let mut consume_line = false;
+        match reader.peek_chars() {
+            b"..." => {
+                let col = reader.col();
+                reader.consume_bytes(3);
+                if col != 0 {
+                    self.push_error(ErrorType::UnxpectedIndentDocEnd {
+                        actual: col,
+                        expected: 0,
+                    });
+                }
+                self.tokens.push_back(DOC_END_EXP);
+                self.set_curr_state(InDocEnd);
+            }
+            [b'#', ..] => {
+                consume_line = true;
+                self.set_curr_state(PreDocStart);
+            }
+            [chr, ..] => {
+                consume_line = true;
+                self.tokens.push_back(DOC_END);
+                self.push_error(UnexpectedSymbol(*chr as char));
+                self.set_curr_state(PreDocStart);
+            }
+            [] => {}
+        }
+        if consume_line {
+            reader.read_line();
+        }
+    }
+
+
+    fn fetch_end_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        reader.skip_space_tab();
+        if let Some(chr) = reader.peek_byte() {
+            if is_not_whitespace(&chr) {
+                self.push_error(ErrorType::ExpectedDocumentStartOrContents);
+            }
+            reader.read_line();
+        }
+        if reader.col() == 0 {
+            self.set_curr_state(PreDocStart);
+        }
+    }
+
+    fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+        self.continue_processing = false;
+        match reader.peek_chars() {
+            [b'{', ..] => self.process_flow_map_start(reader),
+            [b'[', ..] => self.process_flow_seq_start(reader),
+            [b'&', ..] => self.parse_anchor(reader),
+            [b'*', ..] => self.parse_alias(reader),
+            [b'-', x, ..] if is_white_tab_or_break(*x) => {
+                self.process_block_seq(reader, curr_state);
+            }
+            b"---" => self.unwind_to_root_start(reader),
+            b"..." => self.unwind_to_root_end(reader),
+            [b'?', x, ..] if is_white_tab_or_break(*x) => {
+                self.fetch_exp_block_map_key(reader, curr_state)
+            }
+            [b'!', ..] => self.fetch_tag(reader),
+            [b'|', ..] => self.process_block_literal(reader),
+            [b'>', ..] => self.process_block_folded(reader),
+            [b'\'', ..] => self.process_quote(reader, curr_state),
+            [b'"', ..] => self.process_double_quote_block(reader, curr_state),
+            [b'#', ..] => {
+                // comment
+                reader.read_line();
+            }
+            [peek_chr, ..] => self.fetch_plain_scalar_block(reader, curr_state, *peek_chr),
+            [] => self.stream_end = true,
+        }
+    }
+
+    fn fetch_map_like_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+        self.continue_processing = false;
+        match reader.peek_chars() {
+            [b'{', ..] => self.process_flow_map_start(reader),
+            [b'[', ..] => self.process_flow_seq_start(reader),
+            [b'&', ..] => self.parse_anchor(reader),
+            [b'*', ..] => self.parse_alias(reader),
+            [b':'] => self.process_block_colon(reader, curr_state),
+            [b':', peek, ..] if is_white_tab_or_break(*peek) => {
+                self.process_block_colon(reader, curr_state)
+            }
+            [b'-', peek, ..] if is_white_tab_or_break(*peek) => {
+                self.process_block_seq(reader, curr_state);
+            }
+            b"..." => {
+                self.unwind_to_root_end(reader);
+            }
+            b"---" => {
+                self.unwind_to_root_start(reader);
+            }
+            [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
+                self.fetch_exp_block_map_key(reader, curr_state)
+            }
+            [b'!', ..] => self.fetch_tag(reader),
+            [b'|', ..] => {
+                self.process_block_literal(reader);
+                self.set_next_map_state();
+            }
+            [b'>', ..] => {
+                self.process_block_folded(reader);
+                self.set_next_map_state();
+            }
+            [b'\'', ..] => {
+                self.set_next_map_state();
+                self.process_quote(reader, curr_state);
+            }
+            [b'"', ..] => {
+                self.set_next_map_state();
+                self.process_double_quote_block(reader, curr_state);
+            }
+            [b'#', ..] => {
+                // comment
+                reader.read_line();
+            }
+            [peek, ..] => self.fetch_plain_scalar_block(reader, curr_state, *peek),
+            _ => self.stream_end = true,
+        }
+    }
+
 
     fn process_block_literal<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.read_block_scalar(
@@ -769,7 +815,7 @@ impl Lexer {
                     self.last_block_indent = *indent as usize;
                 }
                 DocBlock => {
-                    *state = AfterDocEnd;
+                    *state = AfterDocBlock;
                 }
                 _ => {}
             }
@@ -821,16 +867,14 @@ impl Lexer {
 
     fn unwind_to_root_end<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let col = reader.col();
-        reader.consume_bytes(3);
         self.pop_block_states(self.stack.len().saturating_sub(1));
-        self.tokens.push_back(DOC_END_EXP);
         if col != 0 {
             self.push_error(ErrorType::UnxpectedIndentDocEnd {
                 actual: col,
                 expected: 0,
             });
         }
-        self.set_curr_state(PreDocStart);
+        self.set_curr_state(AfterDocBlock);
     }
 
     fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
@@ -1332,6 +1376,7 @@ impl Lexer {
             _ => false,
         }
     }
+
 }
 
 const DOC_END: usize = usize::MAX;
