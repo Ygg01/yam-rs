@@ -74,7 +74,7 @@ const NESTED_COL_EVENTS: &str = r"
 -DOC";
 
 #[test]
-fn flow_nested_col() {
+fn flow_implicit_map_in_seq() {
     assert_eq_event(NEST_COL1_INPUT, NESTED_COL_EVENTS);
     assert_eq_event(NEST_COL2_INPUT, NESTED_COL_EVENTS);
 }
