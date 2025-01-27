@@ -20,3 +20,4 @@ It's in development yet, but plans include:
 It contains few crates:
 - yam-core - `no_std` + `alloc` lib that contains the core processing logic
 - yam - library that relies on `yam-core` to work. It provides IO integration.
+- yam-dark-core - experimental `no_std` + `alloc` lib with SIMD acceleration
