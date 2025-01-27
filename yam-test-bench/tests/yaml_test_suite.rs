@@ -49,7 +49,6 @@ fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
     } else {
         assert_eq!(is_error, data.is_error);
     }
-    // TODO Input json/output yaml/emit yaml
 
     Ok(())
 }
