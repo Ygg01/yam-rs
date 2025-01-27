@@ -1862,3 +1862,25 @@ fn block_tab() {
     assert_eq_event(X1_DK95_INPUT, X1_DK95_EVENTS);
     assert_eq_event(X2_DK95_INPUT, X2_DK95_EVENTS);
 }
+
+const X1_DMG6_INPUT: &str = r"
+key:
+  ok: 1
+ wrong: 2";
+
+const X1_DMG6_EVENTS: &str = r"
++DOC
++MAP
+=VAL :key
++MAP
+=VAL :ok
+=VAL :1
+-MAP
+ERR
+-MAP
+-DOC";
+
+#[test]
+fn block_err() {
+    assert_eq_event(X1_DMG6_INPUT, X1_DMG6_EVENTS);
+}
