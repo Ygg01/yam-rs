@@ -130,7 +130,6 @@ fn collect_tests(path: &Path, filter_list: Vec<&str>) -> Result<Vec<Trial>, Box<
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Arguments::from_args();
-    // args.filter = Some(String::from("2EBW"));
     let filter_list = vec![".git", "name", "tags"];
 
     let tests = collect_tests(
