@@ -2,8 +2,8 @@ use std::{io::BufRead, marker::PhantomData};
 
 use super::Reader;
 
-pub struct BufReader<'a, S> {
-    pub src: PhantomData<S>,
+pub struct BufReader<'a, I> {
+    pub input: PhantomData<I>,
     pub buf: &'a mut Vec<u8>,
     pub(crate) pos: usize,
     pub(crate) col: u32,
@@ -31,7 +31,7 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn peek_byte_at(&self, offset: usize) -> Option<u8> {
+    fn peek_byte_at(&self, _offset: usize) -> Option<u8> {
         todo!()
     }
 
@@ -39,11 +39,11 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn consume_bytes(&mut self, amount: usize) -> usize {
+    fn consume_bytes(&mut self, _amount: usize) -> usize {
         todo!()
     }
 
-    fn try_read_slice_exact(&mut self, needle: &str) -> bool {
+    fn try_read_slice_exact(&mut self, _needle: &str) -> bool {
         todo!()
     }
 
@@ -55,7 +55,7 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn count_spaces_till(&self, indent: u32) -> usize {
+    fn count_spaces_till(&self, _indent: u32) -> usize {
         todo!()
     }
 
@@ -65,22 +65,22 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
 
     fn read_plain_one_line(
         &mut self,
-        offset_start: Option<usize>,
-        had_comment: &mut bool,
-        in_flow_collection: bool,
+        _offset_start: Option<usize>,
+        _had_comment: &mut bool,
+        _in_flow_collection: bool,
     ) -> (usize, usize, Option<super::ErrorType>) {
         todo!()
     }
 
-    fn read_double_quote(&mut self, errors: &mut Vec<super::ErrorType>) -> Vec<usize> {
+    fn read_double_quote(&mut self, _errors: &mut Vec<super::ErrorType>) -> Vec<usize> {
         todo!()
     }
 
-    fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize> {
+    fn read_single_quote(&mut self, _is_implicit: bool) -> Vec<usize> {
         todo!()
     }
 
-    fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool) {
+    fn skip_separation_spaces(&mut self, _allow_comments: bool) -> (u32, bool) {
         todo!()
     }
 
@@ -103,6 +103,4 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
     fn read_break(&mut self) -> Option<(usize, usize)> {
         todo!()
     }
-
-
 }
