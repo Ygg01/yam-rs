@@ -118,26 +118,32 @@ const SIMPLE_DOC2_EVENTS: &str = r#"
 =VAL "test
 -DOC"#;
 
-const EMPTY_INPUT: &str = r"
+const EMPTY1_INPUT: &str = r"
 ---
 ...
 ";
+
+const EMPTY2_INPUT: &str = r"
+---
+# comment
+...";
 
 const EMPTY_EVENTS: &str = r"
 +DOC ---
 =VAL :
 -DOC ...";
 
-const EMPTY2_INPUT: &str = "\n...\n";
+const NO_DOC_INPUT: &str = "\n...\n";
 
-const EMPTY2_EVENTS: &str = "";
+const NO_DOC_EVENTS: &str = "";
 
 #[test]
 fn simple_doc() {
     assert_eq_event(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS);
     assert_eq_event(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS);
-    assert_eq_event(EMPTY_INPUT, EMPTY_EVENTS);
-    assert_eq_event(EMPTY2_INPUT, EMPTY2_EVENTS);
+    assert_eq_event(EMPTY1_INPUT, EMPTY_EVENTS);
+    assert_eq_event(EMPTY2_INPUT, EMPTY_EVENTS);
+    assert_eq_event(NO_DOC_INPUT, NO_DOC_EVENTS);
 }
 
 const FOOTER_INPUT: &str = r#"
@@ -192,7 +198,25 @@ const MULTI_DOC_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const MULTI_DOC2_INPUT: &str = r"
+Mapping: Document
+---
+# Empty
+...";
+
+const MULTI_DOC2_EVENTS: &str = r#"
++DOC
++MAP
+=VAL :Mapping
+=VAL :Document
+-MAP
+-DOC
++DOC ---
+=VAL :
+-DOC ..."#;
+
 #[test]
 fn doc_multi() {
     assert_eq_event(MULTI_DOC_INPUT, MULTI_DOC_EVENTS);
+    assert_eq_event(MULTI_DOC2_INPUT, MULTI_DOC2_EVENTS);
 }
