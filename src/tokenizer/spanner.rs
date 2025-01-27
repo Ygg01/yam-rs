@@ -50,7 +50,9 @@ impl ParserState {
     #[inline]
     pub(crate) fn indent(&self, default: usize) -> usize {
         match self {
-            FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) | BlockMap(ind, _) => *ind,
+            FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) | BlockMap(ind, _) => {
+                *ind
+            }
             RootBlock => default,
             PreDocStart | AfterDocEnd => 0,
         }

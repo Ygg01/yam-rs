@@ -246,4 +246,3 @@ const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
 pub fn explicit_block_map() {
     assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
 }
-

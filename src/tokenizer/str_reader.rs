@@ -3,8 +3,11 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{RangeFrom, RangeInclusive};
 
 use memchr::memchr3_iter;
+use reader::{is_flow_indicator, ns_plain_safe};
 
-use crate::tokenizer::reader::{ChompIndicator, LookAroundBytes};
+use crate::tokenizer::reader::{
+    is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
+};
 use crate::tokenizer::spanner::ParserState;
 use crate::tokenizer::spanner::ParserState::{BlockMap, BlockSeq};
 use crate::tokenizer::ErrorType::UnexpectedComment;
@@ -59,7 +62,7 @@ impl<'a> StrReader<'a> {
     fn find_next_whitespace(&self) -> Option<usize> {
         self.slice[self.pos..]
             .iter()
-            .position(|p| reader::is_white_tab_or_break(*p))
+            .position(|p| is_white_tab_or_break(*p))
     }
 
     fn skip_n_spaces(&mut self, num_spaces: usize) -> Result<(), ErrorType> {
@@ -159,14 +162,7 @@ impl<'a> StrReader<'a> {
     ) -> Option<(usize, usize)> {
         let start = self.pos;
 
-        if !(allow_minus && self.peek_byte_is(b'-'))
-            && (self.eof()
-                || self.peek_byte_at_check(0, reader::is_white_tab_or_break)
-                || self.peek_byte_at_check(0, reader::is_indicator)
-                || (self.peek_byte_is(b'-') && !self.peek_byte_at_check(1, reader::is_white_tab))
-                || ((self.peek_byte_is(b'?') || self.peek_byte_is(b':'))
-                    && !self.peek_byte_at_check(1, reader::is_white_tab_or_break)))
-        {
+        if !(allow_minus && self.peek_byte_is(b'-')) && (self.eof() || self.not_safe_char()) {
             return None;
         }
 
@@ -177,7 +173,7 @@ impl<'a> StrReader<'a> {
 
         for (prev, curr, next, pos) in self.get_lookahead_iterator(end..=line_end) {
             // ns-plain-char  prevent ` #`
-            if curr == b'#' && reader::is_white_tab_or_break(prev) {
+            if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
                 if *had_comment {
                     tokens.push(ErrorToken(UnexpectedComment))
@@ -191,22 +187,22 @@ impl<'a> StrReader<'a> {
 
             // ns-plain-char prevent `: `
             // or `:{`  in flow collections
-            if curr == b':' && !reader::ns_plain_safe(next, in_flow_collection) {
+            if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
                 // commit any uncommitted character, but ignore first character
-                if !reader::is_white_tab(prev) && pos != end {
+                if !is_white_tab(prev) && pos != end {
                     end_of_str += 1;
                 }
                 break;
             }
 
             // if current character is a flow indicator, break
-            if reader::is_flow_indicator(curr) {
+            if is_flow_indicator(curr) {
                 break;
             }
 
-            if reader::is_white_tab_or_break(curr) {
+            if is_white_tab_or_break(curr) {
                 // commit any uncommitted character, but ignore first character
-                if !reader::is_white_tab_or_break(prev) && pos != end {
+                if !is_white_tab_or_break(prev) && pos != end {
                     end_of_str += 1;
                 }
                 continue;
@@ -216,6 +212,17 @@ impl<'a> StrReader<'a> {
 
         self.pos = end_of_str;
         Some((start, end_of_str))
+    }
+
+    #[inline]
+    fn not_safe_char(&self) -> bool {
+        match self.slice[self.pos..] {
+            [x, ..] if is_white_tab_or_break(x) || is_indicator(x) => true,
+            [b'-', x, ..] if is_white_tab(x) => true,
+            [b'?', x, ..] if is_white_tab_or_break(x) => true,
+            [b':', x, ..] if is_white_tab_or_break(x) => true,
+            _ => false,
+        }
     }
 }
 
@@ -273,7 +280,7 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn read_block_seq(&mut self, indent: usize) -> Option<ParserState> {
-        if self.peek_byte_at_check(1, reader::is_white_tab_or_break) {
+        if self.peek_byte_at_check(1, is_white_tab_or_break) {
             let new_indent: usize = self.col;
             if self.peek_byte_at_check(1, reader::is_newline) {
                 self.consume_bytes(1);
@@ -401,7 +408,7 @@ impl<'r> Reader for StrReader<'r> {
                 curr_indent = self.col;
             }
 
-            if curr_state.in_flow_collection() && reader::is_flow_indicator(chr) {
+            if curr_state.in_flow_collection() && is_flow_indicator(chr) {
                 break;
             }
 
