@@ -378,7 +378,6 @@ impl Lexer {
     }
 
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        self.continue_processing = false;
         if reader.peek_byte_is(b'%') {
             self.push_state(DirectiveSection);
         } else if reader.peek_byte_is(b'#') {
@@ -472,7 +471,10 @@ impl Lexer {
             Some(b']') => {
                 reader.consume_bytes(1);
                 self.tokens.push_back(SEQ_END);
-                self.pop_state();
+                let index = self.pop_state().map_or(0, |f| match f {
+                    FlowSeq(x, _) => x.saturating_sub(1) as usize,
+                    _ => 0,
+                });
                 // could be `[a]: b` map
                 self.skip_separation_spaces(reader, false);
                 let new_curr = self.curr_state();
@@ -483,12 +485,6 @@ impl Lexer {
                         MAP_START
                     } else {
                         MAP_START_BLOCK
-                    };
-                    let index = match new_curr {
-                        FlowKeyExp(index, _) | FlowMap(index, _) | FlowSeq(index, _) => {
-                            index as usize
-                        }
-                        _ => 0,
                     };
                     self.tokens.insert(index, token);
                     let state = FlowMap(self.get_token_pos(), AfterColon);
@@ -515,7 +511,7 @@ impl Lexer {
             }
             Some(b',') => {
                 reader.consume_bytes(1);
-                self.set_curr_state(FlowSeq(self.get_token_pos(), BeforeElem));
+                self.set_seq_state(BeforeElem);
             }
             Some(b'\'') => self.process_quote(reader, self.curr_state()),
             Some(b'"') => self.process_double_quote_flow(reader, self.curr_state()),
@@ -1179,6 +1175,16 @@ impl Lexer {
         match self.stack.last_mut() {
             Some(FlowMap(_, state)) | Some(BlockMap(_, state)) | Some(BlockMapExp(_, state)) => {
                 *state = map_state
+            }
+            _ => {}
+        };
+    }
+
+    #[inline]
+    fn set_seq_state(&mut self, seq_state: SeqState) {
+        match self.stack.last_mut() {
+            Some(FlowSeq(_, state)) => {
+                *state = seq_state;
             }
             _ => {}
         };
