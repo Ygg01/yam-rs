@@ -45,7 +45,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn scan_whitespace_and_structurals(&self, chunk_state: &mut YamlChunkState) {
+    fn classify(&self, chunk_state: &mut YamlChunkState) {
         todo!()
     }
 }

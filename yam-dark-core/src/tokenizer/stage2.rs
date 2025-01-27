@@ -135,7 +135,7 @@ impl<'de> Parser<'de> {
         let mut state = YamlParserState::default();
         let next_fn = get_stage1_next::<B>();
 
-        // SIMDified part
+        // SIMD-ified part
         for chunk in &mut iter {
             unsafe {
                 validator.update_from_chunks(chunk);

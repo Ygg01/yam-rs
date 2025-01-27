@@ -374,7 +374,7 @@ fn bench_yam(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(rand_bytes.len() as u64));
     group.bench_function("bench-dark-yam", |b| {
         b.iter(|| {
-            scanner.scan_whitespace_and_structurals(chunk);
+            scanner.classify(chunk);
             black_box(chunk.characters.whitespace | chunk.characters.structurals);
         });
     });
