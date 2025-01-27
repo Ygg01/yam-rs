@@ -1070,7 +1070,6 @@ const MULTI_LINE_SEQ_EVENTS: &str = r#"
    =VAL :a b\nc
   -SEQ
  -DOC"#;
- 
 
 #[test]
 fn multi_line_value() {
