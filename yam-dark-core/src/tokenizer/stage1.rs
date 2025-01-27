@@ -361,7 +361,7 @@ pub unsafe trait Stage1Scanner {
         let nl_ind = (chunk_state.characters.line_feeds & 0xFF) as usize;
         unsafe {
             add_rows_unchecked(&mut state.byte_rows, nl_ind, &mut state.last_row, state.pos);
-            add_cols_unchecked(&mut state.byte_cols, nl_ind, &mut state.last_col, state.pos)
+            add_cols_unchecked(&mut state.byte_cols, nl_ind, &mut state.last_col, state.pos);
         }
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 8) & 0xFF) as usize;
@@ -377,7 +377,7 @@ pub unsafe trait Stage1Scanner {
                 nl_ind,
                 &mut state.last_col,
                 state.pos + 8,
-            )
+            );
         }
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 16) & 0xFF) as usize;
@@ -393,7 +393,7 @@ pub unsafe trait Stage1Scanner {
                 nl_ind,
                 &mut state.last_col,
                 state.pos + 16,
-            )
+            );
         }
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 24) & 0xFF) as usize;
@@ -409,7 +409,7 @@ pub unsafe trait Stage1Scanner {
                 nl_ind,
                 &mut state.last_col,
                 state.pos + 24,
-            )
+            );
         }
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 32) & 0xFF) as usize;
@@ -425,7 +425,7 @@ pub unsafe trait Stage1Scanner {
                 nl_ind,
                 &mut state.last_col,
                 state.pos + 32,
-            )
+            );
         }
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 40) & 0xFF) as usize;
@@ -441,7 +441,7 @@ pub unsafe trait Stage1Scanner {
                 nl_ind,
                 &mut state.last_col,
                 state.pos + 40,
-            )
+            );
         }
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 48) & 0xFF) as usize;
@@ -457,7 +457,7 @@ pub unsafe trait Stage1Scanner {
                 nl_ind,
                 &mut state.last_col,
                 state.pos + 48,
-            )
+            );
         }
 
         let nl_ind = ((chunk_state.characters.line_feeds >> 56) & 0xFF) as usize;
@@ -473,7 +473,7 @@ pub unsafe trait Stage1Scanner {
                 nl_ind,
                 &mut state.last_col,
                 state.pos + 56,
-            )
+            );
         }
 
         state.pos += 64;
