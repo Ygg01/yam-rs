@@ -1,10 +1,7 @@
 use std::borrow::Cow;
-use std::panic::resume_unwind;
 
 pub use scanner::Scanner;
 
-use crate::tokenizer::event::YamlEvent;
-use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::{Control, SpanToken};
 
 mod event;

@@ -2,7 +2,7 @@ extern crate steel_yaml;
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::{format, Debug, Write};
+    use std::fmt::{Debug, format, Write};
 
     use steel_yaml::Scanner;
 
