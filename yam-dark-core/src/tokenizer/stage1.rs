@@ -22,6 +22,7 @@
 
 #![allow(unused)]
 
+use alloc::vec;
 use alloc::vec::Vec;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -29,7 +30,6 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::{util, NativeScanner, ParseResult, EVEN_BITS, ODD_BITS};
 
-#[derive(Default)]
 pub struct YamlChunkState {
     pub double_quote: YamlDoubleQuoteChunk,
     pub single_quote: YamlSingleQuoteChunk,
@@ -39,6 +39,19 @@ pub struct YamlChunkState {
     pub indents: Vec<u32>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
+}
+
+impl Default for YamlChunkState {
+    fn default() -> Self {
+        // Safety
+        // To ensure cols/rows/indents are always 64 elements long.
+        YamlChunkState {
+            rows: vec![0, 64],
+            cols: vec![0, 64],
+            indents: vec![0, 64],
+            ..Self::default()
+        }
+    }
 }
 
 #[derive(Default)]
