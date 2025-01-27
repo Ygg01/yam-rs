@@ -37,7 +37,7 @@ const SEQ_PLAIN_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_seq() {
+fn block_seq() {
     assert_eq_event(BLOCK1_INPUT, BLOCK_EVENTS);
     assert_eq_event(BLOCK2_INPUT, BLOCK_EVENTS);
     assert_eq_event(SEQ_PLAIN_INPUT, SEQ_PLAIN_EVENTS);
@@ -132,7 +132,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_seq_err() {
+fn block_seq_err() {
     assert_eq_event(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS);
     assert_eq_event(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS);
     assert_eq_event(X_BD7L_INPUT, X_BD7L_EVENTS);
@@ -185,7 +185,7 @@ const BLOCK_NESTED_SEQ2_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn seq_block_nested() {
+fn seq_block_nested() {
     assert_eq_event(X1_3ALJ_INPUT, X_3ALJ_EVENTS);
     assert_eq_event(X2_3ALJ_INPUT, X_3ALJ_EVENTS);
     assert_eq_event(BLOCK_NESTED_SEQ2_INPUT, BLOCK_NESTED_SEQ2_EVENTS);
@@ -232,7 +232,7 @@ const FOLD_STR2_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_fold() {
+fn block_fold() {
     assert_eq_event(FOLD_STR1_INPUT, FOLD_STR1_EVENTS);
     assert_eq_event(FOLD_STR2_INPUT, FOLD_STR2_EVENTS);
     assert_eq_event(FOLD_ERR_INPUT, FOLD_ERR_EVENTS);
@@ -282,7 +282,7 @@ ERR
 ERR";
 
 #[test]
-pub fn block_plain_scalar() {
+fn block_plain_scalar() {
     assert_eq_event(BLOCK_MULTI_INPUT, BLOCK_MULTI_EVENTS);
     assert_eq_event(BLOCK_PLAIN_INPUT, BLOCK_PLAIN_EVENTS);
     assert_eq_event(BLOCK_PLAIN2_INPUT, BLOCK_PLAIN2_EVENTS);
@@ -315,7 +315,7 @@ const SIMPLE_FOLD_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_fold_literal() {
+fn block_fold_literal() {
     assert_eq_event(BLOCK_FOLD_INPUT, BLOCK_FOLD_EVENTS);
     assert_eq_event(SIMPLE_FOLD1_INPUT, SIMPLE_FOLD_EVENTS);
     assert_eq_event(SIMPLE_FOLD2_INPUT, SIMPLE_FOLD_EVENTS);
@@ -424,7 +424,7 @@ const LITERAL_ESCAPE_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_literal() {
+fn block_literal() {
     assert_eq_event(LITERAL_ESCAPE_INPUT, LITERAL_ESCAPE_EVENTS);
     assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
     assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
@@ -496,7 +496,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_literal_indents() {
+fn block_literal_indents() {
     assert_eq_event(X1_Y79Y_000_INPUT, X1_Y79Y_000_EVENTS);
     assert_eq_event(X2_Y79Y_000_INPUT, X2_Y79Y_000_EVENTS);
     assert_eq_event(X3_Y79Y_000_INPUT, X3_Y79Y_000_EVENTS);
@@ -516,7 +516,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_literal_err() {
+fn block_literal_err() {
     assert_eq_event(LITERAL_ERR_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
     assert_eq_event(LITERAL_ERR2_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
 }
@@ -618,7 +618,7 @@ const X2_F6MC_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_indent_lit_fold() {
+fn block_indent_lit_fold() {
     assert_eq_event(X2_7T8X_INPUT, X2_7T8X_EVENTS);
     assert_eq_event(X1_7T8X_INPUT, X1_7T8X_EVENTS);
     assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENTS);
@@ -657,7 +657,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_plain_multiline() {
+fn block_plain_multiline() {
     assert_eq_event(PLAIN_MULTI_INPUT, PLAIN_MULTI_EVENTS);
     assert_eq_event(X_8XDJ_INPUT, X_8XDJ_INPUTS);
 }
@@ -741,7 +741,7 @@ const MAP_AND_COMMENT_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_map() {
+fn block_map() {
     assert_eq_event(MAP_SIMPLE_INPUT, MAP_SIMPLE_EVENTS);
     assert_eq_event(MAP_SIMPLE2_INPUT, MAP_SIMPLE_EVENTS);
     assert_eq_event(MAP2_INPUT, MAP2_EVENTS);
@@ -775,7 +775,7 @@ const DQUOTE_MUL_EVENTS: &str = r#"
 -DOC"#;
 
 #[test]
-pub fn block_quote_map() {
+fn block_quote_map() {
     assert_eq_event(DQUOTE_MAP_INPUT, DQUOTE_MAP_EVENTS);
     assert_eq_event(DQUOTE_MUL_INPUT, DQUOTE_MUL_EVENTS);
 }
@@ -824,7 +824,7 @@ const MIX_EMPTY_MAP_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_empty_map() {
+fn block_empty_map() {
     assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
     assert_eq_event(EMPTY_MAP2_INPUT, EMPTY_MAP2_EVENTS);
     assert_eq_event(EMPTY_MAP2_1_INPUT, EMPTY_MAP2_EVENTS);
@@ -880,7 +880,7 @@ const MULTILINE_COMMENT3_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_multiline_comment() {
+fn block_multiline_comment() {
     assert_eq_event(MULTILINE_COMMENT1_INPUT, MULTILINE_COMMENT1_EVENTS);
     assert_eq_event(MULTILINE_COMMENT1_2_INPUT, MULTILINE_COMMENT1_EVENTS);
     assert_eq_event(MULTILINE_COMMENT2_INPUT, MULTILINE_COMMENT2_EVENTS);
@@ -986,7 +986,7 @@ const X_5WE3_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_exp_map() {
+fn block_exp_map() {
     assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
     assert_eq_event(X_5WE3_INPUT, X_5WE3_EVENTS);
 
@@ -1032,7 +1032,7 @@ const EXP_MAP_FAKE_EMPTY_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_empty_node_exp_map() {
+fn block_empty_node_exp_map() {
     assert_eq_event(EXP_MAP_EMPTY_INPUT, EXP_MAP_EMPTY_INPUT_EVENTS);
     assert_eq_event(EXP_MAP_FAKE_EMPTY_INPUT, EXP_MAP_FAKE_EMPTY_EVENTS);
 }
@@ -1052,7 +1052,7 @@ const EMPTY_KEY_MAP_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_empty_node_map() {
+fn block_empty_node_map() {
     assert_eq_event(EMPTY_KEY_MAP_INPUT, EMPTY_KEY_MAP_EVENTS);
 }
 
@@ -1085,7 +1085,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_exp_map_err() {
+fn block_exp_map_err() {
     assert_eq_event(EXP_BLOCK_MAP_ERR1, EXP_BLOCK_MAP_ERR1_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_ERR2, EXP_BLOCK_MAP_ERR2_EVENTS);
 }
@@ -1105,7 +1105,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_map_inline_err() {
+fn block_map_inline_err() {
     assert_eq_event(INLINE_ERR_INPUT, INLINE_ERR_EVENTS);
 }
 
@@ -1187,7 +1187,7 @@ ERR
 -DOC"#;
 
 #[test]
-pub fn block_map_err() {
+fn block_map_err() {
     assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
     assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
     assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
@@ -1271,7 +1271,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_map_complex() {
+fn block_map_complex() {
     assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
     assert_eq_event(NESTED_INPUT, NESTED_EVENTS);
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
@@ -1358,7 +1358,7 @@ const X1_6HB6_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_flow_mix() {
+fn block_flow_mix() {
     assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
     assert_eq_event(X1_6HB6_INPUT, X1_6HB6_EVENTS);
     assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
@@ -1383,7 +1383,7 @@ const MAPS_WITH_QUOTES_EVENTS: &str = r#"
 -DOC"#;
 
 #[test]
-pub fn block_map_scalar_and_ws() {
+fn block_map_scalar_and_ws() {
     assert_eq_event(MAPS_WITH_QUOTES_INPUT, MAPS_WITH_QUOTES_EVENTS);
 }
 
@@ -1415,7 +1415,7 @@ const NESTED_MAPS_EVENTS: &str = r#"
 -DOC"#;
 
 #[test]
-pub fn block_nested_maps() {
+fn block_nested_maps() {
     assert_eq_event(NESTED_MAPS_INPUT, NESTED_MAPS_EVENTS);
 }
 
@@ -1460,7 +1460,7 @@ const ALIAS_N_MAPS2_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_map_anchor_alias() {
+fn block_map_anchor_alias() {
     assert_eq_event(ALIAS_N_MAPS_INPUT, ALIAS_N_MAPS_EVENTS);
     assert_eq_event(ALIAS_N_MAPS2_INPUT, ALIAS_N_MAPS2_EVENTS);
 }
@@ -1501,7 +1501,7 @@ const ALIAS_N_SEQ3_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_seq_anchor_alias() {
+fn block_seq_anchor_alias() {
     assert_eq_event(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS);
     assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
     assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
@@ -1556,7 +1556,7 @@ const EXP_TAG_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_col_tags() {
+fn block_col_tags() {
     assert_eq_event(SEQ_AND_TAG_INPUT, SEQ_AND_TAG_EVENTS);
     assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENTS);
     assert_eq_event(EXP_TAG_INPUT, EXP_TAG_EVENTS);
@@ -1605,7 +1605,7 @@ ERR
 -DOC";
 
 #[test]
-pub fn block_anchor() {
+fn block_anchor() {
     assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
     assert_eq_event(ANCHOR_MULTI_INPUT, ANCHOR_MULTI_EVENTS);
     assert_eq_event(ANCHOR_ERR_INPUT, ANCHOR_ERR_EVENTS);
@@ -1658,7 +1658,7 @@ const MIX2_BLOCK_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_mix_seq() {
+fn block_mix_seq() {
     assert_eq_event(MIX_BLOCK_INPUT, MIX_BLOCK_EVENTS);
     assert_eq_event(MIX2_BLOCK_INPUT, MIX2_BLOCK_EVENTS);
 }
@@ -2006,7 +2006,7 @@ const SEQ_EMPTY2_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn block_seq_empty() {
+fn block_seq_empty() {
     assert_eq_event(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS);
     assert_eq_event(SEQ_EMPTY2_INPUT, SEQ_EMPTY2_EVENTS);
 }
@@ -2186,7 +2186,7 @@ const X1_FH7J_EVENTS: &str = r"
 
 
 #[test]
-pub fn block_tags_empty() {
+fn block_tags_empty() {
   assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
 }
 
