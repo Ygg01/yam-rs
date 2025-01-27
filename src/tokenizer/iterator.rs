@@ -147,7 +147,7 @@ impl<'a> Display for Event<'a> {
                 write!(f, "+DOC{}", exp_str)
             }
             Event::DocEnd { explicit } => {
-                let exp_str = if *explicit { " ---" } else { "" };
+                let exp_str = if *explicit { " ..." } else { "" };
                 write!(f, "-DOC{}", exp_str)
             }
             Event::SeqStart { flow, tag, anchor } => {

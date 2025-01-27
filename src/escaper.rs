@@ -87,6 +87,7 @@ pub fn escape_double_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
             match input {
                 [b'\\', b't', ..] | [b'\\', b'r', ..] | [b'\\', b'n', ..] => EscapeControl::Skip(2),
                 [b'\\', b'\t', ..] => EscapeControl::Append([2, 2, b'\\', b't', 0, 0, 0, 0]),
+                [b'\\', b'/', ..] => EscapeControl::Append([2, 1, b'/', 0, 0, 0, 0, 0]),
                 [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
                 [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
                 [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),

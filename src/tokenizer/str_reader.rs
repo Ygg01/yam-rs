@@ -565,7 +565,11 @@ impl<'r> Reader<()> for StrReader<'r> {
                             self.skip_space_tab(true);
                         }
                     }
-                    _ => {}
+                    [_, b'\\', x, ..] if *x != b' ' && *x != b'\t' => {
+                        last_non_space = self.pos;
+                        self.consume_bytes(2);
+                    }
+                    _ => {self.consume_bytes(1);}
                 }
             } else {
                 let amount = line_end - line_start;
