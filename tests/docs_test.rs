@@ -31,8 +31,8 @@ const DOC_EMPTY_TAG_EVENTS: &str = r"
 
 #[test]
 fn doc_empty() {
-    assert_eq_event(DOC_EMPTY_TAG_INPUT, DOC_EMPTY_TAG_EVENTS);
     assert_eq_event(EMPTY_DOC_ERR_INPUT, EMPTY_DOC_ERR_EVENTS);
+    assert_eq_event(DOC_EMPTY_TAG_INPUT, DOC_EMPTY_TAG_EVENTS);
     assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS);
 }
 
@@ -53,7 +53,6 @@ const ERR_DIRECTIVE2_INPUT: &str = r"
 ";
 
 const ERR_DIRECTIVE2_EVENTS: &str = r"
-ERR
 ERR
 %YAML 1.2
 +DOC
@@ -79,11 +78,10 @@ const ERR_MULTIDOC_INPUT: &str = r"
 ";
 
 const ERR_MULTIDOC_EVENTS: &str = r"
-ERR
 %YAML 1.2
 +DOC ---
+ERR
 -DOC
-%YAML 1.2
 +DOC ---
 =VAL :
 -DOC";
@@ -170,14 +168,16 @@ const POST_DOC_ERR_EVENTS: &str = r"
 +DOC ---
 =VAL :
 -DOC ...
-ERR";
+ERR
+=VAL :invalid
+-DOC";
 
 #[test]
 fn doc_after_stream() {
     assert_eq_event(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS);
 }
 
-const MULTI_DOC_INPUT: &str = r"
+const MULTI_DOC1_INPUT: &str = r"
 ---
 ? a
 : b
@@ -185,7 +185,7 @@ const MULTI_DOC_INPUT: &str = r"
 - c
 ";
 
-const MULTI_DOC_EVENTS: &str = r"
+const MULTI_DOC1_EVENTS: &str = r"
 +DOC ---
 +MAP
 =VAL :a
@@ -227,11 +227,28 @@ const MULTI_DOC3_EVENTS: &str = r"
 =VAL :
 -DOC";
 
+const MULTI_DOC4_INPUT: &str = r"
+---
+# Empty
+...
+%YAML 1.2
+---";
+
+const MULTI_DOC4_EVENTS: &str = r"
++DOC ---
+=VAL :
+-DOC ...
+%YAML 1.2
++DOC ---
+=VAL :
+-DOC";
+
 #[test]
 fn doc_multi() {
-    assert_eq_event(MULTI_DOC_INPUT, MULTI_DOC_EVENTS);
+    assert_eq_event(MULTI_DOC1_INPUT, MULTI_DOC1_EVENTS);
     assert_eq_event(MULTI_DOC2_INPUT, MULTI_DOC2_EVENTS);
     assert_eq_event(MULTI_DOC3_INPUT, MULTI_DOC3_EVENTS);
+    assert_eq_event(MULTI_DOC4_INPUT, MULTI_DOC4_EVENTS);
 }
 
 const DOC_MAP_ERR_INPUT: &str = r"
