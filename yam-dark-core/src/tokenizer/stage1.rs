@@ -97,7 +97,8 @@ pub trait Stage1Scanner {
     ///
     /// # Returns
     ///
-    /// Returns the number of odd quotes in the quote_bits as a 32-bit unsigned integer.
+    /// Returns `0` if bitmask contains even number of `1` bits, and `1` if it contains odd number
+    /// of `1` bits. Zero bits is considered even.
     ///
     /// # Examples
     ///
@@ -107,7 +108,11 @@ pub trait Stage1Scanner {
     ///
     /// let quote_bits = 0b10101010;
     /// let count = NativeScanner::count_odd_bits(quote_bits);
-    /// assert_eq!(count, 4);
+    /// assert_eq!(count, 0);
+    ///
+    /// let quote_bits = 0b1000101;
+    /// let count = NativeScanner::count_odd_bits(quote_bits);
+    /// assert_eq!(count, 1);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn count_odd_bits(bitmask: u64) -> u32 {

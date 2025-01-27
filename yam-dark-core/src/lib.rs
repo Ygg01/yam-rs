@@ -4,7 +4,7 @@ extern crate alloc;
 extern crate core_detect;
 
 pub use impls::NativeScanner;
-pub use impls::{u8x16_bit, u8x16_bit_iter};
+pub use impls::{u8x16_bit, u8x16_bit_iter, u8x64_eq, u8x64_lteq};
 pub use tokenizer::stage1::Stage1Scanner;
 
 use crate::error::Error;
