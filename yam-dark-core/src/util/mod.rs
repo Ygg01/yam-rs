@@ -550,15 +550,18 @@ pub fn select_consecutive_bits_branchless(input: u64, mask: u64) -> u64 {
     result |= ((result >> 1) & a) >> 15;
 
     a &= a << 16;
-    result |= ((result >> 1) & a) >> 32;
+    result |= ((result >> 1) & a) >> 31;
 
     result
 }
 
 #[test]
-fn test_branchless() {
-    let actual = select_consecutive_bits_branchless(0b01111_0110, 0b01000_0000);
-    let expected = 0b01111_0000;
+fn test_branch_less() {
+    let actual = select_consecutive_bits_branchless(
+        0b1111_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_0000_0110,
+        0b1000_0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100
+    );
+    let expected = 0b1111_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0110;
     assert_eq!(
         actual, expected,
         "\nExpected: {:#018b}\n  Actual: {:#018b}",
