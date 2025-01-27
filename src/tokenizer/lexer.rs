@@ -1126,7 +1126,6 @@ impl<B> Lexer<B> {
             let mut found_eol = true;
             let mut has_tab = false;
 
-            // 
             if reader.col() > 0 && reader.peek_byte_is(b'#') {
                 self.push_error(ErrorType::MissingWhitespaceBeforeComment);
             }
@@ -1167,6 +1166,7 @@ impl<B> Lexer<B> {
         let pos = self.get_token_pos();
         self.had_anchor = false;
         self.emit_prev_anchor();
+        self.next_map_state();
         self.tokens.push_back(SEQ_START);
 
         let state = FlowSeq(pos, BeforeFirstElem);

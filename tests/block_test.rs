@@ -827,9 +827,30 @@ const COMPLEX_KEYS_EVENTS: &str = r##"
 -MAP
 -DOC"##;
 
+const COMPLEX_NESTED_INPUT: &str = r"
+not:
+  two: [
+    nest
+   ]
+  ";
+
+const COMPLEX_NESTED_EVENTS: &str = r"
++DOC
++MAP
+=VAL :not
++MAP
+=VAL :two
++SEQ []
+=VAL :nest
+-SEQ
+-MAP
+-MAP
+-DOC";
+
 #[test]
 pub fn test_complex_block() {
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
+    assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
 }
 
 const MAPS_WITH_QUOTES_INPUT: &str = r#"
@@ -1258,3 +1279,4 @@ const TAG_SHORT_EVENTS: &str = "
 fn block_tag_short() {
     assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
 }
+
