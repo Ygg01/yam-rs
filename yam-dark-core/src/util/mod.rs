@@ -148,7 +148,7 @@ pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 
 }
 
 #[doc(hidden)]
-pub fn count_indent_native(mut newline_mask: u64, mut space_mask: u64, indents: &mut Vec<u32>) {
+pub fn count_indent_native(mut newline_mask: u64, mut space_mask: u64, indents: &mut Vec<u8>) {
     let mut base_len = indents.len();
     indents.reserve(64);
 

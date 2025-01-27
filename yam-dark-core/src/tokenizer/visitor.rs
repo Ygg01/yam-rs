@@ -30,7 +30,7 @@ impl EventStringVisitor {
         }
     }
 
-    pub fn buffer(self) -> String {
+    pub fn _buffer(self) -> String {
         self.buffer
     }
 }
