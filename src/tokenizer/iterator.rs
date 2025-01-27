@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use crate::tokenizer::str_reader::StrReader;
-use crate::tokenizer::SpanToken::*;
 use crate::Spanner;
+use crate::tokenizer::SpanToken::*;
+use crate::tokenizer::str_reader::StrReader;
 
 pub struct EventIterator<'a> {
     pub(crate) state: Spanner,
@@ -68,7 +68,24 @@ impl<'a> Iterator for EventIterator<'a> {
                                 x.push(' ');
                             }
                         }
-                        Alias => {}
+                        Alias | Anchor => {
+                            if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
+                                    (self.state.pop_token(), self.state.pop_token())
+                            {
+                                let scalar = self.reader.slice[start..end].to_owned();
+                                ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                                let is_alias = matches!(token, Alias);
+                                if is_alias {
+                                    ind.extend("ALIAS".as_bytes())
+                                } else {
+                                    ind.extend("ANCHOR".as_bytes())
+                                }
+                                ind.extend(scalar);
+                                unsafe {
+                                    self.lines.push_back(String::from_utf8_unchecked(ind))
+                                }
+                            }
+                        }
                         MappingStart => {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("+MAP".as_bytes());
@@ -128,7 +145,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend(format!("#{:} ", typ).as_bytes());
                             if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
-                                (self.state.pop_token(), self.state.pop_token())
+                                    (self.state.pop_token(), self.state.pop_token())
                             {
                                 ind.extend(self.reader.slice[start..end].to_vec());
                             }
