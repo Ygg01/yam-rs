@@ -1,12 +1,9 @@
-use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::str::from_utf8_unchecked;
+use std::fmt::Formatter;
 
-use crate::Scanner;
 use crate::tokenizer::SpanToken::*;
 use crate::tokenizer::StrReader;
+use crate::Scanner;
 
 pub struct EventIterator<'a> {
     pub(crate) state: Scanner,
