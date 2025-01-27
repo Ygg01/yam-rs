@@ -127,7 +127,7 @@ const DQUOTE_END_INPUT: &str = r##"
 const DQUOTE_END_EVENTS: &str = r#"
  +DOC
   ERR
-  =VAL "---
+  =VAL " ---
  -DOC"#;
 
 const DQUOTE_ERR2_INPUT: &str = r##"
@@ -146,20 +146,40 @@ fn dquote_err() {
     assert_eq_event(DQUOTE_ERR2_INPUT, DQUOTE_ERR2_EVENTS);
 }
 
-const DQUOTE_LEADING_TAB_INPUT: &str = r##" "1 test
+const DQUOTE_LEADING_TAB1_INPUT: &str = r##" "1 test
     \	tab" "##;
 
 const DQUOTE_LEADING_TAB2_INPUT: &str = r##"
     "1 test
       \ttab" "##;
 
+const DQUOTE_LEADING_TAB3_INPUT: &str = r##"
+"1 test\t
+    tab" "##;
+
+const DQUOTE_LEADING_TAB4_INPUT: &str = r##"
+    "1 test\t   
+        tab" "##;
+
+const DQUOTE_LEADING_TAB5_INPUT: &str = r##"
+    "1 test\	
+        tab"   "##;
+
 const DQUOTE_LEADING_TAB_EVENTS: &str = r#"
  +DOC
   =VAL "1 test \ttab
  -DOC"#;
 
+const DQUOTE_LEADING_TAB2_EVENTS: &str = r#"
+ +DOC
+  =VAL "1 test\t tab
+ -DOC"#;
+
 #[test]
 fn dquote_trailing() {
-    assert_eq_event(DQUOTE_LEADING_TAB_INPUT, DQUOTE_LEADING_TAB_EVENTS);
+    assert_eq_event(DQUOTE_LEADING_TAB1_INPUT, DQUOTE_LEADING_TAB_EVENTS);
     assert_eq_event(DQUOTE_LEADING_TAB2_INPUT, DQUOTE_LEADING_TAB_EVENTS);
+    assert_eq_event(DQUOTE_LEADING_TAB3_INPUT, DQUOTE_LEADING_TAB2_EVENTS);
+    assert_eq_event(DQUOTE_LEADING_TAB4_INPUT, DQUOTE_LEADING_TAB2_EVENTS);
+    assert_eq_event(DQUOTE_LEADING_TAB5_INPUT, DQUOTE_LEADING_TAB2_EVENTS);
 }
