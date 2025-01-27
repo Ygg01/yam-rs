@@ -467,7 +467,6 @@ pub fn test_try_read_indent() {
     try_read("     #", LessOrEqualIndent(7), Ok(LessIndent(5)), 5);
 }
 
-
 #[inline]
 pub(crate) fn is_whitespace(chr: u8) -> bool {
     match chr {

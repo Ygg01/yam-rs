@@ -33,12 +33,22 @@ xt
 [x, y]
 "#;
     const SEQ_FLOW_INPUT2: &'static str = r#"
-[x, y]
+[x ,y]
 "#;
     const SEQ_FLOW_EXPECTED: &'static str = r#"
 +SEQ
 =VAL x
 =VAL y
+-SEQ"#;
+
+    const SEQ_NESTED_COL1: &'static str = r#"
+[:]
+"#;
+
+    const SEQ_NESTED_COL1_EXPECTED: &'static str = r#"
++SEQ
++MAP
+-MAP
 -SEQ"#;
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {
@@ -63,6 +73,10 @@ xt
     fn parse_flow_seq() {
         assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EXPECTED);
         assert_eq_event(SEQ_FLOW_INPUT2, SEQ_FLOW_EXPECTED);
+    }
 
+    #[test]
+    fn parse_nested_col() {
+        assert_eq_event(SEQ_NESTED_COL1, SEQ_NESTED_COL1_EXPECTED);
     }
 }
