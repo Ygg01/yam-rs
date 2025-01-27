@@ -438,18 +438,18 @@ impl<B> Lexer<B> {
         let chars = reader.peek_chars(&mut self.buf);
         match chars {
             [b'%', ..] => {
-                self.set_curr_state(DirectiveSection, 0);
+                self.set_block_state(DirectiveSection, 0);
             }
             b"---" if is_stream_ending => {
                 reader.consume_bytes(3);
                 self.last_map_line = Some(reader.line());
                 self.tokens.push_back(DOC_START_EXP);
-                self.set_curr_state(EndOfDirective, 0);
+                self.set_block_state(EndOfDirective, 0);
             }
             b"..." if is_stream_ending => {
                 reader.consume_bytes(3);
                 self.skip_separation_spaces(reader);
-                self.set_curr_state(InDocEnd, 0);
+                self.set_block_state(InDocEnd, 0);
             }
             [b'#', ..] => {
                 self.read_line(reader);
@@ -459,7 +459,7 @@ impl<B> Lexer<B> {
             }
             [_, ..] => {
                 self.tokens.push_back(DOC_START);
-                self.set_curr_state(DocBlock, 0);
+                self.set_block_state(DocBlock, 0);
             }
             [] => {}
         }
@@ -498,13 +498,13 @@ impl<B> Lexer<B> {
                 self.tokens.push_back(DOC_START);
                 self.tokens.push_back(DOC_END_EXP);
                 self.prepend_error(ErrorType::UnexpectedEndOfStream);
-                self.set_curr_state(PreDocStart, 0);
+                self.set_block_state(PreDocStart, 0);
                 self.continue_processing = false;
             }
             b"---" if is_stream_ending => {
                 reader.consume_bytes(3);
                 self.tokens.push_back(DOC_START_EXP);
-                self.set_curr_state(EndOfDirective, 0);
+                self.set_block_state(EndOfDirective, 0);
                 self.continue_processing = true;
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
@@ -599,7 +599,7 @@ impl<B> Lexer<B> {
                 }
                 self.push_empty_token();
                 self.tokens.push_back(DOC_END_EXP);
-                self.set_curr_state(InDocEnd, 0);
+                self.set_block_state(InDocEnd, 0);
             }
             [b'#', ..] => {
                 self.read_line(reader);
@@ -607,10 +607,10 @@ impl<B> Lexer<B> {
             [b'%', ..] => {
                 self.prepend_error(ErrorType::ExpectedDocumentEndOrContents);
                 self.tokens.push_back(DOC_END);
-                self.set_curr_state(DirectiveSection, 0);
+                self.set_block_state(DirectiveSection, 0);
             }
             [x, ..] if is_not_whitespace(*x) => {
-                self.set_curr_state(DocBlock, reader.line());
+                self.set_block_state(DocBlock, reader.line());
                 self.continue_processing = true;
             }
             [..] => {}
@@ -633,7 +633,7 @@ impl<B> Lexer<B> {
                     });
                 }
                 self.tokens.push_back(DOC_END_EXP);
-                self.set_curr_state(InDocEnd, 0);
+                self.set_block_state(InDocEnd, 0);
             }
             [peek, b'#', ..] if is_white_tab(*peek) => {
                 // comment
@@ -651,7 +651,7 @@ impl<B> Lexer<B> {
                 consume_line = true;
                 self.tokens.push_back(DOC_END);
                 self.push_error(UnexpectedSymbol(*chr as char));
-                self.set_curr_state(PreDocStart, 0);
+                self.set_block_state(PreDocStart, 0);
             }
             [] => {}
         }
@@ -668,7 +668,7 @@ impl<B> Lexer<B> {
                 self.read_line(reader);
             }
             Some(b'%') => {
-                self.set_curr_state(DirectiveSection, read_line);
+                self.set_block_state(DirectiveSection, read_line);
             }
             Some(b'-') => {
                 if self.is_stream_ending(reader) {
@@ -683,7 +683,7 @@ impl<B> Lexer<B> {
                 }
             }
             Some(chr) if chr == b' ' || chr == b'\t' || chr == b'\r' || chr == b'\n' => {
-                self.set_curr_state(PreDocStart, read_line);
+                self.set_block_state(PreDocStart, read_line);
             }
             Some(_) => {
                 self.read_line(reader);
@@ -952,7 +952,7 @@ impl<B> Lexer<B> {
                     self.tokens.extend(take(&mut self.prev_scalar.tokens));
                 }
 
-                self.set_curr_state(FlowSeq(indent, InSeq), reader.line());
+                self.set_block_state(FlowSeq(indent, InSeq), reader.line());
                 let indent = self.get_token_pos();
                 let state = FlowMap(indent, AfterColon);
                 self.push_state(state, reader.line());
@@ -1315,7 +1315,7 @@ impl<B> Lexer<B> {
 
                 if let BlockMapExp(indent, BeforeColon) = curr_state {
                     self.push_empty_token();
-                    self.set_curr_state(BlockMap(indent, BeforeColon), scalar_line);
+                    self.set_block_state(BlockMap(indent, BeforeColon), scalar_line);
                 }
             }
         } else {
@@ -1525,7 +1525,7 @@ impl<B> Lexer<B> {
             });
         }
         self.tags.clear();
-        self.set_curr_state(PreDocStart, reader.line());
+        self.set_block_state(PreDocStart, reader.line());
     }
 
     fn unwind_to_root_end<R: Reader<B>>(&mut self, reader: &mut R) {
@@ -1538,7 +1538,7 @@ impl<B> Lexer<B> {
             });
         }
         self.tags.clear();
-        self.set_curr_state(AfterDocBlock, reader.line());
+        self.set_block_state(AfterDocBlock, reader.line());
     }
 
     fn fetch_exp_block_map_key<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
@@ -1805,7 +1805,7 @@ impl<B> Lexer<B> {
                     tokens.push(start);
                     tokens.push(end);
                     self.errors.push(ErrorType::UnexpectedScalarAtNodeEnd);
-                    self.set_curr_state(AfterDocBlock, reader.line());
+                    self.set_block_state(AfterDocBlock, reader.line());
                     break;
                 } else {
                     tokens.push(ERROR_TOKEN);
@@ -1951,10 +1951,18 @@ impl<B> Lexer<B> {
     }
 
     #[inline(always)]
-    pub fn set_curr_state(&mut self, state: LexerState, read_line: u32) {
+    pub fn set_block_state(&mut self, state: LexerState, read_line: u32) {
         match self.stack.last_mut() {
             Some(x) => *x = state,
             None => self.push_state(state, read_line),
+        }
+    }
+
+    #[inline(always)]
+    pub fn set_state(&mut self, state: LexerState) {
+        match self.stack.last_mut() {
+            Some(x) => *x = state,
+            None => self.stack.push(state),
         }
     }
 
