@@ -1,4 +1,3 @@
-
 const EMPTY_DOC_INPUT: &'static str = r#"
 # test"
   # test
@@ -13,7 +12,6 @@ null
 "#;
 const NULL_YAML_EXPECTED: &'static str = r#"
   =VAL null"#;
-
 
 const MULTI_WORD_INPUT: &'static str = r#"
   null test xy"#;
