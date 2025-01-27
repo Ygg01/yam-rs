@@ -115,7 +115,7 @@ pub(crate) const fn is_white_tab_or_break(chr: u8) -> bool {
 }
 
 #[inline]
-pub(crate) const fn is_not_whitespace(chr: &u8) -> bool {
+pub(crate) const fn is_not_whitespace(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => false,
         _ => true,

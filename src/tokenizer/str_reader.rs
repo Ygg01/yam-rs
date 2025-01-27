@@ -3,7 +3,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 use std::usize;
 
-use memchr::memchr;
+use memchr::{memchr, memchr2};
 
 use reader::{is_flow_indicator, ns_plain_safe};
 use ErrorType::ExpectedIndent;
@@ -17,7 +17,7 @@ use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, Reader, Slicer};
 
-use super::reader::is_newline;
+use super::reader::{is_newline, is_not_whitespace};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -41,6 +41,12 @@ impl<'a> From<&'a str> for StrReader<'a> {
             line: 0,
         }
     }
+}
+
+pub(crate) enum QuoteState {
+    Start,
+    Trim,
+    End,
 }
 
 impl<'a> From<&'a [u8]> for StrReader<'a> {
@@ -154,6 +160,86 @@ impl<'a> StrReader<'a> {
             },
         );
         (start, start + n, start + n + newline)
+    }
+
+    #[inline]
+    fn update_newlines(&mut self, newspaces: &mut Option<usize>, start_str: &mut usize) {
+        *newspaces = Some(self.skip_separation_spaces(true).0.saturating_sub(1) as usize);
+        *start_str = self.pos;
+    }
+
+    fn quote_start(
+        &mut self,
+        mut start_str: &mut usize,
+        line_end: usize,
+        is_multiline: &mut bool,
+        mut newspaces: &mut Option<usize>,
+        mut tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        if let Some(pos) = memchr2(b'\\', b'"', &self.slice[self.pos..line_end]) {
+            let match_pos = self.consume_bytes(pos);
+            match self.peek_chars() {
+                [b'\\', b'\t', ..] => {
+                    emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);
+                    self.consume_bytes(2);
+                    *start_str = self.pos;
+                }
+                [b'\\', b't', ..] => {
+                    self.consume_bytes(2);
+                }
+                [b'\\', b'\r' | b'\n', ..] => {
+                    *is_multiline = true;
+                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    self.consume_bytes(1);
+                    self.update_newlines(&mut None, &mut start_str);
+                }
+                [b'\\', b'"', ..] => {
+                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    *start_str = self.pos + 1;
+                    self.consume_bytes(2);
+                }
+                [b'\\', b'/', ..] => {
+                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    *start_str = self.consume_bytes(1);
+                }
+                [b'"', ..] => {
+                    emit_token_mut(&mut start_str, match_pos, &mut newspaces, &mut tokens);
+                    self.pos += 1;
+                    return QuoteState::End;
+                }
+                [b'\\'] | [b'\\', ..] => {
+                    self.pos += 1;
+                }
+                _ => {}
+            }
+            QuoteState::Start
+        } else {
+            QuoteState::Trim
+        }
+    }
+
+    fn quote_trim(
+        &mut self,
+        start_str: &mut usize,
+        line_end: usize,
+        newspaces: &mut Option<usize>,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        let match_pos =  self.slice[self.pos..line_end]
+            .iter()
+            .rev()
+            .position(|chr| *chr != b' ' && * chr != b'\t')
+            .map_or(line_end, |find| line_end.saturating_sub(find));
+        let len = match_pos.saturating_sub(*start_str);
+        emit_token_mut(start_str, match_pos, newspaces, tokens);
+        self.consume_bytes(len);
+        self.update_newlines(newspaces, start_str);
+        if self.eof() {
+            QuoteState::End
+        } else {
+            QuoteState::Start
+        }
+        
     }
 }
 
@@ -367,12 +453,16 @@ impl<'r> Reader<()> for StrReader<'r> {
             let indent_has_reduced = map_indent <= block_indent && previous_indent != block_indent;
             let check_block_indent = self.peek_byte_unwrap(block_indent);
 
-            if (check_block_indent == b'-' && matches!(curr_state, BlockSeq(ind) if prefix_indent == *ind as usize))
-                || (check_block_indent == b':' && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent == *ind as usize))
+            if (check_block_indent == b'-'
+                && matches!(curr_state, BlockSeq(ind) if prefix_indent == *ind as usize))
+                || (check_block_indent == b':'
+                    && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent == *ind as usize))
             {
                 self.consume_bytes(block_indent);
                 break;
-            } else if indent_has_reduced && matches!(curr_state, BlockMap(ind, _) if *ind as usize == map_indent) {
+            } else if indent_has_reduced
+                && matches!(curr_state, BlockMap(ind, _) if *ind as usize == map_indent)
+            {
                 break;
             }
 
@@ -451,81 +541,29 @@ impl<'r> Reader<()> for StrReader<'r> {
         is_multiline: &mut bool,
         errors: &mut Vec<ErrorType>,
     ) -> Vec<usize> {
-        let start_str = self.consume_bytes(1);
-        let mut quote_token = (start_str, start_str);
+        let mut start_str = self.consume_bytes(1);
         let mut tokens = vec![ScalarDoubleQuote as usize];
-        let mut last_non_space = 0;
         let mut newspaces = None;
+        let mut state = QuoteState::Start;
 
-        while !self.eof() {
-            let (line_start, line_end, _) = self.get_line_offset();
-            if line_start == line_end {
-                if *is_multiline {
-                    quote_token.0 = last_non_space;
-                } else {
-                    quote_token.1 = last_non_space;
-                }
-
-                *is_multiline = true;
-
-                emit_token(&mut quote_token, &mut newspaces, &mut tokens);
-                newspaces = Some(self.skip_separation_spaces(true).0.saturating_sub(1) as usize);
-                quote_token.0 = self.pos;
-                if prev_indent != 0 && self.col < prev_indent {
-                    tokens.insert(0, ErrorToken as usize);
-                    errors.push(ErrorType::ExpectedIndent {
-                        actual: self.col,
-                        expected: prev_indent,
-                    })
-                }
-                continue;
-            }
-            let haystack = &self.slice[line_start..line_end];
-            if let Some(find_pos) = haystack
-                .iter()
-                .position(|x| *x == b'"' || *x == b' ' || *x == b'\t' || *x == b'\\')
-            {
-                self.consume_bytes(find_pos.saturating_sub(1));
-                let peek_chrs = self.peek_chars();
-                match peek_chrs {
-                    [b'\\', b'"', ..] | [_, b'\\', b'"', ..] => {
-                        quote_token.1 = self.pos + 1;
-                        emit_token(&mut quote_token, &mut newspaces, &mut tokens);
-                        quote_token.0 = self.pos + 2;
-                        self.consume_bytes(3);
-                    }
-                    [_, b'"', ..] => {
-                        quote_token.1 = self.pos + 1;
-                        emit_token(&mut quote_token, &mut newspaces, &mut tokens);
-                        self.consume_bytes(2);
-                        break;
-                    }
-                    [b'\\', b't', ..] | [_, b'\\', b't', ..] => {
-                        last_non_space = self.consume_bytes(2);
-                        self.skip_space_tab();
-                    }
-                    [_, b' ' | b'\t', ..] | [b' ' | b'\t'] => {
-                        if *is_multiline {
-                            last_non_space = self.pos;
-                            self.consume_bytes(1);
-                            self.skip_space_tab();
-                        } else {
-                            last_non_space = self.consume_bytes(1);
-                            self.skip_space_tab();
-                        }
-                    }
-                    [_, b'\\', x, ..] if *x != b' ' && *x != b'\t' => {
-                        last_non_space = self.pos;
-                        self.consume_bytes(2);
-                    }
-                    _ => {
-                        self.consume_bytes(1);
-                    }
-                }
-            } else {
-                let amount = line_end - line_start;
-                last_non_space = self.consume_bytes(amount);
-            }
+        loop {
+            let (_, line_end, _) = self.get_line_offset();
+            state = match state {
+                QuoteState::Start => self.quote_start(
+                    &mut start_str,
+                    line_end,
+                    is_multiline,
+                    &mut newspaces,
+                    &mut tokens,
+                ),
+                QuoteState::Trim => self.quote_trim(
+                    &mut start_str,
+                    line_end,
+                    &mut newspaces,
+                    &mut tokens,
+                ),
+                QuoteState::End => break,
+            };
         }
         tokens.push(ScalarEnd as usize);
         tokens
@@ -643,21 +681,39 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 }
 
-fn emit_token(
-    quote_token: &mut (usize, usize),
+fn emit_token_mut(
+    start: &mut usize,
+    end: usize,
     newspaces: &mut Option<usize>,
     tokens: &mut Vec<usize>,
 ) {
-    if quote_token.0 != quote_token.1 {
+    if end > *start {
         if let Some(newspace) = newspaces.take() {
             tokens.push(NewLine as usize);
             tokens.push(newspace);
         }
-        tokens.push(quote_token.0);
-        tokens.push(quote_token.1);
-        quote_token.0 = quote_token.1;
+        tokens.push(*start);
+        tokens.push(end);
+        *start = end;
     }
 }
+
+// fn emit_token(
+//     start: usize,
+//     end: usize,
+//     newspaces: &mut Option<usize>,
+//     tokens: &mut Vec<usize>,
+// ) {
+//     if end > start {
+//         if let Some(newspace) = newspaces.take() {
+//             tokens.push(NewLine as usize);
+//             tokens.push(newspace);
+//         }
+//         tokens.push(start);
+//         tokens.push(end);
+//     }
+// }
+
 
 #[test]
 pub fn test_plain_scalar() {

@@ -20,8 +20,6 @@ const BLOCK_EVENTS: &str = r#"
   -SEQ
  -DOC"#;
 
-
-
 const SEQ_PLAIN_INPUT: &str = r#"
   - x
    - y
@@ -144,8 +142,6 @@ const FOLD_STRING_EVENTS: &str = r#"
    =VAL >1\n 2\n3 4
   -SEQ
  -DOC"#;
-
-
 
 const BLOCK_QUOTE_INPUT: &str = r#"
 plain: 
@@ -324,7 +320,6 @@ const PLAIN_MULTI_EVENTS: &str = r#"
 pub fn block_plain_multiline() {
     assert_eq_event(PLAIN_MULTI_INPUT, PLAIN_MULTI_EVENTS)
 }
-
 
 const MAP2_INPUT: &str = r#"
 :
@@ -878,4 +873,24 @@ const INDENT_TAB_EVENTS: &str = r#"
 #[test]
 fn block_invalid_map_tabs() {
     assert_eq_event(INDENT_TAB_INPUT, INDENT_TAB_EVENTS);
+}
+
+const DQUOTE_INPUT: &str = r##"
+  gen: "\
+      foo\
+      bar   
+      baz "
+"##;
+
+const DQUOTE_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :gen
+   =VAL "foobar baz 
+  -MAP
+ -DOC"#;
+
+#[test]
+fn block_multiline_dquote() {
+    assert_eq_event(DQUOTE_INPUT, DQUOTE_EVENTS);
 }

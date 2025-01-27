@@ -29,7 +29,6 @@ const DOC_EMPTY_TAG_EVENTS: &str = r#"
   =VAL :
  -DOC"#;
 
-
 #[test]
 fn doc_empty() {
     assert_eq_event(DOC_EMPTY_TAG_INPUT, DOC_EMPTY_TAG_EVENTS);
@@ -53,7 +52,7 @@ const ERR_DIRECTIVE2_INPUT: &str = r#"
 ...
 "#;
 
- const ERR_DIRECTIVE2_EVENTS: &str = r#"
+const ERR_DIRECTIVE2_EVENTS: &str = r#"
  ERR
  ERR
  %YAML 1.2
@@ -72,14 +71,14 @@ const ERR_DIRECTIVE3_EVENTS: &str = r#"
   =VAL :
  -DOC"#;
 
- const ERR_MULTIDOC_INPUT: &str = r#"
+const ERR_MULTIDOC_INPUT: &str = r#"
  %YAML 1.2
  ---
  %YAML 1.2
  ---
  "#;
- 
- const ERR_MULTIDOC_EVENTS: &str = r#"
+
+const ERR_MULTIDOC_EVENTS: &str = r#"
  ERR
  %YAML 1.2
  +DOC ---
@@ -88,7 +87,6 @@ const ERR_DIRECTIVE3_EVENTS: &str = r#"
  +DOC ---
   =VAL :
  -DOC"#;
-
 
 #[test]
 fn doc_err_directive() {
@@ -107,7 +105,6 @@ const SIMPLE_DOC_EVENTS: &str = r#"
   -SEQ
  -DOC"#;
 
-
 const SIMPLE_DOC2_INPUT: &str = r##"
 %YAML 1.3 #comment
           #comment
@@ -121,7 +118,7 @@ const SIMPLE_DOC2_EVENTS: &str = r#"
   =VAL "test
  -DOC"#;
 
- const EMPTY_INPUT: &str = r##"
+const EMPTY_INPUT: &str = r##"
 ---
 ...
 "##;
@@ -171,7 +168,6 @@ const POST_DOC_ERR_EVENTS: &str = r#"
  -DOC ...
  ERR"#;
 
-
 #[test]
 fn doc_after_stream() {
     assert_eq_event(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS);
@@ -184,7 +180,6 @@ const MULTI_DOC_INPUT: &str = r#"
 ---
 - c
 "#;
-
 
 const MULTI_DOC_EVENTS: &str = r#"
  +DOC ---
