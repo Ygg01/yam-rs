@@ -607,7 +607,6 @@ pub fn test_map_scalar_and_ws() {
     assert_eq_event(COMPLEX_MAP, COMPLEX_MAP_EVENTS);
 }
 
-
 const MIX_BLOCK: &str = r##"
 -
   key: x

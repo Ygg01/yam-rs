@@ -131,9 +131,13 @@ impl LexerState {
 
     fn get_map(&self, start_scalar: usize) -> LexerState {
         match *self {
-            FlowSeq(indent, _) | FlowMap(indent, _) | FlowKeyExp(indent, _) => FlowMap(indent + 1, BeforeColon),
-            BlockSeq(_) | BlockMap(_, _) | BlockMapExp(_, _) | DocBlock => BlockMap(start_scalar as u32, BeforeColon),
-            _ => panic!("Unexpected state {:?}", self)
+            FlowSeq(indent, _) | FlowMap(indent, _) | FlowKeyExp(indent, _) => {
+                FlowMap(indent + 1, BeforeColon)
+            }
+            BlockSeq(_) | BlockMap(_, _) | BlockMapExp(_, _) | DocBlock => {
+                BlockMap(start_scalar as u32, BeforeColon)
+            }
+            _ => panic!("Unexpected state {:?}", self),
         }
     }
 }
@@ -325,7 +329,7 @@ impl Lexer {
                         &mut self.tokens,
                         &mut self.errors,
                     ),
-                    Some(b'\'') => self.process_quote(reader),            
+                    Some(b'\'') => self.process_quote(reader),
                     Some(b'"') => self.process_double_quote(reader),
                     Some(b'#') => {
                         // comment
@@ -406,7 +410,7 @@ impl Lexer {
                 reader.consume_bytes(1);
                 self.set_curr_state(FlowSeq(indent, BeforeSeq));
             }
-            Some(b'\'') => self.process_quote(reader),            
+            Some(b'\'') => self.process_quote(reader),
             Some(b'"') => self.process_double_quote(reader),
             Some(b'?') => self.fetch_explicit_map(reader),
             Some(b'#') => {
@@ -517,10 +521,10 @@ impl Lexer {
     fn process_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
         let start_scalar = reader.col();
-        let tokens =  reader.read_single_quote(curr_state.is_implicit());
+        let tokens = reader.read_single_quote(curr_state.is_implicit());
 
         if reader.peek_non_space_byte(b':').is_some() {
-            self.tokens.push_back(MAP_START_BLOCK);       
+            self.tokens.push_back(MAP_START_BLOCK);
             self.stack.push(curr_state.get_map(start_scalar));
         }
 
@@ -530,15 +534,14 @@ impl Lexer {
     fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
         let start_scalar = reader.col();
-        let tokens =  reader.read_double_quote(curr_state.is_implicit());
+        let tokens = reader.read_double_quote(curr_state.is_implicit());
 
         if reader.peek_non_space_byte(b':').is_some() {
-            self.tokens.push_back(MAP_START_BLOCK);       
+            self.tokens.push_back(MAP_START_BLOCK);
             self.stack.push(curr_state.get_map(start_scalar));
         }
 
         self.tokens.extend(tokens);
-
     }
 
     fn fetch_flow_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {

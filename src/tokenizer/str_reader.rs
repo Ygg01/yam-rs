@@ -477,7 +477,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_double_quote(&mut self, is_implicit: bool) ->  Vec<usize> {
+    fn read_double_quote(&mut self, is_implicit: bool) -> Vec<usize> {
         self.consume_bytes(1);
         let mut tokens = Vec::new();
         tokens.push(ScalarDoubleQuote as usize);
@@ -524,7 +524,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         tokens
     }
 
-    fn read_single_quote(&mut self, is_implicit: bool) ->  Vec<usize> {
+    fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize> {
         self.consume_bytes(1);
         let mut tokens = Vec::new();
         tokens.push(ScalarSingleQuote as usize);
@@ -590,7 +590,7 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token: LexerToken) {
-        let start =  self.consume_bytes(1);
+        let start = self.consume_bytes(1);
         let amount = self.slice[self.pos..]
             .iter()
             .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p))
