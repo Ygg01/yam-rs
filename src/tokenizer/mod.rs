@@ -1,9 +1,10 @@
 use std::borrow::Cow;
+use std::panic::resume_unwind;
 
 pub use scanner::Scanner;
 
 use crate::tokenizer::event::YamlEvent;
-use crate::tokenizer::reader::StrReader;
+use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::{Control, SpanToken};
 
 mod event;
@@ -43,6 +44,8 @@ pub struct StrIterator<'a> {
 impl<'a> StrIterator<'a> {
     pub(crate) fn to_token(&self, token: SpanToken) -> YamlEvent<'a> {
         match token {
+            SpanToken::DocStart => YamlEvent::DocStart,
+            SpanToken::DocEnd => YamlEvent::DocEnd,
             SpanToken::StreamStart => YamlEvent::StreamStart,
             SpanToken::StreamEnd => YamlEvent::StreamEnd,
             SpanToken::Scalar(start, end) => YamlEvent::ScalarValue(self.to_cow(start, end)),
@@ -65,17 +68,12 @@ impl<'a> Iterator for StrIterator<'a> {
         let span = loop {
             if let Some(token) = self.state.pop_token() {
                 break token;
-            } else if !self.state.eof {
-                match self.state.next_state(&mut self.reader) {
-                    Control::Continue => (),
-                    Control::Eof => {
-                        self.state.eof = true;
-                        self.state.emit_end_of_stream();
-                    }
-                    _ => return None,
-                }
             } else {
-                return None;
+                match self.state.next_state(&mut self.reader) {
+                    Control::Continue => continue,
+                    Control::Eof => return None,
+                    Control::Err(_) => return None,
+                }
             }
         };
         Some(self.to_token(span))
