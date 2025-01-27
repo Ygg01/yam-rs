@@ -921,11 +921,27 @@ const ALIAS_N_SEQ3_EVENTS: &str = r#"
   -SEQ
  -DOC"#;
 
+const ALIAS_N_COMP_MAP_INPUT: &str = r#"
+&map
+&key [ &item a]: value
+"#;
+
+const ALIAS_N_COMP_MAP_EVENTS: &str = r#"
+ +DOC
+  +MAP &map
+   +SEQ [] &key
+    =VAL &item :a
+   -SEQ
+   =VAL :value
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn block_seq_anchor_alias() {
     assert_eq_event(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS);
     assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
     assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
+    assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
 }
 
 const SEQ_AND_TAG_INPUT: &str = r#"
