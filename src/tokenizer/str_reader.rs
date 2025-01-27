@@ -383,16 +383,16 @@ impl<'r> Reader<()> for StrReader<'r> {
         // allow comment in first line of block scalar
         self.skip_space_tab(true);
         match self.peek_byte() {
-            Some(b'#'| b'\r' | b'\n')  => {
+            Some(b'#' | b'\r' | b'\n') => {
                 self.read_line();
-            },
+            }
             Some(chr) => {
                 self.read_line();
                 tokens.push_back(ErrorToken as usize);
                 errors.push(ErrorType::UnexpectedSymbol(chr as char));
                 return;
             }
-            _ => {},
+            _ => {}
         }
 
         let mut new_line_token = 0;
