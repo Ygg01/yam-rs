@@ -19,7 +19,7 @@ pub enum YamlError {
 impl From<Error> for YamlError {
     /// Creates a new `Error::Io` from the given error
     #[inline]
-    fn from(error:  Error) -> YamlError {
+    fn from(error: Error) -> YamlError {
         YamlError::Io(error.to_string())
     }
 }
