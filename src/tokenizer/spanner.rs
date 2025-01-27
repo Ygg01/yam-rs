@@ -482,6 +482,7 @@ impl Spanner {
                     } else {
                         self.tokens.push_back(MarkStart(line_start));
                         self.tokens.push_back(MarkEnd(line_start + len - 1));
+                        // we add the escaped `"` in `\"`
                         self.tokens.push_back(MarkStart(line_start + len ));
                         self.tokens.push_back(MarkEnd(line_start + len + 1));
                         reader.consume_bytes(len + 1);
