@@ -208,7 +208,6 @@ impl<'a> StrReader<'a> {
                 [b'\\', b't', ..] => {
                     emit_token_mut(start_str, match_pos + 2, newspaces, tokens);
                     self.consume_bytes(2);
-                    // self.update_newlines(newspaces, start_str);
                 }
                 [b'\\', b'\r' | b'\n', ..] => {
                     *is_multiline = true;
@@ -259,7 +258,7 @@ impl<'a> StrReader<'a> {
         tokens: &mut Vec<usize>,
     ) -> QuoteState {
         let (_, line_end, _) = self.get_quoteline_offset(b'"');
-       
+
         if self.col == 0 && (matches!(self.peek_chars(), b"..." | b"---")) {
             errors.push(ErrorType::UnexpectedEndOfStream);
             tokens.insert(0, ErrorToken as usize);
