@@ -34,10 +34,47 @@ unsafe impl Stage1Scanner for NativeScanner {
     fn calculate_indents(
         &self,
         chunk_state: &mut YamlChunkState,
-        _prev_state: &mut YamlParserState,
+        prev_state: &mut YamlParserState,
     ) {
-        chunk_state.characters.line_feed = u8x64_lteq(self.v0, b'\n');
-        chunk_state.characters.spaces = u8x64_lteq(self.v0, b' ');
+        let mut curr_row = *prev_state.last_row;
+        let mut curr_col = *prev_state.last_col;
+        let mut curr_indent = *prev_state.last_indent;
+
+        let spaces = u8x64_lteq(self.v0, b' ');
+        let line_feeds = u8x64_lteq(self.v0, b'\n');
+
+
+        for pos in 0..64 {
+            let is_newline = line_feeds & (1 << pos) != 0;
+            let is_space = spaces & (1 << pos) != 0;
+
+            if is_space && !*prev_state.is_indent_frozen {
+                curr_indent += 1;
+            } else if !is_space && *prev_state.is_indent_frozen {
+                *prev_state.is_indent_frozen = true;
+            }
+
+            if is_newline {
+                unsafe {
+                    *chunk_state.cols.get_unchecked_mut(pos) = curr_col + 1;
+                    *chunk_state.rows.get_unchecked_mut(pos) = curr_row;
+                }
+                curr_col = 0;
+                curr_indent = 0;
+                curr_row += 1;
+                *prev_state.is_indent_frozen = false;
+                continue;
+            }
+
+            curr_col += 1;
+            unsafe {
+                *chunk_state.cols.get_unchecked_mut(pos) = curr_col;
+                *chunk_state.rows.get_unchecked_mut(pos) = curr_row;
+                *chunk_state.indents.get_unchecked_mut(pos) = curr_indent;
+            }
+        }
+        chunk_state.characters.line_feeds = line_feeds;
+        chunk_state.characters.spaces = spaces;
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
