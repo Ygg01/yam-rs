@@ -851,8 +851,7 @@ const MULTI_DOC_EVENT: &str = r#"
   +SEQ
    =VAL :c
   -SEQ
- -DOC
-"#;
+ -DOC"#;
 
 #[test]
 fn multi_doc() {
