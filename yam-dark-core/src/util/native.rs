@@ -781,42 +781,42 @@ impl U8X8 {
     pub fn add_offset_and_mask(&self, mask: Self, offset: u32) -> [u32; 8] {
         [
             if mask.0[0] == 0 {
-                self.0[0] as u32 + offset
+                unsafe { *self.0.get_unchecked(0) as u32 + offset }
             } else {
                 self.0[0] as u32
             },
             if mask.0[1] == 0 {
-                self.0[1] as u32 + offset
+                unsafe { *self.0.get_unchecked(1) as u32 + offset }
             } else {
                 self.0[1] as u32
             },
             if mask.0[2] == 0 {
-                self.0[2] as u32 + offset
+                unsafe { *self.0.get_unchecked(2) as u32 + offset }
             } else {
                 self.0[2] as u32
             },
             if mask.0[3] == 0 {
-                self.0[3] as u32 + offset
+                unsafe { *self.0.get_unchecked(3) as u32 + offset }
             } else {
                 self.0[3] as u32
             },
             if mask.0[4] == 0 {
-                self.0[4] as u32 + offset
+                unsafe { *self.0.get_unchecked(4) as u32 + offset }
             } else {
                 self.0[4] as u32
             },
             if mask.0[5] == 0 {
-                self.0[5] as u32 + offset
+                unsafe { *self.0.get_unchecked(5) as u32 + offset }
             } else {
                 self.0[5] as u32
             },
             if mask.0[6] == 0 {
-                self.0[6] as u32 + offset
+                unsafe { *self.0.get_unchecked(6) as u32 + offset }
             } else {
                 self.0[6] as u32
             },
             if mask.0[7] == 0 {
-                self.0[7] as u32 + offset
+                unsafe { *self.0.get_unchecked(7) as u32 + offset }
             } else {
                 self.0[7] as u32
             },
@@ -836,80 +836,3 @@ impl U8X8 {
     }
 }
 
-pub fn merge8x8_into_32x64(
-    v0: U8X8,
-    v1: U8X8,
-    v2: U8X8,
-    v3: U8X8,
-    v4: U8X8,
-    v5: U8X8,
-    v6: U8X8,
-    v7: U8X8,
-) -> [u32; 64] {
-    [
-        v0.0[0] as u32,
-        v0.0[1] as u32,
-        v0.0[2] as u32,
-        v0.0[3] as u32,
-        v0.0[4] as u32,
-        v0.0[5] as u32,
-        v0.0[6] as u32,
-        v0.0[7] as u32,
-        v1.0[0] as u32,
-        v1.0[1] as u32,
-        v1.0[2] as u32,
-        v1.0[3] as u32,
-        v1.0[4] as u32,
-        v1.0[5] as u32,
-        v1.0[6] as u32,
-        v1.0[7] as u32,
-        v2.0[0] as u32,
-        v2.0[1] as u32,
-        v2.0[2] as u32,
-        v2.0[3] as u32,
-        v2.0[4] as u32,
-        v2.0[5] as u32,
-        v2.0[6] as u32,
-        v2.0[7] as u32,
-        v3.0[0] as u32,
-        v3.0[1] as u32,
-        v3.0[2] as u32,
-        v3.0[3] as u32,
-        v3.0[4] as u32,
-        v3.0[5] as u32,
-        v3.0[6] as u32,
-        v3.0[7] as u32,
-        v4.0[0] as u32,
-        v4.0[1] as u32,
-        v4.0[2] as u32,
-        v4.0[3] as u32,
-        v4.0[4] as u32,
-        v4.0[5] as u32,
-        v4.0[6] as u32,
-        v4.0[7] as u32,
-        v5.0[0] as u32,
-        v5.0[1] as u32,
-        v5.0[2] as u32,
-        v5.0[3] as u32,
-        v5.0[4] as u32,
-        v5.0[5] as u32,
-        v5.0[6] as u32,
-        v5.0[7] as u32,
-        v6.0[0] as u32,
-        v6.0[1] as u32,
-        v6.0[2] as u32,
-        v6.0[3] as u32,
-        v6.0[4] as u32,
-        v6.0[5] as u32,
-        v6.0[6] as u32,
-        v6.0[7] as u32,
-        v7.0[0] as u32,
-        v7.0[1] as u32,
-        v7.0[2] as u32,
-        v7.0[3] as u32,
-        v7.0[4] as u32,
-        v7.0[5] as u32,
-        v7.0[6] as u32,
-        v7.0[7] as u32,
-    ]
-}
