@@ -124,10 +124,21 @@ const DQUOTE_MULTI2_EVENTS: &str = r#"
 -SEQ
 -DOC"#;
 
+const X_6WPF_INPUT: &str = r#"
+"
+  baz
+""#;
+
+const X_6WPF_EVENTS: &str = r#"
++DOC
+=VAL " baz 
+-DOC"#;
+
 #[test]
 fn dquote_multiline() {
     assert_eq_event(DQUOTE_MULTI1_INPUT, DQUOTE_MULTI1_EVENTS);
     assert_eq_event(DQUOTE_MULTI2_INPUT, DQUOTE_MULTI2_EVENTS);
+    assert_eq_event(X_6WPF_INPUT, X_6WPF_EVENTS);
 }
 
 const DQUOTE_END_INPUT: &str = r#"
@@ -138,7 +149,7 @@ const DQUOTE_END_INPUT: &str = r#"
 const DQUOTE_END_EVENTS: &str = r#"
 +DOC
 ERR
-=VAL " ---
+=VAL " --- 
 -DOC"#;
 
 const DQUOTE_ERR2_INPUT: &str = r#"

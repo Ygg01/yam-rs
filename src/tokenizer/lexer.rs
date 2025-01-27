@@ -1063,6 +1063,7 @@ impl<B> Lexer<B> {
                 }
             }
             [b'"', ..] => {
+                emit_newspace(tokens, newspaces);
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
                 reader.consume_bytes(1);
                 return QuoteState::End;
@@ -2034,6 +2035,8 @@ impl<B> Lexer<B> {
     }
 }
 
+
+
 pub(crate) enum QuoteState {
     Start,
     Trim,
@@ -2055,6 +2058,13 @@ fn emit_token_mut(
         tokens.push(*start);
         tokens.push(end);
         *start = end;
+    }
+}
+
+fn emit_newspace(tokens:  &mut Vec<usize>, newspaces: &mut Option<usize>) {
+    if let Some(newspace) = newspaces.take() {
+        tokens.push(NewLine as usize);
+        tokens.push(newspace);
     }
 }
 
