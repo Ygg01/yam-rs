@@ -282,10 +282,8 @@ impl<'r> Reader<()> for StrReader<'r> {
         &mut self,
         offset_start: Option<usize>,
         had_comment: &mut bool,
-        in_flow_collection: bool,    
+        in_flow_collection: bool,
     ) -> (usize, usize, Option<ErrorType>) {
-  
-
         let start = offset_start.unwrap_or(self.pos);
         let (_, line_end, _) = self.get_line_offset();
         let end = self.consume_bytes(1);
@@ -298,11 +296,11 @@ impl<'r> Reader<()> for StrReader<'r> {
                 // if we encounter two or more comment print error and try to recover
                 if *had_comment {
                     self.pos = line_end;
-                    return (start, end_of_str, Some(UnexpectedComment));                    
+                    return (start, end_of_str, Some(UnexpectedComment));
                 } else {
                     *had_comment = true;
                     self.pos = line_end;
-                    break;
+                    return (start, end_of_str, None);
                 }
             }
 
@@ -318,7 +316,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
 
             // // if current character is a flow indicator, break
-            if is_flow_indicator(curr) && in_flow_collection{
+            if is_flow_indicator(curr) && in_flow_collection {
                 self.pos = end_of_str;
                 break;
             }
@@ -331,9 +329,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 continue;
             }
             end_of_str = pos;
-            
-        }      
-        self.pos = end_of_str; 
+        }
+        self.pos = end_of_str;
         (start, end_of_str, None)
     }
 
@@ -620,5 +617,4 @@ impl<'r> Reader<()> for StrReader<'r> {
     fn read_tag(&self) -> Option<(usize, usize)> {
         todo!()
     }
-
 }

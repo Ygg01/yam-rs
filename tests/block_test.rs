@@ -265,9 +265,9 @@ const MULTILINE_COMMENT_BLOCK4_EXPECTED: &'static str = r#"
 
 #[test]
 pub fn multiline_block_comment() {
-    // assert_eq_event(MULTILINE_COMMENT_BLOCK1, MULTILINE_COMMENT_BLOCK1_EXPECTED);
-    // assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK1_EXPECTED);
-    // assert_eq_event(MULTILINE_COMMENT_BLOCK3, MULTILINE_COMMENT_BLOCK3_EXPECTED);
+    assert_eq_event(MULTILINE_COMMENT_BLOCK1, MULTILINE_COMMENT_BLOCK1_EXPECTED);
+    assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK1_EXPECTED);
+    assert_eq_event(MULTILINE_COMMENT_BLOCK3, MULTILINE_COMMENT_BLOCK3_EXPECTED);
     assert_eq_event(MULTILINE_COMMENT_BLOCK4, MULTILINE_COMMENT_BLOCK4_EXPECTED);
 }
 
@@ -359,10 +359,8 @@ pub fn explicit_block_combination() {
     assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
 }
 
-// #a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
-// # ?foo: bar
-// #this is#not: a comment
 const COMPLEX_BLOCK_KEY: &'static str = r##"
+a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~: safe
 :foo: baz
 -foo: boo
 "##;
@@ -370,6 +368,8 @@ const COMPLEX_BLOCK_KEY: &'static str = r##"
 const COMPLEX_BLOCK_EXPECTED: &'static str = r##"
  +DOC
   +MAP
+   =VAL :a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~
+   =VAL :safe
    =VAL ::foo
    =VAL :baz
    =VAL :-foo
@@ -377,8 +377,7 @@ const COMPLEX_BLOCK_EXPECTED: &'static str = r##"
   -MAP
  -DOC"##;
 
-
 #[test]
 pub fn test_complex_block() {
-  assert_eq_event(COMPLEX_BLOCK_KEY, COMPLEX_BLOCK_EXPECTED);
+    assert_eq_event(COMPLEX_BLOCK_KEY, COMPLEX_BLOCK_EXPECTED);
 }

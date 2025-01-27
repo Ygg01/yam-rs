@@ -1,7 +1,6 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
-use std::fs::read;
 use std::hint::unreachable_unchecked;
 use LexerState::PreDocStart;
 
@@ -177,7 +176,13 @@ impl Lexer {
                     Some(b'[') => self.fetch_flow_col(reader, indent as usize),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
-                    Some(b':') if indent == 0 && reader.col() == 0 => {
+                    Some(b':')
+                        if indent == 0
+                            && reader.col() == 0
+                            && reader
+                                .peek_byte_at(1)
+                                .map_or(true, |x| is_white_tab_or_break(x)) =>
+                    {
                         reader.consume_bytes(1);
                         if self.curr_state == RootBlock {
                             self.tokens.push_back(MappingStart as usize);
@@ -189,7 +194,11 @@ impl Lexer {
                         }
                         self.curr_state = BlockMapVal(0);
                     }
-                    Some(b':') => {
+                    Some(b':')
+                        if reader
+                            .peek_byte_at(1)
+                            .map_or(true, |x| is_white_tab_or_break(x)) =>
+                    {
                         reader.consume_bytes(1);
                         if let BlockMapKeyExp(x1) = self.curr_state {
                             self.curr_state = BlockMapValExp(x1);
@@ -463,7 +472,7 @@ impl Lexer {
                 break;
             }
 
-            let (start, end, error)  =
+            let (start, end, error) =
                 reader.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
 
             if let Some(err) = error {
@@ -481,7 +490,9 @@ impl Lexer {
                 {
                     tokens.push(ScalarEnd as usize);
                     tokens.push(ScalarPlain as usize);
-                } else if self.curr_state.is_new_block_col(curr_indent) {
+                } else if !matches!(self.curr_state, BlockMap(x)| BlockMapVal(x) if start_indent == x as usize)
+                    && self.curr_state.is_new_block_col(curr_indent)
+                {
                     reader.consume_bytes(1);
                     new_state = Some(BlockMapVal(curr_indent as u32));
                     tokens.insert(0, MappingStart as usize);
