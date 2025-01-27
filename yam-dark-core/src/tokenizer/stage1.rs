@@ -340,17 +340,17 @@ pub unsafe trait Stage1Scanner {
         *is_indent_running = last_bit;
     }
 
-    fn calculate_cols_rows_indents(chunk_state: &mut YamlChunkState, is_indent_running: &mut bool) {
+    fn calculate_cols_rows_indents(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
         Self::calculate_cols_rows(
-            &mut chunk_state.cols,
-            &mut chunk_state.rows,
+            &mut state.byte_cols,
+            &mut state.byte_rows,
             chunk_state.characters.line_feeds,
         );
         Self::calculate_indents(
-            &mut chunk_state.indents,
+            &mut state.indents,
             chunk_state.characters.line_feeds,
             chunk_state.characters.spaces,
-            is_indent_running,
+            &mut state.is_indent_running,
         );
     }
 
@@ -424,11 +424,6 @@ pub unsafe trait Stage1Scanner {
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
         simd.scan_for_comments(&mut chunk_state, prev_iter_state);
-        Self::calculate_cols_rows(
-            &mut chunk_state.rows,
-            &mut chunk_state.cols,
-            chunk_state.characters.line_feeds,
-        );
 
         simd.scan_double_quote_bitmask(&mut chunk_state, prev_iter_state);
         simd.scan_single_quote_bitmask(&mut chunk_state, prev_iter_state);

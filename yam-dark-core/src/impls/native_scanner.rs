@@ -173,26 +173,26 @@ unsafe impl Stage1Scanner for NativeScanner {
             // shouldn't be a SAFETY problem.
             let cols: [u32; 4] = unsafe {
                 [
-                    u32::from(*yaml_chunk_state.cols.get_unchecked(v0 as usize))
-                        + if *yaml_chunk_state.rows.get_unchecked(v0 as usize) == 0 {
+                    *base.byte_cols.get_unchecked(v0 as usize)
+                        + if *base.byte_rows.get_unchecked(v0 as usize) == 0 {
                             base.last_col
                         } else {
                             0
                         },
-                    u32::from(*yaml_chunk_state.cols.get_unchecked(v1 as usize))
-                        + if *yaml_chunk_state.rows.get_unchecked(v1 as usize) == 0 {
+                    *base.byte_cols.get_unchecked(v1 as usize)
+                        + if *base.byte_rows.get_unchecked(v1 as usize) == 0 {
                             base.last_col
                         } else {
                             0
                         },
-                    u32::from(*yaml_chunk_state.cols.get_unchecked(v2 as usize))
-                        + if *yaml_chunk_state.rows.get_unchecked(v2 as usize) == 0 {
+                    *base.byte_cols.get_unchecked(v2 as usize)
+                        + if *base.byte_rows.get_unchecked(v2 as usize) == 0 {
                             base.last_col
                         } else {
                             0
                         },
-                    u32::from(*yaml_chunk_state.cols.get_unchecked(v3 as usize))
-                        + if *yaml_chunk_state.rows.get_unchecked(v3 as usize) == 0 {
+                    *base.byte_cols.get_unchecked(v3 as usize)
+                        + if *base.byte_rows.get_unchecked(v3 as usize) == 0 {
                             base.last_col
                         } else {
                             0
@@ -205,10 +205,10 @@ unsafe impl Stage1Scanner for NativeScanner {
             // shouldn't be a SAFETY problem.
             let rows = unsafe {
                 [
-                    u32::from(*yaml_chunk_state.rows.get_unchecked(v0 as usize)) + base.last_row,
-                    u32::from(*yaml_chunk_state.rows.get_unchecked(v1 as usize)) + base.last_row,
-                    u32::from(*yaml_chunk_state.rows.get_unchecked(v2 as usize)) + base.last_row,
-                    u32::from(*yaml_chunk_state.rows.get_unchecked(v3 as usize)) + base.last_row,
+                    *base.byte_rows.get_unchecked(v0 as usize) + base.last_row,
+                    *base.byte_rows.get_unchecked(v1 as usize) + base.last_row,
+                    *base.byte_rows.get_unchecked(v2 as usize) + base.last_row,
+                    *base.byte_rows.get_unchecked(v3 as usize) + base.last_row,
                 ]
             };
             // SAFETY:

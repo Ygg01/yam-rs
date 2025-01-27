@@ -228,7 +228,7 @@ pub struct YamlParserState {
     pub(crate) structurals: Vec<usize>,
     pub(crate) byte_cols: Vec<u32>,
     pub(crate) byte_rows: Vec<u32>,
-    pub(crate) indents: Vec<u32>,
+    pub(crate) indents: Vec<usize>,
     pub(crate) pos: usize,
 
     // Sparse fields
@@ -254,6 +254,7 @@ impl YamlParserState {
         buffer: &mut B,
         chunk_state: &YamlChunkState,
     ) -> YamlResult<()> {
+        S::calculate_cols_rows_indents(self, chunk_state);
         S::flatten_bits_yaml(self, chunk_state);
         Ok(())
     }

@@ -1,7 +1,5 @@
 #[allow(unused_imports)] // imports are used in tests
 use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
-use alloc::vec;
-use alloc::vec::Vec;
 
 /// Represents the state of YAML chunk processing.
 ///
@@ -37,9 +35,6 @@ pub struct YamlChunkState {
     pub double_quote: YamlDoubleQuoteChunk,
     pub single_quote: YamlSingleQuoteChunk,
     pub characters: YamlCharacterChunk,
-    pub rows: Vec<u32>,
-    pub cols: Vec<u32>,
-    pub indents: Vec<usize>,
     pub(crate) error_mask: u64,
 }
 
@@ -51,9 +46,6 @@ impl Default for YamlChunkState {
             double_quote: YamlDoubleQuoteChunk::default(),
             single_quote: YamlSingleQuoteChunk::default(),
             characters: YamlCharacterChunk::default(),
-            rows: vec![0; 64],
-            cols: vec![0; 64],
-            indents: vec![0; 64],
             error_mask: 0,
         }
     }
@@ -232,50 +224,4 @@ fn test_lteq() {
         result,
         0b1111111111111111111111111111111111111111111111111111111111111111
     );
-}
-
-#[test]
-fn test_count() {
-    let bin_str = b"           \n                                                    ";
-    let mut chunk = YamlChunkState::default();
-
-    let expected_cols = (0..12).chain(0..52).collect::<Vec<_>>();
-    let mut expected_row = vec![0; 12];
-    expected_row.extend_from_slice(&[1; 52]);
-
-    // Needs to be called before calculate indent
-    let space_mask = u8x64_eq(bin_str, b' ');
-    let newline_mask = u8x64_eq(bin_str, b'\n');
-    // NativeScanner::calculate_cols_rows(&mut chunk.cols, &mut chunk.rows, newline_mask);
-    assert_eq!(chunk.cols, expected_cols);
-    assert_eq!(chunk.rows, expected_row);
-
-    let expected_indents = vec![11, 52];
-    NativeScanner::calculate_indents(&mut chunk.indents, newline_mask, space_mask, &mut true);
-    assert_eq!(chunk.indents, expected_indents);
-}
-
-#[test]
-fn test_count2() {
-    let bin_str = b"    ab     \n          c                   \n                     ";
-    let mut chunk = YamlChunkState::default();
-
-    let cols = (0..12).chain(0..31).chain(0..21).collect::<Vec<_>>();
-
-    let mut rows = vec![0; 12];
-    rows.extend_from_slice(&[1; 31]);
-    rows.extend_from_slice(&[2; 21]);
-
-    let actual_indents = [4, 10, 21]; // or another default/expected value
-
-    // Needs to be called before calculate indent
-    let space_mask = u8x64_eq(bin_str, b' ');
-    let newline_mask = u8x64_eq(bin_str, b'\n');
-
-    NativeScanner::calculate_cols_rows(&mut chunk.cols, &mut chunk.rows, newline_mask);
-    NativeScanner::calculate_indents(&mut chunk.indents, newline_mask, space_mask, &mut true);
-
-    assert_eq!(chunk.cols, cols);
-    assert_eq!(chunk.rows, rows);
-    assert_eq!(chunk.indents, actual_indents);
 }
