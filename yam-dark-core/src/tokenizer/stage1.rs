@@ -28,6 +28,7 @@ use crate::tokenizer::chunk::YamlChunkState;
 use crate::tokenizer::stage2::{Buffer, YamlIndentInfo, YamlParserState};
 use crate::util::{add_cols_unchecked, add_rows_unchecked, select_right_bits_branch_less};
 use crate::{util, EvenOrOddBits};
+use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
 
@@ -203,6 +204,7 @@ pub unsafe trait Stage1Scanner {
         let count = neg_indents_mask.count_ones();
         let last_bit = (neg_indents_mask | chunk_state.characters.line_feeds) & (1 << 63) != 0;
 
+        let  mut compressed_info : Vec<u32> = Vec::with_capacity(64);
 
         let mut i = 0;
         while neg_indents_mask != 0 {
@@ -221,11 +223,28 @@ pub unsafe trait Stage1Scanner {
 
             let v = [part0, part1, part2,  part3];
             unsafe {
-                core::ptr::write(info.indents.as_mut_ptr().add(i).cast::<[u32;4]>(), v);
+                core::ptr::write(compressed_info.as_mut_ptr().add(i).cast::<[u32;4]>(), v);
             };
             i += 4;
         }
+
+        unsafe {
+            compressed_info.set_len(count as usize);
+            *compressed_info.get_unchecked_mut(0) += state.last_indent;
+        }
+
+        info.indents[0] = compressed_info[info.rows[0] as usize];
+
+        for index in 0..63 {
+            unsafe { 
+                info.indents[index] = *compressed_info.get_unchecked(0); 
+            }
+        }
+
         state.is_indent_running = last_bit;
+        unsafe {
+            state.last_indent = compressed_info.get_unchecked(count as usize - 1) * u32::from(last_bit);
+        }
     }
 
     /// Computes a quote mask based on the given quote bit mask.
