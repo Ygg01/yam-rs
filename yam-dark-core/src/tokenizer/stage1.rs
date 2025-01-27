@@ -56,9 +56,9 @@ pub struct YamlSingleQuoteChunk {
 
 #[derive(Default)]
 pub struct YamlCharacterChunk {
-    /// Space
+    /// Space bitmask
     pub(crate) spaces: u64,
-    /// Space
+    /// Newline bitmask
     pub(crate) newline: u64,
     /// Operators
     pub(crate) op: u64,
@@ -149,16 +149,39 @@ pub trait Stage1Scanner {
         prev_state.merge_state(chunk, buffers, &mut block)
     }
 
-    // return a bitvector indicating where we have characters that end an odd-length
-    // sequence of backslashes (and thus change the behavior of the next character
-    // to follow). A even-length sequence of backslashes, and, for that matter, the
-    // largest even-length prefix of our odd-length sequence of backslashes, simply
-    // modify the behavior of the backslashes themselves.
-    // We also update the prev_iter_ends_odd_backslash reference parameter to
-    // indicate whether we end an iteration on an odd-length sequence of
-    // backslashes, which modifies our subsequent search for odd-length
-    // sequences of backslashes in an obvious way.
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    /// Returns a bitvector indicating where there are characters that end an odd-length sequence
+    /// of backslashes. An odd-length sequence of backslashes changes the behavior of the next
+    /// character that follows. An even-length sequence of backslashes, as well as the largest
+    /// even-length prefix of an odd-length sequence of backslashes, modify the behavior of the
+    /// backslashes themselves.
+    ///
+    /// The `prev_iteration_odd` reference parameter is also updated to indicate whether the iteration
+    /// ends on an odd-length sequence of backslashes. This modification affects the subsequent search
+    /// for odd-length sequences of backslashes.
+    ///
+    /// # Arguments
+    ///
+    /// * `prev_iteration_odd` - A mutable reference to a `u64` representing the previous iteration's
+    ///                          odd-length sequence of backslashes.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `u64` as a bitvector indicating the positions where odd-length sequences of
+    /// backslashes end.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use crate::yam_dark_core::Stage1Scanner;
+    /// use crate::yam_dark_core::NativeScanner;
+    /// let mut prev_iteration_odd = 0;
+    ///
+    /// let chunk = b" \\ \\\\  \\\\\\    \\   \\\\  \\\\    \\   \\\\        \\     \\    \\\\    \\    ";
+    /// let scanner = NativeScanner::from_chunk(chunk);
+    /// let result = scanner.scan_for_odd_backslashes(&mut prev_iteration_odd);
+    /// assert_eq!(result, 0b1000000000010000010000000000000100000000000001000010000000100);
+    /// ```
     fn scan_for_odd_backslashes(&self, prev_iteration_odd: &mut u64) -> u64 {
         let backslash_bits = self.cmp_ascii_to_input(b'\\');
         let start_edges = backslash_bits & !(backslash_bits << 1);
