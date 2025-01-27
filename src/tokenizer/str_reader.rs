@@ -9,7 +9,7 @@ use reader::{is_flow_indicator, ns_plain_safe};
 use ErrorType::ExpectedIndent;
 
 use crate::tokenizer::lexer::LexerState;
-use crate::tokenizer::lexer::LexerState::{BlockMapExp, BlockSeq, BlockMap};
+use crate::tokenizer::lexer::LexerState::{BlockMap, BlockMapExp, BlockSeq};
 use crate::tokenizer::reader::{
     is_indicator, is_uri_char, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
@@ -412,17 +412,16 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
         while !self.eof() {
-
-            
-
             match (self.peek_byte_unwrap(block_indent), curr_state) {
                 (b'-', BlockSeq(ind)) | (b':', BlockMapExp(ind, _)) => {
                     if self.col + block_indent == *ind as usize {
-                        self.consume_bytes((block_indent) as usize);
+                        self.consume_bytes(block_indent);
                         break;
                     }
                 }
-                (_, BlockMap(ind, _)) if *ind as usize == block_indent && block_indent < previous_indent => {
+                (_, BlockMap(ind, _))
+                    if *ind as usize == block_indent && block_indent < previous_indent =>
+                {
                     break;
                 }
                 _ => {}
@@ -452,9 +451,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token += 1;
                 self.read_line();
                 continue;
-            } else if let Flow::Error(actual) =
-                self.skip_n_spaces(indentation, block_indent)
-            {
+            } else if let Flow::Error(actual) = self.skip_n_spaces(indentation, block_indent) {
                 tokens.push_back(ErrorToken as usize);
                 errors.push(ExpectedIndent {
                     actual,
@@ -525,9 +522,12 @@ impl<'r> Reader<()> for StrReader<'r> {
                 emit_token(&mut quote_token, &mut newspaces, &mut tokens);
                 newspaces = Some(self.skip_separation_spaces(true).saturating_sub(1));
                 quote_token.0 = self.pos;
-                if prev_indent != 0 && self.col < prev_indent  {
+                if prev_indent != 0 && self.col < prev_indent {
                     tokens.insert(0, ErrorToken as usize);
-                    errors.push(ErrorType::ExpectedIndent { actual: self.col, expected: prev_indent })
+                    errors.push(ErrorType::ExpectedIndent {
+                        actual: self.col,
+                        expected: prev_indent,
+                    })
                 }
                 continue;
             }
