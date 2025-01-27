@@ -13,22 +13,22 @@ mod tests {
 %YAML 1.3 #arst
 "#;
     const EMPTY_DOC_EXPECTED: &'static str = r#"
-#YAML 1.3
-ERR(NoDocStartAfterTag)"#;
+  #YAML 1.3
+  ERR(NoDocStartAfterTag)"#;
 
     const NULL_YAML_INPUT: &'static str = r#"
 null
 "#;
     const NULL_YAML_EXPECTED: &'static str = r#"
-=VAL null"#;
+  =VAL null"#;
 
     const MULTILINE_INPUT: &'static str = r#"
 test
 xt
 "#;
     const MULTILINE_EXPECTED: &'static str = r#"
-=VAL test
-=VAL xt"#;
+  =VAL test
+  =VAL xt"#;
 
     const SEQ_FLOW_INPUT: &'static str = r#"
 [x, y]
@@ -37,11 +37,11 @@ xt
 [x ,y]
 "#;
     const SEQ_FLOW_EXPECTED: &'static str = r#"
-+SEQ
-  =VAL x
-  -SEP-
-  =VAL y
--SEQ"#;
+  +SEQ
+    =VAL x
+    -SEP-
+    =VAL y
+  -SEQ"#;
 
     const SEQ_NESTED_COL1: &'static str = r#"
 [:]
@@ -51,33 +51,33 @@ xt
 "#;
 
     const SEQ_NESTED_COL1_EXPECTED: &'static str = r#"
-+SEQ
-  +MAP
-  -MAP
--SEQ"#;
+  +SEQ
+    +MAP
+    -MAP
+  -SEQ"#;
 
     const SEQ_NESTED_COL2_EXPECTED: &'static str = r#"
-+SEQ
-  +MAP
-    -KEY-
-  -MAP
--SEQ"#;
+  +SEQ
+    +MAP
+      -KEY-
+    -MAP
+  -SEQ"#;
 
     const SEQ_EMPTY_MAP: &'static str = r#"
 {:}
 "#;
     const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
-+MAP
-  -KEY-
--MAP"#;
+  +MAP
+    -KEY-
+  -MAP"#;
 
     const SEQ_XY_MAP1: &'static str = r#"
 {x:y}
 "#;
     const SEQ_XY_MAP1_EXPECTED: &'static str = r#"
-+MAP
-  =VAL x:y
--MAP"#;
+  +MAP
+    =VAL x:y
+  -MAP"#;
 
     const SEQ_X_Y_MAP1: &'static str = r#"
 {x: y}
@@ -90,26 +90,26 @@ xt
  y}
 "#;
     const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
-+MAP
-  =VAL x
-  -KEY-
-  =VAL y
--MAP"#;
+  +MAP
+    =VAL x
+    -KEY-
+    =VAL y
+  -MAP"#;
 
     const SEQ_COMPLEX_MAP: &'static str = r#"
 {[x,y]:a}
 "#;
 
     const SEQ_COMPLEX_MAP_EXPECTED: &'static str = r#"
-+MAP
-  +SEQ
-    =VAL x
-    -SEP-
-    =VAL y
-  -SEQ
-  -KEY-
-  =VAL a
--MAP"#;
+  +MAP
+    +SEQ
+      =VAL x
+      -SEP-
+      =VAL y
+    -SEQ
+    -KEY-
+    =VAL a
+  -MAP"#;
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();

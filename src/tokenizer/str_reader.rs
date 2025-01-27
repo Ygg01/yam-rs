@@ -19,7 +19,7 @@ impl<'a> EventIterator<'a> {
             state: Scanner::default(),
             reader: StrReader::new(input),
             inner_cow: Cow::default(),
-            indent: 0,
+            indent: 2,
         }
     }
 }
