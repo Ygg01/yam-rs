@@ -1,16 +1,16 @@
 use crate::common::assert_eq_event;
 
-const BLOCK1_INPUT: &'static str = r#"
+const BLOCK1_INPUT: &str = r#"
  - x
  - y
 "#;
 
-const BLOCK2_INPUT: &'static str = r#"
+const BLOCK2_INPUT: &str = r#"
 - x
 - y
 "#;
 
-const BLOCK_EXPECTED: &'static str = r#"
+const BLOCK_EXPECTED: &str = r#"
  +DOC
   +SEQ
    =VAL :x
@@ -26,12 +26,12 @@ pub fn block_seq() {
     assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
 }
 
-const BLOCK_ERR_INPUT: &'static str = r#"
+const BLOCK_ERR_INPUT: &str = r#"
   - x
  - y
 "#;
 
-const BLOCK_ERR_EXPECTED: &'static str = r#"
+const BLOCK_ERR_EXPECTED: &str = r#"
  +DOC
   +SEQ
    =VAL :x
@@ -44,13 +44,13 @@ pub fn block_plain_err() {
     assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EXPECTED);
 }
 
-const BLOCK_NESTED_SEQ_INPUT: &'static str = r#"
+const BLOCK_NESTED_SEQ_INPUT: &str = r#"
   - - a
     - b
   - c
 "#;
 
-const BLOCK_NESTED_SEQ_EXPECTED: &'static str = r#"
+const BLOCK_NESTED_SEQ_EXPECTED: &str = r#"
  +DOC
   +SEQ
    +SEQ
@@ -66,7 +66,7 @@ pub fn block_nested() {
     assert_eq_event(BLOCK_NESTED_SEQ_INPUT, BLOCK_NESTED_SEQ_EXPECTED);
 }
 
-const BLOCK_STRINGS_INPUT: &'static str = r#"
+const BLOCK_STRINGS_INPUT: &str = r#"
   - |+ # Keep indicator↓
     # keep
 
@@ -85,7 +85,7 @@ const BLOCK_STRINGS_INPUT: &'static str = r#"
    
 "#;
 
-const BLOCK_STRINGS_INPUT2: &'static str = r#"
+const BLOCK_STRINGS_INPUT2: &str = r#"
   - >1-
    1
     2
@@ -94,7 +94,7 @@ const BLOCK_STRINGS_INPUT2: &'static str = r#"
    
 "#;
 
-const BLOCK_STRINGS_EXPECTED: &'static str = r#"
+const BLOCK_STRINGS_EXPECTED: &str = r#"
  +DOC
   +SEQ
    =VAL |# keep\n\n
@@ -104,7 +104,7 @@ const BLOCK_STRINGS_EXPECTED: &'static str = r#"
   -SEQ
  -DOC"#;
 
-const BLOCK_STRINGS_EXPECTED2: &'static str = r#"
+const BLOCK_STRINGS_EXPECTED2: &str = r#"
  +DOC
   +SEQ
    =VAL >1\n 2\n3 4
@@ -116,7 +116,8 @@ pub fn literal_block() {
     assert_eq_event(BLOCK_STRINGS_INPUT, BLOCK_STRINGS_EXPECTED);
     assert_eq_event(BLOCK_STRINGS_INPUT2, BLOCK_STRINGS_EXPECTED2);
 }
-const BLOCK_PLAIN: &'static str = r#"
+
+const BLOCK_PLAIN: &str = r#"
   a
   b
   c
@@ -124,7 +125,7 @@ const BLOCK_PLAIN: &'static str = r#"
   e
 "#;
 
-const BLOCK_PLAIN_EXPECTED: &'static str = r#"
+const BLOCK_PLAIN_EXPECTED: &str = r#"
  +DOC
   =VAL :a b c d e
  -DOC"#;
@@ -134,16 +135,16 @@ pub fn plain_block() {
     assert_eq_event(BLOCK_PLAIN, BLOCK_PLAIN_EXPECTED)
 }
 
-const SEQ_PLAIN: &'static str = r#"
+const SEQ_PLAIN: &str = r#"
   - x
    - y
 "#;
 
-const SEQ_PLAIN2: &'static str = r#"
+const SEQ_PLAIN2: &str = r#"
 - x - y
 "#;
 
-const SEQ_PLAIN_EXPECTED: &'static str = r#"
+const SEQ_PLAIN_EXPECTED: &str = r#"
  +DOC
   +SEQ
    =VAL :x - y
@@ -156,14 +157,14 @@ pub fn seq_plain() {
     assert_eq_event(SEQ_PLAIN2, SEQ_PLAIN_EXPECTED);
 }
 
-const BLOCK_MAP_INPUT: &'static str = r#"
+const BLOCK_MAP_INPUT: &str = r#"
   a:
     x
     u
   c :
 "#;
 
-const BLOCK_MAP_EXPECTED: &'static str = r#"
+const BLOCK_MAP_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :a
@@ -173,14 +174,14 @@ const BLOCK_MAP_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const BLOCK_MAP_INPUT3: &'static str = r#"
+const BLOCK_MAP_INPUT3: &str = r#"
 :
 a: b
 : c
 d:
 "#;
 
-const BLOCK_MAP_EXPECTED3: &'static str = r#"
+const BLOCK_MAP_EXPECTED3: &str = r#"
  +DOC
   +MAP
    =VAL :
@@ -194,11 +195,11 @@ const BLOCK_MAP_EXPECTED3: &'static str = r#"
   -MAP
  -DOC"#;
 
-const BLOCK_MAP_INPUT2: &'static str = r#"
+const BLOCK_MAP_INPUT2: &str = r#"
 c:
 d:"#;
 
-const BLOCK_MAP_EXPECTED2: &'static str = r#"
+const BLOCK_MAP_EXPECTED2: &str = r#"
  +DOC
   +MAP
    =VAL :c
@@ -215,17 +216,17 @@ pub fn block_map() {
     assert_eq_event(BLOCK_MAP_INPUT3, BLOCK_MAP_EXPECTED3);
 }
 
-const MULTILINE_COMMENT_BLOCK1: &'static str = r#"
+const MULTILINE_COMMENT_BLOCK1: &str = r#"
   mul: 
     abc  # a comment
 "#;
 
-const MULTILINE_COMMENT_BLOCK2: &'static str = r#"
+const MULTILINE_COMMENT_BLOCK2: &str = r#"
   mul  : 
     abc  # a comment
 "#;
 
-const MULTILINE_COMMENT_BLOCK1_EXPECTED: &'static str = r#"
+const MULTILINE_COMMENT_BLOCK1_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :mul
@@ -233,13 +234,13 @@ const MULTILINE_COMMENT_BLOCK1_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
+const MULTILINE_COMMENT_BLOCK3: &str = r#"
   multi:
     ab  # a comment
     xyz  # a commeent
 "#;
 
-const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
+const MULTILINE_COMMENT_BLOCK3_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :multi
@@ -249,13 +250,13 @@ const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
+const MULTILINE_COMMENT_BLOCK4: &str = r#"
   multi:
     ab  
     xyz  # a commeent
 "#;
 
-const MULTILINE_COMMENT_BLOCK4_EXPECTED: &'static str = r#"
+const MULTILINE_COMMENT_BLOCK4_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :multi
@@ -271,18 +272,18 @@ pub fn multiline_block_comment() {
     assert_eq_event(MULTILINE_COMMENT_BLOCK4, MULTILINE_COMMENT_BLOCK4_EXPECTED);
 }
 
-const EXPLICIT_BLOCK_MAP1: &'static str = r#"
+const EXPLICIT_BLOCK_MAP1: &str = r#"
   ? test
   : value
 "#;
 
-const EXPLICIT_BLOCK_MAP_MIX: &'static str = r#"
+const EXPLICIT_BLOCK_MAP_MIX: &str = r#"
   ? test
   : value
   tx: x
 "#;
 
-const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
+const EXPLICIT_BLOCK_MAP1_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :test
@@ -290,7 +291,7 @@ const EXPLICIT_BLOCK_MAP1_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &'static str = r#"
+const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :test
@@ -306,12 +307,12 @@ pub fn explicit_block_map() {
     assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
 }
 
-const EXPLICIT_BLOCK_MAP_ERR1: &'static str = r#"
+const EXPLICIT_BLOCK_MAP_ERR1: &str = r#"
    ? test
   : value
 "#;
 
-const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &'static str = r#"
+const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :test
@@ -320,12 +321,12 @@ const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const EXPLICIT_BLOCK_MAP_ERR2: &'static str = r#"
+const EXPLICIT_BLOCK_MAP_ERR2: &str = r#"
   ? test
    : value
 "#;
 
-const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &'static str = r#"
+const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :test
@@ -340,13 +341,13 @@ pub fn explicit_block_map_err() {
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR2, EXPLICIT_BLOCK_MAP_ERR2_EXPECTED);
 }
 
-const EXP_MAP_COMBINATION: &'static str = r#"
+const EXP_MAP_COMBINATION: &str = r#"
  ? >
    test
  : x
 "#;
 
-const EXP_MAP_COMBINATION_EXPECTED: &'static str = r#"
+const EXP_MAP_COMBINATION_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL >test\n
@@ -359,13 +360,13 @@ pub fn explicit_block_combination() {
     assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
 }
 
-const COMPLEX_BLOCK_KEY: &'static str = r##"
+const COMPLEX_BLOCK_KEY: &str = r##"
 a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
 :foo: baz
 -foo: boo
 "##;
 
-const COMPLEX_BLOCK_EXPECTED: &'static str = r##"
+const COMPLEX_BLOCK_EXPECTED: &str = r##"
  +DOC
   +MAP
    =VAL :a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~
