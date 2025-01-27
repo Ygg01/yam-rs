@@ -84,11 +84,15 @@ impl<'de> Parser<'de> {
             }
         }
 
-        let x = get_stage1_next();
+        let next_fn = get_stage1_next();
         let mut validator = get_validator(true);
+        
+        let chunk = _input.chunks_exact(8);
+        // chunk.next_chunk()
+        
         unsafe {
             validator.update_from_chunks(&[1, 2, 3]);
-            let z = x(&[0; 64], &mut buffer, &mut state);
+            let z = next_fn(&[0; 64], &mut buffer, &mut state);
         }
 
         buff

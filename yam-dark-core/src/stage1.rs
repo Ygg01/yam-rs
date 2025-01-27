@@ -55,7 +55,7 @@ pub trait Stage1Scanner {
     fn validator() -> Self::Validator;
 
     /// Scans a chunk and returns a YamlBlockState
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+   
     fn next<T: Buffer>(
         chunk: &[u8; 64],
         buffers: &mut T,
@@ -73,6 +73,7 @@ impl Stage1Scanner for NativeScanner {
         NoopValidator {}
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next<T: Buffer>(
         _chunk: &[u8; 64],
         _buffers: &mut T,

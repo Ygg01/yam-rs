@@ -1,3 +1,5 @@
+mod chunked_iter;
+
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) struct NoopValidator();
@@ -14,8 +16,8 @@ impl ChunkedUtf8Validator for NoopValidator {
 
     unsafe fn finalize(
         self,
-        _remaining_input: core::option::Option<&[u8]>,
-    ) -> core::result::Result<(), simdutf8::basic::Utf8Error> {
+        _remaining_input: Option<&[u8]>,
+    ) -> Result<(), simdutf8::basic::Utf8Error> {
         Ok(())
     }
 }
