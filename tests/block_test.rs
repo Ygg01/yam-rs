@@ -1,3 +1,5 @@
+use common::assert_eq_event_exact;
+
 use crate::common::assert_eq_event;
 
 mod common;
@@ -830,8 +832,26 @@ const X1_6KGN_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_NKF9_INPUT: &str = r"
+---
+# empty key and value
+:
+---";
+
+const X1_NKF9_EVENTS: &str = r"
++DOC ---
++MAP
+=VAL :
+=VAL :
+-MAP
+-DOC
++DOC ---
+=VAL :
+-DOC";
+
 #[test]
 fn block_empty_map() {
+    assert_eq_event_exact(X1_NKF9_INPUT, X1_NKF9_EVENTS);
     assert_eq_event(X1_6KGN_INPUT, X1_6KGN_EVENTS);
     assert_eq_event(NESTED_EMPTY_INPUT, NESTED_EMPTY_EVENTS);
 
