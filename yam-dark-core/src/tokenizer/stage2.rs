@@ -79,10 +79,14 @@ impl<'de> Deserializer<'de> {
 
             // SAFETY: The next_fn should return the correct function for any given CPU
             let chunk_state: YamlChunkState = unsafe { next_fn(chunk, buffer, &mut state) };
-            state.process_chunk(buffer, chunk_state)?;
+            state.process_chunk(buffer, &chunk_state)?;
         }
 
-        // TODO finalize sections
+        Self::build_tape(&state, tape)
+    }
+
+    fn build_tape(state: &YamlParserState, tape: &mut [Node]) -> YamlResult<()> {
+        //TODO state machine
         Ok(())
     }
 }
@@ -129,7 +133,7 @@ impl YamlParserState {
     pub(crate) fn process_chunk<B: Buffer>(
         &self,
         p0: &mut B,
-        p1: YamlChunkState,
+        p1: &YamlChunkState,
     ) -> YamlResult<()> {
         todo!()
     }
