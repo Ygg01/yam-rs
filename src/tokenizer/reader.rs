@@ -64,12 +64,20 @@ pub trait Reader<B> {
             _ => false,
         }
     }
+    fn peek_stream_ending(&self) -> bool {
+        let chars = self.peek_chars();
+        (chars == b"..." || chars == b"---")
+            && self.peek_byte_at(3).map_or(true, |c| {
+                c == b'\t' || c == b' ' || c == b'\r' || c == b'\n' || c == b'[' || c == b'{'
+            })
+            && self.col() == 0
+    }
     fn skip_space_tab(&mut self) -> usize;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
+    fn get_read_line(&self) -> (usize, usize, usize);
     fn read_line(&mut self) -> (usize, usize);
     fn count_spaces(&self) -> u32;
-
     fn count_whitespace(&self) -> usize {
         self.count_whitespace_from(0)
     }
