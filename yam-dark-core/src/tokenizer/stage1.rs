@@ -24,11 +24,13 @@
 #![allow(unused)]
 
 use alloc::vec;
+use core::ptr::write;
 use alloc::vec::Vec;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::util::{
-    calculate_byte_rows, calculate_cols, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    calculate_byte_rows, calculate_cols, select_left_bits_branch_less, U8_BYTE_COL_TABLE,
+    U8_ROW_TABLE,
 };
 use crate::{u8x64_eq, util, EvenOrOddBits, NativeScanner, ParseResult};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -70,6 +72,7 @@ pub struct YamlChunkState {
     pub characters: YamlCharacterChunk,
     pub rows: Vec<u8>,
     pub cols: Vec<u8>,
+    pub indents: Vec<u8>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
 }
@@ -84,6 +87,7 @@ impl Default for YamlChunkState {
             characters: YamlCharacterChunk::default(),
             rows: vec![0; 64],
             cols: vec![0; 64],
+            indents: vec![0; 65],
             follows_non_quote_scalar: 0,
             error_mask: 0,
         }
@@ -368,13 +372,10 @@ pub unsafe trait Stage1Scanner {
     /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
     /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
     /// // Will calculate col/row/indent
-    /// scanner.calculate_cols_rows_indents(
+    /// scanner.calculate_cols_rows(
     ///     &mut chunk.cols,
     ///     &mut chunk.rows,
-    ///     &mut 0,
-    ///     &mut indents,
     ///     chunk.characters.line_feeds,
-    ///     chunk.characters.spaces
     /// );
     /// assert_eq!(
     ///     chunk.cols,
@@ -383,13 +384,8 @@ pub unsafe trait Stage1Scanner {
     /// assert_eq!(chunk.rows, vec![0; 64]);
     /// // TODO indent check
     /// ```
-    fn calculate_cols_rows(
-        &self,
-        cols: &mut [u8],
-        rows: &mut [u8],
-        newline_mask: u64,
-    ) {
-        let nl_ind = (newline_mask & 0xFF) as usize;
+    fn calculate_cols_rows(cols: &mut [u8], rows: &mut [u8], line_feeds: u64) {
+        let nl_ind = (line_feeds & 0xFF) as usize;
 
         let mut prev_col = 0;
         let mut prev_row = 0;
@@ -402,7 +398,7 @@ pub unsafe trait Stage1Scanner {
         ));
         prev_col = cols[7] + 1;
 
-        let nl_ind = ((newline_mask >> 8) & 0xFF) as usize;
+        let nl_ind = ((line_feeds >> 8) & 0xFF) as usize;
         rows[8..16].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         cols[8..16].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
@@ -411,7 +407,7 @@ pub unsafe trait Stage1Scanner {
         ));
         prev_col = cols[15] + 1;
 
-        let nl_ind = ((newline_mask >> 16) & 0xFF) as usize;
+        let nl_ind = ((line_feeds >> 16) & 0xFF) as usize;
         rows[16..24].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         cols[16..24].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
@@ -420,7 +416,7 @@ pub unsafe trait Stage1Scanner {
         ));
         prev_col = cols[23] + 1;
 
-        let nl_ind = ((newline_mask >> 24) & 0xFF) as usize;
+        let nl_ind = ((line_feeds >> 24) & 0xFF) as usize;
         rows[24..32].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         cols[24..32].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
@@ -429,7 +425,7 @@ pub unsafe trait Stage1Scanner {
         ));
         prev_col = cols[31] + 1;
 
-        let nl_ind = ((newline_mask >> 32) & 0xFF) as usize;
+        let nl_ind = ((line_feeds >> 32) & 0xFF) as usize;
         rows[32..40].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         cols[32..40].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
@@ -438,7 +434,7 @@ pub unsafe trait Stage1Scanner {
         ));
         prev_col = cols[39] + 1;
 
-        let nl_ind = ((newline_mask >> 40) & 0xFF) as usize;
+        let nl_ind = ((line_feeds >> 40) & 0xFF) as usize;
         rows[40..48].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         cols[40..48].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
@@ -447,7 +443,7 @@ pub unsafe trait Stage1Scanner {
         ));
         prev_col = cols[47] + 1;
 
-        let nl_ind = ((newline_mask >> 48) & 0xFF) as usize;
+        let nl_ind = ((line_feeds >> 48) & 0xFF) as usize;
         rows[48..56].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         cols[48..56].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
@@ -456,13 +452,75 @@ pub unsafe trait Stage1Scanner {
         ));
         prev_col = cols[55] + 1;
 
-        let nl_ind = ((newline_mask >> 56) & 0xFF) as usize;
+        let nl_ind = ((line_feeds >> 56) & 0xFF) as usize;
         rows[56..64].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
         cols[56..64].copy_from_slice(&calculate_cols(
             U8_BYTE_COL_TABLE[nl_ind],
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
+    }
+
+    fn calculate_indents(
+        indents: &mut Vec<u8>, 
+        mut newline_mask: u64, 
+        spaces: u64,
+        is_indent_running: &mut bool, 
+    ) {
+        let mut i = 0;
+        let count_cols = newline_mask.count_ones() + 1;
+        let mut neg_indents_mask =
+            !select_left_bits_branch_less(spaces, (newline_mask << 1) ^ (*is_indent_running as u64));
+        // To calculate indent we need to:
+        // 1. Count trailing ones in space_mask this is the current indent
+        // 2. Count the trailing zeros in newline mask to know how long the line is
+        // 3. Check to see if the indent is equal to how much we need to1 shift it, if true we set mask to 1 otherwise to 0.
+        // 4. when returning indent, the 32nd bit will represent the if the indent is still running or if it has stopped
+        while newline_mask != 0 {
+            let part0 = neg_indents_mask.trailing_zeros();
+            let v0 = newline_mask.trailing_zeros() + 1;
+            newline_mask = newline_mask.overflowing_shr(v0).0;
+            neg_indents_mask = neg_indents_mask.overflowing_shr(v0).0;
+
+            let part1 = neg_indents_mask.trailing_zeros();
+            let v1 = newline_mask.trailing_zeros() + 1;
+            newline_mask = newline_mask.overflowing_shr(v1).0;
+            neg_indents_mask = neg_indents_mask.overflowing_shr(v1).0;
+
+            let part2 = neg_indents_mask.trailing_zeros();
+            let v2 = newline_mask.trailing_zeros() + 1;
+            newline_mask = newline_mask.overflowing_shr(v2).0;
+            neg_indents_mask = neg_indents_mask.overflowing_shr(v2).0;
+
+            let part3 = neg_indents_mask.trailing_zeros();
+            let v3 = newline_mask.trailing_zeros() + 1;
+            newline_mask = newline_mask.overflowing_shr(v3).0;
+            neg_indents_mask = neg_indents_mask.overflowing_shr(v3).0;
+
+            let v = [part0, part1, part2, part3];
+            let running = [part0 == v0, part1 == v1, part2 == v2, part3 == v3];
+            unsafe {
+                write(
+                    indents.as_mut_ptr().add(i ).cast::<[u32; 4]>(),
+                    v,
+                );
+            }
+            i += 4;
+        }
+    }
+
+    fn calculate_cols_rows_indents(chunk_state: &mut YamlChunkState, is_indent_running: &mut bool) {
+        Self::calculate_cols_rows(
+            &mut chunk_state.cols,
+            &mut chunk_state.rows,
+            chunk_state.characters.line_feeds,
+        );
+        Self::calculate_indents(
+            &mut chunk_state.indents,
+            chunk_state.characters.line_feeds,
+            chunk_state.characters.spaces,
+            is_indent_running,
+        );
     }
 
     /// Computes a quote mask based on the given quote bit mask.
@@ -520,7 +578,7 @@ pub unsafe trait Stage1Scanner {
     fn next<T: Buffer>(
         chunk: &[u8; 64],
         buffers: &mut T,
-        prev_state: &mut YamlParserState,
+        prev_iter_state: &mut YamlParserState,
     ) -> ParseResult<YamlChunkState>
     where
         Self: Sized,
@@ -533,17 +591,17 @@ pub unsafe trait Stage1Scanner {
         // Pre-requisite
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
-        simd.scan_for_comments(&mut chunk_state, prev_state);
-        simd.calculate_cols_rows(
+        simd.scan_for_comments(&mut chunk_state, prev_iter_state);
+        Self::calculate_cols_rows(
             &mut chunk_state.rows,
             &mut chunk_state.cols,
             chunk_state.characters.line_feeds,
         );
 
-        simd.scan_double_quote_bitmask(&mut chunk_state, prev_state);
-        simd.scan_single_quote_bitmask(&mut chunk_state, prev_state);
+        simd.scan_double_quote_bitmask(&mut chunk_state, prev_iter_state);
+        simd.scan_single_quote_bitmask(&mut chunk_state, prev_iter_state);
 
-        prev_state.merge_state(chunk, buffers, &mut chunk_state)
+        prev_iter_state.merge_state(chunk, buffers, &mut chunk_state)
     }
 
     /// This function processes the comments for current chunk of characters.
@@ -832,11 +890,7 @@ fn test_count() {
     // Needs to be called before calculate indent
     let space_mask = u8x64_eq(bin_str, b' ');
     let newline_mask = u8x64_eq(bin_str, b'\n');
-    scanner.calculate_cols_rows(
-        &mut chunk.cols,
-        &mut chunk.rows,
-        newline_mask
-    );
+    NativeScanner::calculate_cols_rows(&mut chunk.cols, &mut chunk.rows, newline_mask);
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
     // TODO check indents
@@ -862,11 +916,7 @@ fn test_count2() {
     let newline_mask = u8x64_eq(bin_str, b'\n');
 
     // let mut actual_indents: Vec<_> = Vec::new();
-    scanner.calculate_cols_rows(
-        &mut chunk.cols,
-        &mut chunk.rows,
-        newline_mask,
-    );
+    NativeScanner::calculate_cols_rows(&mut chunk.cols, &mut chunk.rows, newline_mask);
 
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
