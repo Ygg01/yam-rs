@@ -1,3 +1,4 @@
+use crate::tokenizer::ErrorType;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::str::from_utf8_unchecked;
@@ -15,6 +16,7 @@ pub enum YamlEvent<'a> {
     SeqEnd,
     Directive(DirectiveType, Cow<'a, [u8]>),
     ScalarValue(Cow<'a, [u8]>),
+    Error(ErrorType),
 }
 
 #[derive(Copy, Clone)]
@@ -35,6 +37,7 @@ impl<'a> Debug for YamlEvent<'a> {
             SeqEnd => write!(f, "-SEQ"),
             Directive(_, x) => write!(f, "#TAG {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
             ScalarValue(x) => write!(f, "+VAL {}", unsafe { from_utf8_unchecked(x.as_ref()) }),
+            _ => Ok(()),
         }
     }
 }

@@ -2,9 +2,10 @@ use std::collections::VecDeque;
 
 use crate::error::YamlError;
 use crate::tokenizer::event::DirectiveType;
+use crate::tokenizer::event::YamlEvent::Directive;
 use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::State::StreamStart;
-use crate::tokenizer::StrIterator;
+use crate::tokenizer::{ErrorType, StrIterator};
 
 #[derive(Clone, Default)]
 pub struct Scanner {
@@ -17,7 +18,6 @@ pub struct Scanner {
 pub enum State {
     StreamStart,
     DocStart,
-    Post,
 }
 
 impl Default for State {
@@ -61,14 +61,30 @@ impl Scanner {
         if reader.peek_byte_is(b'%') {
             if reader.try_read_slice_exact("%YAML") {
                 reader.skip_space_tab();
-                if let Some(x) = reader.find_fast2_offset(b'\t', b' ') {
-                    self.tokens
-                        .push_back(SpanToken::Directive(DirectiveType::Yaml, x.0, x.1));
-                    reader.consume_bytes(x.1 - x.0);
+                if let Some(x) = reader.find_next_non_whitespace() {
+                    self.tokens.push_back(SpanToken::Directive(
+                        DirectiveType::Yaml,
+                        reader.pos(),
+                        x,
+                    ));
+                    reader.consume_bytes(x - reader.pos());
                     reader.read_line();
                 }
-            } else if reader.try_read_slice_exact("%TAG") {
+            } else {
+                let tag = if reader.try_read_slice_exact("%TAG") {
+                    DirectiveType::Tag
+                } else {
+                    DirectiveType::Reserved
+                };
                 reader.skip_space_tab();
+                let x = reader.read_non_comment_line();
+                if x.0 != x.1 {
+                    self.tokens.push_back(SpanToken::Directive(tag, x.0, x.1));
+                }
+            }
+            if !reader.try_read_slice_exact("---") {
+                self.tokens
+                    .push_back(SpanToken::ErrorToken(ErrorType::ExpectedDocumentStart));
             }
         }
         self.state = State::DocStart;
@@ -85,12 +101,11 @@ impl Scanner {
             reader.read_line();
         }
     }
-
-    fn read_tag<T: Reader>(&mut self, reader: &mut T) {}
 }
 
 #[derive(Copy, Clone)]
 pub enum SpanToken {
+    ErrorToken(ErrorType),
     Scalar(usize, usize),
     Directive(DirectiveType, usize, usize),
     StreamStart,

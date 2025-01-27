@@ -1,4 +1,4 @@
-use memchr::{memchr, memchr2, memchr3};
+use memchr::memchr2;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -17,16 +17,16 @@ impl<'a> StrReader<'a> {
 }
 
 pub(crate) trait Reader {
+    fn pos(&self) -> usize;
+    fn col(&self) -> usize;
     fn peek_byte(&mut self) -> Option<u8>;
     fn peek_byte_is(&mut self, needle: u8) -> bool;
     fn consume_bytes(&mut self, amount: usize);
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
 
-    fn try_read_slice(&mut self, needle: &str, case_sensitive: bool) -> bool;
     #[inline(always)]
-    fn try_read_slice_exact(&mut self, needle: &str) -> bool {
-        self.try_read_slice(needle, true)
-    }
+    fn try_read_slice_exact(&mut self, needle: &str) -> bool;
+    fn find_next_non_whitespace(&self) -> Option<usize>;
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
     fn skip_space_tab(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
@@ -34,6 +34,14 @@ pub(crate) trait Reader {
 }
 
 impl<'r> Reader for StrReader<'r> {
+    fn pos(&self) -> usize {
+        self.pos
+    }
+
+    fn col(&self) -> usize {
+        self.col
+    }
+
     fn peek_byte(&mut self) -> Option<u8> {
         match self.slice.as_bytes().get(self.pos) {
             Some(x) => Some(*x),
@@ -57,24 +65,19 @@ impl<'r> Reader for StrReader<'r> {
         &self.slice.as_bytes()[start..end]
     }
 
-    fn try_read_slice(&mut self, needle: &str, case_sensitive: bool) -> bool {
-        if self.slice.len() < needle.len() {
-            return false;
-        }
-
-        let read = if case_sensitive {
-            self.slice.as_bytes()[self.pos..self.pos + needle.len()].starts_with(needle.as_bytes())
-        } else {
-            needle.as_bytes().iter().enumerate().all(|(offset, char)| {
-                self.slice.as_bytes()[self.pos + offset].to_ascii_lowercase()
-                    == char.to_ascii_lowercase()
-            })
-        };
-
-        if read {
+    #[inline(always)]
+    fn try_read_slice_exact(&mut self, needle: &str) -> bool {
+        if self.slice.as_bytes()[self.pos..self.pos + needle.len()].starts_with(needle.as_bytes()) {
             self.pos += needle.len();
+            return true;
         }
-        read
+        false
+    }
+
+    fn find_next_non_whitespace(&self) -> Option<usize> {
+        self.slice.as_bytes()[self.pos..]
+            .iter()
+            .position(|p| !is_whitespace(*p))
     }
 
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)> {
@@ -217,6 +220,14 @@ pub fn read_non_comment_line() {
 pub(crate) fn is_tab_space(b: u8) -> bool {
     match b {
         b' ' | b'\t' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) fn is_whitespace(b: u8) -> bool {
+    match b {
+        b' ' | b'\t' | b'\r' | b'\n' => true,
         _ => false,
     }
 }
