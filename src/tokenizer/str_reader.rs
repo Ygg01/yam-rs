@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::VecDeque;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::str::from_utf8_unchecked;
@@ -11,7 +12,7 @@ pub struct EventIterator<'a> {
     pub(crate) state: Scanner,
     pub(crate) reader: StrReader<'a>,
     indent: usize,
-    pub(crate) lines: Vec<String>,
+    pub(crate) lines: VecDeque<String>,
 }
 
 impl<'a> EventIterator<'a> {
@@ -20,7 +21,7 @@ impl<'a> EventIterator<'a> {
             state: Scanner::default(),
             reader: StrReader::new(input),
             indent: 2,
-            lines: vec![],
+            lines: VecDeque::default(),
         }
     }
 }
@@ -31,7 +32,7 @@ impl<'a> Iterator for EventIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if !self.lines.is_empty() {
-                return self.lines.pop();
+                return self.lines.pop_front();
             }
 
             if self.state.is_empty() && !self.state.stream_end {
@@ -45,7 +46,7 @@ impl<'a> Iterator for EventIterator<'a> {
                         MarkEnd(end) => {
                             let scalar = self.reader.slice[start..end].to_owned();
 
-                            if let Some(x) = self.lines.last_mut() {
+                            if let Some(x) = self.lines.back_mut() {
                                 // account for indent and newline
                                 if x[self.indent + 1..].starts_with("=VAL") {
                                     x.push_str(scalar.as_str());
@@ -55,17 +56,17 @@ impl<'a> Iterator for EventIterator<'a> {
                                 ind.extend("=VAL ".as_bytes());
                                 ind.extend(scalar.as_bytes().to_vec());
                                 unsafe {
-                                    self.lines.push(String::from_utf8_unchecked(ind));
+                                    self.lines.push_back(String::from_utf8_unchecked(ind));
                                 }
                             }
                         }
                         NewLine => {
-                            if let Some(x) = self.lines.last_mut() {
+                            if let Some(x) = self.lines.back_mut() {
                                 x.push_str("\n");
                             }
                         }
                         Space => {
-                            if let Some(x) = self.lines.last_mut() {
+                            if let Some(x) = self.lines.back_mut() {
                                 x.push_str(" ");
                             }
                         }
@@ -75,7 +76,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             ind.extend("+MAP".as_bytes());
                             self.indent += 2;
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         MappingEnd => {
@@ -83,7 +84,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("-MAP".as_bytes());
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         SequenceStart => {
@@ -91,7 +92,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             ind.extend("+SEQ".as_bytes());
                             self.indent += 2;
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         SequenceEnd => {
@@ -99,7 +100,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("-SEQ".as_bytes());
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         DocumentStart => {
@@ -107,7 +108,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             ind.extend("+DOC".as_bytes());
                             self.indent += 2;
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         DocumentEnd => {
@@ -115,14 +116,14 @@ impl<'a> Iterator for EventIterator<'a> {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("-DOC".as_bytes());
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         KeyEnd => {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("-KEY-".as_bytes());
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         Directive(typ) => {
@@ -134,21 +135,21 @@ impl<'a> Iterator for EventIterator<'a> {
                                 ind.extend(self.reader.slice[start..end].as_bytes());
                             }
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         Separator => {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend("-SEP-".as_bytes());
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                         ErrorToken(x) => {
                             ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                             ind.extend(format!("ERR({:?})", x).as_bytes());
                             unsafe {
-                                self.lines.push(String::from_utf8_unchecked(ind));
+                                self.lines.push_back(String::from_utf8_unchecked(ind));
                             }
                         }
                     };
