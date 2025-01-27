@@ -468,7 +468,7 @@ impl<B> Lexer<B> {
                     }
                     break;
                 }
-                (HeaderEnd | HeaderStart , b'.') => {
+                (HeaderEnd | HeaderStart, b'.') => {
                     if self.stream_is_ending(reader) {
                         reader.consume_bytes(3);
                         self.push_empty_token();
@@ -903,8 +903,11 @@ impl<B> Lexer<B> {
             self.had_anchor = false;
             self.get_flow_map(reader, MapState::default())
         } else {
+            let start = reader.line();
             let mut scalar = self.get_scalar_node(reader, chr);
             self.check_flow_indent(scalar.col_start, &mut scalar.spans);
+            let post_end = reader.line();
+            scalar.is_multiline = start != post_end;
             scalar
         }
     }
@@ -1010,10 +1013,7 @@ impl<B> Lexer<B> {
             } else if chr == b',' {
                 reader.consume_bytes(1);
                 if matches!(seq_state, BeforeElem | BeforeFirstElem) {
-                    self.push_error_token(
-                        ExpectedNodeButFound { found: ',' },
-                        &mut spans,
-                    );
+                    self.push_error_token(ExpectedNodeButFound { found: ',' }, &mut spans);
                 }
                 seq_state = BeforeElem;
             } else if chr == b'?' && is_white_tab_or_break(peek_next) {
@@ -1028,10 +1028,7 @@ impl<B> Lexer<B> {
             {
                 match peek_next {
                     b'[' | b'{' | b'}' => {
-                        self.push_error_token(
-                            UnexpectedSymbol(peek_next as char),
-                            &mut spans,
-                        );
+                        self.push_error_token(UnexpectedSymbol(peek_next as char), &mut spans);
                         reader.consume_bytes(2);
                     }
                     _ => {
@@ -1056,16 +1053,22 @@ impl<B> Lexer<B> {
                     if !skip_colon_space && reader.skip_space_tab() == 0 {
                         self.push_error_token(MissingWhitespaceAfterColon, &mut spans);
                     }
-                    let map_start = if self.curr_state().in_flow_collection() {
-                        MAP_START_EXP
+
+                    if node.is_multiline {
+                        spans.extend(node.spans);
+                        self.push_error_token(ImplicitKeysNeedToBeInline, &mut spans);
                     } else {
-                        MAP_START
-                    };
-                    spans.push(map_start);
-                    spans.extend(node.spans);
+                        let map_start = if self.curr_state().in_flow_collection() {
+                            MAP_START_EXP
+                        } else {
+                            MAP_START
+                        };
+                        spans.push(map_start);
+                        spans.extend(node.spans);
+                        self.push_state(FlowMap);
+                        spans.extend(self.get_flow_map(reader, AfterColon).spans);
+                    }
                     seq_state.next_state();
-                    self.push_state(FlowMap);
-                    spans.extend(self.get_flow_map(reader, AfterColon).spans);
                 } else if !node.spans.is_empty() {
                     seq_state.next_state();
                     spans.extend(node.spans);
@@ -1177,11 +1180,10 @@ impl<B> Lexer<B> {
                 let node_spans = self.get_flow_node(reader);
                 if node_spans.is_empty() {
                     push_empty(&mut spans);
-                }else {
+                } else {
                     spans.extend(node_spans.spans);
                 }
                 map_state.set_next_state();
-                
             } else {
                 let scalar_spans = self.get_flow_node(reader);
                 skip_colon_space = is_skip_colon_space(&scalar_spans);
