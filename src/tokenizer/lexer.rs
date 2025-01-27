@@ -477,86 +477,9 @@ impl Lexer {
         }
 
         let mut prop_node = PropSpans::from_reader(reader);
-        let mut curr_node = loop {
-            let Some(chr) = reader.peek_byte() else {
-                self.stream_end = true;
-                tokens.extend(take(&mut prop_node).spans);
-                return;
-            };
-
-            let is_doc_end = reader.peek_stream_ending();
-
-            match chr {
-                b'.' if is_doc_end => {
-                    self.pop_block_states(self.stack.len().saturating_sub(1), tokens);
-                    tokens.push(DOC_END_EXP);
-                    self.set_state(PreDocStart);
-                    reader.consume_bytes(3);
-                    self.last_map_line = Some(reader.line());
-                    return;
-                }
-                b'-' if is_doc_end => {
-                    self.pop_block_states(self.stack.len().saturating_sub(1), tokens);
-                    tokens.push(DOC_END);
-                    self.set_state(PreDocStart);
-                    return;
-                }
-                b'#' if reader.col() > 0 => {
-                    // comment that doesnt have literal
-                    push_error(
-                        MissingWhitespaceBeforeComment,
-                        &mut self.tokens,
-                        &mut self.errors,
-                    );
-                    self.read_line(reader);
-                }
-                b'%' => {
-                    push_error(UnexpectedDirective, &mut self.tokens, &mut self.errors);
-                    return;
-                }
-                b'&' | b'!' => {
-                    if let Err(err) =
-                        prop_node.merge_prop(&mut self.process_inline_properties(reader))
-                    {
-                        push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
-                    }
-                }
-                b'-' if reader.peek_byte_at(1).map_or(false, is_plain_unsafe)
-                    && !prop_node.is_empty()
-                    && prop_node.line_start == reader.line() =>
-                {
-                    push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
-                    self.process_block_seq(reader, tokens);
-                }
-                b'{' | b'[' => break self.get_flow_node(reader, &mut prop_node),
-                b'|' => break self.process_block_literal(reader, true),
-                b'>' => break self.process_block_literal(reader, false),
-                b' ' | b'\t' | b'\n' | b'\r' => {
-                    if self
-                        .skip_sep_spaces(reader)
-                        .map_or(false, |info| info.num_breaks > 0)
-                    {
-                        match self.curr_state() {
-                            BlockMap(ind, ExpectValue) | BlockSeq(ind, _)
-                                if prop_node.col_start <= ind =>
-                            {
-                                push_error(
-                                    ExpectedIndent {
-                                        actual: prop_node.col_start,
-                                        expected: ind,
-                                    },
-                                    tokens,
-                                    &mut self.errors,
-                                );
-                            }
-                            _ => {}
-                        }
-                        self.merge_prop(&mut prop_node, tokens);
-                    }
-                    continue;
-                }
-                _ => break self.get_scalar_node(reader, &mut false),
-            };
+        let mut curr_node = match self.get_node(reader, tokens, &mut prop_node) {
+            Some(value) => value,
+            None => return,
         };
 
         let merge = self.merge_prop_with(&mut curr_node, prop_node);
@@ -608,6 +531,114 @@ impl Lexer {
             }
             _ => {}
         }
+    }
+
+    fn get_node<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        tokens: &mut Vec<usize>,
+        prop_node: &mut PropSpans,
+    ) -> Option<NodeSpans> {
+        let mut curr_node = NodeSpans::from_reader(reader);
+        curr_node.spans.push(SCALAR_PLAIN);
+        curr_node.spans.push(SCALAR_END);
+        loop {
+            let Some(chr) = reader.peek_byte() else {
+                self.stream_end = true;
+                tokens.extend(take(prop_node).spans);
+                return None;
+            };
+
+            let is_doc_end = reader.peek_stream_ending();
+
+            match chr {
+                b'.' if is_doc_end => {
+                    self.pop_block_states(self.stack.len().saturating_sub(1), tokens);
+                    tokens.push(DOC_END_EXP);
+                    self.set_state(PreDocStart);
+                    reader.consume_bytes(3);
+                    self.last_map_line = Some(reader.line());
+                    return None;
+                }
+                b'-' if is_doc_end => {
+                    self.pop_block_states(self.stack.len().saturating_sub(1), tokens);
+                    tokens.push(DOC_END);
+                    self.set_state(PreDocStart);
+                    return None;
+                }
+                b'#' if reader.col() > 0 => {
+                    // comment that doesnt have literal
+                    push_error(
+                        MissingWhitespaceBeforeComment,
+                        &mut self.tokens,
+                        &mut self.errors,
+                    );
+                    self.read_line(reader);
+                }
+                b'%' => {
+                    push_error(UnexpectedDirective, &mut self.tokens, &mut self.errors);
+                    return None;
+                }
+                b'&' | b'!' => {
+                    if let Err(err) =
+                        prop_node.merge_prop(&mut self.process_inline_properties(reader))
+                    {
+                        push_error(NodeWithTwoProperties(err), tokens, &mut self.errors);
+                    }
+                }
+                b':' if reader.peek_byte_at(1).map_or(false, is_white_tab_or_break) => {
+                    break;
+                }
+                b'-' if reader.peek_byte_at(1).map_or(false, is_plain_unsafe)
+                    && !prop_node.is_empty()
+                    && prop_node.line_start == reader.line() =>
+                {
+                    push_error(UnexpectedScalarAtNodeEnd, tokens, &mut self.errors);
+                    self.process_block_seq(reader, tokens);
+                }
+                b'{' | b'[' => {
+                    curr_node = self.get_flow_node(reader, prop_node);
+                    break;
+                }
+                b'|' => {
+                    curr_node = self.process_block_literal(reader, true);
+                    break;
+                }
+                b'>' => {
+                    curr_node = self.process_block_literal(reader, false);
+                    break;
+                }
+                b' ' | b'\t' | b'\n' | b'\r' => {
+                    if self
+                        .skip_sep_spaces(reader)
+                        .map_or(false, |info| info.num_breaks > 0)
+                    {
+                        match self.curr_state() {
+                            BlockMap(ind, ExpectValue) | BlockSeq(ind, _)
+                                if prop_node.col_start <= ind =>
+                            {
+                                push_error(
+                                    ExpectedIndent {
+                                        actual: prop_node.col_start,
+                                        expected: ind,
+                                    },
+                                    tokens,
+                                    &mut self.errors,
+                                );
+                            }
+                            _ => {}
+                        }
+                        self.merge_prop(prop_node, tokens);
+                    }
+                    continue;
+                }
+                _ => {
+                    curr_node = self.get_scalar_node(reader, &mut false);
+                    break;
+                }
+            };
+        }
+        Some(curr_node)
     }
 
     fn merge_prop(&mut self, prop_node: &mut PropSpans, tokens: &mut Vec<usize>) {
@@ -892,9 +923,9 @@ impl Lexer {
         let new_seq = match curr_state {
             DocBlock => true,
             BlockSeq(ind, InSeqElem) if indent > ind => {
-                push_error(UnexpectedSeqAtNodeEnd, tokens, &mut self.errors,);
+                push_error(UnexpectedSeqAtNodeEnd, tokens, &mut self.errors);
                 false
-            },
+            }
             BlockSeq(ind, _) if indent > ind => true,
             BlockSeq(ind, _) if indent == ind => false,
             _ => {
@@ -1030,9 +1061,9 @@ impl Lexer {
         let mut node = NodeSpans::from_reader(reader);
         self.skip_space_tab(reader);
         let Some(chr) = reader.peek_byte() else {
-                self.stream_end = true;
-                return node;
-            };
+            self.stream_end = true;
+            return node;
+        };
 
         if chr == b',' || chr == b']' || chr == b'}' {
             return node;
@@ -1118,7 +1149,7 @@ impl Lexer {
             node.spans.push(ALIAS);
             node.spans.push(alias.0);
             node.spans.push(alias.1);
-        } else if chr == b':' && self.is_valid_map(reader, &mut node.spans) {
+        } else if chr == b':' && self.is_valid_map(reader, &mut node.spans) && self.curr_state().in_flow_collection() {
             push_empty(&mut node.spans, &mut PropSpans::default());
             node.line_start = reader.line();
             node.col_start = reader.col();
@@ -2161,7 +2192,11 @@ impl Lexer {
                 }
                 Some(b'#') => {
                     if reader.col() > 0 {
-                        push_error(ErrorType::MissingWhitespaceBeforeComment, &mut self.tokens, &mut self.errors);
+                        push_error(
+                            ErrorType::MissingWhitespaceBeforeComment,
+                            &mut self.tokens,
+                            &mut self.errors,
+                        );
                     }
                     self.read_line(reader);
                     self.skip_sep_spaces(reader);
@@ -2183,8 +2218,16 @@ impl Lexer {
                         let line = reader.line();
                         self.skip_sep_spaces(reader);
 
-                        if line == reader.line() && reader.peek_byte_at(0).map_or(false, |c| c != b'\r' && c != b'\n') {
-                            prepend_error(InvalidAnchorDeclaration, &mut self.tokens, &mut self.errors);
+                        if line == reader.line()
+                            && reader
+                                .peek_byte_at(0)
+                                .map_or(false, |c| c != b'\r' && c != b'\n')
+                        {
+                            prepend_error(
+                                InvalidAnchorDeclaration,
+                                &mut self.tokens,
+                                &mut self.errors,
+                            );
                             self.read_line(reader);
                         }
                     }
