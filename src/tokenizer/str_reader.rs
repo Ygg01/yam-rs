@@ -533,14 +533,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    //TODO error handling
-    fn read_double_quote(
-        &mut self,
-        _prev_indent: usize,
-        _is_implicit: bool,
-        is_multiline: &mut bool,
-        _errors: &mut Vec<ErrorType>,
-    ) -> Vec<usize> {
+    fn read_double_quote(&mut self, is_multiline: &mut bool) -> Vec<usize> {
         let mut start_str = self.consume_bytes(1);
         let mut tokens = vec![ScalarDoubleQuote as usize];
         let mut newspaces = None;

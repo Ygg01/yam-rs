@@ -590,7 +590,7 @@ impl Lexer {
                 self.set_seq_state(BeforeElem);
             }
             Some(b'\'') => self.process_quote(reader, self.curr_state()),
-            Some(b'"') => self.process_double_quote_flow(reader, self.curr_state()),
+            Some(b'"') => self.process_double_quote_flow(reader),
             Some(b'?') => self.fetch_explicit_map(reader, self.curr_state()),
             Some(b'#') => {
                 // comment
@@ -663,7 +663,7 @@ impl Lexer {
                 self.set_next_map_state();
             }
             Some(b'"') => {
-                self.process_double_quote_flow(reader, curr_state);
+                self.process_double_quote_flow(reader);
                 self.set_next_map_state();
             }
             Some(b'#') => {
@@ -703,29 +703,16 @@ impl Lexer {
     }
 
     #[inline]
-    fn process_double_quote<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        curr_state: LexerState,
-    ) -> (usize, Vec<usize>) {
+    fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R) -> (usize, Vec<usize>) {
         let scalar_start = self.update_col(reader);
         let mut is_multiline = false;
-        let tokens = reader.read_double_quote(
-            self.last_block_indent,
-            curr_state.is_implicit(),
-            &mut is_multiline,
-            &mut self.errors,
-        );
+        let tokens = reader.read_double_quote(&mut is_multiline);
         self.skip_separation_spaces(reader, true);
         (scalar_start, tokens)
     }
 
-    fn process_double_quote_flow<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        curr_state: LexerState,
-    ) {
-        let (_, tokens) = self.process_double_quote(reader, curr_state);
+    fn process_double_quote_flow<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        let (_, tokens) = self.process_double_quote(reader);
 
         self.emit_prev_anchor();
         self.tokens.extend(tokens);
@@ -736,7 +723,7 @@ impl Lexer {
         reader: &mut R,
         curr_state: LexerState,
     ) {
-        let (scalar_start, tokens) = self.process_double_quote(reader, curr_state);
+        let (scalar_start, tokens) = self.process_double_quote(reader);
 
         if reader.peek_byte_is(b':') {
             self.unwind_map(curr_state, scalar_start);
