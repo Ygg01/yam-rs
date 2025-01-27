@@ -2,13 +2,13 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::{fmt::Write, str::from_utf8_unchecked};
 
-use crate::{tokenizer::LexerToken, Spanner};
+use crate::{tokenizer::LexerToken, Lexer};
 
 use super::StrReader;
 
 pub struct EventIterator<'a> {
     pub(crate) reader: StrReader<'a>,
-    pub(crate) state: Spanner,
+    pub(crate) state: Lexer,
     pub indent: usize,
 }
 
@@ -16,7 +16,7 @@ impl<'a> EventIterator<'a> {
     pub fn new_from_string(input: &str) -> EventIterator {
         EventIterator {
             reader: StrReader::new(input),
-            state: Spanner::default(),
+            state: Lexer::default(),
             indent: 1,
         }
     }

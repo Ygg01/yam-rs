@@ -2,10 +2,10 @@
 
 use std::collections::VecDeque;
 use std::hint::unreachable_unchecked;
-use ParserState::PreDocStart;
+use LexerState::PreDocStart;
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
-use crate::tokenizer::spanner::ParserState::{
+use crate::tokenizer::spanner::LexerState::{
     AfterDocEnd, BlockMap, BlockMapKeyExp, BlockMapVal, BlockMapValExp, BlockSeq, DirectiveSection,
     FlowKey, FlowKeyExp, FlowMap, FlowSeq, RootBlock,
 };
@@ -18,19 +18,19 @@ use ErrorType::ExpectedIndent;
 use super::reader::{is_newline, is_flow_indicator};
 
 #[derive(Clone, Default)]
-pub struct Spanner {
-    pub(crate) curr_state: ParserState,
+pub struct Lexer {
+    pub(crate) curr_state: LexerState,
     pub stream_end: bool,
     pub directive: bool,
     pub(crate) tokens: VecDeque<usize>,
     pub(crate) errors: Vec<ErrorType>,
-    stack: Vec<ParserState>,
+    stack: Vec<LexerState>,
 }
 
 pub trait StateSpanner<T> {}
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
-pub enum ParserState {
+pub enum LexerState {
     #[default]
     PreDocStart,
     DirectiveSection,
@@ -47,7 +47,7 @@ pub enum ParserState {
     AfterDocEnd,
 }
 
-impl ParserState {
+impl LexerState {
     #[inline]
     pub(crate) fn indent(&self, default: usize) -> u32 {
         match self {
@@ -104,7 +104,7 @@ impl ParserState {
     }
 }
 
-impl Spanner {
+impl Lexer {
     #[inline(always)]
     pub fn pop_token(&mut self) -> Option<usize> {
         self.tokens.pop_front()
@@ -363,7 +363,7 @@ impl Spanner {
     }
 
     #[inline]
-    fn push_state(&mut self, state: ParserState) {
+    fn push_state(&mut self, state: LexerState) {
         self.stack.push(self.curr_state);
         self.curr_state = state;
     }
