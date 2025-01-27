@@ -2,8 +2,6 @@ use std::borrow::Cow;
 
 pub use scanner::Scanner;
 
-use crate::tokenizer::scanner::{Control, SpanToken};
-
 mod event;
 mod iter;
 mod reader;

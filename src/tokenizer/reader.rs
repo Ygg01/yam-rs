@@ -1,6 +1,6 @@
-use std::str::from_utf8_unchecked;
-
 use memchr::memchr2;
+
+use crate::tokenizer::scanner::ScannerContext;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -31,8 +31,10 @@ pub(crate) trait Reader {
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
     fn skip_space_tab(&mut self) -> usize;
     fn skip_whitespace(&mut self) -> usize;
+    fn skip_indent(&mut self, indent: usize) -> Option<usize>;
     fn read_line(&mut self) -> (usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
+    fn read_plain_in_line(&mut self, start: usize, is_flow_context: bool) -> usize;
 }
 
 impl<'r> Reader for StrReader<'r> {
@@ -116,6 +118,21 @@ impl<'r> Reader for StrReader<'r> {
         n
     }
 
+    fn skip_indent(&mut self, indent: usize) -> Option<usize> {
+        if !self.slice.as_bytes()[self.pos..self.pos + indent]
+            .iter()
+            .all(|&b| b == b' ')
+        {
+            return None;
+        }
+        let n = self.slice.as_bytes()[self.pos + indent..]
+            .iter()
+            .position(|b| !is_whitespace(*b))
+            .unwrap_or(0);
+        self.consume_bytes(n + indent);
+        Some(n)
+    }
+
     fn read_line(&mut self) -> (usize, usize) {
         let start = self.pos;
         let content = &self.slice.as_bytes()[start..];
@@ -165,7 +182,16 @@ impl<'r> Reader for StrReader<'r> {
 
         (start, end)
     }
+
+    fn read_plain_in_line(&mut self, start: usize, is_flow_context: bool) -> usize {
+        self.slice.as_bytes()[start..]
+            .windows(2)
+            .position(|win| is_plain(is_flow_context, win[0], win[1]))
+            .map_or(0, |x| x + 2)
+    }
 }
+
+impl<'r> StrReader<'r> {}
 
 #[test]
 pub fn test_readline() {
@@ -253,16 +279,40 @@ pub(crate) fn is_tab_space(b: u8) -> bool {
 }
 
 #[inline]
-pub(crate) fn is_whitespace(b: u8) -> bool {
-    match b {
+pub(crate) fn is_whitespace(chr: u8) -> bool {
+    match chr {
         b' ' | b'\t' | b'\r' | b'\n' => true,
         _ => false,
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub(crate) enum FastRead {
-    Char(u8),
-    InterNeedle(usize, usize),
-    EOF,
+#[inline]
+pub(crate) fn is_indicator(chr: u8) -> bool {
+    match chr {
+        b'-' | b'?' | b':' | b',' | b'[' | b']' | b'{' | b'}' | b'#' | b'&' | b'*' | b'!'
+        | b'|' | b'>' | b'\'' | b'"' | b'%' | b'@' | b'`' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+fn is_plain(is_flow_context: bool, win0: u8, win1: u8) -> bool {
+    is_whitespace(win0) || is_whitespace(win1)
+        || (win0 == b':' && (is_whitespace(win1) || is_flow_context && is_flow_indicator(win1)))
+        || (win1 == b'#' && is_whitespace(win0))
+}
+
+#[inline]
+pub(crate) fn is_flow_indicator(chr: u8) -> bool {
+    match chr {
+        b',' | b'[' | b']' | b'{' | b'}' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) fn is_not_plain_safe(x0: u8, x1: u8, safe_in: bool) -> bool {
+    (x0 == b'?' || x0 == b':' || x0 == b'-')
+        && !is_whitespace(x1)
+        && (safe_in || !is_flow_indicator(x1))
 }
