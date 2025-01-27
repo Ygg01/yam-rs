@@ -2587,8 +2587,17 @@ const X4_FH7J_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_UKK6_02_INPUT: &str = r"
+!
+";
+const X1_UKK6_02_EVENTS: &str = r"
++DOC
+=VAL <!> :
+-DOC";
+
 #[test]
 fn block_tags_empty() {
+    assert_eq_event(X1_UKK6_02_INPUT, X1_UKK6_02_EVENTS);
     assert_eq_event(X4_FH7J_INPUT, X4_FH7J_EVENTS);
     assert_eq_event(X3_FH7J_INPUT, X3_FH7J_EVENTS);
     assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
