@@ -155,6 +155,24 @@ fn parse_flow_map() {
     assert_eq_event(MAP_X_Y3_INPUT, MAP_X_Y_EVENTS);
 }
 
+const FLOW_QUOTED_INPUT: &str = r#"
+{"ab"
+: "xy"}
+"#;
+
+const FLOW_QUOTED_EVENTS: &str = r#"
+ +DOC
+  +MAP {}
+   =VAL "ab
+   =VAL "xy
+  -MAP
+ -DOC"#;
+
+#[test]
+fn map_quoted() {
+    assert_eq_event(FLOW_QUOTED_INPUT, FLOW_QUOTED_EVENTS);
+}
+
 const EMPTY_MAP_INPUT: &str = r#"
 {:}
 "#;

@@ -265,7 +265,7 @@ impl Lexer {
             Some(b'|') => self.process_block_literal(reader),
             Some(b'>') => self.process_block_folded(reader),
             Some(b'\'') => self.process_quote(reader, curr_state),
-            Some(b'"') => self.process_double_quote(reader, curr_state),
+            Some(b'"') => self.process_double_quote_block(reader, curr_state),
             Some(b'#') => {
                 // comment
                 reader.read_line();
@@ -336,7 +336,7 @@ impl Lexer {
             }
             [b'"', ..] => {
                 self.set_next_map_state();
-                self.process_double_quote(reader, curr_state);
+                self.process_double_quote_block(reader, curr_state);
             }
             [b'#', ..] => {
                 // comment
@@ -494,7 +494,7 @@ impl Lexer {
                 self.set_curr_state(FlowSeq(self.get_token_pos(), BeforeElem));
             }
             Some(b'\'') => self.process_quote(reader, self.curr_state()),
-            Some(b'"') => self.process_double_quote(reader, self.curr_state()),
+            Some(b'"') => self.process_double_quote_flow(reader, self.curr_state()),
             Some(b'?') => self.fetch_explicit_map(reader, self.curr_state()),
             Some(b'#') => {
                 // comment
@@ -567,7 +567,7 @@ impl Lexer {
                 self.set_next_map_state();
             }
             Some(b'"') => {
-                self.process_double_quote(reader, curr_state);
+                self.process_double_quote_flow(reader, curr_state);
                 self.set_next_map_state();
             }
             Some(b'#') => {
@@ -606,7 +606,22 @@ impl Lexer {
         self.tokens.extend(tokens);
     }
 
-    fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    fn process_double_quote_flow<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+        let scalar_start = self.update_col(reader);
+        let mut is_multiline = false;
+        let tokens = reader.read_double_quote(
+            self.last_block_indent,
+            curr_state.is_implicit(),
+            &mut is_multiline,
+            &mut self.errors,
+        );
+
+        self.skip_separation_spaces(reader, true);
+        self.emit_prev_anchor();
+        self.tokens.extend(tokens);
+    }
+
+    fn process_double_quote_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let scalar_start = self.update_col(reader);
         let mut is_multiline = false;
         let tokens = reader.read_double_quote(
