@@ -1,4 +1,4 @@
-use crate::{Stage1Scanner, YamlChunkState, YamlParserState};
+use crate::{Stage1Scanner, YamlChunkState, YamlParserState, SIMD_CHUNK_LENGTH};
 #[cfg(target_arch = "x86")]
 use core::arch::x86::{
     __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
@@ -25,7 +25,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         ChunkedUtf8ValidatorImp::new()
     }
 
-    fn from_chunk(values: &[u8; 64]) -> Self {
+    fn from_chunk(values: &[u8; SIMD_CHUNK_LENGTH]) -> Self {
         todo!()
     }
 

@@ -1,5 +1,6 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
+use crate::SIMD_CHUNK_LENGTH;
 pub(crate) use chunked_iter::ChunkyIterator;
 pub use native::U8X8;
 pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
@@ -109,8 +110,8 @@ pub fn count_col_rows(
     newline_mask: u64,
     prev_byte_col: &mut u32,
     prev_byte_row: &mut u32,
-    byte_cols: &mut [u32; 64],
-    byte_rows: &mut [u32; 64],
+    byte_cols: &mut [u32; SIMD_CHUNK_LENGTH],
+    byte_rows: &mut [u32; SIMD_CHUNK_LENGTH],
 ) {
     // First 8 bits
     let mask = (newline_mask & 0xFF) as usize;
@@ -188,7 +189,7 @@ pub fn count_indent_naive(
     space_mask: u64,
     prev_iter_char: &mut u32,
     prev_indent: &mut u32,
-    indents: &mut [u32; 64],
+    indents: &mut [u32; SIMD_CHUNK_LENGTH],
 ) {
     for (pos, item) in indents.iter_mut().enumerate().take(64) {
         let is_space = (space_mask & (1 << pos)) != 0;
@@ -254,8 +255,8 @@ pub fn count_indent_dependent(
     space_mask: u64,
     prev_iter_char: &mut u8,
     prev_indent: &mut u32,
-    byte_cols: &[u32; 64],
-    indents: &mut [u32; 64],
+    byte_cols: &[u32; SIMD_CHUNK_LENGTH],
+    indents: &mut [u32; SIMD_CHUNK_LENGTH],
 ) {
     ///
     /// # Arguments:
@@ -269,7 +270,7 @@ pub fn count_indent_dependent(
     ///
     #[inline]
     fn swizzle_slice(
-        byte_indents: &mut [u32; 64],
+        byte_indents: &mut [u32; SIMD_CHUNK_LENGTH],
         starts: usize,
         spaces_mask: usize,
         newline_mask: usize,
@@ -315,9 +316,9 @@ pub fn count_indent_dependent(
 
     unsafe {
         // Safety INVARIANT:
-        // This is always safe since have same alignment and size assuming that both are &[u32; 64]
-        //  byte_cols: &[u32; 64],
-        //  indents: &mut [u32; 64],
+        // This is always safe since have same alignment and size assuming that both are &[u32; SIMD_CHUNK_LENGTH]
+        //  byte_cols: &[u32; SIMD_CHUNK_LENGTH],
+        //  indents: &mut [u32; SIMD_CHUNK_LENGTH],
         core::ptr::copy_nonoverlapping(byte_cols.as_ptr(), indents.as_mut_ptr(), 64);
     }
 
@@ -414,8 +415,8 @@ fn test_quick_count() {
     let mut prev_byte_col = 0;
     let mut prev_byte_rows = 0;
 
-    let mut actual_cols = [0; 64];
-    let mut actual_rows = [0; 64];
+    let mut actual_cols = [0; SIMD_CHUNK_LENGTH];
+    let mut actual_rows = [0; SIMD_CHUNK_LENGTH];
     count_col_rows(
         newline_mask,
         &mut prev_byte_col,
@@ -429,7 +430,7 @@ fn test_quick_count() {
 
     let mut prev_iter_char = 1;
     let mut prev_indent = 0;
-    let mut actual_indents = [0; 64];
+    let mut actual_indents = [0; SIMD_CHUNK_LENGTH];
     count_indent_dependent(
         newline_mask,
         space_mask,

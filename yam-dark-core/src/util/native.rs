@@ -1,4 +1,5 @@
 #![allow(clippy::too_many_arguments)]
+use crate::SIMD_CHUNK_LENGTH;
 use core::ops::{Add, AddAssign, BitAnd, Shr};
 
 /// Returns an `u64` value representing the bitmask of each element in the given u8 that is equal to [cmp]
@@ -15,9 +16,10 @@ use core::ops::{Add, AddAssign, BitAnd, Shr};
 /// # Examples
 ///
 /// ```
+/// use yam_dark_core::SIMD_CHUNK_LENGTH;
 /// use yam_dark_core::util::u8x64_eq;
 ///
-/// let mut array = [1u8; 64];
+/// let mut array = [1u8; SIMD_CHUNK_LENGTH];
 /// // Set three values to 2
 /// array[2] = 2;
 /// array[4] = 2;
@@ -28,7 +30,7 @@ use core::ops::{Add, AddAssign, BitAnd, Shr};
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn u8x64_eq(a: &[u8; 64], cmp: u8) -> u64 {
+pub fn u8x64_eq(a: &[u8; SIMD_CHUNK_LENGTH], cmp: u8) -> u64 {
     (if a[0] == cmp { 1 } else { 0 })
         | (if a[1] == cmp { 1 << 1 } else { 0 })
         | (if a[2] == cmp { 1 << 2 } else { 0 })
@@ -95,7 +97,7 @@ pub fn u8x64_eq(a: &[u8; 64], cmp: u8) -> u64 {
         | (if a[63] == cmp { 1 << 63 } else { 0 })
 }
 
-/// Checks if each element in a [u8; 64] array is less than or equal to the given `cmp` value.
+/// Checks if each element in a [u8; SIMD_CHUNK_LENGTH] array is less than or equal to the given `cmp` value.
 ///
 /// # Arguments
 ///
@@ -117,7 +119,7 @@ pub fn u8x64_eq(a: &[u8; 64], cmp: u8) -> u64 {
 /// assert_eq!(result, 0b0000000000000000000000000000000000000000000000000000001111111111);
 /// ```
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn u8x64_lteq(a: [u8; 64], cmp: u8) -> u64 {
+pub fn u8x64_lteq(a: [u8; SIMD_CHUNK_LENGTH], cmp: u8) -> u64 {
     (if a[0] <= cmp { 1 } else { 0 })
         | (if a[1] <= cmp { 1 << 1 } else { 0 })
         | (if a[2] <= cmp { 1 << 2 } else { 0 })
@@ -681,7 +683,7 @@ pub fn u8x16_swizzle(mask: [u8; 16], x: U8X16) -> U8X16 {
 
 #[doc(hidden)]
 #[inline]
-pub fn mask_merge(v0: U8X16, v1: U8X16, v2: U8X16, v3: U8X16) -> [u32; 64] {
+pub fn mask_merge(v0: U8X16, v1: U8X16, v2: U8X16, v3: U8X16) -> [u32; SIMD_CHUNK_LENGTH] {
     [
         // first 16 cols
         v0.0[0] as u32,
