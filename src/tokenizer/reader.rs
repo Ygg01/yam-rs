@@ -73,12 +73,10 @@ pub trait Reader<B> {
             _ => false,
         }
     }
-    fn skip_space_tab(&mut self, allow_tab: bool, has_tab: &mut bool) -> usize;
-    fn count_space_tab(&self, allow_tab: bool) -> usize;
+    fn skip_space_tab(&mut self) -> usize;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self) -> (usize, usize);
-    fn not_safe_char(&self) -> bool;
     // Refactor
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn read_plain_one_line(
