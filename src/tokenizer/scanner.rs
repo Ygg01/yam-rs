@@ -10,17 +10,27 @@ use crate::tokenizer::iter::ErrorType::StartedBlockInFlow;
 use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::Control::{Continue, Eof};
 use crate::tokenizer::scanner::QuoteType::{Double, Plain, Single};
-use crate::tokenizer::scanner::ScannerContext::BlockIn;
+use crate::tokenizer::scanner::ScannerContext::{BlockIn, BlockOut, FlowOut};
 use crate::tokenizer::scanner::State::{BlockNode, InFlowScalar, StreamEnd, StreamStart};
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Scanner {
     pub(crate) curr_state: State,
     closing: bool,
-    context: ScannerContext,
     tokens: VecDeque<SpanToken>,
 }
-#[derive(Copy, Clone,)]
+
+impl Default for Scanner {
+    fn default() -> Self {
+        Self {
+            curr_state: StreamStart,
+            closing: false,
+            tokens: VecDeque::new(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, )]
 pub(crate) enum ScannerContext {
     BlockIn,
     BlockOut,
@@ -30,11 +40,6 @@ pub(crate) enum ScannerContext {
     FlowKey,
 }
 
-impl Default for ScannerContext {
-    fn default() -> Self {
-        BlockIn
-    }
-}
 
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum State {
@@ -50,11 +55,6 @@ pub(crate) enum State {
     InBlockScalar,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        StreamStart
-    }
-}
 
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum QuoteType {
@@ -105,9 +105,9 @@ impl Scanner {
         }
         match self.curr_state {
             StreamStart => self.read_start_stream(reader),
-            BlockNode => self.read_block_node(reader),
-            InFlowScalar(_) => self.read_flow_scalar(reader),
-            _  => (),
+            BlockNode => self.read_block_node(reader, 0, BlockOut),
+            // InFlowScalar(Plain) => self.read_flow_scalar_unquote(reader, ),
+            _ => (),
         };
         if !self.tokens.is_empty() || !self.closing {
             return Continue;
@@ -152,32 +152,35 @@ impl Scanner {
         self.tokens.push_back(SpanToken::DocStart);
     }
 
-    pub(crate) fn read_block_node<R: Reader>(&mut self, reader: &mut R) {
+
+    pub(crate) fn read_block_node<R: Reader>(&mut self, reader: &mut R, indent: usize, context: ScannerContext) {
         reader.skip_whitespace();
-        let mut consume = 1;
         if let Some(x) = reader.peek_byte() {
             match x {
                 b'[' => {
+                    reader.consume_bytes(1);
                     self.switch_state(InFlowSeq);
                 }
                 b'-' => {
-                    self.switch_state(InBlockSeq);
-                    consume = 0; // Can be re-consumed as scalar `--`
+                    self.switch_state(InBlockSeq); // Can be re-consumed as scalar `--`
                 }
                 b'{' => {
+                    reader.consume_bytes(1);
                     self.switch_state(InFlowMap);
                 }
                 b'?' => {
-                    self.switch_state(InBlockMap);
-                    consume = 0; // Can be re-consumed as `??` scalar
+                    self.switch_state(InBlockMap); // Can be re-consumed as `??` scalar
                 }
                 b'\'' => {
+                    reader.consume_bytes(1);
                     self.switch_state(InFlowScalar(Single));
                 }
                 b'"' => {
+                    reader.consume_bytes(1);
                     self.switch_state(InFlowScalar(Double));
                 }
                 b'|' => {
+                    reader.consume_bytes(1);
                     self.switch_state(InBlockScalar);
                 }
                 b'.' => {
@@ -186,21 +189,20 @@ impl Scanner {
                     }
                 }
                 _ => {
-                    self.switch_state(State::InFlowScalar(Plain));
-                    consume = 0;
+                    self.read_flow_scalar_unquote(reader, indent, context);
                 }
             }
         };
-        reader.consume_bytes(consume);
     }
 
+    #[inline(always)]
     pub(crate) fn switch_state(&mut self, next_state: State) {
         self.curr_state = next_state;
     }
 
-    pub(crate) fn read_flow_scalar<R: Reader>(&mut self, reader: &mut R) {
-        self.curr_state = BlockNode;
-        reader.skip_whitespace();
+    pub(crate) fn read_flow_scalar_unquote<R: Reader>(&mut self, reader: &mut R, indent: usize, context: ScannerContext) {
+        self.curr_state = InFlowScalar(Plain);
+        let n = reader.skip_whitespace();
         reader.read_line();
     }
 
