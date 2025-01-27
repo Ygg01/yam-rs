@@ -13,5 +13,5 @@ pub fn assert_eq_event(input: &str, events: &str) {
         write!(line, "{:}", ev).unwrap();
     });
 
-    assert_eq!(events, line, "Error in {input}");
+    assert_eq!(line, events, "Error in {input}");
 }

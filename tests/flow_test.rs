@@ -247,12 +247,12 @@ const DQUOTE_MULTI_EVENTS: &str = r#"
 
 #[test]
 fn flow_double_quote() {
-    // assert_eq_event(DQUOTE_LEADING_TAB_INPUT, DQUOTE_LEADING_TAB_EVENTS);
+    assert_eq_event(DQUOTE_LEADING_TAB_INPUT, DQUOTE_LEADING_TAB_EVENTS);
     assert_eq_event(DQUOTE_LEADING_TAB2_INPUT, DQUOTE_LEADING_TAB_EVENTS);
-    // assert_eq_event(DQUOTE_STR1_INPUT, DQUOTE_STR_EVENTS);
-    // assert_eq_event(DQUOTE_STR2_INPUT, DQUOTE_STR_EVENTS);
-    // assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
-    // assert_eq_event(DQUOTE_MULTI_INPUT, DQUOTE_MULTI_EVENTS);
+    assert_eq_event(DQUOTE_STR1_INPUT, DQUOTE_STR_EVENTS);
+    assert_eq_event(DQUOTE_STR2_INPUT, DQUOTE_STR_EVENTS);
+    assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
+    assert_eq_event(DQUOTE_MULTI_INPUT, DQUOTE_MULTI_EVENTS);
 }
 
 const DQUOTE_ERR_INPUT: &str = r##"
