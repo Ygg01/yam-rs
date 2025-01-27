@@ -80,9 +80,9 @@ impl Default for YamlChunkState {
             double_quote: YamlDoubleQuoteChunk::default(),
             single_quote: YamlSingleQuoteChunk::default(),
             characters: YamlCharacterChunk::default(),
-            rows: vec![0, 64],
-            cols: vec![0, 64],
-            indents: vec![0, 64],
+            rows: vec![0; 64],
+            cols: vec![0; 64],
+            indents: vec![0; 64],
             follows_non_quote_scalar: 0,
             error_mask: 0,
         }
@@ -303,8 +303,27 @@ pub unsafe trait Stage1Scanner {
     ///    state of the YAML parser.
     ///
     /// # Examples
-    /// ```
-    /// // TODO
+    /// ```rust
+    /// use yam_dark_core::{u8x64_eq, NativeScanner, Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
+    ///
+    /// let bin_str = b"                                                                ";
+    /// let mut chunk = YamlChunkState::default();
+    /// let mut prev_iter_state = YamlParserState::default();
+    /// let range1_to_64 = (1..=64).collect::<Vec<_>>();
+    /// let scanner = NativeScanner::from_chunk(bin_str);
+    /// // Needs to be called before calculate indent
+    /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
+    /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    /// scanner.calculate_indents(&mut chunk, &mut prev_iter_state);
+    /// assert_eq!(
+    ///     chunk.cols,
+    ///     range1_to_64
+    /// );
+    /// assert_eq!(chunk.rows, vec![0; 64]);
+    /// assert_eq!(
+    ///     chunk.indents,
+    ///     range1_to_64
+    /// );
     /// ```
     fn calculate_indents(&self, chunk_state: &mut YamlChunkState, prev_state: &mut YamlParserState);
 

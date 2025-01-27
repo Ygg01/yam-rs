@@ -1,3 +1,7 @@
+#[allow(unused_imports)]
+use alloc::vec;
+#[allow(unused_imports)]
+use alloc::vec::Vec;
 use util::u8x16_swizzle;
 
 use crate::tokenizer::stage1::{Stage1Scanner, YamlChunkState};
@@ -79,18 +83,6 @@ unsafe impl Stage1Scanner for NativeScanner {
                 *chunk_state.indents.get_unchecked_mut(pos) = curr_indent;
             }
         }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_sign_loss)]
-    fn compute_quote_mask(quote_bits: u64) -> u64 {
-        let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
-        quote_mask = quote_mask ^ (quote_mask << 2);
-        quote_mask = quote_mask ^ (quote_mask << 4);
-        quote_mask = quote_mask ^ (quote_mask << 8);
-        quote_mask = quote_mask ^ (quote_mask << 16);
-        quote_mask = quote_mask ^ (quote_mask << 32);
-        quote_mask
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -188,4 +180,32 @@ unsafe impl Stage1Scanner for NativeScanner {
             | (flow_structural_res_2 << 32)
             | (flow_structural_res_3 << 48));
     }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_sign_loss)]
+    fn compute_quote_mask(quote_bits: u64) -> u64 {
+        let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
+        quote_mask = quote_mask ^ (quote_mask << 2);
+        quote_mask = quote_mask ^ (quote_mask << 4);
+        quote_mask = quote_mask ^ (quote_mask << 8);
+        quote_mask = quote_mask ^ (quote_mask << 16);
+        quote_mask = quote_mask ^ (quote_mask << 32);
+        quote_mask
+    }
+}
+
+#[test]
+fn test_calculate_indents() {
+    let bin_str = b"                                                                ";
+    let mut chunk = YamlChunkState::default();
+    let mut prev_iter_state = YamlParserState::default();
+    let range1_to_64 = (1..=64u32).collect::<Vec<_>>();
+    let scanner = NativeScanner::from_chunk(bin_str);
+    // Needs to be called before indent
+    chunk.characters.spaces = u8x64_eq(bin_str, b' ');
+    chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    scanner.calculate_indents(&mut chunk, &mut prev_iter_state);
+    assert_eq!(chunk.cols, range1_to_64);
+    assert_eq!(chunk.rows, vec![0; 64]);
+    assert_eq!(chunk.indents, range1_to_64);
 }
