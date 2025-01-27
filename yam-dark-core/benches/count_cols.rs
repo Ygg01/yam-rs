@@ -18,7 +18,7 @@ const YAML: &[u8] = r#"
 fn count_subslice(sublice: &mut U8X16) {
     let mut shift_mask = sublice.comp_all(b'\n').to_bitmask();
     shift_mask = !(shift_mask << 1);
-    
+
     let shift = sublice.shift_right(1);
     *sublice = shift.mask_value(shift_mask);
 
@@ -62,7 +62,6 @@ pub fn count_table(chunk: &[u8; 64]) -> [u32; 64] {
     let t1 = U8X16::from_array(VAL[v1.to_bitmask() as usize]);
     let t2 = U8X16::from_array(VAL[v2.to_bitmask() as usize]);
     let t3 = U8X16::from_array(VAL[v3.to_bitmask() as usize]);
-
 
     mask_merge(t0, t1, t2, t3)
 }

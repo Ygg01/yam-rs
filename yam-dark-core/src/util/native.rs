@@ -186,16 +186,13 @@ pub fn u8x64_lteq(a: [u8; 64], cmp: u8) -> u64 {
 #[derive(Copy, Clone)]
 pub struct U8X16([u8; 16]);
 
-impl U8X16 {
-    
-}
+impl U8X16 {}
 
 impl U8X16 {
     #[inline]
     pub fn splat(input: u8) -> Self {
         U8X16([input; 16])
     }
-
 
     pub fn mask_value(&self, mask: u16) -> U8X16 {
         U8X16([
@@ -217,7 +214,7 @@ impl U8X16 {
             if mask & (1 << 15) != 0 { self.0[15] } else { 0 },
         ])
     }
-    
+
     #[inline]
     pub fn from_array(input: [u8; 16]) -> Self {
         U8X16(input)
@@ -359,7 +356,6 @@ impl BitAnd<[u8; 16]> for U8X16 {
         ])
     }
 }
-
 
 impl Add<U8X16> for U8X16 {
     type Output = U8X16;
@@ -556,8 +552,6 @@ pub fn u8x16_swizzle(mask: [u8; 16], x: U8X16) -> U8X16 {
         },
     ])
 }
-
-
 
 #[doc(hidden)]
 #[inline]
