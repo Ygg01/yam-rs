@@ -217,14 +217,6 @@ impl LexerState {
         }
     }
 
-    pub(crate) fn is_map_start(&self, scalar_start: u32) -> bool {
-        match self {
-            DocBlock => true,
-            BlockSeq(ind, _) | BlockMap(ind, _) if scalar_start > *ind => true,
-            _ => false,
-        }
-    }
-
     fn is_incorrectly_indented(&self, scalar_start: u32) -> bool {
         match &self {
             BlockMapExp(ind, _) => scalar_start < *ind,
@@ -1267,7 +1259,21 @@ impl<B> Lexer<B> {
     ) {
         if is_key {
             let scal = self.col_start.unwrap_or(scalar.scalar_start);
-            let is_map_start = curr_state.is_map_start(scal);
+            let is_map_start = match curr_state {
+                DocBlock => true,
+                BlockSeq(ind, _) if scal == ind   => {
+                    let is_prev_map = matches!(self.curr_state(), BlockMap(indent, _) if indent == ind);
+                    if !is_prev_map {
+                        self.push_error(ErrorType::UnexpectedScalarAtSeqEnd);
+                        true
+                    } else {
+                        false
+                    }
+                    
+                },
+                BlockMap(ind, _) | BlockSeq(ind, _) if scal > ind => true,
+                _ => false,
+            };
             let scalar_start = scalar;
             self.prev_scalar = scalar_start;
             if !matches!(curr_state, BlockMapExp(_, _)) {
@@ -1772,13 +1778,15 @@ impl<B> Lexer<B> {
         let last_indent = self.indent();
 
         loop {
-            let (start, end, error) =
+            let had_comm = had_comment;
+            let (start, end, _) =
                 reader.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
 
-            if let Some(err) = error {
-                tokens.push(ErrorToken as usize);
-                self.errors.push(err);
-            };
+
+            if had_comm {
+                tokens.push(ERROR_TOKEN);
+                self.errors.push(ErrorType::UnexpectedCommentInScalar);
+            }
 
             match num_newlines {
                 x if x == 1 => {
@@ -1791,9 +1799,10 @@ impl<B> Lexer<B> {
                 }
                 _ => {}
             }
-
+            
             tokens.push(start);
             tokens.push(end);
+
             end_line = reader.line();
             reader.skip_space_tab();
             let mut multliline_comment = false;

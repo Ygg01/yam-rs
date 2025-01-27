@@ -114,8 +114,26 @@ ERR
 -MAP
 -DOC";
 
+const X_BD7L_INPUTS: &str = r"
+- item
+invalid: x
+";
+
+const X_BD7L_EVENTS: &str = r"
++DOC
++SEQ
+=VAL :item
+ERR
++MAP
+=VAL :invalid
+=VAL :x
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 pub fn block_seq_err() {
+    assert_eq_event(X_BD7L_INPUTS, X_BD7L_EVENTS);
     assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS);
     assert_eq_event(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS);
     assert_eq_event(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS);
@@ -1611,10 +1629,27 @@ const MULTI_LINE_SEQ_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X_BF9H_INPUT: &str = r"
+plain:  a
+        b # comment
+        c
+";
+
+const X_BF9H_EVENTS: &str = r"
++DOC
++MAP
+=VAL :plain
+=VAL :a b
+ERR
+=VAL :c
+-MAP
+-DOC";
+
 #[test]
 fn block_multi_line() {
     assert_eq_event(MULTI_LINE_INPUT, MULTI_LINE_EVENTS);
     assert_eq_event(MULTI_LINE_SEQ_INPUT, MULTI_LINE_SEQ_EVENTS);
+    assert_eq_event(X_BF9H_INPUT, X_BF9H_EVENTS);
 }
 
 const INDENT_TAB_INPUT: &str = r"

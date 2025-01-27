@@ -47,6 +47,7 @@ pub enum ErrorType {
     UnexpectedEndOfScalar,
     UnxpectedIndentDocEnd { actual: u32, expected: u32 },
     UnexpectedComment,
+    UnexpectedCommentInScalar,
     UnexpectedDirective,
     UnexpectedEndOfStream,
     UnexpectedEndOfFile,
