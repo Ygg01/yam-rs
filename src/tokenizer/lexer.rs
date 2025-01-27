@@ -32,15 +32,16 @@ pub struct Lexer<B = ()> {
     pub(crate) errors: Vec<ErrorType>,
     pub(crate) tags: HashMap<Vec<u8>, (usize, usize)>,
     buf: B,
-    stack: Vec<LexerState>,
+    continue_processing: bool,
+    col_start: Option<u32>,
     last_block_indent: u32,
+    last_map_line: Option<u32>,
     had_anchor: bool,
     has_tab: bool,
     prev_anchor: Option<(usize, usize)>,
-    continue_processing: bool,
     prev_scalar: Scalar,
-    last_map_line: Option<u32>,
-    col_start: Option<u32>,
+    prev_tag: Option<(usize, usize, usize)>,
+    stack: Vec<LexerState>,
 }
 
 impl<S> Lexer<S> {
@@ -51,15 +52,16 @@ impl<S> Lexer<S> {
             errors: Vec::default(),
             tags: HashMap::default(),
             buf: src,
-            stack: Vec::default(),
+            continue_processing: false,
+            col_start: None,
             last_block_indent: 0,
+            last_map_line: None,
             had_anchor: false,
             has_tab: false,
             prev_anchor: None,
-            continue_processing: false,
+            prev_tag: None,
             prev_scalar: Scalar::default(),
-            last_map_line: None,
-            col_start: None,
+            stack: Vec::default(),
         }
     }
 }
@@ -1117,7 +1119,8 @@ impl<B> Lexer<B> {
         scalar_line: u32,
     ) {
         if is_key {
-            let is_map_start = curr_state.is_map_start(scalar_start);
+            let scal = self.col_start.unwrap_or(scalar_start);
+            let is_map_start = curr_state.is_map_start(scal);
             let scalar_start = scalar_start;
             self.prev_scalar = Scalar {
                 scalar_start,
@@ -1178,6 +1181,12 @@ impl<B> Lexer<B> {
             self.tokens.push_back(anchor.0);
             self.tokens.push_back(anchor.1);
         };
+        if let Some(tag)  = take(&mut self.prev_tag) {
+            self.tokens.push_back(TAG_START);
+            self.tokens.push_back(tag.0);
+            self.tokens.push_back(tag.1);
+            self.tokens.push_back(tag.2);
+        }
         self.had_anchor = false;
     }
 
@@ -1366,14 +1375,20 @@ impl<B> Lexer<B> {
 
     fn fetch_tag<R: Reader<B>>(&mut self, reader: &mut R) {
         pub use LexerToken::*;
+        self.update_col(reader);
         let (err, start, mid, end) = reader.read_tag();
         if let Some(err) = err {
             self.push_error(err);
         } else {
-            self.tokens.push_back(TAG_START);
-            self.tokens.push_back(start);
-            self.tokens.push_back(mid);
-            self.tokens.push_back(end);
+            let lines  = self.skip_separation_spaces(reader, true).0;
+            if lines == 0 {
+                self.prev_tag = Some((start, mid, end));
+            } else {
+                self.tokens.push_back(TAG_START);
+                self.tokens.push_back(start);
+                self.tokens.push_back(mid);
+                self.tokens.push_back(end);
+            }
         }
     }
     fn fetch_plain_scalar_block<R: Reader<B>>(

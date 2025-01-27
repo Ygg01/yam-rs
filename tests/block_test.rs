@@ -1233,7 +1233,7 @@ pub fn block_mix_seq() {
 }
 
 const TAG1_INPUT: &str = r"
- !!str a";
+  !!str a";
 
 const TAG1_EVENTS: &str = r"
 +DOC
@@ -1256,10 +1256,28 @@ const COMPLEX_TAG2_EVENTS: &str = r"
 =VAL <tag:yaml.org,2002:str> :d e
 -DOC";
 
+const X_74H7_INPUT: &str = r"
+!!str a: b
+c: !!int 42
+!!str 23: !!bool false";
+
+const X_74H7_EVENTS: &str = r"
++DOC
++MAP
+=VAL <tag:yaml.org,2002:str> :a
+=VAL :b
+=VAL :c
+=VAL <tag:yaml.org,2002:int> :42
+=VAL <tag:yaml.org,2002:str> :23
+=VAL <tag:yaml.org,2002:bool> :false
+-MAP
+-DOC";
+
 #[test]
 fn parse_tag() {
     assert_eq_event(TAG1_INPUT, TAG1_EVENTS);
     assert_eq_event(COMPLEX_TAG2_INPUT, COMPLEX_TAG2_EVENTS);
+    assert_eq_event(X_74H7_INPUT, X_74H7_EVENTS);
 }
 
 const MULTI_LINE_INPUT: &str = r"
