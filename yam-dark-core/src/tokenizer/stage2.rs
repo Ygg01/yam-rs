@@ -250,10 +250,19 @@ pub struct YamlParserState {
 }
 
 /// Transient data about cols, rows and indents
+/// 
+/// Each u32 corresponds to cols/row/indent triplet for 64 bits of the chunk.
+/// On initialization it will be set to 0.
 pub struct YamlIndentInfo {
+    /// Cols of the chunk
     pub(crate) cols: [u32; 64],
+    /// Rows of the chunk
     pub(crate) rows: [u32; 64],
+    /// Indents of the chunk
     pub(crate) indents: [u32; 64],
+
+    /// Last row since then
+    pub(crate) last_row_mask: u32,
 }
 
 impl Default for YamlIndentInfo {
@@ -262,6 +271,7 @@ impl Default for YamlIndentInfo {
             cols: [0; 64],
             rows: [0; 64],
             indents: [0; 64],
+            last_row_mask: 0,
         }
     }
 }
@@ -273,14 +283,14 @@ impl YamlParserState {
         chunk_state: &YamlChunkState,
         indent_info: &mut YamlIndentInfo,
     ) -> YamlResult<()> {
-        // First we find all interesting structural bits
-        S::flatten_bits_yaml(self, chunk_state, indent_info);
-
         // Then we calculate rows, cols for structurals
-        S::calculate_col_rows(self, chunk_state, indent_info);
+        S::calculate_indent_info(self, chunk_state, indent_info);
 
         // And based on rows/cols for structurals, we calculate indents
         S::calculate_relative_indents(self, chunk_state, indent_info);
+
+        // First we find all interesting structural bits
+        S::flatten_bits_yaml(self, chunk_state, indent_info);
 
         if chunk_state.error_mask == 0 {
             Ok(())

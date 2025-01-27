@@ -163,7 +163,7 @@ pub unsafe trait Stage1Scanner {
         indent_info: &mut YamlIndentInfo,
     );
 
-    fn calculate_col_rows(
+    fn calculate_indent_info(
         state: &mut YamlParserState,
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
@@ -178,6 +178,7 @@ pub unsafe trait Stage1Scanner {
                 };
             };
         }
+        info.last_row_mask = state.last_row | !63;
 
         add_cols_rows_unchecked!(0);
         add_cols_rows_unchecked!(8);
@@ -233,11 +234,14 @@ pub unsafe trait Stage1Scanner {
             *compressed_info.get_unchecked_mut(0) += state.last_indent;
         }
 
-        info.indents[0] = compressed_info[info.rows[0] as usize];
 
         for index in 0..63 {
-            unsafe { 
-                info.indents[index] = *compressed_info.get_unchecked(0); 
+            // SAFETY:
+            // Unchecked access will be safe as long as info.indents, info.rows size is below 64
+            // Row Pos is less then 63 (which should be fixed with `info.last_row_mask`)
+            unsafe {
+                let row_pos = *info.rows.get_unchecked(index) & info.last_row_mask;
+                *info.indents.get_unchecked_mut(index) = *compressed_info.get_unchecked(row_pos as usize); 
             }
         }
 
