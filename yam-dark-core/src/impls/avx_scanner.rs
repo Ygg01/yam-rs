@@ -36,7 +36,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn unsigned_lteq_against_splat(&self, _cmp: i8) -> u64 {
+    fn unsigned_lteq_against_splat(&self, _cmp: u8) -> u64 {
         todo!()
     }
 

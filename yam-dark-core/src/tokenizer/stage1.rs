@@ -131,7 +131,7 @@ pub unsafe trait Stage1Scanner {
     /// let result = scanner.unsigned_lteq_against_splat(0x20);
     /// assert_eq!(result, 0b1111111111111111111111111111111111111111111111111111111111111111);
     /// ```
-    fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64;
+    fn unsigned_lteq_against_splat(&self, cmp: u8) -> u64;
 
     /// Scans the whitespace and structurals in the given YAML chunk state.
     /// This method sets [`YamlCharacterChunk`] part of [`YamlChunkState`].
