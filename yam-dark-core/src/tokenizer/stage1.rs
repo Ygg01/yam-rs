@@ -1,6 +1,7 @@
 // MIT License
 //
 // Copyright (c) [2024] [simd-json.rs developers]
+// Copyright (c) [2024] Ygg One
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -196,6 +197,12 @@ pub struct YamlCharacterChunk {
     pub block_structurals: u64,
     /// Flow operators used in YAML
     pub flow_structurals: u64,
+}
+
+impl YamlCharacterChunk {
+    pub const fn all_structurals(&self) -> u64 {
+        self.flow_structurals | self.block_structurals
+    }
 }
 
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
