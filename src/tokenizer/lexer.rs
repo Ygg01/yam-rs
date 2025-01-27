@@ -337,7 +337,7 @@ macro_rules! impl_quote {
             newspaces: &mut Option<usize>,
             tokens: &mut Vec<usize>,
         ) -> QuoteState {
-            if reader.col() == 0 && (matches!(reader.peek_chars(&mut self.buf), b"..." | b"---")) {
+            if self.is_stream_ending(reader) {
                 self.errors.push(ErrorType::UnexpectedEndOfStream);
                 tokens.insert(0, ErrorToken as usize);
             };
