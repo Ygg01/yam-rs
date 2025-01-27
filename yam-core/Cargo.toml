@@ -9,9 +9,8 @@ repository = "https://github.com/Ygg01/yam-rs"
 homepage = "https://github.com/Ygg01/yam-rs"
 
 description = "Pure Rust YAML reader and writer (to be added)"
-categories = ["parsing", "parser-implementation"]
+categories = ["parsing"]
 keywords = ["yaml", "parser"]
-licenses = ["MIT", "LGPL-3.0-only"]
 license = "MIT OR LGPL-3.0-only"
 readme = "README.md"
 
