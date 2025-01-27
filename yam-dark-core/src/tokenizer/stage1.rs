@@ -61,11 +61,13 @@ pub struct YamlSingleQuoteChunk {
 
 #[derive(Default)]
 pub struct YamlCharacterChunk {
-    /// Space bitmask
+    /// Whitespace bitmask SPACE  (`0x20`) , TABS (`0x09`), LINE_FEED (`0x0A`) or CARRIAGE_RETURN (`0x0D`)
+    pub whitespace: u64,
+    /// SPACE (`0x20`) bitmask
     pub spaces: u64,
-    /// Newline bitmask
-    pub newline: u64,
-    /// Operators
+    /// LINE_FEED (`0x0A`) bitmask
+    pub line_feed: u64,
+    /// Operators used in YAML
     pub structurals: u64,
 }
 
@@ -141,6 +143,12 @@ pub trait Stage1Scanner {
     /// For a chunk represented by this scanner, will calculate indents for each 64-character and
     /// will update `chunk_state`, taking into consideration previous indents in `prev_state`
     ///
+    /// # Implementation
+    ///
+    /// It's important for implementation to first check where spaces `0x20` and line feed characters are located
+    /// Since newline on Windows is `\r\n` Unicode `0x0A` and `0x0D` respectively we can approximate a newline with `\n`.
+    /// Spaces are important because only `0x20` is a valid YAML indentation mechanism.
+    ///
     /// # Arguments
     ///
     /// - `chunk_state`: A mutable reference to a [`YamlChunkState`] that represents the YAML
@@ -149,8 +157,9 @@ pub trait Stage1Scanner {
     ///    state of the YAML parser.
     ///
     /// # Examples
-    ///
-    /// TODO
+    /// ```
+    /// // TODO
+    /// ```
     fn calculate_indents(&self, chunk_state: &mut YamlChunkState, prev_state: &mut YamlParserState);
 
     /// Computes a quote mask based on the given quote bit mask.
@@ -255,15 +264,20 @@ pub trait Stage1Scanner {
     where
         Self: Sized,
     {
-        let mut block = YamlChunkState::default();
+        let mut chunk_state = YamlChunkState::default();
         let mut simd = Self::from_chunk(chunk);
         let double_quotes = simd.cmp_ascii_to_input(b'"');
 
-        simd.scan_whitespace_and_structurals(&mut block);
-        simd.scan_double_quote_bitmask(&mut block, prev_state);
-        simd.scan_single_quote_bitmask(&mut block, prev_state);
+        simd.scan_whitespace_and_structurals(&mut chunk_state);
 
-        prev_state.merge_state(chunk, buffers, &mut block)
+        // Pre-requisite
+        // LINE FEED needs to be gathered before calling `calculate_indents`
+        simd.calculate_indents(&mut chunk_state, prev_state);
+
+        simd.scan_double_quote_bitmask(&mut chunk_state, prev_state);
+        simd.scan_single_quote_bitmask(&mut chunk_state, prev_state);
+
+        prev_state.merge_state(chunk, buffers, &mut chunk_state)
     }
 
     /// Returns a bitvector indicating where there are characters that end an odd-length sequence
