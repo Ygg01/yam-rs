@@ -1,9 +1,9 @@
+use std::{ops::ControlFlow, slice::Windows};
 use std::iter::Map;
 use std::ops::ControlFlow::{Break, Continue};
 use std::slice::Iter;
-use std::{ops::ControlFlow, slice::Windows};
 
-use memchr::{memchr3, memchr3_iter, Memchr3};
+use memchr::{memchr3, Memchr3, memchr3_iter};
 
 use IndentType::{EndInstead, LessIndent, LessOrEqualIndent};
 
