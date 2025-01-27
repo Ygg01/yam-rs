@@ -1578,8 +1578,25 @@ const X2_G9HC_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_HMQ5_INPUT: &str = r#"
+!!str &a1 "foo":
+  !!str bar
+&a2 baz : *a1""#;
+
+const X1_HMQ5_EVENTS: &str = r#"
++DOC
++MAP
+=VAL &a1 <tag:yaml.org,2002:str> "foo
+=VAL <tag:yaml.org,2002:str> :bar
+=VAL &a2 :baz
+=ALI *a1"
+-MAP
+-DOC"#;
+
 #[test]
 fn block_seq_anchor_alias() {
+    assert_eq_event(X1_HMQ5_INPUT, X1_HMQ5_EVENTS);
+
     assert_eq_event(X1_G9HC_INPUT, X1_G9HC_EVENTS);
     assert_eq_event(X2_1_G9HC_INPUT, X2_G9HC_EVENTS);
     assert_eq_event(X2_2_G9HC_INPUT, X2_G9HC_EVENTS);
