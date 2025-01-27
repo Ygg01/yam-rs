@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::ops::ControlFlow::{Break, Continue};
-use std::ops::{RangeFrom, RangeInclusive};
+use std::ops::{ControlFlow, RangeFrom, RangeInclusive};
 
 use memchr::memchr3_iter;
 use reader::{is_flow_indicator, ns_plain_safe};
@@ -21,6 +21,12 @@ pub struct StrReader<'a> {
     pub slice: &'a [u8],
     pub(crate) pos: usize,
     pub(crate) col: usize,
+}
+
+enum Flow {
+    Continue,
+    Break,
+    Error(usize),
 }
 
 impl<'a> StrReader<'a> {
@@ -66,22 +72,23 @@ impl<'a> StrReader<'a> {
             .position(|p| is_white_tab_or_break(*p))
     }
 
-    fn skip_n_spaces(&mut self, num_spaces: usize) -> Result<(), ErrorType> {
+
+
+    fn skip_n_spaces(&mut self, num_spaces: usize, prev_indent: usize) -> Flow {
         let count = self.slice[self.pos..]
             .iter()
             .enumerate()
             .take_while(|&(count, &x)| x == b' ' && count < num_spaces)
             .count();
 
-        if count != num_spaces {
-            return Err(ExpectedIndent {
-                actual: count,
-                expected: num_spaces,
-            });
+        if count == prev_indent {
+            Flow::Break
+        } else if count != num_spaces  {
+            Flow::Error(count)
+        } else {
+            self.pos += count;
+            Flow::Continue
         }
-        self.pos += count;
-
-        Ok(())
     }
 
     fn get_line_offset(&self) -> (usize, usize, usize) {
@@ -614,9 +621,18 @@ impl<'r> Reader for StrReader<'r> {
                 new_line_token += 1;
                 self.read_line();
                 continue;
-            } else if let Err(x) = self.skip_n_spaces(indentation) {
-                tokens.push_back(ErrorToken(x));
-                break;
+            } else {
+                match self.skip_n_spaces(indentation, curr_state.indent(0)) {
+                    Flow::Break => break,
+                    Flow::Error(actual) => {
+                        tokens.push_back(ErrorToken(ExpectedIndent {
+                            actual,
+                            expected: indentation,
+                        }));
+                        break;
+                    }
+                    _ => {},
+                }
             }
 
             let (start, end) = self.read_line();

@@ -286,3 +286,21 @@ pub fn explicit_block_map_err() {
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR1, EXPLICIT_BLOCK_MAP_ERR1_EXPECTED);
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR2, EXPLICIT_BLOCK_MAP_ERR2_EXPECTED);
 }
+
+const EXP_MAP_COMBINATION: &'static str = r#"
+ ? >
+   test
+ : x
+"#;
+
+const EXP_MAP_COMBINATION_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL test\n
+    -KEY-
+    =VAL x
+  -MAP"#;
+
+#[test]
+pub fn explicit_block_combination() {
+    assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
+}
