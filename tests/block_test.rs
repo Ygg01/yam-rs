@@ -126,7 +126,7 @@ pub fn seq_block_nested() {
     assert_eq_event(BLOCK_NESTED_SEQ2_INPUT, BLOCK_NESTED_SEQ2_EVENTS);
 }
 
-const FOLD_STRING_INPUT: &str = r#"
+const FOLD_STR1_INPUT: &str = r#"
   - >1-
    1
     2
@@ -135,7 +135,7 @@ const FOLD_STRING_INPUT: &str = r#"
    
 "#;
 
-const FOLD_STRING_EVENTS: &str = r#"
+const FOLD_STR1_EVENTS: &str = r#"
  +DOC
   +SEQ
    =VAL >1\n 2\n3 4
@@ -154,9 +154,22 @@ const FOLD_ERR_EVENTS: &str = r#"
   =VAL >\ninvalid\n
  -DOC"#;
 
+const FOLD_STR2_INPUT: &str = r#"
+ >
+ 
+  
+  valid
+"#;
+
+const FOLD_STR2_EVENTS: &str = r#"
+ +DOC
+  =VAL >\n\nvalid\n
+ -DOC"#;
+
 #[test]
 pub fn block_fold() {
-    assert_eq_event(FOLD_STRING_INPUT, FOLD_STRING_EVENTS);
+    assert_eq_event(FOLD_STR1_INPUT, FOLD_STR1_EVENTS);
+    assert_eq_event(FOLD_STR2_INPUT, FOLD_STR2_EVENTS);
     assert_eq_event(FOLD_ERR_INPUT, FOLD_ERR_EVENTS);
 }
 
