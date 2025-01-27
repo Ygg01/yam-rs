@@ -11,8 +11,8 @@ use ErrorType::ExpectedIndent;
 use crate::tokenizer::reader::{
     is_indicator, is_uri_char, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
-use crate::tokenizer::spanner::LexerState;
-use crate::tokenizer::spanner::LexerState::{BlockMapExp, BlockSeq};
+use crate::tokenizer::lexer::LexerState;
+use crate::tokenizer::lexer::LexerState::{BlockMapExp, BlockSeq};
 use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, LexerToken, Reader, Slicer};

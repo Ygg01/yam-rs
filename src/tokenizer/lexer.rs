@@ -2,7 +2,6 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
-use std::fs::read;
 use std::hint::unreachable_unchecked;
 
 use ErrorType::{ExpectedIndent, ExpectedMapBlock, ImplicitKeysNeedToBeInline};
@@ -10,13 +9,13 @@ use LexerState::PreDocStart;
 use SeqState::BeforeFirstElem;
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
-use crate::tokenizer::spanner::LexerState::{
+use crate::tokenizer::lexer::LexerState::{
     AfterDocEnd, BlockMap, BlockMapExp, BlockSeq, DirectiveSection, DocBlock, FlowKeyExp, FlowMap,
     FlowSeq,
 };
-use crate::tokenizer::spanner::LexerToken::*;
-use crate::tokenizer::spanner::MapState::{AfterColon, BeforeColon, BeforeKey};
-use crate::tokenizer::spanner::SeqState::{BeforeElem, InSeq};
+use crate::tokenizer::lexer::LexerToken::*;
+use crate::tokenizer::lexer::MapState::{AfterColon, BeforeColon, BeforeKey};
+use crate::tokenizer::lexer::SeqState::{BeforeElem, InSeq};
 use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
