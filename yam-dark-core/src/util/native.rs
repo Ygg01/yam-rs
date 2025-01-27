@@ -184,7 +184,7 @@ pub fn u8x64_lteq(a: [u8; 64], cmp: u8) -> u64 {
 }
 
 #[derive(Copy, Clone)]
-pub struct U8X16([u8; 16]);
+pub struct U8X16(pub [u8; 16]);
 
 impl U8X16 {}
 
@@ -625,5 +625,130 @@ pub fn mask_merge(v0: U8X16, v1: U8X16, v2: U8X16, v3: U8X16) -> [u32; 64] {
         v3.0[13] as u32,
         v3.0[14] as u32,
         v3.0[15] as u32,
+    ]
+}
+
+#[derive(Copy, Clone)]
+pub struct U8X8(pub [u8; 8]);
+
+impl U8X8 {
+    #[inline]
+    pub unsafe fn from_slice(input: &[u8]) -> Self {
+        U8X8([
+            *input.get_unchecked(0),
+            *input.get_unchecked(1),
+            *input.get_unchecked(2),
+            *input.get_unchecked(3),
+            *input.get_unchecked(4),
+            *input.get_unchecked(5),
+            *input.get_unchecked(6),
+            *input.get_unchecked(7),
+        ])
+    }
+
+    #[inline]
+    pub fn from_array(input: [u8; 8]) -> Self {
+        unsafe {
+            U8X8([
+                *input.get_unchecked(0),
+                *input.get_unchecked(1),
+                *input.get_unchecked(2),
+                *input.get_unchecked(3),
+                *input.get_unchecked(4),
+                *input.get_unchecked(5),
+                *input.get_unchecked(6),
+                *input.get_unchecked(7),
+            ])
+        }
+    }
+
+    #[inline]
+    pub fn to_bitmask(&self) -> u8 {
+        (self.0[0] & 0b1000_0000 != 0) as u8
+            | (self.0[1] & 0b1000_0000 != 0) as u8
+            | (self.0[2] & 0b1000_0000 != 0) as u8
+            | (self.0[3] & 0b1000_0000 != 0) as u8
+            | (self.0[4] & 0b1000_0000 != 0) as u8
+            | (self.0[5] & 0b1000_0000 != 0) as u8
+            | (self.0[6] & 0b1000_0000 != 0) as u8
+            | (self.0[7] & 0b1000_0000 != 0) as u8
+    }
+}
+
+pub fn mask_merge_u8x8(
+    v0: U8X8,
+    v1: U8X8,
+    v2: U8X8,
+    v3: U8X8,
+    v4: U8X8,
+    v5: U8X8,
+    v6: U8X8,
+    v7: U8X8,
+) -> [u32; 64] {
+    [
+        v0.0[0] as u32,
+        v0.0[1] as u32,
+        v0.0[2] as u32,
+        v0.0[3] as u32,
+        v0.0[4] as u32,
+        v0.0[5] as u32,
+        v0.0[6] as u32,
+        v0.0[7] as u32,
+        v1.0[0] as u32,
+        v1.0[1] as u32,
+        v1.0[2] as u32,
+        v1.0[3] as u32,
+        v1.0[4] as u32,
+        v1.0[5] as u32,
+        v1.0[6] as u32,
+        v1.0[7] as u32,
+        v2.0[0] as u32,
+        v2.0[1] as u32,
+        v2.0[2] as u32,
+        v2.0[3] as u32,
+        v2.0[4] as u32,
+        v2.0[5] as u32,
+        v2.0[6] as u32,
+        v2.0[7] as u32,
+        v3.0[0] as u32,
+        v3.0[1] as u32,
+        v3.0[2] as u32,
+        v3.0[3] as u32,
+        v3.0[4] as u32,
+        v3.0[5] as u32,
+        v3.0[6] as u32,
+        v3.0[7] as u32,
+        v4.0[0] as u32,
+        v4.0[1] as u32,
+        v4.0[2] as u32,
+        v4.0[3] as u32,
+        v4.0[4] as u32,
+        v4.0[5] as u32,
+        v4.0[6] as u32,
+        v4.0[7] as u32,
+        v5.0[0] as u32,
+        v5.0[1] as u32,
+        v5.0[2] as u32,
+        v5.0[3] as u32,
+        v5.0[4] as u32,
+        v5.0[5] as u32,
+        v5.0[6] as u32,
+        v5.0[7] as u32,
+        v6.0[0] as u32,
+        v6.0[1] as u32,
+        v6.0[2] as u32,
+        v6.0[3] as u32,
+        v6.0[4] as u32,
+        v6.0[5] as u32,
+        v6.0[6] as u32,
+        v6.0[7] as u32,
+        v7.0[0] as u32,
+        v7.0[1] as u32,
+        v7.0[2] as u32,
+        v7.0[3] as u32,
+        v7.0[4] as u32,
+        v7.0[5] as u32,
+        v7.0[6] as u32,
+        v7.0[7] as u32,
     ]
 }

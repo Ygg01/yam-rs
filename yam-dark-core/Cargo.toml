@@ -15,7 +15,6 @@ yam-core = { path = "../yam-core" }
 core_detect = "1.0.0"
 rand = "0.9.0-alpha.1"
 rand_chacha = "0.9.0-alpha.1"
-yam-dark-memo = { path = "../yam-dark-memo", optional = true }
 
 [dev-dependencies]
 criterion = "0.5.1"
@@ -23,10 +22,9 @@ libtest-mimic = "0.7.3"
 
 
 [features]
-default = ["enable-memo"]
+default = []
 no-inline = []
 runtime-detection = []
-enable-memo = ["dep:yam-dark-memo"]
 
 [[bench]]
 name = "chunky_iter"
