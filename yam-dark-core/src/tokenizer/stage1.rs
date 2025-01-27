@@ -28,7 +28,7 @@ use alloc::vec::Vec;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::util::{
-    calculate_byte_rows, calculate_cols, count_indent_native, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    calculate_byte_rows, calculate_cols, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
 use crate::{u8x64_eq, util, EvenOrOddBits, NativeScanner, ParseResult};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -383,14 +383,11 @@ pub unsafe trait Stage1Scanner {
     /// assert_eq!(chunk.rows, vec![0; 64]);
     /// // TODO indent check
     /// ```
-    fn calculate_cols_rows_indents(
+    fn calculate_cols_rows(
         &self,
         cols: &mut [u8],
         rows: &mut [u8],
-        prev_indents: &mut u32,
-        indents: &mut Vec<u32>,
         newline_mask: u64,
-        space_mask: u64,
     ) {
         let nl_ind = (newline_mask & 0xFF) as usize;
 
@@ -466,9 +463,6 @@ pub unsafe trait Stage1Scanner {
             U8_ROW_TABLE[nl_ind],
             &prev_col,
         ));
-        prev_col = cols[63] + 1;
-        // TODO pass real is_running
-        count_indent_native(newline_mask, space_mask, indents, true, prev_indents);
     }
 
     /// Computes a quote mask based on the given quote bit mask.
@@ -540,13 +534,10 @@ pub unsafe trait Stage1Scanner {
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
         simd.scan_for_comments(&mut chunk_state, prev_state);
-        simd.calculate_cols_rows_indents(
+        simd.calculate_cols_rows(
             &mut chunk_state.rows,
             &mut chunk_state.cols,
-            &mut prev_state.previous_indent,
-            &mut prev_state.indents,
             chunk_state.characters.line_feeds,
-            chunk_state.characters.spaces,
         );
 
         simd.scan_double_quote_bitmask(&mut chunk_state, prev_state);
@@ -841,14 +832,10 @@ fn test_count() {
     // Needs to be called before calculate indent
     let space_mask = u8x64_eq(bin_str, b' ');
     let newline_mask = u8x64_eq(bin_str, b'\n');
-    let mut indents = Vec::new();
-    scanner.calculate_cols_rows_indents(
+    scanner.calculate_cols_rows(
         &mut chunk.cols,
         &mut chunk.rows,
-        &mut 0,
-        &mut indents,
-        newline_mask,
-        space_mask,
+        newline_mask
     );
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
@@ -874,17 +861,14 @@ fn test_count2() {
     let space_mask = u8x64_eq(bin_str, b' ');
     let newline_mask = u8x64_eq(bin_str, b'\n');
 
-    let mut actual_indents = Vec::new();
-    scanner.calculate_cols_rows_indents(
+    // let mut actual_indents: Vec<_> = Vec::new();
+    scanner.calculate_cols_rows(
         &mut chunk.cols,
         &mut chunk.rows,
-        &mut 1,
-        &mut actual_indents,
         newline_mask,
-        space_mask,
     );
 
     assert_eq!(chunk.cols, cols);
     assert_eq!(chunk.rows, rows);
-    assert_eq!(actual_indents, indents);
+    // assert_eq!(actual_indents, indents);
 }

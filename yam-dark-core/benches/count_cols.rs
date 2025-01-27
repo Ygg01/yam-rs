@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_dark_core::util::{
-    calculate_byte_rows, calculate_cols, count_indent_native, INDENT_SWIZZLE_TABLE, U8X8,
+    calculate_byte_rows, calculate_cols, INDENT_SWIZZLE_TABLE, U8X8,
     U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
 use yam_dark_core::{u8x64_eq, ChunkyIterator};
@@ -134,71 +134,43 @@ fn count_naive(
     byte_cols: &mut [u8; 64],
     byte_rows: &mut [u8; 64],
     byte_indent: &mut [u8; 64],
+    prev_indent: &mut u8,
+    is_indent_frozen: &mut bool,
 ) {
-    let mut curr_row = 0;
-    let mut curr_col = 0;
+    // let mut curr_row = 0;
+    // let mut curr_col = 0;
     let mut curr_indent = 0;
-    let mut is_indent_frozen = false;
     for pos in 0..64 {
         let is_newline = newline_bits & (1 << pos) != 0;
         let is_space = space_bits & (1 << pos) != 0;
 
-        if is_space && !is_indent_frozen {
+        if is_space && !*is_indent_frozen {
             curr_indent += 1;
-        } else if !is_space && is_indent_frozen {
-            is_indent_frozen = true;
+        } else if !is_space && *is_indent_frozen {
+            *is_indent_frozen = true;
         }
 
         if is_newline {
-            unsafe {
-                *byte_cols.get_unchecked_mut(pos) = curr_col + 1;
-                *byte_rows.get_unchecked_mut(pos) = curr_row;
-            }
-            curr_col = 0;
+            // unsafe {
+            //     *byte_cols.get_unchecked_mut(pos) = curr_col + 1;
+            //     *byte_rows.get_unchecked_mut(pos) = curr_row;
+            // }
+            // curr_col = 0;
             curr_indent = 0;
-            curr_row += 1;
-            is_indent_frozen = false;
+            // curr_row += 1;
+            *is_indent_frozen = false;
             continue;
         }
 
-        curr_col += 1;
+        // curr_col += 1;
         unsafe {
-            *byte_cols.get_unchecked_mut(pos) = curr_col;
-            *byte_rows.get_unchecked_mut(pos) = curr_row;
+            // *byte_cols.get_unchecked_mut(pos) = curr_col;
+            // *byte_rows.get_unchecked_mut(pos) = curr_row;
             *byte_indent.get_unchecked_mut(pos) = curr_indent;
         }
     }
 }
 
-#[doc(hidden)]
-pub fn count_indent_naive(
-    newline_mask: u64,
-    space_mask: u64,
-    prev_iter_char: &mut u8,
-    prev_indent: &mut u8,
-    indents: &mut [u8; 64],
-) {
-    for (pos, item) in indents.iter_mut().enumerate().take(64) {
-        let is_space = (space_mask & (1 << pos)) != 0;
-        let is_newline = (newline_mask & (1 << pos)) != 0;
-
-        *item = *prev_indent;
-
-        match (is_space, is_newline) {
-            (true, true) => unreachable!("Character can't be both space and newline at same time"),
-            (true, false) => {
-                *prev_indent += *prev_iter_char;
-            }
-            (false, true) => {
-                *prev_iter_char = 1;
-                *prev_indent = 0
-            }
-            (false, false) => {
-                *prev_iter_char = 0;
-            }
-        }
-    }
-}
 
 ///
 ///
@@ -399,6 +371,8 @@ fn col_count_all_naive(c: &mut Criterion) {
     let mut indents = [0; 64];
     let mut byte_cols = [0; 64];
     let mut byte_rows = [0; 64];
+    let mut is_frozen = false;
+    let mut prev_indent = 0;
 
     group.bench_function("col_naive", |b| {
         b.iter(|| {
@@ -408,6 +382,8 @@ fn col_count_all_naive(c: &mut Criterion) {
                 &mut byte_cols,
                 &mut byte_rows,
                 &mut indents,
+                &mut prev_indent,
+                &mut is_frozen,
             );
             black_box(indents[56] == 0);
 
@@ -417,12 +393,97 @@ fn col_count_all_naive(c: &mut Criterion) {
                 &mut byte_cols,
                 &mut byte_rows,
                 &mut indents,
+                &mut prev_indent,
+                &mut is_frozen,
             );
             black_box(byte_rows[3] == 0);
         })
     });
     group.finish();
 }
+
+// #[doc(hidden)]
+// pub fn count_indent_native_batch(
+//     mut newline_mask: u64,
+//     space_mask: u64,
+//     indents: &mut Vec<u32>,
+//     is_running: &mut bool,
+//     previous_indent: &mut u32,
+// ) {
+//     let start_len = indents.len();
+//     let mut i = 0;
+
+//     // Reserve enough space for the worst case since it can have
+//     indents.reserve(68);
+//     let count_cols = newline_mask.count_ones() + 1;
+//     let mut runners = Vec::<bool>::with_capacity(count_cols as usize);
+//     let mut neg_indents_mask =
+//         !select_left_bits_branch_less(space_mask, (newline_mask << 1) ^ (*is_running as u64));
+
+//     // To calculate indent we need to:
+//     // 1. Count trailing ones in space_mask this is the current indent
+//     // 2. Count the trailing zeros in newline mask to know how long the line is
+//     // 3. Check to see if the indent is equal to how much we need to1 shift it, if true we set mask to 1 otherwise to 0.
+//     // 4. when returning indent, the 32nd bit will represent the if the indent is still running or if it has stopped
+//     while newline_mask != 0 {
+//         let part0 = neg_indents_mask.trailing_zeros();
+//         let v0 = newline_mask.trailing_zeros() + 1;
+//         newline_mask = newline_mask.overflowing_shr(v0).0;
+//         neg_indents_mask = neg_indents_mask.overflowing_shr(v0).0;
+
+//         let part1 = neg_indents_mask.trailing_zeros();
+//         let v1 = newline_mask.trailing_zeros() + 1;
+//         newline_mask = newline_mask.overflowing_shr(v1).0;
+//         neg_indents_mask = neg_indents_mask.overflowing_shr(v1).0;
+
+//         let part2 = neg_indents_mask.trailing_zeros();
+//         let v2 = newline_mask.trailing_zeros() + 1;
+//         newline_mask = newline_mask.overflowing_shr(v2).0;
+//         neg_indents_mask = neg_indents_mask.overflowing_shr(v2).0;
+
+//         let part3 = neg_indents_mask.trailing_zeros();
+//         let v3 = newline_mask.trailing_zeros() + 1;
+//         newline_mask = newline_mask.overflowing_shr(v3).0;
+//         neg_indents_mask = neg_indents_mask.overflowing_shr(v3).0;
+
+//         let v = [part0, part1, part2, part3];
+//         let running = [part0 == v0, part1 == v1, part2 == v2, part3 == v3];
+//         unsafe {
+//             write(
+//                 indents.as_mut_ptr().add(i + start_len).cast::<[u32; 4]>(),
+//                 v,
+//             );
+//             write(runners.as_mut_ptr().add(i).cast::<[bool; 4]>(), running);
+//         }
+//         i += 4;
+//     }
+//     // We do some safety vector snipping here, then handle previous indent.
+
+//     let last_len = start_len + count_cols as usize;
+
+//     // SAFETY: we have reserved enough space, but we will only use start_len + number of newlines + 1
+//     // or start_len + count_cols
+//     unsafe {
+//         indents.set_len(last_len);
+//     }
+//     if *previous_indent > 0 {
+//         // SAFETY: start_len is starting length and since indents are guaranteed to have at least 1
+//         // element, we can safely access the element at start_len
+//         unsafe {
+//             *indents.get_unchecked_mut(start_len) = *previous_indent - 1;
+//         }
+//     }
+//     // SAFETY: last element should be exactly last_len - 1 (because arrays are 0 based)
+//     *previous_indent = unsafe {
+//         // TODO do actual indent logic here
+//         // TODO check what happens for 64 newlines
+//         *indents.get_unchecked(last_len - 1)
+//     };
+//     *is_running = unsafe {
+//         *runners.get_unchecked(count_cols as usize -1)
+//     };
+// }
+
 
 fn col_count_batch(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-col-batch");
@@ -438,9 +499,11 @@ fn col_count_batch(c: &mut Criterion) {
     let newline_mask2 = u8x64_eq(chunk2, b'\n');
     let space_mask2 = u8x64_eq(chunk2, b' ');
 
-    let mut indents = Vec::new();
+    // let mut indents = Vec::new();
     let mut byte_cols = [0; 64];
     let mut byte_rows = [0; 64];
+    let mut byte_indents = [0; 64];
+
 
     group.bench_function("col_batch", |b| {
         b.iter(|| {
@@ -449,16 +512,16 @@ fn col_count_batch(c: &mut Criterion) {
                 space_mask,
                 &mut byte_cols,
                 &mut byte_rows,
-                &mut indents,
+                &mut byte_indents,
             );
-            black_box(indents.get(9) == None);
+            black_box(byte_indents[9] == 1);
 
             count_batch(
                 newline_mask2,
                 space_mask2,
                 &mut byte_cols,
                 &mut byte_rows,
-                &mut indents,
+                &mut byte_indents,
             );
             black_box(byte_rows[3] == 0);
         })
@@ -466,12 +529,55 @@ fn col_count_batch(c: &mut Criterion) {
     group.finish();
 }
 
+
+#[doc(hidden)]
+pub fn count_indent_naive(
+    newline_bits: u64,
+    space_bits: u64,
+    // byte_cols: &mut [u8; 64],
+    // byte_rows: &mut [u8; 64],
+    byte_indent: &mut [u8; 64],
+    is_indent_frozen: &mut bool,
+) {
+    // let mut curr_row = 0;
+    // let mut curr_col = 0;
+    let mut curr_indent = 0;
+    let mut is_frozen = false;
+    for pos in 0..64 {
+        let is_newline = newline_bits & (1 << pos) != 0;
+        let is_space = space_bits & (1 << pos) != 0;
+
+        if is_space && !is_frozen {
+            curr_indent += 1;
+        } else if !is_space && is_frozen {
+            is_frozen = true;
+        }
+
+        if is_newline {
+            // curr_col = 0;
+            curr_indent = 0;
+            // curr_row += 1;
+            is_frozen = false;
+            continue;
+        }
+
+        // curr_col += 1;
+        unsafe {
+            // *byte_cols.get_unchecked_mut(pos) = curr_col;
+            // *byte_rows.get_unchecked_mut(pos) = curr_row;
+            *byte_indent.get_unchecked_mut(pos) = curr_indent;
+        }
+    }
+    *is_indent_frozen = is_frozen;
+}
+
 fn count_batch(
     newline_mask: u64,
     space_mask: u64,
     byte_rows: &mut [u8; 64],
     byte_cols: &mut [u8; 64],
-    indents: &mut Vec<u32>,
+    // indents: &mut Vec<u32>,
+    byte_indent: &mut [u8; 64],
 ) {
     let nl_ind0 = (newline_mask & 0xFF) as usize;
     let row0 = U8_ROW_TABLE[nl_ind0];
@@ -538,7 +644,7 @@ fn count_batch(
         &mut prev_col,
     ));
 
-    count_indent_native(newline_mask, space_mask, indents, true, &mut 0);
+    count_indent_naive(newline_mask, space_mask,  byte_indent, &mut false);
 }
 
 criterion_group!(
