@@ -36,9 +36,9 @@ unsafe impl Stage1Scanner for NativeScanner {
         chunk_state: &mut YamlChunkState,
         prev_state: &mut YamlParserState,
     ) {
-        let mut curr_row = *prev_state.last_row;
-        let mut curr_col = *prev_state.last_col;
-        let mut curr_indent = *prev_state.last_indent;
+        let mut curr_row = prev_state.last_row;
+        let mut curr_col = prev_state.last_col;
+        let mut curr_indent = prev_state.last_indent;
 
         let spaces = u8x64_lteq(self.v0, b' ');
         let line_feeds = u8x64_lteq(self.v0, b'\n');
@@ -64,7 +64,7 @@ unsafe impl Stage1Scanner for NativeScanner {
                 curr_col = 0;
                 curr_indent = 0;
                 curr_row += 1;
-                *prev_state.is_indent_frozen = false;
+                prev_state.is_indent_frozen = false;
                 continue;
             }
 

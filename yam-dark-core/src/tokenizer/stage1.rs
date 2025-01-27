@@ -46,10 +46,14 @@ impl Default for YamlChunkState {
         // Safety
         // To ensure cols/rows/indents are always 64 elements long.
         YamlChunkState {
+            double_quote: YamlDoubleQuoteChunk::default(),
+            single_quote: YamlSingleQuoteChunk::default(),
+            characters: YamlCharacterChunk::default(),
             rows: vec![0, 64],
             cols: vec![0, 64],
             indents: vec![0, 64],
-            ..Self::default()
+            follows_non_quote_scalar: 0,
+            error_mask: 0,
         }
     }
 }
