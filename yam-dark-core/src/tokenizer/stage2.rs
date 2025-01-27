@@ -27,11 +27,11 @@ use crate::tape::Node;
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
 use crate::util::NoopValidator;
 use crate::{ChunkyIterator, YamlChunkState};
+use crate::{YamlError, YamlResult};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
-use yam_core::error::{YamlError, YamlResult};
 
 pub type ParseResult<T> = Result<T, YamlError>;
 

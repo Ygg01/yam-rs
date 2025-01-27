@@ -12,18 +12,18 @@ rust-version = "1.74.1"
 
 [dependencies]
 simdutf8 = { version = "0.1.4", features = ["aarch64_neon", "public_imp"] }
-yam-core = { path = "../yam-core" }
+#yam-core = { path = "../yam-core" }
 core_detect = "1.0.0"
 
 
 [dev-dependencies]
 criterion = "0.5.1"
-libtest-mimic = "0.7.3"
 rand = "0.9.0-alpha.1"
 rand_chacha = "0.9.0-alpha.1"
 
 [features]
 default = []
+debug = ["no-inline"]
 no-inline = []
 runtime-detection = []
 
