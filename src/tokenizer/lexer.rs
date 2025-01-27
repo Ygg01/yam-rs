@@ -1408,8 +1408,8 @@ impl Lexer {
                 BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => {
                     self.push_error(UnexpectedScalarAtNodeEnd);
                 }
-                BlockMapExp(_, _) | BlockMap(_, _) => self.next_substate(),
-                BlockSeq(_, BeforeElem | BeforeFirst) => self.next_substate(),
+                BlockMapExp(_, _) | BlockMap(_, _)
+                | BlockSeq(_, BeforeElem | BeforeFirst) => self.next_substate(),
                 BlockSeq(_, InSeqElem) => {
                     self.push_error(ErrorType::ExpectedSeqStart);
                 }
@@ -2407,14 +2407,15 @@ impl Lexer {
         tokens: &mut Vec<usize>,
     ) -> LiteralStringState {
         let curr_indent = reader.count_spaces();
-        let next_state = match fun_name(
+        let next_state = fun_name(
             curr_indent,
             indent,
             reader,
             lit_chomp,
             new_lines,
             prev_indent,
-        ) {
+        );
+        match next_state {
             v @ (LiteralStringState::Comment |   LiteralStringState::End) => return v,
             x => x,
         };
