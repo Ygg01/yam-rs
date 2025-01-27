@@ -10,4 +10,6 @@ keywords = ["yaml", "simd", "parser"]
 [lib]
 
 [dependencies]
-packed_simd = "0.3.9"
+
+[features]
+no-inline = []
