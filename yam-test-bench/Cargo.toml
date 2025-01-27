@@ -1,0 +1,20 @@
+[package]
+name = "yam-test-bench"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+yam-core = {path = "../yam-core"}
+
+[dev-dependencies]
+criterion = "0.5.1"
+libtest-mimic = "0.6.0"
+
+[[test]]
+name = "yaml_test_suite"
+harness = false
+
+[[bench]]
+name = "event_processing"
+harness = false

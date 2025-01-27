@@ -1,8 +1,4 @@
-use common::assert_eq_event_exact;
-
-use crate::common::assert_eq_event;
-
-mod common;
+use yam_test_bench::{assert_eq_event, assert_eq_event_exact};
 
 const BLOCK1_INPUT: &str = r"
     - x

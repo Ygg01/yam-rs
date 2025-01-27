@@ -1,8 +1,5 @@
-extern crate yam_core;
-
 use std::fmt::Write;
-
-use yam_core::tokenizer::{Event, EventIterator, StrReader};
+use yam_core::tokenizer::{EventIterator, Event, StrReader};
 
 pub fn assert_eq_event(input: &str, events: &str) {
     let mut line = String::new();
@@ -28,3 +25,4 @@ pub fn assert_eq_event_exact(input: &str, events: &str) {
 
     assert_eq!(line, events, "Error in {input}");
 }
+
