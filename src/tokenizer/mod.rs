@@ -6,7 +6,6 @@ pub use reader::Reader;
 use std::str::from_utf8;
 pub use str_reader::StrReader;
 
-mod buf_reader;
 mod iterator;
 mod lexer;
 mod reader;
