@@ -687,7 +687,6 @@ impl Lexer {
         let indent = reader.col();
         self.last_map_line = Some(reader.line());
         reader.consume_bytes(1);
-        self.skip_space_tab(reader);
         let is_new_exp_map = match self.curr_state() {
             DocBlock => true,
             BlockSeq(map_indent, _) | BlockMap(map_indent, _) if indent > map_indent => true,
@@ -2175,7 +2174,6 @@ impl Lexer {
                 Some(x) => x,
             };
 
-            //TODO clear tags when new document
             match (header_state, chr) {
                 (Bare, b'%') => {
                     let mut directive_state = NoDirective;
