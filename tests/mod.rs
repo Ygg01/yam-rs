@@ -66,7 +66,7 @@ xt
     #[test]
     fn parse_flow_scalars() {
         assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EXPECTED);
-        // assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
+        assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
     }
 
     #[test]
