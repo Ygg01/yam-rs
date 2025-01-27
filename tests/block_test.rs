@@ -316,7 +316,6 @@ const LITERAL3_EVENTS: &str = r#"
   =VAL |ab\n\n \n
  -DOC ..."#;
 
-
 const LITERAL_CHOMP_INPUT: &str = r#"
 Chomping: |
   Clipped

@@ -2,7 +2,6 @@
 
 use std::ops::Range;
 
-use super::lexer::LexerState;
 use super::ErrorType;
 
 pub struct LookAroundBytes<'a> {
@@ -17,15 +16,6 @@ impl<'a> LookAroundBytes<'a> {
 
         LookAroundBytes { iter, pos, end }
     }
-}
-
-pub(crate) enum ChompIndicator {
-    /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
-    Strip,
-    ///  `` final line break character is preserved in the scalar’s content
-    Clip,
-    /// `+` final line break and any trailing empty lines are considered to be part of the scalar’s content
-    Keep,
 }
 
 impl<'a> Iterator for LookAroundBytes<'a> {
@@ -72,10 +62,14 @@ pub trait Reader<B> {
             _ => false,
         }
     }
+    fn peek_byte_unwrap(&self, pos: usize) -> u8;
     fn skip_space_tab(&mut self) -> usize;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self) -> (usize, usize);
+    fn count_spaces(&self) -> u32;
+    fn count_spaces_till(&self, indent: u32) -> usize;
+    fn is_empty_newline(&self) -> bool;
     // Refactor
     fn read_plain_one_line(
         &mut self,
@@ -83,13 +77,6 @@ pub trait Reader<B> {
         had_comment: &mut bool,
         in_flow_collection: bool,
     ) -> (usize, usize, Option<ErrorType>);
-    fn read_block_scalar(
-        &mut self,
-        literal: bool,
-        curr_state: &LexerState,
-        prev_indent: u32,
-        errors: &mut Vec<ErrorType>,
-    ) -> Vec<usize>;
     fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool);

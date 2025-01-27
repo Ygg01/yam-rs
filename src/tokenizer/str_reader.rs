@@ -1,4 +1,3 @@
-use std::num::NonZeroU32;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::Range;
 use std::usize;
@@ -6,12 +5,10 @@ use std::usize;
 use memchr::{memchr, memchr2};
 
 use reader::{is_flow_indicator, ns_plain_safe};
-use ErrorType::ExpectedIndent;
 
-use crate::tokenizer::lexer::LexerState;
-use crate::tokenizer::lexer::LexerState::{BlockMap, BlockMapExp, BlockSeq};
+
 use crate::tokenizer::reader::{
-    is_uri_char, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
+    is_uri_char, is_white_tab_or_break, LookAroundBytes,
 };
 use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::LexerToken::*;
@@ -24,12 +21,6 @@ pub struct StrReader<'a> {
     pub(crate) pos: usize,
     pub(crate) col: u32,
     pub(crate) line: u32,
-}
-
-enum Flow {
-    Continue,
-    Break,
-    Error(u32),
 }
 
 impl<'a> From<&'a str> for StrReader<'a> {
@@ -78,14 +69,6 @@ impl<'a> StrReader<'a> {
     }
 
     #[inline]
-    fn peek_byte_unwrap(&self, offset: usize) -> u8 {
-        match self.slice.get(self.pos + offset) {
-            Some(x) => *x,
-            _ => b'\0',
-        }
-    }
-
-    #[inline]
     fn count_space_tab_range_from(&self, allow_tab: bool) -> usize {
         if self.pos >= self.slice.len() {
             return 0;
@@ -98,19 +81,6 @@ impl<'a> StrReader<'a> {
             }
         }) {
             Continue(x) | Break(x) => x,
-        }
-    }
-
-    #[inline]
-    fn count_spaces(&self) -> u32 {
-        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
-            if *chr == b' ' {
-                Continue(pos + 1)
-            } else {
-                Break(pos)
-            }
-        }) {
-            Continue(x) | Break(x) => x as u32,
         }
     }
 
@@ -130,22 +100,6 @@ impl<'a> StrReader<'a> {
         self.consume_bytes(amount);
     }
 
-    fn skip_n_spaces(&mut self, num_spaces: u32, prev_indent: u32) -> Flow {
-        let count = self.slice[self.pos..]
-            .iter()
-            .enumerate()
-            .take_while(|&(count, &x)| x == b' ' && count < num_spaces as usize)
-            .count();
-
-        if count == prev_indent as usize {
-            Flow::Break
-        } else if count != num_spaces as usize {
-            Flow::Error(count as u32)
-        } else {
-            self.pos += count;
-            Flow::Continue
-        }
-    }
 
     pub(crate) fn get_line_offset(&self) -> (usize, usize, usize) {
         let slice = self.slice;
@@ -331,10 +285,31 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
+    fn peek_byte_unwrap(&self, offset: usize) -> u8 {
+        match self.slice.get(self.pos + offset) {
+            Some(x) => *x,
+            _ => b'\0',
+        }
+    }
+
+    #[inline]
     fn skip_space_tab(&mut self) -> usize {
         let amount = self.count_space_tab_range_from(true);
         self.consume_bytes(amount);
         amount
+    }
+
+    #[inline]
+    fn count_spaces(&self) -> u32 {
+        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+            if *chr == b' ' {
+                Continue(pos + 1)
+            } else {
+                Break(pos)
+            }
+        }) {
+            Continue(x) | Break(x) => x as u32,
+        }
     }
 
     #[inline(always)]
@@ -417,196 +392,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
         self.pos = pos_end;
         (start, end_of_str, None)
-    }
-
-    fn read_block_scalar(
-        &mut self,
-        literal: bool,
-        curr_state: &LexerState,
-        block_indent: u32,
-        errors: &mut Vec<ErrorType>,
-    ) -> Vec<usize> {
-        self.consume_bytes(1);
-        let mut chomp = ChompIndicator::Clip;
-        let mut indentation: Option<NonZeroU32> = None;
-        let mut tokens = Vec::with_capacity(8);
-
-        match (self.peek_byte_unwrap(0), self.peek_byte_unwrap(1)) {
-            (_, b'0') | (b'0', _) => {
-                self.consume_bytes(2);
-                tokens.push(ErrorToken as usize);
-                errors.push(ErrorType::ExpectedChompBetween1and9);
-                return tokens;
-            }
-            (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
-                self.consume_bytes(2);
-                chomp = ChompIndicator::Strip;
-                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
-            }
-            (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
-                self.consume_bytes(2);
-                chomp = ChompIndicator::Keep;
-                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
-            }
-            (b'-', _) => {
-                self.consume_bytes(1);
-                chomp = ChompIndicator::Strip;
-            }
-            (b'+', _) => {
-                self.consume_bytes(1);
-                chomp = ChompIndicator::Keep;
-            }
-            (len, _) if matches!(len, b'1'..=b'9') => {
-                self.consume_bytes(1);
-                indentation = NonZeroU32::new(block_indent + (len - b'0') as u32);
-            }
-            _ => {}
-        }
-
-        let token = if literal {
-            ScalarLit as usize
-        } else {
-            ScalarFold as usize
-        };
-
-        // allow comment in first line of block scalar
-        self.skip_space_tab();
-        match self.peek_byte() {
-            Some(b'#' | b'\r' | b'\n') => {
-                self.read_line();
-            }
-            Some(chr) => {
-                self.read_line();
-                tokens.push(ErrorToken as usize);
-                errors.push(ErrorType::UnexpectedSymbol(chr as char));
-                return tokens;
-            }
-            _ => {}
-        }
-
-        let mut new_line_token = 0;
-
-        tokens.push(token);
-        if self.eof() {
-            tokens.push(ScalarEnd as usize);
-            return tokens;
-        }
-        let mut trailing = vec![];
-        let mut is_trailing_comment = false;
-        let mut previous_indent = 0;
-        let mut max_prev_indent = 0;
-
-        loop {
-            let map_indent = self.col + self.count_spaces();
-            let prefix_indent = self.col + block_indent;
-            let indent_has_reduced = map_indent <= block_indent && previous_indent != block_indent;
-            let check_block_indent = self.peek_byte_unwrap(block_indent as usize);
-
-            if (check_block_indent == b'-'
-                && matches!(curr_state, BlockSeq(ind) if prefix_indent <= *ind ))
-                || (check_block_indent == b':'
-                    && matches!(curr_state, BlockMapExp(ind, _) if prefix_indent <= *ind))
-            {
-                self.consume_bytes(block_indent as usize);
-                break;
-            } else if indent_has_reduced
-                && matches!(curr_state, BlockMap(ind, _) if *ind <= map_indent)
-            {
-                break;
-            }
-
-            // count indents important for folded scalars
-            let newline_indent = self.count_spaces();
-
-            if !is_trailing_comment
-                && indentation.map_or(false, |x| newline_indent < x.into())
-                && self.peek_byte_unwrap(newline_indent as usize) == b'#'
-            {
-                trailing.push(NewLine as usize);
-                trailing.push(new_line_token - 1);
-                is_trailing_comment = true;
-                new_line_token = 1;
-            };
-
-            let newline_is_empty = self
-                .slice(self.pos, self.get_line_offset().1)
-                .iter()
-                .rev()
-                .all(|c| *c == b' ');
-
-            if newline_is_empty && max_prev_indent < newline_indent {
-                max_prev_indent = newline_indent;
-            }
-
-            if indentation.is_none() && newline_indent > 0 && !newline_is_empty {
-                indentation = NonZeroU32::new(newline_indent);
-                if max_prev_indent > newline_indent {
-                    tokens.insert(0, ErrorToken as usize);
-                    errors.push(ErrorType::SpacesFoundAfterIndent);
-                }
-            }
-
-            let num_spaces = match indentation {
-                None => newline_indent,
-                Some(x) => x.into(),
-            };
-
-            if self.peek_chars() == b"..." || self.peek_chars() == b"---" || self.eof() {
-                break;
-            }
-            match self.skip_n_spaces(num_spaces, block_indent) {
-                Flow::Error(actual) if !newline_is_empty => {
-                    tokens.push(ErrorToken as usize);
-                    errors.push(ExpectedIndent {
-                        actual,
-                        expected: num_spaces,
-                    });
-                    break;
-                }
-                Flow::Error(amount) => {
-                    self.consume_bytes(amount as usize);
-                }
-                Flow::Break => {}
-                _ => {}
-            };
-
-            let (start, end) = self.read_line();
-            if start != end {
-                if new_line_token > 0 {
-                    if !literal && previous_indent == newline_indent {
-                        tokens.push(NewLine as usize);
-                        tokens.push(new_line_token - 1);
-                    } else {
-                        tokens.push(NewLine as usize);
-                        tokens.push(new_line_token);
-                    }
-                }
-                previous_indent = newline_indent;
-                tokens.push(start);
-                tokens.push(end);
-                new_line_token = 1;
-            } else {
-                new_line_token += 1;
-            }
-        }
-        match chomp {
-            ChompIndicator::Keep => {
-                if is_trailing_comment {
-                    new_line_token = 1;
-                }
-                trailing.push(NewLine as usize);
-                trailing.push(new_line_token);
-                tokens.extend(trailing);
-            }
-            ChompIndicator::Clip => {
-                trailing.push(NewLine as usize);
-                trailing.push(1);
-                tokens.extend(trailing);
-            }
-            ChompIndicator::Strip => {}
-        }
-        tokens.push(ScalarEnd as usize);
-        tokens
     }
 
     fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize> {
@@ -820,6 +605,21 @@ impl<'r> Reader<()> for StrReader<'r> {
         } else {
             None
         }
+    }
+
+    fn is_empty_newline(&self) -> bool {
+        self.slice[self.pos..self.get_line_offset().1]
+            .iter()
+            .rev()
+            .all(|c| *c == b' ')
+    }
+
+    fn count_spaces_till(&self, num_spaces: u32) -> usize {
+        self.slice[self.pos..]
+            .iter()
+            .enumerate()
+            .take_while(|&(count, &x)| x == b' ' && count < num_spaces as usize)
+            .count()
     }
 }
 
