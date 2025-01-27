@@ -93,7 +93,7 @@ impl<'de> Parser<'de> {
         for chunk in &mut iter {
             unsafe {
                 validator.update_from_chunks(chunk);
-                let z = next_fn(chunk, &mut buffer, &mut state);
+                let _z = next_fn(chunk, &mut buffer, &mut state);
             }
             
         }

@@ -2,7 +2,7 @@ use core::slice::from_raw_parts;
 use crate::SIMD_INPUT_LENGTH;
 
 
-pub(crate) struct ChunkyIterator<'a> {
+pub struct ChunkyIterator<'a> {
     bytes: &'a [u8],
 }
 
@@ -29,7 +29,7 @@ impl<'a> Iterator for ChunkyIterator<'a> {
 }
 
 impl<'a> ChunkyIterator<'a> {
-    pub(crate) fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
+    pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
         ChunkyIterator {
             bytes
         }
