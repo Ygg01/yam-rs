@@ -1,4 +1,6 @@
+use alloc::vec::Vec;
 use core::ptr;
+use core::ptr::write;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
@@ -216,6 +218,62 @@ pub fn calculate_cols(cols: [u32; 8], rows: [u32; 8], prev_col: &u32) -> [u32; 8
             cols[7]
         },
     ]
+}
+
+pub fn calculate_indents_vector(
+    indents: &mut Vec<usize>,
+    mut newline_mask: u64,
+    space_mask: u64,
+    is_indent_running: &mut bool,
+) {
+    let mut i = 0;
+    let count_cols = (newline_mask.count_ones() + 1);
+    let mut neg_indents_mask = select_right_bits_branch_less(
+        space_mask,
+        (newline_mask << 1) ^ u64::from(*is_indent_running),
+    );
+    let last_bit = (neg_indents_mask | newline_mask) & (1 << 63) != 0;
+    indents.reserve(68);
+    // To calculate indent we need to:
+    // 1. Count trailing ones in space_mask this is the current indent
+    // 2. Count the trailing zeros in newline mask to know how long the line is
+    // 3. Check to see if the indent is equal to how much we need to1 shift it, if true we set mask to 1 otherwise to 0.
+    while newline_mask != 0 {
+        let part0 = neg_indents_mask.trailing_ones() & 127;
+        let v0 = newline_mask.trailing_zeros() + 1;
+        newline_mask = newline_mask.overflowing_shr(v0).0;
+        neg_indents_mask = neg_indents_mask.overflowing_shr(v0).0 | 1 << 63;
+
+        let part1 = neg_indents_mask.trailing_ones() & 127;
+        let v1 = newline_mask.trailing_zeros() + 1;
+        newline_mask = newline_mask.overflowing_shr(v1).0;
+        neg_indents_mask = neg_indents_mask.overflowing_shr(v1).0 | 1 << 63;
+
+        let part2 = neg_indents_mask.trailing_ones() & 127;
+        let v2 = newline_mask.trailing_zeros() + 1;
+        newline_mask = newline_mask.overflowing_shr(v2).0;
+        neg_indents_mask = neg_indents_mask.overflowing_shr(v2).0 | 1 << 63;
+
+        let part3 = neg_indents_mask.trailing_ones() & 127;
+        let v3 = newline_mask.trailing_zeros() + 1;
+        newline_mask = newline_mask.overflowing_shr(v3).0;
+        neg_indents_mask = neg_indents_mask.overflowing_shr(v3).0 | 1 << 63;
+
+        let v = [
+            part0 as usize,
+            part1 as usize,
+            part2 as usize,
+            part3 as usize,
+        ];
+        unsafe {
+            write(indents.as_mut_ptr().add(i).cast::<[usize; 4]>(), v);
+        }
+        i += 4;
+    }
+    unsafe {
+        indents.set_len(count_cols as usize);
+    }
+    *is_indent_running = last_bit;
 }
 
 #[test]
