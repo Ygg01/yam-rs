@@ -1531,6 +1531,7 @@ impl<B> Lexer<B> {
 
                 if reader.read_break(&mut self.buf).is_some() {
                     num_breaks += 1;
+                    has_tab = false;
                     found_eol = true;
                 }
 
