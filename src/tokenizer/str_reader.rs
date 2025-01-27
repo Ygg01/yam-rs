@@ -3,10 +3,10 @@ use std::fmt::Formatter;
 
 use crate::tokenizer::SpanToken::*;
 use crate::tokenizer::StrReader;
-use crate::Scanner;
+use crate::Spanner;
 
 pub struct EventIterator<'a> {
-    pub(crate) state: Scanner,
+    pub(crate) state: Spanner,
     pub(crate) reader: StrReader<'a>,
     indent: usize,
     pub(crate) lines: VecDeque<String>,
@@ -15,7 +15,7 @@ pub struct EventIterator<'a> {
 impl<'a> EventIterator<'a> {
     pub fn new_from_string(input: &str) -> EventIterator {
         EventIterator {
-            state: Scanner::default(),
+            state: Spanner::default(),
             reader: StrReader::new(input),
             indent: 2,
             lines: VecDeque::default(),

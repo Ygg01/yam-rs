@@ -20,8 +20,7 @@ test
 xt
 "#;
 const MULTILINE_EXPECTED: &'static str = r#"
-  =VAL test
-  =VAL xt"#;
+  =VAL test xt"#;
 
 const SEQ_FLOW_INPUT: &'static str = r#"
 [x, y]
@@ -139,7 +138,7 @@ fn parse_empty_document() {
 #[test]
 fn parse_flow_scalars() {
     assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EXPECTED);
-    // assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
+    assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
 }
 
 #[test]
@@ -156,11 +155,11 @@ fn parse_nested_col() {
 
 #[test]
 fn parse_flow_map() {
-    // assert_eq_event(SEQ_EMPTY_MAP, SEQ_EMPTY_MAP_EXPECTED);
-    // assert_eq_event(SEQ_XY_MAP1, SEQ_XY_MAP1_EXPECTED);
-    // assert_eq_event(SEQ_X_Y_MAP1, SEQ_X_Y_MAP_EXPECTED);
+    assert_eq_event(SEQ_EMPTY_MAP, SEQ_EMPTY_MAP_EXPECTED);
+    assert_eq_event(SEQ_XY_MAP1, SEQ_XY_MAP1_EXPECTED);
+    assert_eq_event(SEQ_X_Y_MAP1, SEQ_X_Y_MAP_EXPECTED);
     assert_eq_event(SEQ_X_Y_MAP2, SEQ_X_Y_MAP_EXPECTED);
-    // assert_eq_event(SEQ_X_Y_MAP3, SEQ_X_Y_MAP_EXPECTED);
+    assert_eq_event(SEQ_X_Y_MAP3, SEQ_X_Y_MAP_EXPECTED);
 }
 
 #[test]

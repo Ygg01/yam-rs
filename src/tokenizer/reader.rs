@@ -524,7 +524,6 @@ pub(crate) fn ns_plain_safe(chr: u8, is_in: bool) -> bool {
     }
 }
 
-
 #[inline]
 pub(crate) fn is_white_tab(chr: u8) -> bool {
     match chr {
