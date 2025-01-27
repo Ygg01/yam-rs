@@ -218,7 +218,7 @@ impl Lexer {
                     BlockMap(ind, _) => (ind, reader.col() as u32),
                     _ => unsafe { unreachable_unchecked() },
                 };
-               
+
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_map(reader, indent as usize),
                     Some(b'[') => self.fetch_flow_seq(reader, indent as usize),
@@ -257,19 +257,12 @@ impl Lexer {
                         // comment
                         reader.read_line();
                     }
-                    Some(x) => {
-                        if x != b']' && x != b'}' && x != b'@' {
-                            self.fetch_plain_scalar_block(
-                                reader,
-                                indent as usize,
-                                init_indent as usize,
-                            );
-                        } else {
-                            reader.consume_bytes(1);
-                            self.tokens.push_back(ErrorToken as usize);
-                            self.errors.push(UnexpectedSymbol(x as char))
-                        }
-                    }
+                    Some(peek_chr) => self.fetch_plain_scalar_block(
+                        reader,
+                        peek_chr,
+                        indent as usize,
+                        init_indent as usize,
+                    ),
                     None => self.stream_end = true,
                 }
             }
@@ -307,15 +300,12 @@ impl Lexer {
                         // comment
                         reader.read_line();
                     }
-                    Some(x) => {
-                        if x != b']' && x != b'}' && x != b'@' {
-                            self.fetch_plain_scalar_block(reader, indent as usize, indent as usize);
-                        } else {
-                            reader.consume_bytes(1);
-                            self.tokens.push_back(ErrorToken as usize);
-                            self.errors.push(UnexpectedSymbol(x as char))
-                        }
-                    }
+                    Some(peek_chr) => self.fetch_plain_scalar_block(
+                        reader,
+                        peek_chr,
+                        indent as usize,
+                        indent as usize,
+                    ),
                     None => self.stream_end = true,
                 }
             }
@@ -531,9 +521,16 @@ impl Lexer {
     fn fetch_plain_scalar_block<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
+        peek_chr: u8,
         start_indent: usize,
         init_indent: usize,
     ) {
+        if peek_chr == b']' || peek_chr == b'}' && peek_chr == b'@' {
+            reader.consume_bytes(1);
+            self.tokens.push_back(ErrorToken as usize);
+            self.errors.push(UnexpectedSymbol(peek_chr as char));
+            return;
+        }
         let mut is_multiline = false;
         let mut ends_with = b'\x7F';
         let scalar_tokens = self.get_plain_scalar(
@@ -554,7 +551,6 @@ impl Lexer {
 
     fn process_map(&mut self, init_indent: usize, scalar_tokens: Vec<usize>, chr: u8) {
         match self.curr_state() {
-            
             BlockMap(indent, BeforeKey) | BlockMapExp(indent, _)
                 if init_indent == indent as usize =>
             {

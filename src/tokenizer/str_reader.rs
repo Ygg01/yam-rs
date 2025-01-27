@@ -12,7 +12,7 @@ use crate::tokenizer::reader::{
     is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
 use crate::tokenizer::spanner::LexerState;
-use crate::tokenizer::spanner::LexerState::{BlockSeq, BlockMapExp};
+use crate::tokenizer::spanner::LexerState::{BlockMapExp, BlockSeq};
 use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::{reader, ErrorType, LexerToken, Reader, Slicer};
@@ -381,14 +381,13 @@ impl<'r> Reader<()> for StrReader<'r> {
             let curr_indent = curr_state.indent();
 
             match (self.peek_byte_unwrap(curr_indent as usize), curr_state) {
-                (b'-', BlockSeq(ind))
-                | (b':', BlockMapExp(ind, _)) => {
+                (b'-', BlockSeq(ind)) | (b':', BlockMapExp(ind, _)) => {
                     if self.col + curr_indent as usize == *ind as usize {
                         self.consume_bytes((1 + curr_indent) as usize);
                         break;
                     }
                 }
-                _ => {},
+                _ => {}
             }
 
             // count indents important for folded scalars
@@ -404,9 +403,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token = 1;
             };
 
-            let newline_is_empty = self
-                .peek_byte_at(newline_indent)
-                .map_or(false, is_newline)
+            let newline_is_empty = self.peek_byte_at(newline_indent).map_or(false, is_newline)
                 || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
 
             if indentation == 0 && newline_indent > 0 && !newline_is_empty {
