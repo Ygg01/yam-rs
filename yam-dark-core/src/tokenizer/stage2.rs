@@ -32,6 +32,7 @@ use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use core::mem::take;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub type ParseResult<T> = Result<T, YamlError>;
@@ -108,6 +109,7 @@ impl<'de> Deserializer<'de> {
         let mut iter = ChunkyIterator::from_bytes(input);
         let mut state = YamlParserState::default();
         let mut validator = get_validator(false);
+        let mut indent_info = YamlIndentInfo::default();
 
         let next_fn = get_stage1_next::<B>();
 
@@ -121,7 +123,7 @@ impl<'de> Deserializer<'de> {
 
             // SAFETY: The next_fn should return the correct function for any given CPU
             let chunk_state: YamlChunkState = S::next(chunk, buffer, &mut state);
-            state.process_chunk::<B, S>(buffer, &chunk_state)?;
+            state.process_chunk::<B, S>(buffer, &chunk_state, &mut indent_info)?;
         }
 
         Self::build_tape(&mut state, buffer, tape)
@@ -248,14 +250,35 @@ pub struct YamlParserState {
     pub(crate) is_in_comment: bool,
 }
 
+/// Transient data about cols, rows and indents
+pub struct YamlIndentInfo {
+    pub(crate) cols: [u32; 64],
+    pub(crate) rows: [u32; 64],
+    pub(crate) indents: [u32; 64],
+}
+
+impl Default for YamlIndentInfo {
+    fn default() -> Self {
+        YamlIndentInfo {
+            cols: [0; 64],
+            rows: [0; 64],
+            indents: [0; 64],
+        }
+    }
+}
+
 impl YamlParserState {
     pub(crate) fn process_chunk<B: Buffer, S: Stage1Scanner>(
         &mut self,
         buffer: &mut B,
         chunk_state: &YamlChunkState,
+        indent_info: &mut YamlIndentInfo,
     ) -> YamlResult<()> {
-        S::calculate_cols_rows_indents(self, chunk_state);
+        S::calculate_indents_vectorized(self, chunk_state, indent_info);
         S::flatten_bits_yaml(self, chunk_state);
+
+        // reset indent info
+        take(indent_info);
 
         if chunk_state.error_mask == 0 {
             Ok(())
@@ -315,10 +338,12 @@ fn test_parsing_basic_processing1() {
     let mut state = YamlParserState::default();
     let mut validator = get_validator(false);
     let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
+    let mut info = YamlIndentInfo::default();
 
     let chunk = chunk_iter.next().expect("Missing chunk!");
     let chunk_state = NativeScanner::next(chunk, &mut buffer, &mut state);
-    let res = state.process_chunk::<BorrowBuffer, NativeScanner>(&mut buffer, &chunk_state);
+    let res =
+        state.process_chunk::<BorrowBuffer, NativeScanner>(&mut buffer, &chunk_state, &mut info);
 
     let expected_structurals = vec![0usize];
     assert_eq!(expected_structurals, state.structurals);
