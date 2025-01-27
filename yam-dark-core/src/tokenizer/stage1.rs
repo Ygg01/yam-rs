@@ -30,6 +30,36 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::{util, NativeScanner, ParseResult, EVEN_BITS, ODD_BITS};
 
+/// Represents the state of YAML chunk processing.
+///
+/// `YamlChunkState` is used to track the state of various chunks of YAML content,
+/// including double-quoted strings, single-quoted strings, and character classifications
+/// such as whitespace and structural characters.
+///
+/// This struct also maintains vectors for row and column positions and
+/// indent levels, which are updated as the YAML content is processed.
+///
+/// # Fields
+///
+/// * `double_quote` - State related to double-quoted YAML strings.
+/// * `single_quote` - State related to single-quoted YAML strings.
+/// * `characters` - Classifications of characters (e.g., whitespace, operators).
+/// * `rows` - Vector maintaining the row positions in the chunk.
+/// * `cols` - Vector maintaining the column positions in the chunk.
+/// * `indents` - Vector maintaining the indent levels in the chunk.
+/// * `follows_non_quote_scalar` - Bitmask indicating positions following non-quote scalar values.
+/// * `error_mask` - Bitmask indicating positions with errors.
+///
+/// # Default Implementation
+///
+/// The `Default` implementation for `YamlChunkState` initializes
+/// the vectors (`rows`, `cols`, `indents`) to be 64 elements long
+/// and sets the `double_quote`, `single_quote`, `characters` to its default values.
+///
+/// ```rust
+/// use yam_dark_core::YamlChunkState;
+/// let x = YamlChunkState::default();
+/// ```
 pub struct YamlChunkState {
     pub double_quote: YamlDoubleQuoteChunk,
     pub single_quote: YamlSingleQuoteChunk,
@@ -59,16 +89,65 @@ impl Default for YamlChunkState {
 }
 
 #[derive(Default)]
+/// Represents the state of double-quoted YAML string processing.
+///
+/// `YamlDoubleQuoteChunk` is used to track the state of double-quoted YAML strings,
+/// maintaining information about escaped characters, real double quotes, and whether
+/// characters are within the string context.
+///
+/// # Fields
+///
+/// * `escaped` - A bitmask indicating the positions of escaped characters.
+/// * `quote_bits` - A bitmask indicating the positions of real double quotes.
+/// * `in_string` - A bitmask showing which characters are currently within a double-quoted string.
+///
+/// # Default Implementation
+///
+/// The `Default` implementation for `YamlDoubleQuoteChunk` initializes
+/// the fields `escaped`, `quote_bits`, and `in_string` to 0.
+///
+/// ```rust
+/// use yam_dark_core::YamlDoubleQuoteChunk;
+/// let y = YamlDoubleQuoteChunk::default();
+/// assert_eq!(y.escaped, 0);
+/// assert_eq!(y.quote_bits, 0);
+/// assert_eq!(y.in_string, 0);
+/// ```
 pub struct YamlDoubleQuoteChunk {
     /// Escaped characters
-    escaped: u64,
+    pub escaped: u64,
     /// Real double quotes
-    quote_bits: u64,
+    pub quote_bits: u64,
     /// Bitmask showing which characters are in string
-    in_string: u64,
+    pub in_string: u64,
 }
 
 #[derive(Default)]
+///
+/// Represents the state of single-quoted YAML string processing.
+///
+/// `YamlSingleQuoteChunk` is used to track the state of single-quoted YAML strings,
+/// maintaining information about odd quotes, escaped quotes, and whether
+/// characters are within the string context.
+///
+/// # Fields
+///
+/// * `odd_quotes` - A bitmask indicating the positions of odd quotes.
+/// * `escaped_quotes` - A bitmask indicating the positions of escaped quotes.
+/// * `in_string` - A bitmask showing which characters are currently within a single-quoted string.
+///
+/// # Default Implementation
+///
+/// The `Default` implementation for `YamlSingleQuoteChunk` initializes
+/// the fields `odd_quotes`, `escaped_quotes`, and `in_string` to 0.
+///
+/// ```rust
+/// use yam_dark_core::YamlSingleQuoteChunk;
+/// let y = YamlSingleQuoteChunk::default();
+/// assert_eq!(y.odd_quotes, 0);
+/// assert_eq!(y.escaped_quotes, 0);
+/// assert_eq!(y.in_string, 0);
+/// ```
 pub struct YamlSingleQuoteChunk {
     /// Finds group of paired quotes
     pub odd_quotes: u64,
@@ -81,6 +160,31 @@ pub struct YamlSingleQuoteChunk {
 }
 
 #[derive(Default)]
+/// Represents the state of general character processing in YAML parsing.
+///
+/// `YamlCharacterChunk` is used to track the state of various character types such as whitespace,
+/// line feeds, spaces, and structural characters within a YAML document.
+///
+/// # Fields
+///
+/// * `whitespace` - A bitmask indicating the positions of whitespace characters (`SPACE`, `TAB`, `LINE_FEED`, or `CARRIAGE_RETURN`).
+/// * `spaces` - A bitmask indicating the positions of `SPACE` (`0x20`) characters.
+/// * `line_feeds` - A bitmask indicating the positions of `LINE_FEED` (`0x0A`) characters.
+/// * `structurals` - A bitmask indicating the positions of characters used as operators in YAML.
+///
+/// # Default Implementation
+///
+/// The `Default` implementation for `YamlCharacterChunk` initializes the fields `whitespace`,
+/// `spaces`, `line_feeds`, and `structurals` to 0.
+///
+/// ```rust
+/// use yam_dark_core::YamlCharacterChunk;
+/// let y = YamlCharacterChunk::default();
+/// assert_eq!(y.whitespace, 0);
+/// assert_eq!(y.spaces, 0);
+/// assert_eq!(y.line_feeds, 0);
+/// assert_eq!(y.structurals, 0);
+/// ```
 pub struct YamlCharacterChunk {
     /// Whitespace bitmask SPACE  (`0x20`) , TABS (`0x09`), LINE_FEED (`0x0A`) or CARRIAGE_RETURN (`0x0D`)
     pub whitespace: u64,
