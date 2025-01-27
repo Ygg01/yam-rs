@@ -1,6 +1,6 @@
 extern crate yam_core;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_core::tokenizer::assert_eq_event;
 
@@ -49,6 +49,7 @@ const IN2_EXPECTED: &str = r"
 fn bench_flow_simple(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-yaml");
     group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(IN1.bytes().len() as u64));
     group.bench_function("bench_flow_simple", |b| {
         b.iter(|| assert_eq_event(black_box(IN1), black_box(IN1_EXPECTED)));
     });
@@ -58,6 +59,7 @@ fn bench_flow_simple(c: &mut Criterion) {
 fn bench_block_simple(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-yaml");
     group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(IN2.bytes().len() as u64));
     group.bench_function("bench_block_simple", |b| {
         b.iter(|| assert_eq_event(black_box(IN2), black_box(IN2_EXPECTED)));
     });
