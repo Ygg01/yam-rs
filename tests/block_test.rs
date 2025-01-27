@@ -76,10 +76,29 @@ ERR
 -MAP
 -DOC";
 
+const SEQ_NO_MINUS_INPUT: &str = r"
+map:
+ - a
+ c
+";
+
+const SEQ_NO_MINUS_EVENTS: &str = r"
++DOC
++MAP
+=VAL :map
++SEQ
+=VAL :a
+ERR
+=VAL :c
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 pub fn block_seq_err() {
     assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS);
     assert_eq_event(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS);
+    assert_eq_event(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS);
 }
 
 const BLOCK_NESTED_SEQ_INPUT: &str = r"
