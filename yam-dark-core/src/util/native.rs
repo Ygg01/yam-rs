@@ -94,7 +94,27 @@ pub fn u8x64_eq(a: [u8; 64], cmp: u8) -> u64 {
         | (if a[63] == cmp { 1 << 63 } else { 0 })
 }
 
-#[doc(hidden)]
+/// Checks if each element in a [u8; 64] array is less than or equal to the given `cmp` value.
+///
+/// # Arguments
+///
+/// * `a` - An array of 64 unsigned 8-bit integers.
+/// * `cmp` - The value to compare each element against.
+///
+/// # Returns
+///
+/// An unsigned 64-bit integer where each bit represents the comparison result for the corresponding element in the array.
+///
+/// # Example
+///
+/// ```
+/// use yam_dark_core::util::u8x64_lteq;
+///
+/// let a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64];
+/// let cmp = 10;
+/// let result = u8x64_lteq(a, cmp);
+/// assert_eq!(result, 0b0000000000000000000000000000000000000000000000000000001111111111);
+/// ```
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn u8x64_lteq(a: [u8; 64], cmp: u8) -> u64 {
     (if a[0] <= cmp { 1 } else { 0 })
