@@ -32,10 +32,10 @@ impl ChunkedUtf8Validator for NoopValidator {
 
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
 ///
-/// This function takes two `u64` values as input: `input` and `mask`. It selects bits from
-/// `input` where the corresponding bit in `mask` is set to 1. The selection is done using
-/// a branch-less technique, aiming for a potentially more efficient operation compared
-/// to traditional conditional branches.
+/// This function takes two `u64` values as input: `input` and `mask`. It selects sequence of ones from
+/// `input` if the leftmost (largest) bit in mask corresponds to a bit in mask. It essentially
+/// selects all groups bits left of a 1-bit in mask.
+///   
 ///
 /// # Parameters
 ///
@@ -51,12 +51,12 @@ impl ChunkedUtf8Validator for NoopValidator {
 /// ```rust
 /// let input = 0b1100_1100;
 /// let mask  = 0b1010_1010;
-/// let result = yam_dark_core::util::select_right_bits_branch_less(input, mask);
-/// assert_eq!(result, 0b1000_1000);
+/// let result = yam_dark_core::util::select_left_bits_branch_less(input, mask);
+/// assert_eq!(result, 0b1100_1100);
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
+pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
     let mut result = 0;
 
     result |= input & mask;
@@ -82,9 +82,32 @@ pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
     result
 }
 
+/// Selects bits from the input according to the specified mask, using a branch-less approach.
+///
+/// This function takes two `u64` values as input: `input` and `mask`. It selects sequence of ones from
+/// `input` if the rightmost (smallest) bit in mask corresponds to a bit in mask. It essentially
+/// selects all groups bits right of a 1-bit in mask.
+///
+/// # Parameters
+///
+/// - `input`: The input `u64` value from which bits will be selected.
+/// - `mask`:  The mask `u64` value that determines which bits in the `input` will be selected.
+///
+/// # Returns
+///
+/// A `u64` value with the selected bits from the input as specified by the mask.
+///
+/// # Example
+///
+/// ```rust
+/// let input = 0b1100_1110;
+/// let mask  = 0b0100_0100;
+/// let result = yam_dark_core::util::select_right_bits_branch_less(input, mask);
+/// assert_eq!(result, 0b1100_1100);
+/// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
+pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
     let mut result = input & mask;
 
     let mut a = input;
@@ -170,8 +193,8 @@ pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 
 }
 
 #[test]
-fn test_branch_less_right() {
-    let actual = select_right_bits_branch_less(
+fn test_branch_less_right1() {
+    let actual = select_left_bits_branch_less(
         0b1111_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_0000_0110,
         0b1000_0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100,
     );
@@ -185,8 +208,19 @@ fn test_branch_less_right() {
 }
 
 #[test]
+fn test_branch_less_right2() {
+    let actual = select_left_bits_branch_less(0b1100_1100, 0b1010_1010);
+    let expected = 0b1100_1100;
+    assert_eq!(
+        actual, expected,
+        "\nExpected: {:#018b}\n  Actual: {:#018b}",
+        expected, actual
+    );
+}
+
+#[test]
 fn test_branch_less_left() {
-    let actual = select_left_bits_branch_less(
+    let actual = select_right_bits_branch_less(
         0b1110_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_1110_0110,
         0b0010_0010_0000_0000_0000_1100_0000_0000_0000_0000_0000_0000_0000_0000_0100_0010,
     );
