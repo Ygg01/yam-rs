@@ -101,10 +101,10 @@ pub trait Reader<B> {
     );
     fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
     fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
-    fn read_block_seq(&mut self, indent: usize) -> Option<LexerState>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken);
     fn read_tag(&self) -> Option<(usize, usize)>;
+    fn read_break(&mut self) -> Option<(usize, usize)>;
 }
 
 #[inline]
