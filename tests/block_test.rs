@@ -782,11 +782,26 @@ ERR
 -MAP
 -DOC"#;
 
+const ERR_TRAIL_INPUT: &str = r#"
+'key': "quote" trail
+"#;
+
+const ERR_TRAIL_EVENTS: &str = r#"
++DOC
++MAP
+=VAL 'key
+=VAL "quote
+ERR
+=VAL :trail
+-MAP
+-DOC"#;
+
 #[test]
 pub fn block_map_err() {
     assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
     assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
     assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
+    assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
 }
 
 const COMPLEX_KEYS_INPUT: &str = r##"
