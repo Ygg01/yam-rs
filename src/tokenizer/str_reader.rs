@@ -7,7 +7,6 @@ use memchr::{memchr, memchr2};
 use reader::{is_flow_indicator, is_plain_unsafe};
 
 use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
-use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::{reader, ErrorType, Reader};
 
 use super::reader::{is_newline, is_tag_char};
@@ -175,14 +174,17 @@ impl<'r> Reader<()> for StrReader<'r> {
             Continue(x) | Break(x) => x as u32,
         }
     }
-    fn count_whitespace(&self, _buf: &mut ()) -> usize {
-        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
-            if *chr == b' ' || *chr == b'\t' || *chr == b'\r' || *chr == b'\n' {
-                Continue(pos + 1)
-            } else {
-                Break(pos)
-            }
-        }) {
+
+    fn count_whitespace_from(&self, _buf: &mut (), offset: usize) -> usize {
+        match self.slice[self.pos + offset..]
+            .iter()
+            .try_fold(offset, |pos, chr| {
+                if *chr == b' ' || *chr == b'\t' || *chr == b'\r' || *chr == b'\n' {
+                    Continue(pos + 1)
+                } else {
+                    Break(pos)
+                }
+            }) {
             Continue(x) | Break(x) => x,
         }
     }
@@ -228,16 +230,14 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_plain_one_line(
         &mut self,
-        buf: &mut (),
+        _buf: &mut (),
         offset_start: Option<usize>,
         had_comment: &mut bool,
         in_flow_collection: bool,
-        in_key: bool,
-    ) -> (usize, usize, Option<ErrorType>) {
+    ) -> (usize, usize, usize) {
         let start = offset_start.unwrap_or(self.pos);
         let (_, line_end, _) = self.get_line_offset();
-        let end = self.consume_bytes(buf, 1);
-        let mut pos_end = end;
+        let end = self.pos + 1;
         let line_end = StrReader::eof_or_pos(self, line_end);
         let mut end_of_str = end;
 
@@ -246,41 +246,33 @@ impl<'r> Reader<()> for StrReader<'r> {
             if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
                 return if *had_comment {
-                    self.pos = line_end;
-                    (start, end_of_str, Some(UnexpectedComment))
+                    (start, end_of_str, end_of_str - start)
                 } else {
                     *had_comment = true;
-                    self.pos = line_end;
-                    (start, end_of_str, None)
+                    (start, end_of_str, end_of_str - start)
                 };
             }
 
             // ns-plain-char prevent `: `
             // or `:{`  in flow collections
             if curr == b':' && is_plain_unsafe(next) {
-                pos_end = end_of_str;
                 break;
             }
 
             // // if current character is a flow indicator, break
             if in_flow_collection && is_flow_indicator(curr) {
-                pos_end = end_of_str;
                 break;
             }
 
             if is_white_tab_or_break(curr) {
                 if is_newline(curr) {
-                    pos_end = line_end;
                     break;
                 }
-                pos_end = pos;
             } else {
                 end_of_str = pos + 1;
-                pos_end = end_of_str;
             }
         }
-        self.pos = pos_end;
-        (start, end_of_str, None)
+        (start, end_of_str, end_of_str - start)
     }
 
     fn count_detect_space_tab(&mut self, has_tab: &mut bool) -> usize {

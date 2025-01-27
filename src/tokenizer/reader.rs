@@ -69,7 +69,11 @@ pub trait Reader<B> {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self, buf: &mut B) -> (usize, usize);
     fn count_spaces(&self, buf: &mut B) -> u32;
-    fn count_whitespace(&self, buf: &mut B) -> usize;
+
+    fn count_whitespace(&self, buf: &mut B) -> usize {
+        self.count_whitespace_from(buf, 0)
+    }
+    fn count_whitespace_from(&self, buf: &mut B, offset: usize) -> usize;
     fn count_spaces_till(&self, indent: u32) -> usize;
     fn is_empty_newline(&self, buf: &mut B) -> bool;
     fn get_double_quote(&self, buf: &mut B) -> Option<usize>;
@@ -88,8 +92,7 @@ pub trait Reader<B> {
         offset_start: Option<usize>,
         had_comment: &mut bool,
         in_flow_collection: bool,
-        in_key: bool,
-    ) -> (usize, usize, Option<ErrorType>);
+    ) -> (usize, usize, usize);
 }
 
 #[inline]

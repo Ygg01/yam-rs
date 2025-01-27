@@ -611,10 +611,10 @@ const X2_DK4H_EVENTS: &str = r"
 
 #[test]
 fn flow_map_edge() {
+    assert_eq_event(X_CT4Q_INPUT, X_CT4Q_EVENTS);
     assert_eq_event(X1_DK4H_INPUT, X1_DK4H_EVENTS);
     assert_eq_event(X2_DK4H_INPUT, X2_DK4H_EVENTS);
     assert_eq_event(X_DFF7_INPUT, X_DFF7_EVENTS);
-    assert_eq_event(X_CT4Q_INPUT, X_CT4Q_EVENTS);
     assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
     assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);
     assert_eq_event(MAP_ERR_INPUT, MAP_ERR_EVENTS);
