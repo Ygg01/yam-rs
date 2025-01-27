@@ -64,6 +64,7 @@ pub trait Reader<B> {
     fn col(&self) -> usize;
     fn line(&self) -> usize;
     fn pos(&self) -> usize;
+    fn peek_chars(&self) -> &[u8];
     fn peek_byte(&self) -> Option<u8>;
     fn peek_byte2(&self) -> Option<u8>;
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;
