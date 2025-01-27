@@ -1,9 +1,9 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
-pub use native::{mask_merge, U8X16, u8x16_swizzle, u8x64_eq, u8x64_lteq};
 pub use native::U8X8;
-pub use table::{U8_BYTE_COL_TABLE, U8_INDENT_TABLE, U8_ROW_TABLE};
+pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
+pub use table::{INDENT_SWIZZLE_TABLE, U8_BYTE_COL_TABLE, U8_ROW_TABLE};
 
 mod chunked_iter;
 mod native;
@@ -299,40 +299,94 @@ pub fn count_indent_dependent(
     whitespace_mask: u64,
     prev_iter_char: &mut u8,
     prev_indent: &mut u32,
-    prev_byte_col: &[u32; 64],
+    prev_byte_cols: &[u32; 64],
     indents: &mut [u32; 64],
 ) {
     let space_start_edge = whitespace_mask & !(whitespace_mask << 1);
     let after_indent_bits = newline_mask.wrapping_sub(space_start_edge);
 
-    let (after_indent_bits, not_space) = after_indent_bits.overflowing_shr(2);
-    let swizzle_vec = [0, 0, 0, 1, 2, 3, 4, 7];
-    let array: &[u32; 8] = <&[u32; 8]>::try_from(&prev_byte_col);
+    #[inline]
+    fn copy_and_swizzle(byte_cols: &[u32], byte_indents: &mut [u32], starts: usize, mask: usize) {
+        // Safety: This is safe because all mask values are between 0..7 and INDENT_SWIZZLE_TABLE
+        // is always between 0..=7
+        unsafe {
+            let swizzle = swizzle_u32x8(byte_cols, INDENT_SWIZZLE_TABLE.get_unchecked(mask));
+            core::ptr::copy_nonoverlapping(
+                swizzle.as_ptr(),
+                byte_indents.as_mut_ptr().add(starts),
+                8,
+            );
+        }
+    }
+    //
+    let (after_indent_bits, not_space) = after_indent_bits.overflowing_shr(1);
 
-
-    // let array = <&[u32; 8]>::try_from(&prev_byte_col[0..8]);
-
-    // indents[0..8].copy_from_slice(&swizzle_u32x8(array, swizzle_vec));
-    // indents[8..16].copy_from_slice(&swizzle_u32x8(&prev_byte_col[8..16].try_from()?
-
-
-    indents.copy_from_slice(prev_byte_col);
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        0,
+        (after_indent_bits & 0xFF) as usize,
+    );
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        8,
+        ((after_indent_bits & 0xFF00) >> 8) as usize,
+    );
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        16,
+        ((after_indent_bits & 0xFF_0000) >> 16) as usize,
+    );
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        24,
+        ((after_indent_bits & 0xFF00_0000) >> 24) as usize,
+    );
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        32,
+        ((after_indent_bits & 0xFF_0000_0000) >> 32) as usize,
+    );
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        40,
+        ((after_indent_bits & 0xFF00_0000_0000) >> 40) as usize,
+    );
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        48,
+        ((after_indent_bits & 0xFF_0000_0000_0000) >> 48) as usize,
+    );
+    copy_and_swizzle(
+        prev_byte_cols,
+        indents,
+        56,
+        ((after_indent_bits & 0xFF00_0000_0000_0000) >> 56) as usize,
+    );
 }
 
-fn swizzle_u32x8(vec: &[u32; 8], swizzle: [u8; 8]) -> [u32; 8] {
-    debug_assert!(swizzle.iter().all(|x| *x >= 0 && *x < 8));
+fn swizzle_u32x8(vec: &[u32], swizzle: &[u8; 8]) -> [u32; 8] {
     // Safety:
-    // Vector [u8; 8] must have values in 0..=7 which will be true for all table values.
+    // Vector [u8; 8] must have values in 0..=7 which will be true for all swizzle.
+    // we could use
+    //   debug_assert!(swizzle.iter().all(|x| *x >= 0 && *x < 8));
+    // versus `& 7`
     unsafe {
         [
-            *vec.get_unchecked(*swizzle.get_unchecked(0) as usize),
-            *vec.get_unchecked(*swizzle.get_unchecked(1) as usize),
-            *vec.get_unchecked(*swizzle.get_unchecked(2) as usize),
-            *vec.get_unchecked(*swizzle.get_unchecked(3) as usize),
-            *vec.get_unchecked(*swizzle.get_unchecked(4) as usize),
-            *vec.get_unchecked(*swizzle.get_unchecked(5) as usize),
-            *vec.get_unchecked(*swizzle.get_unchecked(6) as usize),
-            *vec.get_unchecked(*swizzle.get_unchecked(7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(0) & 7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(1) & 7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(2) & 7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(3) & 7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(4) & 7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(5) & 7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(6) & 7) as usize),
+            *vec.get_unchecked((*swizzle.get_unchecked(7) & 7) as usize),
         ]
     }
 }
