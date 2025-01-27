@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::marker::PhantomData;
+use std::ops::Index;
 use std::path::Path;
 use std::{fmt::Write, io, str::from_utf8_unchecked};
 
@@ -22,13 +23,14 @@ use super::StrReader;
 /// It's generic over:
 /// `'a` - lifetime
 /// [R] - Reader
-/// [B] - Buffer Type
-/// [S] - Input source
-pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
+/// [RB] - Reader Buffer
+/// [I] - Input Buffer (optional)
+pub struct EventIterator<'a, R, RB = &'a [u8], I = (), > {
     /// Reader type that usually implements a [Reader] trait which takes a Buffer type [B]
     pub(crate) reader: R,
+    pub(crate) buffer: RB,
     /// Lexer which controls current state of parsing
-    pub(crate) state: Lexer<B>,
+    pub(crate) state: Lexer<I>,
     /// Current event indentation level
     pub indent: usize,
     /// Tag of current node,
@@ -36,14 +38,15 @@ pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
     /// Alias of current node,
     pub(crate) anchor: Option<Cow<'a, [u8]>>,
     /// Helper to store the unconstrained types
-    phantom: PhantomData<(&'a B, S)>,
+    phantom: PhantomData<(&'a I, RB)>,
 }
 
-impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>> {
+impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
     fn from(value: &'a str) -> Self {
         EventIterator {
             reader: StrReader::from(value),
-            state: Lexer::default(),
+            state: Lexer::new_from_buf(()),
+            buffer: value.as_bytes(),
             indent: 1,
             tag: None,
             anchor: None,
@@ -52,11 +55,12 @@ impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>> {
     }
 }
 
-impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>> {
+impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
     fn from(value: &'a [u8]) -> Self {
         EventIterator {
             reader: StrReader::from(value),
-            state: Lexer::default(),
+            state: Lexer::new_from_buf(()),
+            buffer: value,
             indent: 1,
             tag: None,
             anchor: None,
@@ -65,26 +69,18 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>> {
     }
 }
 
-impl<'a, R, B, S> EventIterator<'a, R, B, S> {
+impl<'a, R, RB, B> EventIterator<'a, R, RB, B> {
     #[inline]
-    pub fn new(reader: R, src: B) -> EventIterator<'a, R, B, S> {
+    pub fn new(reader: R, buffer: RB, src: B) -> EventIterator<'a, R, RB, B> {
         EventIterator {
             reader,
+            buffer,
             state: Lexer::new_from_buf(src),
             indent: 1,
             tag: None,
             anchor: None,
             phantom: PhantomData::default(),
         }
-    }
-}
-
-impl<'a, R, B, S: BufRead> EventIterator<'a, R, B, S>
-where
-    R: Reader<B> + From<S>,
-{
-    pub fn from_buf(value: S, buf: B) -> Self {
-        EventIterator::new(From::from(value), buf)
     }
 }
 
@@ -234,9 +230,16 @@ impl<'a> Display for Event<'a> {
     }
 }
 
-impl<'a, R, B> Iterator for EventIterator<'a, R, B>
+impl<'a> Slicer<'a> for &'a [u8] {
+    fn slice(&self, start: usize, end: usize) -> &'a [u8] {
+        unsafe { self.get_unchecked(start..end) }
+    }
+}
+
+impl<'a, R, RB, B> Iterator for EventIterator<'a, R, RB, B>
 where
-    R: Slicer<'a> + Reader<B>,
+    R: Reader<B>,
+    RB: Slicer<'a>,
 {
     type Item = (Event<'a>, usize);
 
@@ -329,7 +332,7 @@ where
                         return if let (Some(start), Some(end)) =
                             (self.state.pop_token(), self.state.pop_token())
                         {
-                            let slice = Cow::Borrowed(self.reader.slice(start, end));
+                            let slice = Cow::Borrowed(self.buffer.slice(start, end));
                             Some((
                                 Directive {
                                     directive_type,
@@ -352,9 +355,9 @@ where
                                     if start < NewLine as usize && end < NewLine as usize =>
                                 {
                                     if cow.is_empty() {
-                                        cow = Cow::Borrowed(self.reader.slice(start, end));
+                                        cow = Cow::Borrowed(self.buffer.slice(start, end));
                                     } else {
-                                        cow.to_mut().extend(self.reader.slice(start, end))
+                                        cow.to_mut().extend(self.buffer.slice(start, end))
                                     }
                                     self.state.pop_token();
                                     self.state.pop_token();
@@ -395,7 +398,7 @@ where
                             (self.state.pop_token(), self.state.pop_token())
                         {
                             return Some((
-                                Alias(Cow::Borrowed(self.reader.slice(start, end))),
+                                Alias(Cow::Borrowed(self.buffer.slice(start, end))),
                                 curr_indent,
                             ));
                         }
@@ -404,7 +407,7 @@ where
                         if let (Some(start), Some(end)) =
                             (self.state.pop_token(), self.state.pop_token())
                         {
-                            self.anchor = Some(Cow::Borrowed(self.reader.slice(start, end)));
+                            self.anchor = Some(Cow::Borrowed(self.buffer.slice(start, end)));
                         }
                     }
                     TagStart => {
@@ -413,10 +416,11 @@ where
                             self.state.pop_token(),
                             self.state.pop_token(),
                         ) {
-                            let namespace = self.reader.slice(start, mid);
-                            let extension = self.reader.slice(mid, end);
+                            
+                            let namespace = self.buffer.slice(start, mid);
+                            let extension = self.buffer.slice(mid, end);
                             self.tag = if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
-                                let mut tag = Vec::from(self.reader.slice(e1, e2));
+                                let mut tag = Vec::from(self.buffer.slice(e1, e2));
                                 tag.extend_from_slice(extension);
                                 if tag.contains(&b'%') {
                                     tag = decode_binary(&tag).into_owned()
@@ -448,7 +452,7 @@ where
 
 pub fn assert_eq_event(input: &str, events: &str) {
     let mut line = String::new();
-    let scan: EventIterator<'_, StrReader> = EventIterator::from(input);
+    let scan: EventIterator<'_, StrReader, _> = EventIterator::from(input);
     scan.for_each(|(ev, indent)| {
         line.push('\n');
         line.push_str(&" ".repeat(indent));
