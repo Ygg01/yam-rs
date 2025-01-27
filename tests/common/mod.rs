@@ -17,4 +17,3 @@ pub fn assert_eq_event(input: &str, events: &str) {
 
     assert_eq!(line, events, "Error in {input}");
 }
-

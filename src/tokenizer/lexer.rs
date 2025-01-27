@@ -551,7 +551,14 @@ impl Lexer {
                             BlockMap(ind, ExpectValue) | BlockSeq(ind, _)
                                 if prop_node.col_start <= ind =>
                             {
-                                push_error(ExpectedIndent { actual: prop_node.col_start, expected: ind }, tokens, &mut self.errors);
+                                push_error(
+                                    ExpectedIndent {
+                                        actual: prop_node.col_start,
+                                        expected: ind,
+                                    },
+                                    tokens,
+                                    &mut self.errors,
+                                );
                             }
                             _ => {}
                         }
@@ -702,7 +709,7 @@ impl Lexer {
         reader.consume_bytes(1);
         self.skip_space_tab(reader);
         match self.curr_state() {
-            DocBlock | BlockSeq(_, _)=> {
+            DocBlock | BlockSeq(_, _) => {
                 self.next_substate();
                 let state = BlockMap(indent, BeforeBlockComplexKey);
                 self.push_block_state(state, reader.line());
@@ -788,7 +795,7 @@ impl Lexer {
             BlockMap(ind, BeforeBlockComplexKey) if ind == col_pos => {
                 // push_empty(&mut curr_node.spans, &mut self.prev_prop);
                 false
-            },
+            }
             BlockMap(_, BeforeBlockComplexKey) => is_inline_key,
             BlockMap(ind, ExpectValue) => {
                 if is_inline_key {
@@ -996,8 +1003,6 @@ impl Lexer {
             spans: tokens,
         }
     }
-
-
 
     fn try_parse_tag<B, R: Reader<B>>(&mut self, reader: &mut R, node: &mut Vec<usize>) -> bool {
         match reader.read_tag() {
@@ -1611,13 +1616,11 @@ impl Lexer {
             return;
         }
         for _ in 0..unwind {
-            if let Some(state @ (BlockMap(_,_) | BlockSeq(_, _))) = self.pop_state()  {
+            if let Some(state @ (BlockMap(_, _) | BlockSeq(_, _))) = self.pop_state() {
                 close_block_state(state, &mut self.prev_prop, spans);
             }
         }
     }
-
-
 
     fn find_matching_state<F: Fn(LexerState) -> bool>(&self, f: F) -> Option<usize> {
         self.stack
