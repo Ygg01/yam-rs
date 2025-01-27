@@ -815,8 +815,23 @@ const MULTI_EMPTY_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_6KGN_INPUT: &str = r"
+a: &anchor
+b: *anchor";
+
+const X1_6KGN_EVENTS: &str = r"
++DOC
++MAP
+=VAL :a
+=VAL &anchor :
+=VAL :b
+=ALI *anchor
+-MAP
+-DOC";
+
 #[test]
 fn block_empty_map() {
+    assert_eq_event(X1_6KGN_INPUT, X1_6KGN_EVENTS);
     assert_eq_event(NESTED_EMPTY_INPUT, NESTED_EMPTY_EVENTS);
 
     assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);

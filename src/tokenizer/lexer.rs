@@ -731,6 +731,11 @@ impl Lexer {
             ) {
                 self.pop_block_states(unwind, tokens);
                 match self.curr_state() {
+                    BlockMap(ind, ExpectValue) if ind == node_indents && is_inline_key => {
+                        tokens.extend(take(&mut self.prev_prop).spans);
+                        push_empty(tokens);
+                        self.next_substate();
+                    }
                     BlockMap(ind, _) if ind != node_indents => {
                         is_empty = false;
                         push_error(
