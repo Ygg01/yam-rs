@@ -162,7 +162,7 @@ pub unsafe trait Stage1Scanner {
     /// ```
     fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
 
-    fn flatten_bits_yaml(base: &mut YamlParserState, yaml_chunk_state: &YamlChunkState, bits: u64);
+    fn flatten_bits_yaml(base: &mut YamlParserState, yaml_chunk_state: &YamlChunkState);
 
     /// Calculates the indents of the given chunk and updates the `chunk_state` accordingly.
     ///

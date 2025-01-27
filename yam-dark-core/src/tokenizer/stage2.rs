@@ -250,10 +250,11 @@ pub struct YamlParserState {
 
 impl YamlParserState {
     pub(crate) fn process_chunk<B: Buffer, S: Stage1Scanner>(
-        &self,
+        &mut self,
         buffer: &mut B,
         chunk_state: &YamlChunkState,
     ) -> YamlResult<()> {
+        S::flatten_bits_yaml(self, chunk_state);
         Ok(())
     }
 

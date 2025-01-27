@@ -42,11 +42,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn flatten_bits_yaml(
-        _base: &mut YamlParserState,
-        _yaml_chunk_state: &YamlChunkState,
-        _bits: u64,
-    ) {
+    fn flatten_bits_yaml(_base: &mut YamlParserState, _yaml_chunk_state: &YamlChunkState) {
         todo!()
     }
 }
