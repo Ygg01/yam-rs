@@ -26,6 +26,7 @@ pub enum ErrorType {
     MappingExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
     UnexpectedEndOfScalar,
+    DuplicateKey,
 }
 
 pub trait Slicer<'a> {

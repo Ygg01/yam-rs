@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::borrow::Cow::Borrowed;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque, HashSet};
 use std::marker::PhantomData;
 use std::mem::take;
 
@@ -13,9 +13,11 @@ use super::YamlToken;
 
 pub struct YamlParser<'a, R, B = (), TAG = ()> {
     pub(crate) reader: R,
-    pub(crate) map: HashMap<String, YamlToken<'a, TAG>>,
+    pub(crate) map: HashMap<String, &'a YamlToken<'a, TAG>>,
     buf: PhantomData<B>,
 }
+
+
 
 impl<'a, R, B, TAG: Default> YamlParser<'a, R, B, TAG>
 where
@@ -92,13 +94,14 @@ where
     fn parse_mapping(
         &'a self,
         tokens: &mut VecDeque<usize>,
-        _errors: &mut Vec<ErrorType>,
+        errors: &mut Vec<ErrorType>,
         map_tag: TAG,
     ) -> YamlToken<TAG> {
         let mut seq_value = vec![];
         let mut tag = TAG::default();
         let mut entry = Entry::default();
         let mut is_key = true;
+        let mut keys = HashSet::new();
         while let Some(x) = tokens.pop_front() {
             let token: LexerToken = x.into();
             match token {
@@ -106,33 +109,56 @@ where
                 MappingEnd => break,
                 SequenceStart if is_key => {
                     is_key = false;
-                    entry.key = self.parse_sequence(tokens, _errors, take(&mut tag));
+                    entry.key = self.parse_sequence(tokens, errors, take(&mut tag));
+                    let key_str = format!("{}", entry.key);
+                    if keys.contains(&key_str) {
+                        errors.push(ErrorType::DuplicateKey);
+                        break;
+                    } else {
+                        keys.insert(key_str);
+                    }
                 }
                 SequenceStart if !is_key => {
                     is_key = true;
-                    entry.value = self.parse_sequence(tokens, _errors, take(&mut tag));
+                    entry.value = self.parse_sequence(tokens, errors, take(&mut tag));
                     seq_value.push(take(&mut entry));
                 }
                 MappingStart if is_key => {
                     is_key = false;
-                    entry.key = self.parse_mapping(tokens, _errors, take(&mut tag));
+                    entry.key = self.parse_mapping(tokens, errors, take(&mut tag));
+
+                    let key_str = format!("{}", entry.key);
+                    if keys.contains(&key_str) {
+                        errors.push(ErrorType::DuplicateKey);
+                        break;
+                    } else {
+                        keys.insert(key_str);
+                    }
                 }
                 MappingStart if !is_key => {
                     is_key = true;
-                    entry.value = self.parse_mapping(tokens, _errors, take(&mut tag));
+                    entry.value = self.parse_mapping(tokens, errors, take(&mut tag));
                     seq_value.push(take(&mut entry));
                 }
                 ScalarPlain | ScalarFold | ScalarLit | ScalarSingleQuote | ScalarDoubleQuote
                     if is_key =>
                 {
                     is_key = false;
-                    entry.key = self.parse_scalar(tokens, _errors, take(&mut tag));
+                    entry.key = self.parse_scalar(tokens, errors, take(&mut tag));
+                    
+                    let key_str = format!("{}", entry.key);
+                    if keys.contains(&key_str) {
+                        errors.push(ErrorType::DuplicateKey);
+                        break;
+                    } else {
+                        keys.insert(key_str);
+                    }
                 }
                 ScalarPlain | ScalarFold | ScalarLit | ScalarSingleQuote | ScalarDoubleQuote
                     if !is_key =>
                 {
                     is_key = true;
-                    entry.value = self.parse_scalar(tokens, _errors, take(&mut tag));
+                    entry.value = self.parse_scalar(tokens, errors, take(&mut tag));
                     seq_value.push(take(&mut entry));
                 }
                 _ => {}
