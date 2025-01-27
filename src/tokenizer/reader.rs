@@ -105,6 +105,7 @@ pub trait Reader {
     );
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<SpanToken>);
     fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<SpanToken>, token_push: SpanToken);
+    fn read_tag(&self) -> Option<(usize, usize)>;
 }
 
 #[inline]

@@ -695,4 +695,8 @@ impl<'r> Reader for StrReader<'r> {
         tokens.push_back(MarkStart(start));
         tokens.push_back(MarkEnd(end));
     }
+
+    fn read_tag(&self) -> Option<(usize, usize)> {
+        todo!()
+    }
 }
