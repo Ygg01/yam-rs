@@ -1,10 +1,12 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
-pub use native::{mask_and_add_u8x16, mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
+pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
+pub use table::VAL;
 
 mod chunked_iter;
 mod native;
+mod table;
 
 #[doc(hidden)]
 pub struct NoopValidator();
