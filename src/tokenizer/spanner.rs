@@ -27,12 +27,6 @@ pub struct Lexer {
     stack: Vec<LexerState>,
 }
 
-impl Lexer {
-    pub(crate) fn extract(self) -> (VecDeque<usize>, Vec<ErrorType>) {
-        (self.tokens, self.errors)
-    }
-}
-
 pub trait StateSpanner<T> {}
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
@@ -690,28 +684,28 @@ pub enum LexerToken {
     /// Reference to an element with alternative name e.g. `*foo`
     AnchorToken = ANCHOR,
     TagStart = TAG_START,
-    /// Start of a sequence token, e.g. `[` in 
+    /// Start of a sequence token, e.g. `[` in
     /// ```yaml
     ///  [a, b, c]
-    /// #^-- start of sequence 
+    /// #^-- start of sequence
     /// ```
     SequenceStart = SEQ_START,
-    /// End of a sequence token, e.g. `]` in 
+    /// End of a sequence token, e.g. `]` in
     /// ```yaml
     ///  [a, b, c]
-    /// #        ^-- end of sequence 
+    /// #        ^-- end of sequence
     /// ```
     SequenceEnd = SEQ_END,
-    /// Start of a map  token, e.g. `{` in 
+    /// Start of a map  token, e.g. `{` in
     /// ```yaml
     ///  { a: b,}
-    /// #^-- start of mapping 
+    /// #^-- start of mapping
     /// ```
     MappingStart = MAP_START,
-    /// End of a map  token, e.g. `}` in 
+    /// End of a map  token, e.g. `}` in
     /// ```yaml
     ///  { a: b}
-    /// #      ^-- start of mapping 
+    /// #      ^-- start of mapping
     /// ```
     MappingEnd = MAP_END,
     /// Start of document implicit or otherwise
@@ -721,10 +715,9 @@ pub enum LexerToken {
 }
 
 impl LexerToken {
-
     ///
     /// This method transforms a [LexerToken] into a [DirectiveType]
-    /// 
+    ///
     /// It's UB to call on any [LexexToken] that isn't [DirectiveTag], [DirectiveYaml], or  [DirectiveReserved].
     #[inline(always)]
     pub(crate) unsafe fn to_yaml_directive(self) -> DirectiveType {
@@ -738,8 +731,8 @@ impl LexerToken {
 
     ///
     /// This method transforms a [LexerToken] into a [ScalarType]
-    /// 
-    /// It's UB to call on any [LexexToken] that isn't [ScalarPlain], [Mark], [ScalarFold], [ScalarLit], 
+    ///
+    /// It's UB to call on any [LexexToken] that isn't [ScalarPlain], [Mark], [ScalarFold], [ScalarLit],
     /// [ScalarSingleQuote], [ScalarDoubleQuote].
     #[inline(always)]
     pub(crate) unsafe fn to_scalar(self) -> ScalarType {
