@@ -58,8 +58,8 @@ impl<'a> Iterator for LookAroundBytes<'a> {
 
 pub trait Reader<B> {
     fn eof(&self) -> bool;
-    fn col(&self) -> usize;
-    fn line(&self) -> usize;
+    fn col(&self) -> u32;
+    fn line(&self) -> u32;
     fn pos(&self) -> usize;
     fn peek_chars(&self) -> &[u8];
     fn peek_byte(&self) -> Option<u8>;
@@ -87,7 +87,7 @@ pub trait Reader<B> {
         &mut self,
         literal: bool,
         curr_state: &LexerState,
-        prev_indent: usize,
+        prev_indent: u32,
         errors: &mut Vec<ErrorType>,
     ) -> Vec<usize>;
     fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize>;

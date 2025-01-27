@@ -369,6 +369,7 @@ fn flow_map_edge() {
     assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
     assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);
 }
+
 const CUSTOM_TAG_INPUT: &str = r#"
 %TAG !m! !my-
 --- # Bulb here
