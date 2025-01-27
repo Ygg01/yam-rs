@@ -3,23 +3,18 @@
 use std::collections::VecDeque;
 
 use ErrorType::NoDocStartAfterTag;
-use SpanToken::{DocumentStart, Separator, Space};
+use SpanToken::{DocumentStart, Separator};
 
-use crate::tokenizer::reader::{
-    is_flow_indicator, is_indicator, is_white_tab, is_white_tab_or_break, ns_plain_safe, Reader,
-};
+use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
     AfterDocEnd, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
 };
 use crate::tokenizer::spanner::SpanToken::{
-    Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, NewLine,
-    SequenceEnd, SequenceStart,
+    Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd,
+    SequenceStart,
 };
-use crate::tokenizer::ErrorType::ExpectedIndent;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::{DirectiveType, ErrorType};
-
-use super::reader::is_newline;
 
 #[derive(Clone)]
 pub struct Spanner {
@@ -79,27 +74,18 @@ impl ParserState {
     }
 
     #[inline]
-    fn is_block_col(&self) -> bool {
+    pub(crate) fn is_block_col(&self) -> bool {
         matches!(self, BlockMap(_) | BlockSeq(_))
     }
 
     #[inline]
-    fn is_new_block_col(&self, curr_indent: usize) -> bool {
+    pub(crate) fn is_new_block_col(&self, curr_indent: usize) -> bool {
         match &self {
             FlowKey(_, _) | FlowMap(_) | FlowSeq(_) => false,
             BlockMap(x) if *x == curr_indent => false,
             _ => true,
         }
     }
-}
-
-enum ChompIndicator {
-    /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
-    Strip,
-    ///  `` final line break character is preserved in the scalar’s content
-    Clip,
-    /// `+` final line break and any trailing empty lines are considered to be part of the scalar’s content
-    Keep,
 }
 
 impl Spanner {
@@ -119,7 +105,7 @@ impl Spanner {
     }
 
     pub fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
-        self.skip_separation_spaces(reader, true);
+        reader.skip_separation_spaces(true);
         match self.curr_state {
             PreDocStart => {
                 if !reader.peek_byte_is(b'%') {
@@ -171,10 +157,18 @@ impl Spanner {
                     Some(b'-') => self.fetch_block_seq(reader, indent),
                     Some(b'?') => self.fetch_block_map_key(reader),
                     Some(b'!') => self.fetch_tag(reader),
-                    Some(b'|') => self.fetch_block_scalar(reader, true),
-                    Some(b'>') => self.fetch_block_scalar(reader, false),
-                    Some(b'\'') => self.fetch_single_quote(reader),
-                    Some(b'"') => self.fetch_double_quote(reader),
+                    Some(b'|') => {
+                        reader.read_block_scalar(true, &self.curr_state, &mut self.tokens)
+                    }
+                    Some(b'>') => {
+                        reader.read_block_scalar(false, &self.curr_state, &mut self.tokens)
+                    }
+                    Some(b'\'') => {
+                        reader.read_single_quote(self.curr_state.is_implicit(), &mut self.tokens)
+                    }
+                    Some(b'"') => {
+                        reader.read_double_quote(self.curr_state.is_implicit(), &mut self.tokens)
+                    }
                     Some(b'#') => {
                         // comment
                         reader.read_line();
@@ -207,8 +201,12 @@ impl Spanner {
                     reader.consume_bytes(1);
                     self.tokens.push_back(Separator);
                 }
-                Some(b'\'') => self.fetch_single_quote(reader),
-                Some(b'"') => self.fetch_double_quote(reader),
+                Some(b'\'') => {
+                    reader.read_single_quote(self.curr_state.is_implicit(), &mut self.tokens)
+                }
+                Some(b'"') => {
+                    reader.read_double_quote(self.curr_state.is_implicit(), &mut self.tokens)
+                }
                 Some(b':') => {
                     reader.consume_bytes(1);
                     self.tokens.push_back(MappingStart);
@@ -246,8 +244,12 @@ impl Spanner {
                 Some(b',') => {
                     reader.consume_bytes(1);
                 }
-                Some(b'\'') => self.fetch_single_quote(reader),
-                Some(b'"') => self.fetch_double_quote(reader),
+                Some(b'\'') => {
+                    reader.read_single_quote(self.curr_state.is_implicit(), &mut self.tokens)
+                }
+                Some(b'"') => {
+                    reader.read_double_quote(self.curr_state.is_implicit(), &mut self.tokens)
+                }
                 Some(b'#') => {
                     // comment
                     reader.read_line();
@@ -308,7 +310,7 @@ impl Spanner {
     fn pop_state(&mut self) {
         match self.stack.pop_back() {
             Some(x) => self.curr_state = x,
-            None => self.curr_state = ParserState::AfterDocEnd,
+            None => self.curr_state = AfterDocEnd,
         }
     }
 
@@ -337,389 +339,12 @@ impl Spanner {
         todo!()
     }
 
-    fn fetch_block_scalar<R: Reader>(&mut self, reader: &mut R, literal: bool) {
-        reader.consume_bytes(1);
-        let mut chomp = ChompIndicator::Clip;
-        let mut indentation: usize = 0;
-
-        match (reader.peek_byte_unwrap(0), reader.peek_byte_unwrap(1)) {
-            (b'-', len) | (len, b'-') if matches!(len, b'1'..=b'9') => {
-                reader.consume_bytes(2);
-                chomp = ChompIndicator::Strip;
-                indentation = self.curr_state.indent(0) + (len - b'0') as usize;
-            }
-            (b'+', len) | (len, b'+') if matches!(len, b'1'..=b'9') => {
-                reader.consume_bytes(2);
-                chomp = ChompIndicator::Keep;
-                indentation = self.curr_state.indent(0) + (len - b'0') as usize;
-            }
-            (b'-', _) => {
-                reader.consume_bytes(1);
-                chomp = ChompIndicator::Strip;
-            }
-            (b'+', _) => {
-                reader.consume_bytes(1);
-                chomp = ChompIndicator::Keep;
-            }
-            (len, _) if matches!(len, b'1'..=b'9') => {
-                reader.consume_bytes(1);
-                indentation = self.curr_state.indent(0) + (len - b'0') as usize;
-            }
-            _ => {}
-        }
-
-        // allow comment in first line of block scalar
-        reader.skip_space_tab(true);
-        if reader.peek_byte_is(b'#') {
-            reader.read_line();
-        } else if reader.read_break().is_none() {
-            self.tokens
-                .push_back(ErrorToken(ErrorType::ExpectedNewline));
-            return;
-        }
-
-        let mut new_line_token = 0;
-        let mut trailing = vec![];
-        let mut is_trailing_comment = false;
-        let mut previous_indent = 0;
-        while !reader.eof() {
-            let curr_indent = self.curr_state.indent(0);
-
-            if let (b'-', BlockSeq(ind)) = (reader.peek_byte_unwrap(curr_indent), self.curr_state) {
-                if reader.col() + curr_indent == ind {
-                    reader.consume_bytes(1 + curr_indent);
-                    trailing.push(Separator);
-                    break;
-                }
-            }
-
-            // count indents important for folded scalars
-            let newline_indent = reader.count_space_tab(false);
-
-            if !is_trailing_comment
-                && newline_indent < indentation
-                && reader.peek_byte_unwrap(newline_indent) == b'#'
-            {
-                trailing.push(NewLine(new_line_token - 1));
-                is_trailing_comment = true;
-                new_line_token = 1;
-            };
-
-            let newline_is_empty = reader.peek_byte_at_check(newline_indent, is_newline)
-                || (is_trailing_comment && reader.peek_byte_unwrap(newline_indent) == b'#');
-
-            if indentation == 0 && newline_indent > 0 && !newline_is_empty {
-                indentation = newline_indent;
-            }
-
-            if newline_is_empty {
-                new_line_token += 1;
-                reader.read_line();
-                continue;
-            } else if let Err(x) = reader.skip_n_spaces(indentation) {
-                self.tokens.push_back(ErrorToken(x));
-                break;
-            }
-
-            let (start, end) = reader.read_line();
-            if start != end {
-                if new_line_token > 0 {
-                    let token =
-                        if new_line_token == 1 && !literal && previous_indent == newline_indent {
-                            Space
-                        } else {
-                            NewLine(new_line_token)
-                        };
-                    self.tokens.push_back(token);
-                }
-                previous_indent = newline_indent;
-                self.tokens.push_back(MarkStart(start));
-                self.tokens.push_back(MarkEnd(end));
-                new_line_token = 1;
-            }
-        }
-        match chomp {
-            ChompIndicator::Keep => {
-                if is_trailing_comment {
-                    new_line_token = 1;
-                }
-                trailing.insert(0, NewLine(new_line_token));
-                self.tokens.extend(trailing);
-            }
-            ChompIndicator::Clip => {
-                trailing.insert(0, NewLine(1));
-                self.tokens.extend(trailing);
-            }
-            ChompIndicator::Strip => {}
-        }
-    }
-
-    fn fetch_double_quote<R: Reader>(&mut self, reader: &mut R) {
-        reader.consume_bytes(1);
-        let is_implicit = self.curr_state.is_implicit();
-
-        while !reader.eof() {
-            let (line_start, line_end, _) = reader.get_line_offset();
-            let pos = memchr::memchr(b'"', reader.slice_bytes(line_start, line_end));
-            match pos {
-                Some(len) if len > 1 => {
-                    // Check for `\` escape
-                    if reader.peek_byte_at(len - 1) != Some(b'\\') {
-                        self.tokens.push_back(MarkStart(line_start));
-                        self.tokens.push_back(MarkEnd(line_start + len));
-                        reader.consume_bytes(len + 1);
-                        break;
-                    } else {
-                        self.tokens.push_back(MarkStart(line_start));
-                        self.tokens.push_back(MarkEnd(line_start + len - 1));
-                        // we add the escaped `"` in `\"`
-                        self.tokens.push_back(MarkStart(line_start + len ));
-                        self.tokens.push_back(MarkEnd(line_start + len + 1));
-                        reader.consume_bytes(len + 1);
-                        continue;
-                    }
-                }
-                Some(len) => {
-                    self.tokens.push_back(MarkStart(line_start));
-                    self.tokens.push_back(MarkEnd(line_start + len));
-                    reader.consume_bytes(len + 1);
-                    break;
-                }
-                None => {
-                    self.tokens.push_back(MarkStart(line_start));
-                    self.tokens.push_back(MarkEnd(line_end));
-                    self.tokens.push_back(Space);
-                    reader.read_line();
-                    reader.skip_space_tab(is_implicit);
-                }
-            }
-        }
-    }
-
-    fn fetch_single_quote<R: Reader>(&mut self, reader: &mut R) {
-        reader.consume_bytes(1);
-        let is_implicit = self.curr_state.is_implicit();
-
-        while !reader.eof() {
-            let (line_start, line_end, _) = reader.get_line_offset();
-            let pos = memchr::memchr(b'\'', reader.slice_bytes(line_start, line_end));
-            match pos {
-                Some(len) => {
-                    // Converts double '' to ' hence why we consume one extra char
-                    if reader.peek_byte_at(len + 1) == Some(b'\'') {
-                        self.tokens.push_back(MarkStart(line_start));
-                        self.tokens.push_back(MarkEnd(line_start + len + 1));
-                        reader.consume_bytes(len + 2);
-                        continue;
-                    } else {
-                        self.tokens.push_back(MarkStart(line_start));
-                        self.tokens.push_back(MarkEnd(line_start + len));
-                        reader.consume_bytes(len + 1);
-                        break;
-                    }
-                }
-                None => {
-                    self.tokens.push_back(MarkStart(line_start));
-                    self.tokens.push_back(MarkEnd(line_end));
-                    self.tokens.push_back(Space);
-                    reader.read_line();
-                    reader.skip_space_tab(is_implicit);
-                }
-            }
-        }
-    }
-
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, start_indent: usize) {
-        let mut allow_minus = false;
-        let mut first_line_block = !self.curr_state.in_flow_collection();
-        let mut num_newlines = 0;
-        let mut tokens = vec![];
-        let mut curr_indent = reader.col();
-        let init_indent = if matches!(self.curr_state, BlockMap(_)) {
-            reader.col()
-        } else {
-            start_indent
-        };
-        let mut had_comment = false;
-
-        while !reader.eof() {
-            // if plain scalar is less indentend than previous
-            // It can be
-            // a) Part of BlockMap
-            // b) An error outside of block map
-            if curr_indent < init_indent {
-                if matches!(self.curr_state, BlockMap(_)) {
-                    tokens.push(Separator);
-                } else if !self.curr_state.is_block_col() {
-                    reader.read_line();
-                    tokens.push(ErrorToken(ErrorType::ExpectedIndent {
-                        actual: curr_indent,
-                        expected: start_indent,
-                    }));
-                }
-                break;
-            }
-
-            let (start, end) = match self.read_plain_one_line(reader, allow_minus, &mut had_comment)
-            {
-                Some(x) => x,
-                None => break,
-            };
-
-            reader.skip_space_tab(true);
-
-            let chr = reader.peek_byte_unwrap(0);
-
-            if first_line_block && chr == b':' {
-                if self.curr_state.is_new_block_col(curr_indent) {
-                    self.push_state(BlockMap(curr_indent));
-                    self.tokens.push_back(MappingStart);
-                }
-                self.tokens.push_back(MarkStart(start));
-                self.tokens.push_back(MarkEnd(end));
-                return;
-            }
-
-            match num_newlines {
-                x if x == 1 => tokens.push(Space),
-                x if x > 1 => tokens.push(NewLine(num_newlines)),
-                _ => {}
-            }
-
-            tokens.push(MarkStart(start));
-            tokens.push(MarkEnd(end));
-            first_line_block = false;
-
-            if is_newline(chr) {
-                let folded_newline = self.skip_separation_spaces(reader, false);
-                if reader.col() >= self.curr_state.indent(0) {
-                    num_newlines = folded_newline as u32;
-                }
-                curr_indent = reader.col();
-            }
-
-            if self.curr_state.in_flow_collection() && is_flow_indicator(chr) {
-                break;
-            }
-
-            match (reader.peek_byte_unwrap(0), self.curr_state) {
-                (b'-', BlockSeq(ind)) if reader.col() == ind => {
-                    reader.consume_bytes(1);
-                    tokens.push(Separator);
-                    break;
-                }
-                (b'-', BlockSeq(ind)) if reader.col() < ind => {
-                    reader.read_line();
-                    let err_type = ExpectedIndent {
-                        expected: ind,
-                        actual: curr_indent,
-                    };
-                    tokens.push(ErrorToken(err_type));
-                    break;
-                }
-                (b'-', BlockSeq(ind)) if reader.col() > ind => {
-                    allow_minus = true;
-                }
-                _ => {}
-            }
+        let (tokens, new_state) = reader.read_plain_scalar(start_indent, &self.curr_state);
+        if let Some(new_state) = new_state {
+            self.push_state(new_state);
         }
         self.tokens.extend(tokens);
-    }
-
-    fn skip_separation_spaces<R: Reader>(&mut self, reader: &mut R, allow_comments: bool) -> usize {
-        let mut num_breaks = 0;
-        let mut found_eol = true;
-        while !reader.eof() {
-            reader.skip_space_tab(true);
-
-            if allow_comments && reader.peek_byte_is(b'#') {
-                reader.read_line();
-                found_eol = true;
-                num_breaks += 1;
-            }
-
-            if reader.read_break().is_some() {
-                num_breaks += 1;
-                found_eol = true;
-            }
-
-            if !found_eol {
-                break;
-            } else {
-                reader.skip_space_tab(false);
-                found_eol = false;
-            }
-        }
-        num_breaks
-    }
-
-    fn read_plain_one_line<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        allow_minus: bool,
-        had_comment: &mut bool,
-    ) -> Option<(usize, usize)> {
-        let start = reader.pos();
-        let in_flow_collection = self.curr_state.in_flow_collection();
-
-        if !(allow_minus && reader.peek_byte_is(b'-'))
-            && (reader.eof()
-                || reader.peek_byte_at_check(0, is_white_tab_or_break)
-                || reader.peek_byte_at_check(0, is_indicator)
-                || (reader.peek_byte_is(b'-') && !reader.peek_byte_at_check(1, is_white_tab))
-                || ((reader.peek_byte_is(b'?') || reader.peek_byte_is(b':'))
-                    && !reader.peek_byte_at_check(1, is_white_tab_or_break)))
-        {
-            return None;
-        }
-
-        let end = reader.consume_bytes(1);
-        let (_, line_end, _) = reader.get_line_offset();
-        let line_end = reader.eof_or_pos(line_end);
-        let mut end_of_str = end;
-
-        for (prev, curr, next, pos) in reader.get_lookahead_iterator(end..=line_end) {
-            // ns-plain-char  prevent ` #`
-            if curr == b'#' && is_white_tab_or_break(prev) {
-                // if we encounter two or more comment print error and try to recover
-                if *had_comment {
-                    self.tokens
-                        .push_back(ErrorToken(ErrorType::UnexpectedComment))
-                } else {
-                    *had_comment = true;
-                    reader.set_pos(line_end);
-                    return Some((start, end_of_str));
-                }
-                break;
-            }
-
-            // ns-plain-char prevent `: `
-            // or `:{`  in flow collections
-            if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
-                // commit any uncommitted character, but ignore first character
-                if !is_white_tab(prev) && pos != end {
-                    end_of_str += 1;
-                }
-                break;
-            }
-
-            // if current character is a flow indicator, break
-            if is_flow_indicator(curr) {
-                break;
-            }
-
-            if is_white_tab_or_break(curr) {
-                // commit any uncommitted character, but ignore first character
-                if !is_white_tab_or_break(prev) && pos != end {
-                    end_of_str += 1;
-                }
-                continue;
-            }
-            end_of_str = pos;
-        }
-
-        reader.set_pos(end_of_str);
-        Some((start, end_of_str))
     }
 
     fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R) {

@@ -1,14 +1,14 @@
 use std::fmt::{Display, Formatter};
 
+pub use iterator::EventIterator;
 pub use reader::Reader;
 pub use reader::StrReader;
 pub use spanner::SpanToken;
 pub use spanner::Spanner;
-pub use iterator::EventIterator;
 
+mod iterator;
 mod reader;
 mod spanner;
-mod iterator;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ErrorType {

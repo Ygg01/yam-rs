@@ -194,7 +194,6 @@ const DQUOTE_STR_ESCAPE1: &'static str = r#"
 const DQUOTE_STR_ESCAPE_EXPECTED: &'static str = r#"
   =VAL double quote (")"#;
 
-
 #[test]
 fn flow_double_quote() {
     assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
