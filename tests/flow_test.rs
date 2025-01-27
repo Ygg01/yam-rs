@@ -620,20 +620,37 @@ fn flow_map_edge() {
     assert_eq_event(MAP_ERR_INPUT, MAP_ERR_EVENTS);
 }
 
-const CUSTOM_TAG_INPUT: &str = r"
+const FLOW_TAG_INPUT: &str = r"
 %TAG !m! !my-
 --- # Bulb here
 !m!light fluorescent
 ...";
 
-const CUSTOM_TAG_EVENTS: &str = r"
+const FLOW_TAG_EVENTS: &str = r"
 +DOC ---
 =VAL <!my-light> :fluorescent
 -DOC ...";
 
+const X1_EHF6_INPUT: &str = r"
+!!map {
+    k: !!seq [a, !!str b]
+}";
+
+const X1_EHF6_EVENTS: &str = r"
++DOC
++MAP {} <tag:yaml.org,2002:map>
+=VAL :k
++SEQ [] <tag:yaml.org,2002:seq>
+=VAL :a
+=VAL <tag:yaml.org,2002:str> :b
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 fn flow_custom_tag() {
-    assert_eq_event(CUSTOM_TAG_INPUT, CUSTOM_TAG_EVENTS);
+    assert_eq_event(X1_EHF6_INPUT, X1_EHF6_EVENTS);
+    assert_eq_event(FLOW_TAG_INPUT, FLOW_TAG_EVENTS);
 }
 
 const FLOW_ALIAS_INPUT: &str = r"
@@ -663,13 +680,13 @@ const ALIAS_N_COMP_MAP_EVENTS: &str = r"
 -MAP
 -DOC";
 
-const X_CN3R_INPUT: &str = r"
+const X1_CN3R_INPUT: &str = r"
 [
  { &e e: f },
  &g { g: h }
 ]";
 
-const X_CN3R_EVENTS: &str = r"
+const X1_CN3R_EVENTS: &str = r"
 +DOC
 +SEQ []
 +MAP {}
@@ -683,9 +700,22 @@ const X_CN3R_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X2_CN3R_INPUT: &str = r"
+  { &e e: f }
+";
+
+const X2_CN3R_EVENTS: &str = r"
++DOC
++MAP {}
+=VAL &e :e
+=VAL :f
+-MAP
+-DOC";
+
 #[test]
 fn flow_alias() {
-    assert_eq_event(X_CN3R_INPUT, X_CN3R_EVENTS);
+    assert_eq_event(X2_CN3R_INPUT, X2_CN3R_EVENTS);
+    assert_eq_event(X1_CN3R_INPUT, X1_CN3R_EVENTS);
     assert_eq_event(FLOW_ALIAS_INPUT, FLOW_ALIAS_EVENTS);
     assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
 }
