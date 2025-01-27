@@ -33,6 +33,10 @@ impl<'a> Iterator for ChunkyIterator<'a> {
                 Some(unsafe { &*first.as_ptr().cast::<[u8; 64]>() })
             }
             i if i > 0 && i < 64 => unsafe {
+                // SAFETY: We pad the len to 64
+                // First copy 64 spaces
+                // Then copy over what remains of the data.
+                // In theory, spaces don't affect YAML parsing if no entry is present.
                 self.extra_bytes.set_len(64);
                 ptr::copy_nonoverlapping(EMPTY_CHUNK.as_ptr(), self.extra_bytes.as_mut_ptr(), 64);
                 ptr::copy_nonoverlapping(
