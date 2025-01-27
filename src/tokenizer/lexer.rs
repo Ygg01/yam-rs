@@ -43,9 +43,9 @@ pub struct Lexer {
 
 pub(crate) struct SeparationSpaceInfo {
     num_breaks: u32,
+    num_indent: u32,
     has_comment: bool,
     has_tab: bool,
-    has_leading_tab: bool,
 }
 
 #[derive(Clone, Default)]
@@ -1466,16 +1466,17 @@ impl Lexer {
     fn skip_separation_spaces<B, R: Reader<B>>(&mut self, reader: &mut R) -> SeparationSpaceInfo {
         let lines = {
             let mut num_breaks = 0u32;
+            let mut num_indent = 0u32;
             let mut found_eol = true;
             let mut has_tab = false;
-            let mut has_leading_tab = false;
             let mut has_comment = false;
 
             loop {
                 if !reader.peek_byte().map_or(false, is_valid_skip_char) || reader.eof() {
                     break;
                 }
-                let amount = reader.count_detect_space_tab(&mut has_tab);
+                let (indent, amount) = reader.count_space_then_tab();
+                has_tab = indent as usize != amount;
                 let is_comment = reader.peek_byte_at(amount).map_or(false, |c| c == b'#');
 
                 if has_comment && !is_comment {
@@ -1503,8 +1504,9 @@ impl Lexer {
                 }
 
                 if found_eol {
-                    has_leading_tab = reader.peek_byte().map_or(false, |c| c == b'\t');
-                    let amount = reader.count_detect_space_tab(&mut has_tab);
+                    let  (indent, amount) = reader.count_space_then_tab();
+                    num_indent = indent;
+                    has_tab = indent as usize != amount;
                     reader.consume_bytes(amount);
                     found_eol = false;
                 } else {
@@ -1513,13 +1515,13 @@ impl Lexer {
             }
             SeparationSpaceInfo {
                 num_breaks,
+                num_indent,
                 has_comment,
                 has_tab,
-                has_leading_tab,
             }
         };
         if lines.num_breaks > 0 {
-            self.reset_col();
+            self.col_start = None;
         }
         lines
     }

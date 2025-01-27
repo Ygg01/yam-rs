@@ -274,19 +274,25 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end_of_str, end_of_str - start)
     }
 
-    fn count_detect_space_tab(&mut self, has_tab: &mut bool) -> usize {
-        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
-            if !*has_tab && *chr == b'\t' {
-                *has_tab = true;
-            }
-            if *chr == b' ' || *chr == b'\t' {
-                Continue(pos + 1)
-            } else {
-                Break(pos)
-            }
-        }) {
+    fn count_space_then_tab(&mut self) -> (u32, usize) {
+        let spaces =
+            match self.slice[self.pos..]
+                .iter()
+                .try_fold(0u32, |ws_cnt, chr| match *chr {
+                    b' ' => Continue(ws_cnt + 1),
+                    _ => Break(ws_cnt),
+                }) {
+                Continue(x) | Break(x) => x,
+            };
+        let tabs = match self.slice[self.pos..]
+            .iter()
+            .try_fold(0usize, |ws_cnt, chr| match *chr {
+                b' ' | b'\t' => Continue(ws_cnt + 1),
+                _ => Break(ws_cnt),
+            }) {
             Continue(x) | Break(x) => x,
-        }
+        };
+        (spaces , tabs)
     }
 
     fn consume_anchor_alias(&mut self) -> (usize, usize) {
