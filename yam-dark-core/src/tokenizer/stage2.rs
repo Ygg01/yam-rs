@@ -78,7 +78,7 @@ pub struct YamlParserState {
     pub(crate) last_row: u32,
     pub(crate) is_prev_double_quotes: bool,
     pub(crate) is_prev_iter_odd_single_quote: bool,
-    pub(crate) is_indent_frozen: bool,
+    pub(crate) previous_indent: u32,
     pub(crate) is_previous_white_space: bool,
     pub(crate) prev_iter_inside_quote: u64,
     pub(crate) is_in_comment: bool,
