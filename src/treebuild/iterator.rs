@@ -29,8 +29,8 @@ where
         let mut val = YamlToken::default();
         let mut tag = TAG::default();
         while !lexer.tokens.is_empty() {
-            if let Some(x) = lexer.tokens.pop_front() {
-                let token = x.into();
+            if let Some(tok) = lexer.tokens.pop_front() {
+                let token = tok.into();
                 match token {
                     SequenceStart => {
                         val = self.parse_sequence(

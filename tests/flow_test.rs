@@ -292,8 +292,7 @@ const SEQ_KEY_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-
- const SEQ_KEY2: &str = r#"
+const SEQ_KEY2: &str = r#"
 [a, [b,c]]: 3 "#;
 
 const SEQ_KEY2_EXPECTED: &str = r#"
@@ -310,10 +309,10 @@ const SEQ_KEY2_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
- const SEQ_KEY3: &str = r#"
+const SEQ_KEY3: &str = r#"
  [[a]: 3]"#;
 
-const  SEQ_KEY3_EXPECTED: &str = r#"
+const SEQ_KEY3_EXPECTED: &str = r#"
  +DOC
   +SEQ []
    +MAP {}
@@ -325,7 +324,7 @@ const  SEQ_KEY3_EXPECTED: &str = r#"
   -SEQ
  -DOC"#;
 
- const SEQ_KEY4: &str = r#"
+const SEQ_KEY4: &str = r#"
  [ [a]: d, e]: 3"#;
 
 const SEQ_KEY4_EXPECTED: &str = r#"

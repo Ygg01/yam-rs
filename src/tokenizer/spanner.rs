@@ -1,6 +1,7 @@
 #![allow(clippy::match_like_matches_macro)]
 
-use std::collections::VecDeque;
+use std::borrow::Cow;
+use std::collections::{HashMap, VecDeque};
 use std::hint::unreachable_unchecked;
 
 use ErrorType::ExpectedIndent;
@@ -20,12 +21,54 @@ use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{is_flow_indicator, is_newline};
 
-#[derive(Clone, Default)]
-pub struct Lexer {
+#[derive(Clone)]
+pub struct Lexer<'a> {
     pub stream_end: bool,
     pub(crate) tokens: VecDeque<usize>,
     pub(crate) errors: Vec<ErrorType>,
+    pub(crate) tags: HashMap<Cow<'a, [u8]>, Cow<'a, [u8]>>,
     stack: Vec<LexerState>,
+}
+
+impl<'a> Default for Lexer<'a> {
+    fn default() -> Self {
+        let mut tags = HashMap::with_capacity(10);
+        tags.insert(
+            Cow::Borrowed("!!map".as_bytes()),
+            Cow::Borrowed("tag:yaml.org,2002:map".as_bytes()),
+        );
+        tags.insert(
+            Cow::Borrowed("!!seq".as_bytes()),
+            Cow::Borrowed("tag:yaml.org,2002:seq".as_bytes()),
+        );
+        tags.insert(
+            Cow::Borrowed("!!str".as_bytes()),
+            Cow::Borrowed("tag:yaml.org,2002:str".as_bytes()),
+        );
+        tags.insert(
+            Cow::Borrowed("!!int".as_bytes()),
+            Cow::Borrowed("tag:yaml.org,2002:int".as_bytes()),
+        );
+        tags.insert(
+            Cow::Borrowed("!!null".as_bytes()),
+            Cow::Borrowed("tag:yaml.org,2002:null".as_bytes()),
+        );
+        tags.insert(
+            Cow::Borrowed("!!bool".as_bytes()),
+            Cow::Borrowed("tag:yaml.org,2002:bool".as_bytes()),
+        );
+        tags.insert(
+            Cow::Borrowed("!!float".as_bytes()),
+            Cow::Borrowed("tag:yaml.org,2002:float".as_bytes()),
+        );
+        Lexer {
+            stream_end: false,
+            tokens: VecDeque::with_capacity(10),
+            errors: vec![],
+            tags,
+            stack: vec![],
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
@@ -115,7 +158,7 @@ impl LexerState {
     }
 }
 
-impl Lexer {
+impl Lexer<'_> {
     #[inline(always)]
     pub fn curr_state(&self) -> LexerState {
         *self.stack.last().unwrap_or(&LexerState::default())
