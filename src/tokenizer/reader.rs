@@ -1,12 +1,14 @@
+use core::slice::memchr::memchr;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
     pub(crate) pos: usize,
+    pub(crate) col: usize,
 }
 
 impl<'a> StrReader<'a> {
     pub fn new(slice: &'a str) -> StrReader<'a> {
-        Self { slice, pos: 0 }
+        Self { slice, pos: 0, col: 0 }
     }
 }
 
@@ -80,10 +82,12 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn skip_space_tab(&mut self) -> usize {
-        self.slice.as_bytes()[self.pos..]
+        let n = self.slice.as_bytes()[self.pos..]
             .iter()
             .position(|b| !is_tab_space(*b))
-            .unwrap_or(0)
+            .unwrap_or(0);
+        self.consume_bytes(n);
+        n
     }
 
     fn read_line(&mut self) -> (usize, usize) {
@@ -93,6 +97,7 @@ impl<'r> Reader for StrReader<'r> {
             if self.peek_byte_is(b'\n') {
                 self.consume_bytes(1);
             };
+            self.col = 0;
             return x;
         }
         (0, 0)
