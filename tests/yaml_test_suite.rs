@@ -9,7 +9,7 @@ use libtest_mimic::{Arguments, Failed, Trial};
 use std::fmt::Write;
 use steel_yaml::tokenizer::{Event, EventIterator, StrReader};
 
-const TEST_SIZE: usize = 360;
+const TEST_SIZE: usize = 440;
 
 #[derive(Default)]
 struct TestData {
@@ -45,7 +45,7 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
     // TODO Input json/output yaml/emit yaml
 
     let expected_event = fs::read_to_string(data.test_event)?;
-    assert_eq!(expected_event, actual_event);
+    assert_eq!(actual_event, expected_event);
 
     Ok(())
 }

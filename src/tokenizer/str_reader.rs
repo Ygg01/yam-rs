@@ -477,9 +477,10 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
+    fn read_double_quote(&mut self, is_implicit: bool) ->  Vec<usize> {
         self.consume_bytes(1);
-        tokens.push_back(ScalarDoubleQuote as usize);
+        let mut tokens = Vec::new();
+        tokens.push(ScalarDoubleQuote as usize);
 
         while !self.eof() {
             let (line_start, line_end, _) = self.get_line_offset();
@@ -489,42 +490,44 @@ impl<'r> Reader<()> for StrReader<'r> {
                     // Check for `\` escape
                     let offset = len - 1;
                     if self.slice.get(self.pos + offset).copied() != Some(b'\\') {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len);
+                        tokens.push(line_start);
+                        tokens.push(line_start + len);
                         self.consume_bytes(len + 1);
                         break;
                     } else {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len - 1);
+                        tokens.push(line_start);
+                        tokens.push(line_start + len - 1);
                         // we add the escaped `"` in `\"`
-                        tokens.push_back(line_start + len);
-                        tokens.push_back(line_start + len + 1);
+                        tokens.push(line_start + len);
+                        tokens.push(line_start + len + 1);
                         self.consume_bytes(len + 1);
                         continue;
                     }
                 }
                 Some(len) => {
-                    tokens.push_back(line_start);
-                    tokens.push_back(line_start + len);
+                    tokens.push(line_start);
+                    tokens.push(line_start + len);
                     self.consume_bytes(len + 1);
                     break;
                 }
                 None => {
-                    tokens.push_back(line_start);
-                    tokens.push_back(line_end);
-                    tokens.push_back(NewLine as usize);
-                    tokens.push_back(0);
+                    tokens.push(line_start);
+                    tokens.push(line_end);
+                    tokens.push(NewLine as usize);
+                    tokens.push(0);
                     self.read_line();
                     self.skip_space_tab(is_implicit);
                 }
             }
         }
-        tokens.push_back(ScalarEnd as usize);
+        tokens.push(ScalarEnd as usize);
+        tokens
     }
 
-    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
+    fn read_single_quote(&mut self, is_implicit: bool) ->  Vec<usize> {
         self.consume_bytes(1);
-        tokens.push_back(ScalarSingleQuote as usize);
+        let mut tokens = Vec::new();
+        tokens.push(ScalarSingleQuote as usize);
 
         while !self.eof() {
             let (line_start, line_end, _) = self.get_line_offset();
@@ -534,28 +537,29 @@ impl<'r> Reader<()> for StrReader<'r> {
                     // Converts double '' to ' hence why we consume one extra char
                     let offset = len + 1;
                     if self.slice.get(self.pos + offset).copied() == Some(b'\'') {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len + 1);
+                        tokens.push(line_start);
+                        tokens.push(line_start + len + 1);
                         self.consume_bytes(len + 2);
                         continue;
                     } else {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len);
+                        tokens.push(line_start);
+                        tokens.push(line_start + len);
                         self.consume_bytes(len + 1);
                         break;
                     }
                 }
                 None => {
-                    tokens.push_back(line_start);
-                    tokens.push_back(line_end);
-                    tokens.push_back(NewLine as usize);
-                    tokens.push_back(0);
+                    tokens.push(line_start);
+                    tokens.push(line_end);
+                    tokens.push(NewLine as usize);
+                    tokens.push(0);
                     self.read_line();
                     self.skip_space_tab(is_implicit);
                 }
             }
         }
-        tokens.push_back(ScalarEnd as usize);
+        tokens.push(ScalarEnd as usize);
+        tokens
     }
 
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize {
@@ -585,17 +589,16 @@ impl<'r> Reader<()> for StrReader<'r> {
         num_breaks
     }
 
-    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken) {
-        self.consume_bytes(1);
-
-        let start = self.pos;
-        let end = self.slice[self.pos..]
+    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token: LexerToken) {
+        let start =  self.consume_bytes(1);
+        let amount = self.slice[self.pos..]
             .iter()
-            .position(|p| is_white_tab_or_break(*p) && is_flow_indicator(*p))
+            .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p))
             .unwrap_or(self.slice.len() - self.pos);
-        tokens.push_back(token_push as usize);
+        self.consume_bytes(amount);
+        tokens.push_back(token as usize);
         tokens.push_back(start);
-        tokens.push_back(end);
+        tokens.push_back(start + amount);
     }
 
     fn read_tag(&self) -> Result<(usize, usize), ErrorType> {

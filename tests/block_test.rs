@@ -569,7 +569,7 @@ a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
 -foo: boo
 "##;
 
-const COMPLEX_BLOCK_EXPECTED: &str = r##"
+const COMPLEX_BLOCK_EVENTS: &str = r##"
  +DOC
   +MAP
    =VAL :a!"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~
@@ -583,8 +583,30 @@ const COMPLEX_BLOCK_EXPECTED: &str = r##"
 
 #[test]
 pub fn test_complex_block() {
-    assert_eq_event(COMPLEX_BLOCK_KEY, COMPLEX_BLOCK_EXPECTED);
+    assert_eq_event(COMPLEX_BLOCK_KEY, COMPLEX_BLOCK_EVENTS);
 }
+
+const COMPLEX_MAP: &str = r#"
+"double" : 
+  'single'  :   &alias plain
+"#;
+
+const COMPLEX_MAP_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL "double
+   +MAP
+    =VAL 'single
+    =VAL &alias :plain
+   -MAP
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn test_map_scalar_and_ws() {
+    assert_eq_event(COMPLEX_MAP, COMPLEX_MAP_EVENTS);
+}
+
 
 const MIX_BLOCK: &str = r##"
 -
