@@ -142,7 +142,7 @@ const HIGH_NIBBLE: [u8; 16] = [32, 0, 70, 9, 0, 16, 0, 16, 0, 0, 0, 0, 0, 0, 0, 
 
 This way we can extract simultaneously:
 
-- Block structurals with `0b1011`
-- Flow structurals with `0b1_1000`
-- Spaces with `0b0100_0000`
-- Whitespaces with `0b0110_0000`
+- Block structurals with `0b1011` (`0xB`)
+- Flow structurals with `0b1_1000` (`0x18`)
+- Spaces with `0b0100_0000` (`0x40`)
+- Whitespaces with `0b0110_0000` (`0x60`)

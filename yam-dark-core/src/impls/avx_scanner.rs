@@ -45,7 +45,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn classify(&self, _chunk_state: &mut YamlChunkState) {
+    fn classify_yaml_characters(&self, _chunk_state: &mut YamlChunkState) {
         todo!()
     }
 }

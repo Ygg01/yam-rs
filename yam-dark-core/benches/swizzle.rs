@@ -336,9 +336,9 @@ fn bench_simd_json(c: &mut Criterion) {
             find_whitespace_and_structurals(
                 rand_bytes,
                 &mut chunk.characters.whitespace,
-                &mut chunk.characters.structurals,
+                &mut chunk.characters.block_structurals,
             );
-            black_box(chunk.characters.whitespace | chunk.characters.structurals);
+            black_box(chunk.characters.whitespace | chunk.characters.block_structurals);
         });
     });
     group.finish();
@@ -356,9 +356,9 @@ fn bench_yam_u8x16(c: &mut Criterion) {
             find_whitespace_and_structurals_u8x16(
                 rand_bytes,
                 &mut chunk.characters.whitespace,
-                &mut chunk.characters.structurals,
+                &mut chunk.characters.block_structurals,
             );
-            black_box(chunk.characters.whitespace | chunk.characters.structurals);
+            black_box(chunk.characters.whitespace | chunk.characters.block_structurals);
         });
     });
     group.finish();
@@ -374,8 +374,8 @@ fn bench_yam(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(rand_bytes.len() as u64));
     group.bench_function("bench-dark-yam", |b| {
         b.iter(|| {
-            scanner.classify(chunk);
-            black_box(chunk.characters.whitespace | chunk.characters.structurals);
+            scanner.classify_yaml_characters(chunk);
+            black_box(chunk.characters.whitespace | chunk.characters.block_structurals);
         });
     });
     group.finish();
