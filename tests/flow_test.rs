@@ -223,11 +223,20 @@ const DQUOTE_STR_ESCAPE_EXPECTED: &str = r#"
   =VAL "double quote (")
  -DOC"#;
 
+const DQUOTE_STR_ESCAPE_TAB: &str = r##"
+"test	tab" "##;
+
+const DQUOTE_STR_ESCAPE_TAB_EVENTS: &str = r#"
+ +DOC
+  =VAL "test\ttab
+ -DOC"#;
+
 #[test]
 fn flow_double_quote() {
     assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
     assert_eq_event(DQUOTE_STR2, DQUOTE_STR_EXPECTED);
     assert_eq_event(DQUOTE_STR_ESCAPE1, DQUOTE_STR_ESCAPE_EXPECTED);
+    assert_eq_event(DQUOTE_STR_ESCAPE_TAB, DQUOTE_STR_ESCAPE_TAB_EVENTS);
 }
 
 const ERR_PLAIN_SCALAR: &str = r#"
