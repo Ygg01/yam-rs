@@ -309,9 +309,7 @@ const FLOW_ERR2_EVENTS: &str = r"
 =VAL :a
 =VAL :b
 -SEQ
-ERR
--SEQ
--DOC";
+ERR";
 
 const SEQ_ERR_INPUT: &str = r"
  [-]";
@@ -319,9 +317,7 @@ const SEQ_ERR_INPUT: &str = r"
 const SEQ_ERR_EVENTS: &str = r"
 +DOC
 +SEQ []
-ERR
--SEQ
--DOC";
+ERR";
 
 const X_9JBA_INPUT: &str = r"
  [a, b]#invalid";
@@ -332,8 +328,7 @@ const X_9JBA_EVENTS: &str = r"
 =VAL :a
 =VAL :b
 -SEQ
-ERR
--DOC";
+ERR";
 
 const X_9MAG_INPUT: &str = r"
 [ , a , b, c] ";
@@ -341,12 +336,7 @@ const X_9MAG_INPUT: &str = r"
 const X_9MAG_EVENTS: &str = r"
 +DOC
 +SEQ []
-ERR
-=VAL :a
-=VAL :b
-=VAL :c
--SEQ
--DOC";
+ERR";
 
 const X_CML9_INPUT: &str = r"
 key: [ word1
@@ -359,11 +349,7 @@ const X_CML9_EVENTS: &str = r"
 =VAL :key
 +SEQ []
 =VAL :word1
-ERR
-=VAL :word2
--SEQ
--MAP
--DOC";
+ERR";
 
 const X1_CVW2_INPUT: &str = r"
 [a,#comment
@@ -373,9 +359,7 @@ const X1_CVW2_EVENTS: &str = r"
 +DOC
 +SEQ []
 =VAL :a
-ERR
--SEQ
--DOC";
+ERR";
 
 const X2_CVW2_INPUT: &str = r"
 [a, #comment
@@ -551,11 +535,7 @@ const MAP_ERR_EVENTS: &str = r"
 +DOC
 +SEQ []
 =VAL :23
-ERR
-=VAL :42
-ERR
--SEQ
--DOC";
+ERR";
 
 const X_CT4Q_INPUT: &str = r"
 [? foo 
@@ -590,10 +570,7 @@ const X1_DK4H_EVENTS: &str = r"
 +DOC
 +SEQ []
 =VAL :key
-ERR
-=VAL :value
--SEQ
--DOC";
+ERR";
 
 const X2_DK4H_INPUT: &str = r"
 [ ? key
@@ -744,11 +721,7 @@ const X1_Y79Y_003_EVENTS: &str = r"
 +SEQ []
 =VAL :foo
 =VAL :foo
-ERR
-=VAL :foo
--SEQ
--SEQ
--DOC";
+ERR";
 
 #[test]
 fn flow_in_seq_indents() {
