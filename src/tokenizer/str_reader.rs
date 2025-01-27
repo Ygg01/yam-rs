@@ -13,11 +13,11 @@ use crate::tokenizer::reader::{
 };
 use crate::tokenizer::spanner::ParserState;
 use crate::tokenizer::spanner::ParserState::{
-    BlockMap, BlockMapKeyExp, BlockMapVal, BlockMapValExp, BlockSeq,
+    BlockSeq,
 };
 use crate::tokenizer::ErrorType::UnexpectedComment;
-use crate::tokenizer::SpanToken::*;
-use crate::tokenizer::{reader, ErrorType, Reader, SpanToken};
+use crate::tokenizer::LexerToken::*;
+use crate::tokenizer::{reader, ErrorType, Reader, LexerToken};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -161,68 +161,7 @@ impl<'a> StrReader<'a> {
         }
     }
 
-    fn read_plain_one_line(
-        &mut self,
-        allow_minus: bool,
-        had_comment: &mut bool,
-        in_flow_collection: bool,
-        tokens: &mut Vec<usize>,
-        errors: &mut Vec<ErrorType>,
-    ) -> Option<(usize, usize)> {
-        let start = self.pos;
 
-        if !(allow_minus && self.peek_byte_is(b'-')) && (self.eof() || self.not_safe_char()) {
-            return None;
-        }
-
-        let end = self.consume_bytes(1);
-        let (_, line_end, _) = self.get_line_offset();
-        let line_end = StrReader::eof_or_pos(self, line_end);
-        let mut end_of_str = end;
-
-        for (prev, curr, next, pos) in self.get_lookahead_iterator(end..=line_end) {
-            // ns-plain-char  prevent ` #`
-            if curr == b'#' && is_white_tab_or_break(prev) {
-                // if we encounter two or more comment print error and try to recover
-                if *had_comment {
-                    tokens.push(Error as usize);
-                    errors.push(UnexpectedComment);
-                } else {
-                    *had_comment = true;
-                    self.pos = line_end;
-                    return Some((start, end_of_str));
-                }
-                break;
-            }
-
-            // ns-plain-char prevent `: `
-            // or `:{`  in flow collections
-            if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
-                // commit any uncommitted character, but ignore first character
-                if !is_white_tab(prev) && pos != end {
-                    end_of_str += 1;
-                }
-                break;
-            }
-
-            // if current character is a flow indicator, break
-            if is_flow_indicator(curr) {
-                break;
-            }
-
-            if is_white_tab_or_break(curr) {
-                // commit any uncommitted character, but ignore first character
-                if !is_white_tab_or_break(prev) && pos != end {
-                    end_of_str += 1;
-                }
-                continue;
-            }
-            end_of_str = pos;
-        }
-
-        self.pos = end_of_str;
-        Some((start, end_of_str))
-    }
 
     #[inline]
     fn not_safe_char(&self) -> bool {
@@ -306,150 +245,67 @@ impl<'r> Reader<()> for StrReader<'r> {
         None
     }
 
-    fn read_plain_scalar(
+    fn read_plain_one_line(
         &mut self,
-        start_indent: usize,
-        init_indent: usize,
-        curr_state: &ParserState,
+        allow_minus: bool,
+        had_comment: &mut bool,
+        in_flow_collection: bool,
+        tokens: &mut Vec<usize>,
         errors: &mut Vec<ErrorType>,
-    ) -> (Vec<usize>, Option<ParserState>) {
-        let mut allow_minus = false;
-        let mut first_line_block = !curr_state.in_flow_collection();
+    ) -> Option<(usize, usize)> {
+        let start = self.pos;
 
-        let mut num_newlines = 0;
-        let mut tokens = vec![ScalarPlain as usize];
-        let mut new_state = match curr_state {
-            BlockMapKeyExp(ind) => Some(BlockMapValExp(*ind)),
-            BlockMapValExp(ind) => Some(BlockMap(*ind)),
-            BlockMap(ind) => Some(BlockMapVal(*ind)),
-            BlockMapVal(ind) => Some(BlockMap(*ind)),
-            _ => None,
-        };
-        let mut curr_indent = curr_state.get_block_indent(self.col);
-        let mut had_comment = false;
-
-        while !self.eof() {
-            // In explicit key mapping change in indentation is always an error
-            if curr_state.wrong_exp_indent(curr_indent) && curr_indent != init_indent {
-                tokens.push(Error as usize);
-                errors.push(ErrorType::MappingExpectedIndent {
-                    actual: curr_indent,
-                    expected: init_indent,
-                });
-                break;
-            } else if curr_indent < init_indent {
-                // if plain scalar is less indented than previous
-                // It can be
-                // a) Part of BlockMap
-                // b) An error outside of block map
-                if !matches!(
-                    curr_state,
-                    BlockMap(_) | BlockMapKeyExp(_) | BlockMapValExp(_) | BlockMapVal(_)
-                ) {
-                    self.read_line();
-                    tokens.push(Error as usize);
-                    errors.push(ErrorType::ExpectedIndent {
-                        actual: curr_indent,
-                        expected: start_indent,
-                    });
-                }
-                break;
-            }
-
-            let (start, end) = match self.read_plain_one_line(
-                allow_minus,
-                &mut had_comment,
-                curr_state.in_flow_collection(),
-                &mut tokens,
-                errors,
-            ) {
-                Some(x) => x,
-                None => break,
-            };
-
-            self.skip_space_tab(true);
-
-            let chr = self.peek_byte_unwrap(0);
-
-            if chr == b':' && first_line_block {
-                
-                if curr_indent == init_indent
-                    && matches!(curr_state, BlockMapVal(x) if init_indent == *x as usize)
-                {
-                    tokens.push(ScalarEnd as usize);
-                    tokens.push(ScalarPlain as usize);
-                } else if curr_state.is_new_block_col(curr_indent) {
-                    self.consume_bytes(1);
-                    new_state = Some(BlockMapVal(curr_indent as u32));
-                    tokens.insert(0, MappingStart as usize);
-                }
-
-                tokens.push(start);
-                tokens.push(end);
-                break;
-            } else if chr == b':'
-                && matches!(curr_state, BlockMapValExp(ind) if *ind as usize == curr_indent)
-            {
-                tokens.push(ScalarPlain as usize);
-                tokens.push(start);
-                tokens.push(end);
-                break;
-            }
-
-            match num_newlines {
-                x if x == 1 => {
-                    tokens.push(NewLine as usize);
-                    tokens.push(0);
-                }
-                x if x > 1 => {
-                    tokens.push(NewLine as usize);
-                    tokens.push(x as usize);
-                }
-                _ => {}
-            }
-
-            tokens.push(start);
-            tokens.push(end);
-            first_line_block = false;
-
-            if reader::is_newline(chr) {
-                let folded_newline = self.skip_separation_spaces(false);
-                if self.col >= curr_state.indent(0) as usize {
-                    num_newlines = folded_newline as u32;
-                }
-                curr_indent = self.col;
-            }
-
-            if curr_state.in_flow_collection() && is_flow_indicator(chr) {
-                break;
-            }
-
-            match (self.peek_byte_unwrap(0), curr_state) {
-                (b'-', BlockSeq(ind)) if self.col == *ind as usize => {
-                    self.consume_bytes(1);
-                    tokens.push(ScalarEnd as usize);
-                    break;
-                }
-                (b'-', BlockSeq(ind)) if self.col < *ind as usize => {
-                    self.read_line();
-                    let err_type = ExpectedIndent {
-                        expected: *ind as usize,
-                        actual: curr_indent,
-                    };
-                    tokens.push(Error as usize);
-                    errors.push(err_type);
-                    break;
-                }
-                (b'-', BlockSeq(ind)) if self.col > *ind as usize => {
-                    allow_minus = true;
-                }
-                (b':', BlockMapValExp(ind)) if self.col == *ind as usize => {
-                    break;
-                }
-                _ => {}
-            }
+        if !(allow_minus && self.peek_byte_is(b'-')) && (self.eof() || self.not_safe_char()) {
+            return None;
         }
-        (tokens, new_state)
+
+        let end = self.consume_bytes(1);
+        let (_, line_end, _) = self.get_line_offset();
+        let line_end = StrReader::eof_or_pos(self, line_end);
+        let mut end_of_str = end;
+
+        for (prev, curr, next, pos) in self.get_lookahead_iterator(end..=line_end) {
+            // ns-plain-char  prevent ` #`
+            if curr == b'#' && is_white_tab_or_break(prev) {
+                // if we encounter two or more comment print error and try to recover
+                if *had_comment {
+                    tokens.push(Error as usize);
+                    errors.push(UnexpectedComment);
+                } else {
+                    *had_comment = true;
+                    self.pos = line_end;
+                    return Some((start, end_of_str));
+                }
+                break;
+            }
+
+            // ns-plain-char prevent `: `
+            // or `:{`  in flow collections
+            if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
+                // commit any uncommitted character, but ignore first character
+                if !is_white_tab(prev) && pos != end {
+                    end_of_str += 1;
+                }
+                break;
+            }
+
+            // if current character is a flow indicator, break
+            if is_flow_indicator(curr) {
+                break;
+            }
+
+            if is_white_tab_or_break(curr) {
+                // commit any uncommitted character, but ignore first character
+                if !is_white_tab_or_break(prev) && pos != end {
+                    end_of_str += 1;
+                }
+                continue;
+            }
+            end_of_str = pos;
+        }
+
+        self.pos = end_of_str;
+        Some((start, end_of_str))
     }
 
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize {
@@ -735,7 +591,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
     }
 
-    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: SpanToken) {
+    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken) {
         self.consume_bytes(1);
 
         let start = self.pos;

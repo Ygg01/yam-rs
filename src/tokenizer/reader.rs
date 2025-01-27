@@ -6,7 +6,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
 use super::spanner::ParserState;
-use super::{ErrorType, SpanToken};
+use super::{ErrorType, LexerToken};
 
 pub struct LookAroundBytes<'a> {
     iter: &'a [u8],
@@ -88,13 +88,14 @@ pub trait Reader<B> {
     fn read_line(&mut self) -> (usize, usize);
     // Refactor
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
-    fn read_plain_scalar(
+    fn read_plain_one_line(
         &mut self,
-        start_indent: usize,
-        init_indent: usize,
-        curr_state: &ParserState,
+        aloow_minus: bool,
+        had_comment: &mut bool,
+        in_flow_collection: bool,
+        tokens: &mut Vec<usize>,
         errors: &mut Vec<ErrorType>,
-    ) -> (Vec<usize>, Option<ParserState>);
+    ) -> Option<(usize, usize)>;    
     fn read_block_scalar(
         &mut self,
         literal: bool,
@@ -106,7 +107,7 @@ pub trait Reader<B> {
     fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
     fn read_block_seq(&mut self, indent: usize) -> Option<ParserState>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
-    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: SpanToken);
+    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken);
     fn read_tag(&self) -> Option<(usize, usize)>;
 }
 

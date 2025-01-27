@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use crate::{tokenizer::StrReader, Spanner};
 
-use super::{YamlToken, YamlTokenError};
-
+use super::{YamlToken};
 pub struct YamlParser<'a, TAG> {
     pub(crate) spanner: Spanner,
     pub(crate) reader: StrReader<'a>,
