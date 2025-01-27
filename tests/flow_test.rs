@@ -8,8 +8,8 @@ const EMPTY_DOC_INPUT: &'static str = r#"
 %YAML 1.3 #arst
 "#;
 const EMPTY_DOC_EXPECTED: &'static str = r#"
-  #YAML 1.3
-  ERR(NoDocStartAfterTag)"#;
+  %YAML 1.3
+  ERR"#;
 
 #[test]
 fn parse_empty_document() {
@@ -208,7 +208,7 @@ const ERR_PLAIN_SCALAR: &'static str = r#"
 
 const ERR_PLAIN_SCALAR_EXPECTED: &'static str = r#"
   =VAL a b
-  ERR(ExpectedIndent { actual: 1, expected: 2 })"#;
+  ERR"#;
 
 #[test]
 fn err_plain_scalar() {

@@ -3,25 +3,22 @@
 use std::collections::VecDeque;
 
 use ErrorType::NoDocStartAfterTag;
-use SpanToken::{Alias, Anchor, DocumentStart, Separator};
 
-use crate::tokenizer::{DirectiveType, ErrorType};
-use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
     AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, BlockValExp, FlowKey, FlowKeyExp, FlowMap,
     FlowSeq, PreDocStart, RootBlock,
 };
-use crate::tokenizer::spanner::SpanToken::{
-    ErrorToken, KeyEnd, MappingEnd, MappingStart, SequenceEnd, SequenceStart,
-};
-use crate::tokenizer::SpanToken::{MarkEnd, MarkStart, TagStart};
+use crate::tokenizer::spanner::SpanToken::{KeyEnd, MappingStart, SequenceStart};
+use crate::tokenizer::ErrorType;
+use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
 #[derive(Clone)]
 pub struct Spanner {
     pub(crate) curr_state: ParserState,
     pub stream_end: bool,
-    tokens: VecDeque<SpanToken>,
+    pub(crate) tokens: VecDeque<usize>,
+    errors: Vec<ErrorType>,
     stack: Vec<ParserState>,
 }
 
@@ -31,6 +28,7 @@ impl Default for Spanner {
             stream_end: false,
             tokens: VecDeque::new(),
             curr_state: PreDocStart,
+            errors: vec![],
             stack: vec![],
         }
     }
@@ -106,8 +104,13 @@ impl ParserState {
 
 impl Spanner {
     #[inline(always)]
-    pub fn pop_token(&mut self) -> Option<SpanToken> {
+    pub fn pop_token(&mut self) -> Option<usize> {
         self.tokens.pop_front()
+    }
+
+    #[inline(always)]
+    pub fn peek_token(&mut self) -> Option<usize> {
+        self.tokens.front().copied()
     }
 
     #[inline(always)]
@@ -116,17 +119,21 @@ impl Spanner {
     }
 
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        pub use SpanToken::*;
+
         reader.skip_separation_spaces(true);
         match self.curr_state {
             PreDocStart => {
                 if reader.peek_byte_is(b'%') {
                     reader.try_read_yaml_directive(&mut self.tokens);
                     if reader.try_read_slice_exact("---") {
-                        self.tokens.push_back(DocumentStart)
+                        self.tokens.push_back(DocumentStart as usize)
                     } else {
-                        self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
+                        self.tokens.push_back(Error as usize);
+                        self.errors.push(NoDocStartAfterTag)
                     }
-                } else if reader.try_read_slice_exact("---") {}
+                } else if reader.try_read_slice_exact("---") {
+                }
                 self.curr_state = RootBlock;
                 return;
             }
@@ -144,7 +151,7 @@ impl Spanner {
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
                     Some(b':') => {
                         reader.consume_bytes(1);
-                        self.tokens.push_back(KeyEnd);
+                        self.tokens.push_back(KeyEnd as usize);
                         if let BlockKeyExp(x) = self.curr_state {
                             self.curr_state = BlockMap(x);
                         }
@@ -152,12 +159,18 @@ impl Spanner {
                     Some(b'-') => self.fetch_block_seq(reader, indent as usize),
                     Some(b'?') => self.fetch_block_map_key(reader, indent as usize),
                     Some(b'!') => self.fetch_tag(reader),
-                    Some(b'|') => {
-                        reader.read_block_scalar(true, &self.curr_state, &mut self.tokens)
-                    }
-                    Some(b'>') => {
-                        reader.read_block_scalar(false, &self.curr_state, &mut self.tokens)
-                    }
+                    Some(b'|') => reader.read_block_scalar(
+                        true,
+                        &self.curr_state,
+                        &mut self.tokens,
+                        &mut self.errors,
+                    ),
+                    Some(b'>') => reader.read_block_scalar(
+                        false,
+                        &self.curr_state,
+                        &mut self.tokens,
+                        &mut self.errors,
+                    ),
                     Some(b'\'') => reader.read_single_quote(false, &mut self.tokens),
                     Some(b'"') => reader.read_double_quote(false, &mut self.tokens),
                     Some(b'#') => {
@@ -169,8 +182,8 @@ impl Spanner {
                             self.fetch_plain_scalar(reader, indent as usize, init_indent as usize);
                         } else {
                             reader.consume_bytes(1);
-                            self.tokens
-                                .push_back(ErrorToken(UnexpectedSymbol(x as char)))
+                            self.tokens.push_back(Error as usize);
+                            self.errors.push(UnexpectedSymbol(x as char))
                         }
                     }
                     None => self.stream_end = true,
@@ -183,16 +196,17 @@ impl Spanner {
                 Some(b'{') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b']') => {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(SequenceEnd);
+                    self.tokens.push_back(SequenceEnd as usize);
                     self.pop_state();
                 }
                 Some(b'}') => {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(ErrorToken(UnexpectedSymbol('}')));
+                    self.tokens.push_back(Error as usize);
+                    self.errors.push(UnexpectedSymbol('}'));
                 }
                 Some(b',') => {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(Separator);
+                    self.tokens.push_back(Separator as usize);
                 }
                 Some(b'\'') => {
                     reader.read_single_quote(self.curr_state.is_implicit(), &mut self.tokens)
@@ -202,7 +216,7 @@ impl Spanner {
                 }
                 Some(b':') => {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(MappingStart);
+                    self.tokens.push_back(MappingStart as usize);
                     self.push_state(FlowKeyExp(indent));
                 }
                 Some(b'?') => self.fetch_explicit_map(reader),
@@ -222,17 +236,18 @@ impl Spanner {
                 Some(b'{') => self.fetch_flow_col(reader, (indent + 1) as usize),
                 Some(b'}') => {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(MappingEnd);
+                    self.tokens.push_back(MappingEnd as usize);
                     self.pop_state();
                 }
                 Some(b':') => self.process_map_key(reader, indent as usize),
                 Some(b']') => {
                     if self.is_prev_sequence() {
-                        self.tokens.push_back(MappingEnd);
+                        self.tokens.push_back(MappingEnd as usize);
                         self.pop_state();
                     } else {
                         reader.consume_bytes(1);
-                        self.tokens.push_back(ErrorToken(UnexpectedSymbol(']')));
+                        self.tokens.push_back(Error as usize);
+                        self.errors.push(UnexpectedSymbol(']'));
                     }
                 }
                 Some(b'?') => self.fetch_explicit_map(reader),
@@ -266,12 +281,14 @@ impl Spanner {
                     BlockMap(_) | BlockKeyExp(_) => MappingEnd,
                     _ => continue,
                 };
-                self.tokens.push_back(x);
+                self.tokens.push_back(x as usize);
             }
         }
     }
 
     fn fetch_flow_col<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
+        pub use SpanToken::*;
+
         let peek = reader.peek_byte().unwrap_or(b'\0');
         reader.consume_bytes(1);
 
@@ -280,7 +297,7 @@ impl Spanner {
         }
 
         if peek == b'[' {
-            self.tokens.push_back(SequenceStart);
+            self.tokens.push_back(SequenceStart as usize);
             self.push_state(FlowSeq(indent as u32));
         } else if peek == b'{' {
             if reader.col() != 0 {
@@ -289,9 +306,9 @@ impl Spanner {
             if reader.peek_byte_is(b'?') {
                 self.push_state(FlowKey(indent as u32));
             } else {
-                self.push_state(FlowKeyExp(indent as u32 ));
+                self.push_state(FlowKeyExp(indent as u32));
             }
-            self.tokens.push_back(MappingStart);
+            self.tokens.push_back(MappingStart as usize);
         }
     }
 
@@ -311,7 +328,7 @@ impl Spanner {
 
     fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         if let Some(new_state) = reader.read_block_seq(indent) {
-            self.tokens.push_back(SequenceStart);
+            self.tokens.push_back(SequenceStart as usize);
             self.push_state(new_state);
         } else {
             self.fetch_plain_scalar(reader, indent, indent);
@@ -321,15 +338,18 @@ impl Spanner {
     fn fetch_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
         self.push_state(BlockKeyExp(indent as u32));
-        self.tokens.push_back(MappingStart);
+        self.tokens.push_back(MappingStart as usize);
     }
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        pub use SpanToken::*;
+
         let start = reader.consume_bytes(1);
         if let Some((mid, end)) = reader.read_tag() {
-            self.tokens.push_back(TagStart(start));
-            self.tokens.push_back(MarkStart(mid));
-            self.tokens.push_back(MarkEnd(end));
+            self.tokens.push_back(TagStart as usize);
+            self.tokens.push_back(start);
+            self.tokens.push_back(mid);
+            self.tokens.push_back(end);
             reader.consume_bytes(end - start);
         }
     }
@@ -340,8 +360,12 @@ impl Spanner {
         start_indent: usize,
         init_indent: usize,
     ) {
-        let (tokens, new_state) =
-            reader.read_plain_scalar(start_indent, init_indent, &self.curr_state);
+        let (tokens, new_state) = reader.read_plain_scalar(
+            start_indent,
+            init_indent,
+            &self.curr_state,
+            &mut self.errors,
+        );
 
         match new_state {
             Some(BlockValExp(x)) => self.curr_state = BlockValExp(x),
@@ -353,7 +377,7 @@ impl Spanner {
 
     fn fetch_explicit_map<B, R: Reader<B>>(&mut self, reader: &mut R) {
         if !self.is_map() {
-            self.tokens.push_back(MappingStart);
+            self.tokens.push_back(MappingStart as usize);
         }
 
         if !reader.peek_byte_at_check(1, is_white_tab_or_break) {
@@ -369,7 +393,7 @@ impl Spanner {
 
         if self.is_key() {
             self.curr_state = FlowMap(indent as u32);
-            self.tokens.push_back(KeyEnd);
+            self.tokens.push_back(KeyEnd as usize);
         } else {
             self.fetch_plain_scalar(reader, indent, indent);
         }
@@ -400,35 +424,101 @@ impl Spanner {
     }
 }
 
-#[derive(Copy, Clone)]
+ const DOC_END: usize = usize::MAX;
+ const DOC_START: usize = usize::MAX - 1;
+ const MAP_END: usize = usize::MAX - 2;
+ const MAP_START: usize = usize::MAX - 3;
+ const SEQ_END: usize = usize::MAX - 4;
+ const SEQ_START: usize = usize::MAX - 5;
+ const KEY_END: usize = usize::MAX - 6;
+ const TAG_START: usize = usize::MAX - 7;
+ const SEPARATOR: usize = usize::MAX - 8;
+ const ANCHOR: usize = usize::MAX - 9;
+ const ALIAS: usize = usize::MAX - 10;
+ const DIR_FLOAT: usize = usize::MAX - 11;
+ const DIR_INT: usize = usize::MAX - 12;
+ const DIR_BOOL: usize = usize::MAX - 13;
+ const DIR_NULL: usize = usize::MAX - 14;
+ const DIR_STR: usize = usize::MAX - 15;
+ const DIR_SEQ: usize = usize::MAX - 16;
+ const DIR_MAP: usize = usize::MAX - 17;
+ const DIR_RES: usize = usize::MAX - 18;
+ const DIR_TAG: usize = usize::MAX - 19;
+ const DIR_YAML: usize = usize::MAX - 20;
+ const DIR_YAML_11: usize = usize::MAX - 21;
+ const ERROR: usize = usize::MAX - 22;
+ const SPACE: usize = usize::MAX - 23;
+ const NEWLINE: usize = usize::MAX - 24;
+ 
+#[repr(usize)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum SpanToken {
-    ErrorToken(ErrorType),
-    MarkStart(usize),
-    MarkEnd(usize),
-    NewLine(u32),
-    Space,
-    Directive(DirectiveType),
+    Mark,
+    NewLine = NEWLINE,
+    Space = SPACE,
+    Error = ERROR,
+    DirectiveTag = DIR_TAG,
+    DirectiveReserved = DIR_RES,
+    // DirectiveYaml1_1 = DIR_YAML_11,
+    DirectiveYaml = DIR_YAML,
+    // DirectiveFailsafeMap = DIR_MAP,
+    // DirectiveFailsafeSeq = DIR_SEQ,
+    // DirectiveFailsafeStr = DIR_STR,
+    // DirectiveFailsafeNull = DIR_NULL,
+    // DirectiveFailsafeBool = DIR_BOOL,
+    // DirectiveFailsafeInt = DIR_INT,
+    // DirectiveFailsafeFloat = DIR_FLOAT,
     /// Element with alternative name e.g. `&foo [x,y]`
-    Alias,
+    Alias = ALIAS,
     /// Reference to an element with alternative name e.g. `*foo`
-    Anchor,
-    Separator,
-    /// YAML tag start followed by MarkStart, MarkEnd
-    /// It decomposes like this:
-    /// ```text
-    ///   !schema!tag
-    ///    ^     ^   ^
-    ///    |     |   |
-    ///    |     |   +- MarkEnd
-    ///    |     +- MarkStart
-    ///    +- TagStart
-    /// ```
-    TagStart(usize),
-    KeyEnd,
-    SequenceStart,
-    SequenceEnd,
-    MappingStart,
-    MappingEnd,
-    DocumentStart,
-    DocumentEnd,
+    Anchor = ANCHOR,
+    Separator = SEPARATOR,
+    TagStart = TAG_START,
+    KeyEnd = KEY_END,
+    SequenceStart = SEQ_START,
+    SequenceEnd = SEQ_END,
+    MappingStart = MAP_START,
+    MappingEnd = MAP_END,
+    DocumentStart = DOC_START,
+    DocumentEnd = DOC_END,
+}
+
+impl From<usize> for SpanToken {
+    fn from(value: usize) -> Self {
+        pub use SpanToken::*;
+
+        match value {
+            DOC_END => DocumentEnd,
+            DOC_START => DocumentStart,
+            MAP_END => MappingEnd,
+            MAP_START => MappingStart,
+            SEQ_END => SequenceEnd,
+            SEQ_START => SequenceStart,
+            KEY_END => KeyEnd,
+            TAG_START => TagStart,
+            SEPARATOR => Separator,
+            ANCHOR => Anchor,
+            ALIAS => Alias,
+            // DIR_FLOAT => DirectiveFailsafeFloat,
+            // DIR_INT => DirectiveFailsafeInt,
+            // DIR_BOOL => DirectiveFailsafeBool,
+            // DIR_NULL => DirectiveFailsafeNull,
+            // DIR_STR => DirectiveFailsafeStr,
+            // DIR_SEQ => DirectiveFailsafeSeq,
+            // DIR_MAP => DirectiveFailsafeMap,
+            DIR_RES => DirectiveReserved,
+            DIR_TAG => DirectiveTag,
+            DIR_YAML => DirectiveYaml,
+            // DIR_YAML_11 => DirectiveYaml1_1,
+            SPACE => Space,
+            NEWLINE => NewLine,
+            ERROR => Error,
+            _ => Mark,
+        }
+    }
+}
+impl From<&usize> for SpanToken {
+    fn from(value: &usize) -> Self {
+        SpanToken::from(*value)
+    }
 }

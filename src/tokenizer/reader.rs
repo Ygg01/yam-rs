@@ -6,7 +6,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 
 use super::spanner::ParserState;
-use super::SpanToken;
+use super::{ErrorType, SpanToken};
 
 pub struct LookAroundBytes<'a> {
     iter: &'a [u8],
@@ -88,23 +88,25 @@ pub trait Reader<B> {
     fn read_line(&mut self) -> (usize, usize);
     // Refactor
     fn read_block_seq(&mut self, indent: usize) -> Option<ParserState>;
-    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<SpanToken>);
+    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
     fn read_plain_scalar(
         &mut self,
         start_indent: usize,
         init_indent: usize,
         curr_state: &ParserState,
-    ) -> (Vec<SpanToken>, Option<ParserState>);
+        errors: &mut Vec<ErrorType>,
+    ) -> (Vec<usize>, Option<ParserState>);
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
-    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<SpanToken>);
+    fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>);
     fn read_block_scalar(
         &mut self,
         literal: bool,
         curr_state: &ParserState,
-        tokens: &mut VecDeque<SpanToken>,
+        tokens: &mut VecDeque<usize>,
+        errors: &mut Vec<ErrorType>,
     );
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<SpanToken>);
-    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<SpanToken>, token_push: SpanToken);
+    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>);
+    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: SpanToken);
     fn read_tag(&self) -> Option<(usize, usize)>;
 }
 

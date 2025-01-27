@@ -33,7 +33,7 @@ const BLOCK_ERR_INPUT: &'static str = r#"
 const BLOCK_ERR_EXPECTED: &'static str = r#"
   +SEQ
     =VAL x
-    ERR(ExpectedIndent { actual: 1, expected: 2 })
+    ERR
   -SEQ"#;
 
 #[test]
@@ -195,7 +195,7 @@ const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
     =VAL multi
     -KEY-
     =VAL ab
-    ERR(UnexpectedComment) 
+    ERR 
     =VAL xyz
   -MAP"#;
 
@@ -263,7 +263,7 @@ const EXPLICIT_BLOCK_MAP_ERR1: &'static str = r#"
 const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &'static str = r#"
   +MAP
     =VAL test
-    ERR(MappingExpectedIndent { actual: 2, expected: 3 })
+    ERR
     -KEY-
     =VAL value
   -MAP"#;
@@ -276,7 +276,7 @@ const EXPLICIT_BLOCK_MAP_ERR2: &'static str = r#"
 const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &'static str = r#"
   +MAP
     =VAL test
-    ERR(MappingExpectedIndent { actual: 3, expected: 2 })
+    ERR
     -KEY-
     =VAL value
   -MAP"#;
