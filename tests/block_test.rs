@@ -608,24 +608,24 @@ pub fn test_map_scalar_and_ws() {
 }
 
 const NESTED_MAPS: &str = r#"
-"top1" : 
-  "key1" : &alias1 scalar1
-'top2' : 
-  *alias: &alias2 scalar2
+'t1' : 
+  'k1' : &a1 sc1
+"t2" : 
+  *a1: &a2 sc2
 "#;
 
 const NESTED_MAPS_EVENTS: &str = r#"
  +DOC
   +MAP
-   =VAL "top1
+   =VAL 't1
    +MAP
-    =VAL "key1
-    =VAL &alias1 :scalar1
+    =VAL 'k1
+    =VAL &a1 :sc1
    -MAP
-   =VAL :top2
+   =VAL "t2
    +MAP
-    =ALI *alias
-    =VAL &alias2 :scalar2
+    =ALI *a1
+    =VAL &a2 :sc2
    -MAP
   -MAP
  -DOC"#;

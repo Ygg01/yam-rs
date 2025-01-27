@@ -104,7 +104,7 @@ pub trait Reader<B> {
     fn read_double_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
-    fn consume_anchor_alias(&mut self, tokens: &mut VecDeque<usize>, token_push: LexerToken);
+    fn consume_anchor_alias(&mut self, token_push: LexerToken)  -> Vec<usize>;
     fn read_tag(&self) -> Result<(usize, usize), ErrorType>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
 }
