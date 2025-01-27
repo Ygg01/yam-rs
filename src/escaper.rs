@@ -171,6 +171,8 @@ fn decode_hex(input: &[u8], size: u8) -> EscapeControl {
         })
         .fold(0u32, |acc, digit| (acc << 4) + digit as u32);
     match code_point {
+        // YAML has special escape rules for certain values
+        // See more in https://yaml.org/spec/1.2.2/#57-escaped-characters
         0 => return EscapeControl::Append([size + 2, 2, b'\\', b'0', 0, 0, 0, 0]),
         0x07 => return EscapeControl::Append([size + 2, 2, b'\\', b'a', 0, 0, 0, 0]),
         0x08 => return EscapeControl::Append([size + 2, 2, b'\\', b'b', 0, 0, 0, 0]),

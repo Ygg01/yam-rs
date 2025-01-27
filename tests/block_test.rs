@@ -740,8 +740,25 @@ const MAP_AND_COMMENT_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_SYW4_INPUT: &str = r"
+hr:  65    # Home runs
+avg: 0.278 # Batting average
+";
+
+const X1_SYW4_EVENTS: &str = r"
++DOC
++MAP
+=VAL :hr
+=VAL :65
+=VAL :avg
+=VAL :0.278
+-MAP
+-DOC";
+
 #[test]
 fn block_map() {
+    assert_eq_event(X1_SYW4_INPUT, X1_SYW4_EVENTS);
+
     assert_eq_event(MAP_SIMPLE_INPUT, MAP_SIMPLE_EVENTS);
     assert_eq_event(MAP_SIMPLE2_INPUT, MAP_SIMPLE_EVENTS);
     assert_eq_event(MAP2_INPUT, MAP2_EVENTS);
