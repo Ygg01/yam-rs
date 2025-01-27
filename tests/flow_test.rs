@@ -7,7 +7,7 @@ const EMPTY_DOC_ERR_INPUT: &str = r#"
   # test
 %YAML 1.3 #arst
 "#;
-const EMPTY_DOC_ERR_EXPECTED: &str = r#"
+const EMPTY_DOC_ERR_EVENTS: &str = r#"
  %YAML 1.3
  ERR"#;
 
@@ -15,30 +15,30 @@ const EMPTY_DOC_INPUT: &str = r#"
 %YAML 1.2
 ---
 "#;
-const EMPTY_DOC_EXPECTED: &str = r#"
+const EMPTY_DOC_EVENTS: &str = r#"
  %YAML 1.2
  +DOC ---
  -DOC"#;
 
 #[test]
 fn parse_empty_document() {
-    assert_eq_event(EMPTY_DOC_ERR_INPUT, EMPTY_DOC_ERR_EXPECTED);
-    assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EXPECTED);
+    assert_eq_event(EMPTY_DOC_ERR_INPUT, EMPTY_DOC_ERR_EVENTS);
+    assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS);
 }
 
 const NULL_YAML_INPUT: &str = r#"
 null
 "#;
 
-const NULL_YAML_INPUT2: &str = "\r\nnull\r\n";
-const NULL_YAML_EXPECTED: &str = r#"
+const NULL_YAML2_INPUT: &str = "\r\nnull\r\n";
+const NULL_YAML_EVENTS: &str = r#"
  +DOC
   =VAL :null
  -DOC"#;
 
 const MULTI_WORD_INPUT: &str = r#"
   null test xy"#;
-const MULTI_WORD_EXPECTED: &str = r#"
+const MULTI_WORD_EVENTS: &str = r#"
  +DOC
   =VAL :null test xy
  -DOC"#;
@@ -47,26 +47,26 @@ const MULTILINE_INPUT: &str = r#"
 test
 xt
 "#;
-const MULTILINE_EXPECTED: &str = r#"
+const MULTILINE_EVENTS: &str = r#"
  +DOC
   =VAL :test xt
  -DOC"#;
 
 #[test]
 fn parse_flow_scalars() {
-    assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EXPECTED);
-    assert_eq_event(NULL_YAML_INPUT2, NULL_YAML_EXPECTED);
-    assert_eq_event(MULTI_WORD_INPUT, MULTI_WORD_EXPECTED);
-    assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
+    assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EVENTS);
+    assert_eq_event(NULL_YAML2_INPUT, NULL_YAML_EVENTS);
+    assert_eq_event(MULTI_WORD_INPUT, MULTI_WORD_EVENTS);
+    assert_eq_event(MULTILINE_INPUT, MULTILINE_EVENTS);
 }
 
 const SEQ_FLOW_INPUT: &str = r#"
 [x, y]
 "#;
-const SEQ_FLOW_INPUT2: &str = r#"
+const SEQ_FLOW2_INPUT: &str = r#"
 [x ,y]
 "#;
-const SEQ_FLOW_EXPECTED: &str = r#"
+const SEQ_FLOW_EVENTS: &str = r#"
  +DOC
   +SEQ []
    =VAL :x
@@ -76,18 +76,18 @@ const SEQ_FLOW_EXPECTED: &str = r#"
 
 #[test]
 fn parse_flow_seq() {
-    assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EXPECTED);
-    assert_eq_event(SEQ_FLOW_INPUT2, SEQ_FLOW_EXPECTED);
+    assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EVENTS);
+    assert_eq_event(SEQ_FLOW2_INPUT, SEQ_FLOW_EVENTS);
 }
 
-const SEQ_NESTED_COL1: &str = r#"
+const NEST_COL1_INPUT: &str = r#"
 [:]
 "#;
-const SEQ_NESTED_COL2: &str = r#"
+const NEST_COL2_INPUT: &str = r#"
 [{:}]
 "#;
 
-const SEQ_NESTED_COL1_EXPECTED: &str = r#"
+const NESTED_COL_EVENTS: &str = r#"
  +DOC
   +SEQ []
    +MAP {}
@@ -99,14 +99,14 @@ const SEQ_NESTED_COL1_EXPECTED: &str = r#"
 
 #[test]
 fn parse_nested_col() {
-    assert_eq_event(SEQ_NESTED_COL1, SEQ_NESTED_COL1_EXPECTED);
-    assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL1_EXPECTED);
+    assert_eq_event(NEST_COL1_INPUT, NESTED_COL_EVENTS);
+    assert_eq_event(NEST_COL2_INPUT, NESTED_COL_EVENTS);
 }
 
-const SEQ_EMPTY_MAP: &str = r#"
+const EMPTY_MAP_INPUT: &str = r#"
 {:}
 "#;
-const SEQ_EMPTY_MAP_EXPECTED: &str = r#"
+const EMPTY_MAP_EVENTS: &str = r#"
  +DOC
   +MAP {}
    =VAL :
@@ -114,10 +114,10 @@ const SEQ_EMPTY_MAP_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_XY_MAP1: &str = r#"
+const MAP_XY_INPUT: &str = r#"
 {x:y}
 "#;
-const SEQ_XY_MAP1_EXPECTED: &str = r#"
+const MAP_XY_EVENTS: &str = r#"
  +DOC
   +MAP {}
    =VAL :x:y
@@ -125,17 +125,17 @@ const SEQ_XY_MAP1_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_X_Y_MAP1: &str = r#"
+const MAP_X_Y_INPUT: &str = r#"
 {x: y}
 "#;
-const SEQ_X_Y_MAP2: &str = r#"
+const MAP_X_Y2_INPUT: &str = r#"
 {? x: y}
 "#;
-const SEQ_X_Y_MAP3: &str = r#"
+const MAP_X_Y3_INPUT: &str = r#"
 {x: #comment
  y}
 "#;
-const SEQ_X_Y_MAP_EXPECTED: &str = r#"
+const MAP_X_Y_EVENTS: &str = r#"
  +DOC
   +MAP {}
    =VAL :x
@@ -143,11 +143,11 @@ const SEQ_X_Y_MAP_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_COMPLEX_MAP: &str = r#"
+const COMPLEX_MAP_INPUT: &str = r#"
 {[x,y]:a}
 "#;
 
-const SEQ_COMPLEX_MAP_EXPECTED: &str = r#"
+const COMPLEX_MAP_EVENTS: &str = r#"
  +DOC
   +MAP {}
    +SEQ []
@@ -160,70 +160,70 @@ const SEQ_COMPLEX_MAP_EXPECTED: &str = r#"
 
 #[test]
 fn parse_flow_map() {
-    assert_eq_event(SEQ_EMPTY_MAP, SEQ_EMPTY_MAP_EXPECTED);
-    assert_eq_event(SEQ_XY_MAP1, SEQ_XY_MAP1_EXPECTED);
-    assert_eq_event(SEQ_X_Y_MAP1, SEQ_X_Y_MAP_EXPECTED);
-    assert_eq_event(SEQ_X_Y_MAP2, SEQ_X_Y_MAP_EXPECTED);
-    assert_eq_event(SEQ_X_Y_MAP3, SEQ_X_Y_MAP_EXPECTED);
+    assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
+    assert_eq_event(MAP_XY_INPUT, MAP_XY_EVENTS);
+    assert_eq_event(MAP_X_Y_INPUT, MAP_X_Y_EVENTS);
+    assert_eq_event(MAP_X_Y2_INPUT, MAP_X_Y_EVENTS);
+    assert_eq_event(MAP_X_Y3_INPUT, MAP_X_Y_EVENTS);
 }
 
 #[test]
 fn parse_complex_map() {
-    assert_eq_event(SEQ_COMPLEX_MAP, SEQ_COMPLEX_MAP_EXPECTED);
+    assert_eq_event(COMPLEX_MAP_INPUT, COMPLEX_MAP_EVENTS);
 }
 
-const SQUOTE_STR1: &str = r#"
+const SQUOTE_STR1_INPUT: &str = r#"
   'single quote'
     "#;
 
-const SQUOTE_STR2: &str = r#"
+const SQUOTE_STR2_INPUT: &str = r#"
   'single
   quote'"#;
 
-const SQUOTE_STR_EXPECTED: &str = r#"
+const SQUOTE_STR_EVENTS: &str = r#"
  +DOC
   =VAL 'single quote
  -DOC"#;
 
-const SQUOTE_ESCAPE: &str = r#"'for single quote, use '' two of them'"#;
-const SQUOTE_ESCAPE2: &str = r#"'for single quote, use
+const SQUOTE_ESCAPE_INPUT: &str = r#"'for single quote, use '' two of them'"#;
+const SQUOTE_ESCAPE2_INPUT: &str = r#"'for single quote, use
 '' two of them'"#;
-const SQUOTE_ESCAPE_EXPECTED: &str = r#"
+const SQUOTE_ESCAPE_EVENTS: &str = r#"
  +DOC
   =VAL 'for single quote, use ' two of them
  -DOC"#;
 
 #[test]
 fn flow_single_quote() {
-    assert_eq_event(SQUOTE_STR1, SQUOTE_STR_EXPECTED);
-    assert_eq_event(SQUOTE_STR2, SQUOTE_STR_EXPECTED);
-    assert_eq_event(SQUOTE_ESCAPE, SQUOTE_ESCAPE_EXPECTED);
-    assert_eq_event(SQUOTE_ESCAPE2, SQUOTE_ESCAPE_EXPECTED);
+    assert_eq_event(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS);
+    assert_eq_event(SQUOTE_STR2_INPUT, SQUOTE_STR_EVENTS);
+    assert_eq_event(SQUOTE_ESCAPE_INPUT, SQUOTE_ESCAPE_EVENTS);
+    assert_eq_event(SQUOTE_ESCAPE2_INPUT, SQUOTE_ESCAPE_EVENTS);
 }
 
-const DQUOTE_STR1: &str = r#"
+const DQUOTE_STR1_INPUT: &str = r#"
   "double quote"
     "#;
 
-const DQUOTE_STR2: &str = r#"
+const DQUOTE_STR2_INPUT: &str = r#"
   "double
   quote"
 "#;
 
-const DQUOTE_STR_EXPECTED: &str = r#"
+const DQUOTE_STR_EVENTS: &str = r#"
  +DOC
   =VAL "double quote
  -DOC"#;
 
-const DQUOTE_STR_ESCAPE1: &str = r#"
+const DQUOTE_STR_ESC1_INPUT: &str = r#"
  "double quote (\")""#;
 
-const DQUOTE_STR_ESCAPE_EXPECTED: &str = r#"
+const DQUOTE_STR_ESC_EVENTS: &str = r#"
  +DOC
   =VAL "double quote (")
  -DOC"#;
 
-const DQUOTE_STR_ESCAPE_TAB: &str = r##"
+const DQUOTE_STR_ESC_TAB_INPUT: &str = r##"
 "test	tab" "##;
 
 const DQUOTE_STR_ESCAPE_TAB_EVENTS: &str = r#"
@@ -231,20 +231,49 @@ const DQUOTE_STR_ESCAPE_TAB_EVENTS: &str = r#"
   =VAL "test\ttab
  -DOC"#;
 
+const DQUOTE_MULTI_INPUT: &str = r##"
+ "test  
+ 
+ tab" "##;
+ 
+const DQUOTE_MULTI_EVENTS: &str = r#"
+ +DOC
+  =VAL "test\ttab
+ -DOC"#;
+
 #[test]
 fn flow_double_quote() {
-    assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
-    assert_eq_event(DQUOTE_STR2, DQUOTE_STR_EXPECTED);
-    assert_eq_event(DQUOTE_STR_ESCAPE1, DQUOTE_STR_ESCAPE_EXPECTED);
-    assert_eq_event(DQUOTE_STR_ESCAPE_TAB, DQUOTE_STR_ESCAPE_TAB_EVENTS);
+    assert_eq_event(DQUOTE_STR1_INPUT, DQUOTE_STR_EVENTS);
+    assert_eq_event(DQUOTE_STR2_INPUT, DQUOTE_STR_EVENTS);
+    assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
+    assert_eq_event(DQUOTE_STR_ESC_TAB_INPUT, DQUOTE_STR_ESCAPE_TAB_EVENTS);
+    assert_eq_event(DQUOTE_MULTI_INPUT, DQUOTE_MULTI_EVENTS);
 }
 
-const ERR_PLAIN_SCALAR: &str = r#"
+const DQUOTE_ERR_INPUT: &str = r##"
+- "double   
+            
+quote" "##;
+
+const DQUOTE_ERR_EVENTS: &str = r#"
+ +DOC
+  ERR
+  +SEQ
+   =VAL "double\ntab
+  -SEQ
+ -DOC"#;
+
+#[test]
+fn flow_double_quote_err() {
+    assert_eq_event(DQUOTE_ERR_INPUT, DQUOTE_ERR_EVENTS);
+}
+
+const ERR_PLAIN_SCALAR_INPUT: &str = r#"
   a
   b
  c"#;
 
-const ERR_PLAIN_SCALAR_EXPECTED: &str = r#"
+const ERR_PLAIN_SCALAR_EVENTS: &str = r#"
  +DOC
   =VAL :a b
   ERR
@@ -252,13 +281,13 @@ const ERR_PLAIN_SCALAR_EXPECTED: &str = r#"
 
 #[test]
 fn err_plain_scalar() {
-    assert_eq_event(ERR_PLAIN_SCALAR, ERR_PLAIN_SCALAR_EXPECTED);
+    assert_eq_event(ERR_PLAIN_SCALAR_INPUT, ERR_PLAIN_SCALAR_EVENTS);
 }
 
-const SIMPLE_DOC: &str = r#"
+const SIMPLE_DOC_INPUT: &str = r#"
 ---[]"#;
 
-const SIMPLE_DOC_EXPECTED: &str = r#"
+const SIMPLE_DOC_EVENTS: &str = r#"
  +DOC ---
   +SEQ []
   -SEQ
@@ -266,10 +295,10 @@ const SIMPLE_DOC_EXPECTED: &str = r#"
 
 #[test]
 fn simple_doc() {
-    assert_eq_event(SIMPLE_DOC, SIMPLE_DOC_EXPECTED);
+    assert_eq_event(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS);
 }
 
-const DOC_END_ERR: &str = r#"
+const DOC_END_ERR_INPUT: &str = r#"
 ---
 [a, b] ]"#;
 
@@ -284,13 +313,13 @@ const DOC_END_ERR_EVENTS: &str = r#"
 
 #[test]
 fn doc_end_err() {
-    assert_eq_event(DOC_END_ERR, DOC_END_ERR_EVENTS);
+    assert_eq_event(DOC_END_ERR_INPUT, DOC_END_ERR_EVENTS);
 }
 
-const SEQ_KEY: &str = r#"
+const SEQ_KEY_INPUT: &str = r#"
 [a, b]: 3 "#;
 
-const SEQ_KEY_EXPECTED: &str = r#"
+const SEQ_KEY_EVENTS: &str = r#"
  +DOC
   +MAP
    +SEQ []
@@ -301,10 +330,10 @@ const SEQ_KEY_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_KEY2: &str = r#"
+const SEQ_KEY2_INPUT: &str = r#"
 [a, [b,c]]: 3 "#;
 
-const SEQ_KEY2_EXPECTED: &str = r#"
+const SEQ_KEY2_EVENTS: &str = r#"
  +DOC
   +MAP
    +SEQ []
@@ -318,10 +347,10 @@ const SEQ_KEY2_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_KEY3: &str = r#"
+const SEQ_KEY3_INPUT: &str = r#"
  [[a]: 3]"#;
 
-const SEQ_KEY3_EXPECTED: &str = r#"
+const SEQ_KEY3_EVENTS: &str = r#"
  +DOC
   +SEQ []
    +MAP {}
@@ -333,10 +362,10 @@ const SEQ_KEY3_EXPECTED: &str = r#"
   -SEQ
  -DOC"#;
 
-const SEQ_KEY4: &str = r#"
+const SEQ_KEY4_INPUT: &str = r#"
  [ [a]: d, e]: 3"#;
 
-const SEQ_KEY4_EXPECTED: &str = r#"
+const SEQ_KEY4_EVENTS: &str = r#"
  +DOC
   +MAP
    +SEQ []
@@ -354,13 +383,13 @@ const SEQ_KEY4_EXPECTED: &str = r#"
 
 #[test]
 fn seq_as_key() {
-    assert_eq_event(SEQ_KEY, SEQ_KEY_EXPECTED);
-    assert_eq_event(SEQ_KEY2, SEQ_KEY2_EXPECTED);
-    assert_eq_event(SEQ_KEY3, SEQ_KEY3_EXPECTED);
-    assert_eq_event(SEQ_KEY4, SEQ_KEY4_EXPECTED);
+    assert_eq_event(SEQ_KEY_INPUT, SEQ_KEY_EVENTS);
+    assert_eq_event(SEQ_KEY2_INPUT, SEQ_KEY2_EVENTS);
+    assert_eq_event(SEQ_KEY3_INPUT, SEQ_KEY3_EVENTS);
+    assert_eq_event(SEQ_KEY4_INPUT, SEQ_KEY4_EVENTS);
 }
 
-const SEQ_ERR: &str = r#"
+const SEQ_ERR_INPUT: &str = r#"
  [-]"#;
 
 const SEQ_ERR_EVENTS: &str = r#"
@@ -372,5 +401,5 @@ const SEQ_ERR_EVENTS: &str = r#"
 
 #[test]
 fn seq_err() {
-    assert_eq_event(SEQ_ERR, SEQ_ERR_EVENTS);
+    assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
 }
