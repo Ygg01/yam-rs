@@ -131,11 +131,11 @@ impl<'a> Display for Event<'a> {
         match self {
             Event::DocStart { explicit } => {
                 let exp_str = if *explicit { " ---" } else { "" };
-                write!(f, "+DOC{}", exp_str)
+                write!(f, "+DOC{exp_str}")
             }
             Event::DocEnd { explicit } => {
                 let exp_str = if *explicit { " ..." } else { "" };
-                write!(f, "-DOC{}", exp_str)
+                write!(f, "-DOC{exp_str}")
             }
             Event::SeqStart { flow, tag, anchor } => {
                 write!(f, "+SEQ",)?;
@@ -144,11 +144,11 @@ impl<'a> Display for Event<'a> {
                 }
                 if let Some(cow) = anchor {
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{}", string)?;
+                    write!(f, " &{string}")?;
                 };
                 if let Some(cow) = tag {
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{}>", string)?;
+                    write!(f, " <{string}>")?;
                 };
                 Ok(())
             }
@@ -162,11 +162,11 @@ impl<'a> Display for Event<'a> {
                 }
                 if let Some(cow) = anchor {
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{}", string)?;
+                    write!(f, " &{string}")?;
                 };
                 if let Some(cow) = tag {
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{}>", string)?;
+                    write!(f, " <{string}>")?;
                 };
                 Ok(())
             }
@@ -179,8 +179,8 @@ impl<'a> Display for Event<'a> {
             } => {
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 match directive_type {
-                    DirectiveType::Yaml => write!(f, "%YAML {}", val_str),
-                    _ => write!(f, "{}", val_str),
+                    DirectiveType::Yaml => write!(f, "%YAML {val_str}"),
+                    _ => write!(f, "{val_str}"),
                 }
             }
             Event::Scalar {
@@ -194,11 +194,11 @@ impl<'a> Display for Event<'a> {
 
                 if let Some(cow) = anchor {
                     let string: &str = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{}", string)?;
+                    write!(f, " &{string}")?;
                 };
                 if let Some(cow) = tag {
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{}>", string)?;
+                    write!(f, " <{string}>")?;
                 };
                 match *scalar_type {
                     ScalarType::Plain => write!(f, " :"),
@@ -207,7 +207,7 @@ impl<'a> Display for Event<'a> {
                     ScalarType::SingleQuote => write!(f, " \'"),
                     ScalarType::DoubleQuote => write!(f, " \""),
                 }?;
-                write!(f, "{}", val_str)?;
+                write!(f, "{val_str}")?;
 
                 Ok(())
             }
@@ -216,7 +216,7 @@ impl<'a> Display for Event<'a> {
             }
             Event::Alias(value) => {
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                write!(f, "=ALI *{}", val_str)
+                write!(f, "=ALI *{val_str}")
             }
         }
     }
@@ -321,7 +321,7 @@ where
                                     if cow.is_empty() {
                                         cow = Cow::Borrowed(self.buffer.slice(start, end));
                                     } else {
-                                        cow.to_mut().extend(self.buffer.slice(start, end))
+                                        cow.to_mut().extend(self.buffer.slice(start, end));
                                     }
                                     self.state.pop_token();
                                     self.state.pop_token();
@@ -330,7 +330,7 @@ where
                                     if line == 0 {
                                         cow.to_mut().extend(" ".as_bytes());
                                     } else {
-                                        cow.to_mut().extend("\n".repeat(line).as_bytes())
+                                        cow.to_mut().extend("\n".repeat(line).as_bytes());
                                     }
                                     self.state.pop_token();
                                     self.state.pop_token();
@@ -375,16 +375,16 @@ where
                             self.state.pop_token(),
                         ) {
                             let namespace = self.buffer.slice(start, mid);
-                            let extension = if end != 0 {
-                                self.buffer.slice(mid, end)
-                            } else {
+                            let extension = if end == 0 {
                                 b""
+                            } else {
+                                self.buffer.slice(mid, end)
                             };
                             self.tag = if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
                                 let mut tag = Vec::from(self.buffer.slice(e1, e2));
                                 tag.extend_from_slice(extension);
                                 if tag.contains(&b'%') {
-                                    tag = decode_binary(&tag).into_owned()
+                                    tag = decode_binary(&tag).into_owned();
                                 }
                                 Some(Cow::Owned(tag))
                             } else if namespace == b"!!" && !extension.is_empty() {
@@ -418,7 +418,7 @@ pub fn assert_eq_event(input: &str, events: &str) {
     let scan: EventIterator<'_, StrReader, _> = EventIterator::from(input);
     scan.for_each(|ev| {
         line.push('\n');
-        write!(line, "{:}", ev).unwrap();
+        write!(line, "{ev:}").unwrap();
     });
 
     assert_eq!(line, events, "Error in {input}");
