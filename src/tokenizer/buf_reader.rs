@@ -97,19 +97,19 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn get_double_quote(&self, buf: &mut S) -> Option<usize> {
+    fn get_double_quote(&self, _buf: &mut S) -> Option<usize> {
         todo!()
     }
 
-    fn get_double_quote_trim(&self, buf: &mut S, start_str: usize) -> Option<(usize, usize)> {
+    fn get_double_quote_trim(&self, _buf: &mut S, _start_str: usize) -> Option<(usize, usize)> {
         todo!()
     }
 
-    fn get_single_quote(&self, buf: &mut S) -> Option<usize> {
+    fn get_single_quote(&self, _buf: &mut S) -> Option<usize> {
         todo!()
     }
 
-    fn get_single_quote_trim(&self, buf: &mut S, start_str: usize) -> Option<(usize, usize)> {
+    fn get_single_quote_trim(&self, _buf: &mut S, _start_str: usize) -> Option<(usize, usize)> {
         todo!()
     }
 }

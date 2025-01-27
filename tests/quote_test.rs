@@ -151,10 +151,27 @@ ERR
 =VAL "\c
 -DOC"#;
 
+const DQUOTE_MISS_EOF_INPUT: &str = r##"
+---
+key: "missing closing quote
+
+"##;
+
+const DQUOTE_MISS_EOF_EVENTS: &str = r#"
++DOC ---
++MAP
+=VAL :key
+ERR
+=VAL "missing closing quote
+-MAP
+-DOC"#;
+
+
 #[test]
 fn dquote_err() {
     assert_eq_event(DQUOTE_END_INPUT, DQUOTE_END_EVENTS);
     assert_eq_event(DQUOTE_ERR2_INPUT, DQUOTE_ERR2_EVENTS);
+    assert_eq_event(DQUOTE_MISS_EOF_INPUT, DQUOTE_MISS_EOF_EVENTS);
 }
 
 const DQUOTE_LEADING_TAB1_INPUT: &str = r##" "1 test
@@ -193,4 +210,24 @@ fn dquote_trailing() {
     assert_eq_event(DQUOTE_LEADING_TAB3_INPUT, DQUOTE_LEADING_TAB2_EVENTS);
     assert_eq_event(DQUOTE_LEADING_TAB4_INPUT, DQUOTE_LEADING_TAB2_EVENTS);
     assert_eq_event(DQUOTE_LEADING_TAB5_INPUT, DQUOTE_LEADING_TAB2_EVENTS);
+}
+const DQUOTE_EMPTY1_INPUT: &str = r"
+a: '
+  '
+b: '  
+  '
+  ";
+const DQUOTE_EMPTY1_EVENTS: &str = r"
++DOC
++MAP
+=VAL :a
+=VAL ' 
+=VAL :b
+=VAL ' 
+-MAP
+-DOC";
+
+#[test]
+fn dquote_empty() {
+    assert_eq_event(DQUOTE_EMPTY1_INPUT, DQUOTE_EMPTY1_EVENTS);
 }
