@@ -71,7 +71,7 @@ pub enum LexerState {
 
 impl LexerState {
     #[inline]
-    pub(crate) fn indent(&self, default: usize) -> u32 {
+    pub(crate) fn indent(&self) -> u32 {
         match self {
             FlowKeyExp(ind, _)
             | FlowMap(ind, _)
@@ -79,8 +79,7 @@ impl LexerState {
             | BlockSeq(ind)
             | BlockMap(ind, _)
             | BlockMapExp(ind, _) => *ind,
-            RootBlock => default as u32,
-            PreDocStart | AfterDocEnd | DirectiveSection => 0,
+            PreDocStart | AfterDocEnd | DirectiveSection | RootBlock => 0,
         }
     }
 
@@ -213,13 +212,13 @@ impl Lexer {
                 }
             }
             RootBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
-                let curr_state = self.curr_state();
-                let (indent, init_indent) = match curr_state {
+                let (indent, init_indent) = match self.curr_state() {
                     RootBlock => (0, reader.col() as u32),
                     BlockMapExp(ind, _) => (ind, ind),
                     BlockMap(ind, _) => (ind, reader.col() as u32),
                     _ => unsafe { unreachable_unchecked() },
                 };
+               
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_map(reader, indent as usize),
                     Some(b'[') => self.fetch_flow_seq(reader, indent as usize),
@@ -477,7 +476,7 @@ impl Lexer {
             self.tokens.push_back(ErrorToken as usize);
             self.errors.push(ErrorType::ExpectedIndent {
                 actual: col,
-                expected: curr_state.indent(0) as usize,
+                expected: curr_state.indent() as usize,
             });
             self.set_next_map_state();
         } else {
@@ -762,7 +761,7 @@ impl Lexer {
 
             if reader.peek_byte().map_or(false, is_newline) {
                 let folded_newline = reader.skip_separation_spaces(false);
-                if reader.col() >= self.curr_state().indent(0) as usize {
+                if reader.col() >= self.curr_state().indent() as usize {
                     num_newlines = folded_newline as u32;
                 }
                 curr_indent = reader.col();
