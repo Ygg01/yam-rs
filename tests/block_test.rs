@@ -303,13 +303,13 @@ const BLOCK_FOLD_EVENTS: &str = r"
 =VAL >a b\nc\n\nd\n
 -DOC";
 
-const SIMPLE_LITERAL1_INPUT: &str = r"
+const SIMPLE_FOLD1_INPUT: &str = r"
 --- >1+";
 
-const SIMPLE_LITERAL2_INPUT: &str = r"
+const SIMPLE_FOLD2_INPUT: &str = r"
 --- >1-";
 
-const SIMPLE_LITERAL_EVENTS: &str = r"
+const SIMPLE_FOLD_EVENTS: &str = r"
 +DOC ---
 =VAL >
 -DOC";
@@ -317,8 +317,8 @@ const SIMPLE_LITERAL_EVENTS: &str = r"
 #[test]
 pub fn block_fold_literal() {
     assert_eq_event(BLOCK_FOLD_INPUT, BLOCK_FOLD_EVENTS);
-    assert_eq_event(SIMPLE_LITERAL1_INPUT, SIMPLE_LITERAL_EVENTS);
-    assert_eq_event(SIMPLE_LITERAL2_INPUT, SIMPLE_LITERAL_EVENTS);
+    assert_eq_event(SIMPLE_FOLD1_INPUT, SIMPLE_FOLD_EVENTS);
+    assert_eq_event(SIMPLE_FOLD2_INPUT, SIMPLE_FOLD_EVENTS);
 }
 
 const LITERAL1_INPUT: &str = r"
@@ -411,8 +411,21 @@ const LITERAL_CHOMP_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const LITERAL_ESCAPE_INPUT: &str = r"
+block: |
+  Hello\n";
+
+const LITERAL_ESCAPE_EVENTS: &str = r"
++DOC
++MAP
+=VAL :block
+=VAL |Hello\\n\n
+-MAP
+-DOC";
+
 #[test]
 pub fn block_literal() {
+    assert_eq_event(LITERAL_ESCAPE_INPUT, LITERAL_ESCAPE_EVENTS);
     assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
     assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
     assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
