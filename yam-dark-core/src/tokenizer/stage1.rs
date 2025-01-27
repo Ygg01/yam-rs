@@ -30,8 +30,8 @@ use core::ptr::write;
 use crate::tokenizer::chunk::YamlChunkState;
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::util::{
-    calculate_byte_rows, calculate_cols, select_right_bits_branch_less, U8_BYTE_COL_TABLE,
-    U8_ROW_TABLE,
+    add_cols_unchecked, add_rows_unchecked, calculate_byte_rows, calculate_cols,
+    select_right_bits_branch_less, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
 use crate::{util, EvenOrOddBits};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -164,6 +164,7 @@ pub unsafe trait Stage1Scanner {
 
     fn flatten_bits_yaml(base: &mut YamlParserState, yaml_chunk_state: &YamlChunkState);
 
+    #[deprecated]
     /// Calculates the indents of the given chunk and updates the `chunk_state` accordingly.
     ///
     /// For a chunk represented by this scanner, will calculate indents for each 64-character and
@@ -282,6 +283,7 @@ pub unsafe trait Stage1Scanner {
         ));
     }
 
+    #[deprecated]
     fn calculate_indents(
         indents: &mut Vec<usize>,
         mut newline_mask: u64,
@@ -338,6 +340,136 @@ pub unsafe trait Stage1Scanner {
         *is_indent_running = last_bit;
     }
 
+    fn calculate_positions_vectorized(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
+        Self::calculate_cols_rows_vectorized(state, chunk_state);
+        Self::calculate_indents_vectorized(state, chunk_state);
+    }
+
+    fn calculate_cols_rows_vectorized(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
+        let nl_ind = (chunk_state.characters.line_feeds & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(&mut state.byte_rows, nl_ind, &mut state.last_row, state.pos);
+            add_cols_unchecked(&mut state.byte_cols, nl_ind, &mut state.last_col, state.pos)
+        }
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 8) & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(
+                &mut state.byte_rows,
+                nl_ind,
+                &mut state.last_row,
+                state.pos + 8,
+            );
+            add_cols_unchecked(
+                &mut state.byte_cols,
+                nl_ind,
+                &mut state.last_col,
+                state.pos + 8,
+            )
+        }
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 16) & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(
+                &mut state.byte_rows,
+                nl_ind,
+                &mut state.last_row,
+                state.pos + 16,
+            );
+            add_cols_unchecked(
+                &mut state.byte_cols,
+                nl_ind,
+                &mut state.last_col,
+                state.pos + 16,
+            )
+        }
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 24) & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(
+                &mut state.byte_rows,
+                nl_ind,
+                &mut state.last_row,
+                state.pos + 24,
+            );
+            add_cols_unchecked(
+                &mut state.byte_cols,
+                nl_ind,
+                &mut state.last_col,
+                state.pos + 24,
+            )
+        }
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 32) & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(
+                &mut state.byte_rows,
+                nl_ind,
+                &mut state.last_row,
+                state.pos + 32,
+            );
+            add_cols_unchecked(
+                &mut state.byte_cols,
+                nl_ind,
+                &mut state.last_col,
+                state.pos + 32,
+            )
+        }
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 40) & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(
+                &mut state.byte_rows,
+                nl_ind,
+                &mut state.last_row,
+                state.pos + 40,
+            );
+            add_cols_unchecked(
+                &mut state.byte_cols,
+                nl_ind,
+                &mut state.last_col,
+                state.pos + 40,
+            )
+        }
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 48) & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(
+                &mut state.byte_rows,
+                nl_ind,
+                &mut state.last_row,
+                state.pos + 48,
+            );
+            add_cols_unchecked(
+                &mut state.byte_cols,
+                nl_ind,
+                &mut state.last_col,
+                state.pos + 48,
+            )
+        }
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 56) & 0xFF) as usize;
+        unsafe {
+            add_rows_unchecked(
+                &mut state.byte_rows,
+                nl_ind,
+                &mut state.last_row,
+                state.pos + 56,
+            );
+            add_cols_unchecked(
+                &mut state.byte_cols,
+                nl_ind,
+                &mut state.last_col,
+                state.pos + 56,
+            )
+        }
+
+        state.pos += 64;
+    }
+
+    fn calculate_indents_vectorized(state: &mut YamlParserState, chunk_state: &YamlChunkState) {}
+
+    #[deprecated]
     fn calculate_cols_rows_indents(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
         Self::calculate_cols_rows(
             &mut state.byte_cols,

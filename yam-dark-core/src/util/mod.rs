@@ -1,3 +1,4 @@
+use core::ptr;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
@@ -151,7 +152,8 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
     rows
 }
 
-pub unsafe fn add_rows_unchecked(dst: &mut [u32], src: &[u32], prev_row: &mut u32, idx: usize) {
+pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mut u32, idx: usize) {
+    let src = U8_ROW_TABLE[newlines];
     *dst.get_unchecked_mut(idx) = *prev_row;
     *dst.get_unchecked_mut(idx + 1) = *src.get_unchecked(0) + *prev_row;
     *dst.get_unchecked_mut(idx + 2) = *src.get_unchecked(1) + *prev_row;
@@ -161,6 +163,15 @@ pub unsafe fn add_rows_unchecked(dst: &mut [u32], src: &[u32], prev_row: &mut u3
     *dst.get_unchecked_mut(idx + 6) = *src.get_unchecked(5) + *prev_row;
     *dst.get_unchecked_mut(idx + 7) = *src.get_unchecked(6) + *prev_row;
     *prev_row += *dst.get_unchecked(idx + 7)
+}
+
+pub unsafe fn add_cols_unchecked(dst: &mut [u32], newlines: usize, prev_col: &mut u32, idx: usize) {
+    let cols = U8_BYTE_COL_TABLE[newlines];
+    let rows = U8_ROW_TABLE[newlines];
+    let cols_calc = calculate_cols(cols, rows, prev_col);
+
+    ptr::copy_nonoverlapping(cols_calc.as_ptr(), dst.as_mut_ptr().add(idx), 8);
+    *prev_col = cols_calc[7] + 1;
 }
 
 #[doc(hidden)]
