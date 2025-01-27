@@ -1,4 +1,8 @@
-use steel_yaml::tokenizer::assert_eq_event;
+use common::assert_eq_event_exact;
+
+use crate::common::assert_eq_event;
+
+mod common;
 
 const EMPTY_DOC_ERR_INPUT: &str = r#"
 # test"
@@ -36,12 +40,12 @@ fn doc_empty() {
     assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS);
 }
 
-const ERR_DIRECTIVE_INPUT: &str = r"
+const ERR_DIRECTIVE1_INPUT: &str = r"
 %YAML 1.2
 ...
 ";
 
-const ERR_DIRECTIVE_EVENTS: &str = r"
+const ERR_DIRECTIVE1_EVENTS: &str = r"
 ERR
 %YAML 1.2
 +DOC
@@ -53,6 +57,7 @@ const ERR_DIRECTIVE2_INPUT: &str = r"
 ";
 
 const ERR_DIRECTIVE2_EVENTS: &str = r"
+ERR
 ERR
 %YAML 1.2
 +DOC
@@ -88,12 +93,22 @@ ERR
 =VAL :
 -DOC";
 
+const ERR_DIRECTIVE4_INPUT: &str = r"%YAML 1.1#...
+---";
+const ERR_DIRECTIVE4_EVENTS: &str = r"
+ERR
+%YAML 1.1
++DOC ---
+=VAL :
+-DOC";
+
 #[test]
 fn doc_err_directive() {
-    assert_eq_event(ERR_DIRECTIVE_INPUT, ERR_DIRECTIVE_EVENTS);
-    assert_eq_event(ERR_DIRECTIVE2_INPUT, ERR_DIRECTIVE2_EVENTS);
-    assert_eq_event(ERR_DIRECTIVE3_INPUT, ERR_DIRECTIVE3_EVENTS);
-    assert_eq_event(ERR_MULTIDOC_INPUT, ERR_MULTIDOC_EVENTS);
+    assert_eq_event_exact(ERR_DIRECTIVE4_INPUT, ERR_DIRECTIVE4_EVENTS);
+    assert_eq_event_exact(ERR_DIRECTIVE1_INPUT, ERR_DIRECTIVE1_EVENTS);
+    assert_eq_event_exact(ERR_DIRECTIVE2_INPUT, ERR_DIRECTIVE2_EVENTS);
+    assert_eq_event_exact(ERR_DIRECTIVE3_INPUT, ERR_DIRECTIVE3_EVENTS);
+    assert_eq_event_exact(ERR_MULTIDOC_INPUT, ERR_MULTIDOC_EVENTS);
 }
 
 const SIMPLE_DOC_INPUT: &str = r"
@@ -139,11 +154,11 @@ const NO_DOC_EVENTS: &str = "";
 
 #[test]
 fn simple_doc() {
-    assert_eq_event(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS);
-    assert_eq_event(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS);
-    assert_eq_event(EMPTY1_INPUT, EMPTY_EVENTS);
-    assert_eq_event(EMPTY2_INPUT, EMPTY_EVENTS);
-    assert_eq_event(NO_DOC_INPUT, NO_DOC_EVENTS);
+    assert_eq_event_exact(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS);
+    assert_eq_event_exact(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS);
+    assert_eq_event_exact(EMPTY1_INPUT, EMPTY_EVENTS);
+    assert_eq_event_exact(EMPTY2_INPUT, EMPTY_EVENTS);
+    assert_eq_event_exact(NO_DOC_INPUT, NO_DOC_EVENTS);
 }
 
 const FOOTER_INPUT: &str = r#"
@@ -176,7 +191,7 @@ ERR
 
 #[test]
 fn doc_after_stream() {
-    assert_eq_event(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS);
+    assert_eq_event_exact(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS);
 }
 
 const MULTI_DOC1_INPUT: &str = r"
@@ -264,7 +279,7 @@ ERR
 
 #[test]
 fn doc_err() {
-    assert_eq_event(DOC_MAP_ERR_INPUT, DOC_MAP_ERR_EVENTS);
+    assert_eq_event_exact(DOC_MAP_ERR_INPUT, DOC_MAP_ERR_EVENTS);
 }
 
 const X1_3HFZ_INPUT: &str = r"
@@ -314,8 +329,8 @@ ERR"#;
 
 #[test]
 fn doc_after_err() {
-    assert_eq_event(X1_3HFZ_INPUT, X1_3HFZ_EVENTS);
-    assert_eq_event(X1_9HCY_INPUT, X1_9HCY_EVENTS);
+    assert_eq_event_exact(X1_3HFZ_INPUT, X1_3HFZ_EVENTS);
+    assert_eq_event_exact(X1_9HCY_INPUT, X1_9HCY_EVENTS);
     // TODO check these with YAML group.
-    assert_eq_event(X1_EB22_INPUT, X1_EB22_EVENTS);
+    assert_eq_event_exact(X1_EB22_INPUT, X1_EB22_EVENTS);
 }
