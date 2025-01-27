@@ -13,7 +13,6 @@ categories = ["parsing"]
 keywords = ["yaml", "parser"]
 license = "MIT OR LGPL-3.0-only"
 readme = "README.md"
-
 authors = ["Ygg01 <y.laughing.man.y@gmail.com>"]
 
 exclude =[
