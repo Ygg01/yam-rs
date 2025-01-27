@@ -59,14 +59,9 @@ fn main() {
 
 fn find_odd_start(bits: u8) -> u8 {
     let end_edge = bits & !(bits >> 1);
-    println!("ee    = {:#010b}", end_edge);
-    let start_edge = bits & !(bits << 1);
 
-
-    let end_edge_odd = (end_edge & 0xAA);
-    // println!("eeo   = {:#010b}", end_edge_odd);
-    let end_edge_even = (end_edge & 0x55);
-    // println!("eee   = {:#010b}", end_edge_even);
+    let end_edge_odd = end_edge & 0xAA;
+    let end_edge_even = end_edge & 0x55;
 
     let (max, min, part) = if end_edge_even < end_edge_odd {
         (end_edge_odd, end_edge_even, 0xAA)
@@ -75,16 +70,9 @@ fn find_odd_start(bits: u8) -> u8 {
     };
 
     let edge_sub = (max << 1).saturating_sub(bits) + min;
-    println!("es    = {:#010b}", edge_sub);
-
     let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
-    println!("eo    = {:#010b}", edge_other);
 
-    // let fin = 0;
-    let mut fin = edge_sub & part | edge_other & !part;
-    println!("fin   = {:#010b}", fin);
-
-    fin
+    edge_sub & part | edge_other & !part
 }
 
 fn find_odd_end(bits: u8) -> u8 {
