@@ -53,10 +53,17 @@ pub struct YamlDoubleQuoteChunk {
 
 #[derive(Default)]
 pub struct YamlSingleQuoteChunk {
-    /// Real single quotes
-    pub quote: u64,
-    /// String characters
-    in_string: u64,
+    /// Finds group of paired quotes like `''` or `''''` that can be freestanding if outside other quotes
+    pub even_quotes: u64,
+
+    /// Finds all quotes that end with odd number of `'`.
+    pub odd_end_quotes: u64,
+
+    /// Finds all quotes that start with odd number of `'`.
+    pub odd_start_quotes: u64,
+
+    /// What characters are in string
+    pub in_string: u64,
 }
 
 #[derive(Default)]
@@ -313,12 +320,18 @@ pub trait Stage1Scanner {
     /// assert_eq!(result, 0b1000000000010000010000000000000100000000000001000010000000100);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_for_odd_backslashes(&self, prev_iteration_odd: &mut u64) -> u64 {
+    fn scan_for_odd_backslashes(&self, prev_iteration_odd: &mut u32) -> u64 {
         let backslash_bits = self.cmp_ascii_to_input(b'\\');
+
+        Self::scan_for_mask(backslash_bits, prev_iteration_odd, ODD_BITS)
+    }
+
+    fn scan_for_mask(backslash_bits: u64, prev_iteration_odd: &mut u32, mask: u64) -> u64 {
         let start_edges = backslash_bits & !(backslash_bits << 1);
+        let prev_iter_odd = u64::from(*prev_iteration_odd);
 
         // flip lowest if we have an odd-length run at the end of the prior iteration
-        let even_start_mask = EVEN_BITS ^ *prev_iteration_odd;
+        let even_start_mask = EVEN_BITS ^ prev_iter_odd;
         let even_starts = start_edges & even_start_mask;
         let odd_starts = start_edges & !even_start_mask;
         let even_carries = backslash_bits.wrapping_add(even_starts);
@@ -328,15 +341,15 @@ pub trait Stage1Scanner {
         // should be flipped
         let (mut odd_carries, iter_ends_odd_backslash) = backslash_bits.overflowing_add(odd_starts);
 
-        odd_carries |= *prev_iteration_odd;
+        odd_carries |= prev_iter_odd;
         // push in a bit zero as a potential end
         // if we had an odd-numbered run at the
         // end of the previous iteration
-        *prev_iteration_odd = u64::from(iter_ends_odd_backslash);
+        *prev_iter_odd = u32::from(iter_ends_odd_backslash);
         let even_carry_ends = even_carries & !backslash_bits;
         let odd_carry_ends = odd_carries & !backslash_bits;
-        let even_start_odd_end = even_carry_ends & ODD_BITS;
-        let odd_start_even_end = odd_carry_ends & EVEN_BITS;
+        let even_start_odd_end = even_carry_ends & mask;
+        let odd_start_even_end = odd_carry_ends & !mask;
         even_start_odd_end | odd_start_even_end
     }
 
@@ -357,8 +370,8 @@ pub trait Stage1Scanner {
     ///  let chunk = b" ' ''               '                                           ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
     ///  scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
-    ///  let expected = 0b000000000000000000000000000000000000001000000000000000001010;
-    ///  assert_eq!(block_state.single_quote.quote, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
+    ///  let expected = 0b000000000000000000000000000000000000001000000000000000000010;
+    ///  assert_eq!(block_state.single_quote.odd_start_quotes, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
     /// ```
     // #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
@@ -368,14 +381,7 @@ pub trait Stage1Scanner {
     ) {
         let quote_bits = self.cmp_ascii_to_input(b'\'');
 
-        let even_start_mask = EVEN_BITS ^ (prev_iter_state.prev_iter_odd_quote as u64);
-        let odd_bit = quote_bits & !even_start_mask;
-        let even_bit = quote_bits & even_start_mask;
-
-        let shift_even = even_bit << 1;
-        let odd_starts = shift_even ^ odd_bit;
-        chunk_state.single_quote.quote = odd_starts;
-        prev_iter_state.prev_iter_odd_quote = Self::count_odd_bits(odd_starts);
+        let even_quotes = Self::scan_for_mask(quote_bits, &mut prev_iter_state.prev_iter_odd_quote, EVEN_BITS);
     }
 
     /// Scans the whitespace and structurals in the given YAML chunk state.
@@ -481,7 +487,7 @@ fn test_structurals() {
     assert_eq!(
         block_state.characters.structurals, expected,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, block_state.single_quote.quote
+        expected, block_state.single_quote.even_quotes
     );
 }
 
