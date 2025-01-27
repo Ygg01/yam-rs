@@ -24,8 +24,6 @@ pub enum ErrorType {
     ExpectedNewlineInFolded,
     DirectiveEndMark,
     ExpectedIndent { actual: usize, expected: usize },
-    MappingExpectedIndent { actual: usize, expected: usize },
-    SequenceExpectedIdent { actual: usize, expected: usize },
     StartedBlockInFlow,
     UnexpectedEndOfScalar,
     DuplicateKey,

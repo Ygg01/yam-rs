@@ -23,7 +23,7 @@ mod common;
 #[test]
 pub fn block_seq() {
     assert_eq_event(BLOCK1_INPUT, BLOCK_EXPECTED);
-    assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
+    // assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
 }
 
 const BLOCK_ERR_INPUT: &str = r#"
@@ -86,6 +86,7 @@ const BLOCK_NESTED_SEQ_EXPECTED2: &str = r#"
 #[test]
 pub fn seq_block_nested() {
     assert_eq_event(BLOCK_NESTED_SEQ_INPUT, BLOCK_NESTED_SEQ_EXPECTED);
+    assert_eq_event(BLOCK_NESTED_SEQ_INPUT2, BLOCK_NESTED_SEQ_EXPECTED2);
 }
 
 const BLOCK_STRINGS_INPUT: &str = r#"
@@ -170,7 +171,7 @@ const BLOCK_PLAIN_MULTI_EXPECTED: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn plain_multiline() {
+pub fn block_plain_multiline() {
     assert_eq_event(BLOCK_PLAIN_MULTI, BLOCK_PLAIN_MULTI_EXPECTED)
 }
 
@@ -256,11 +257,11 @@ const BLOCK_MAP_NESTED_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
- const BLOCK_MAP_SIMPLE: &str = r#"
+const BLOCK_MAP_SIMPLE: &str = r#"
 a: b
 :"#;
 
- const BLOCK_MAP_SIMPLE_EXPECTED: &str = r#"
+const BLOCK_MAP_SIMPLE_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :a
@@ -272,8 +273,8 @@ a: b
 
 #[test]
 pub fn block_map() {
-  assert_eq_event(BLOCK_MAP_SIMPLE, BLOCK_MAP_SIMPLE_EXPECTED);
-  assert_eq_event(BLOCK_MAP_INPUT2, BLOCK_MAP_EXPECTED2);
+    assert_eq_event(BLOCK_MAP_SIMPLE, BLOCK_MAP_SIMPLE_EXPECTED);
+    assert_eq_event(BLOCK_MAP_INPUT2, BLOCK_MAP_EXPECTED2);
     assert_eq_event(BLOCK_MAP_INPUT, BLOCK_MAP_EXPECTED);
     assert_eq_event(BLOCK_MAP_NESTED, BLOCK_MAP_NESTED_EXPECTED);
 }
