@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::ops::ControlFlow::{Break, Continue};
-use std::ops::{ControlFlow, RangeFrom, RangeInclusive};
+use std::ops::{RangeFrom, RangeInclusive};
 
 use memchr::memchr3_iter;
 use reader::{is_flow_indicator, ns_plain_safe};
@@ -340,6 +340,7 @@ impl<'r> Reader for StrReader<'r> {
     fn read_plain_scalar(
         &mut self,
         start_indent: usize,
+        init_indent: usize,
         curr_state: &ParserState,
     ) -> (Vec<SpanToken>, Option<ParserState>) {
         let mut allow_minus = false;
@@ -347,23 +348,12 @@ impl<'r> Reader for StrReader<'r> {
 
         let mut num_newlines = 0;
         let mut tokens = vec![];
-        let mut new_state = None;
-        let mut curr_indent = match curr_state {
-            BlockKeyExp(indent) | BlockValExp(indent) => *indent,
-            _ => self.col,
+        let mut new_state = match curr_state {
+            BlockKeyExp(ind) => Some(BlockValExp(*ind)),
+            BlockValExp(ind) => Some(BlockMap(*ind)),
+            _ => None,
         };
-        let init_indent = match curr_state {
-            BlockMap(_) => curr_indent,
-            BlockKeyExp(ind) => {
-                new_state = Some(BlockValExp(*ind));
-                curr_indent
-            }
-            BlockValExp(ind) => {
-                new_state = Some(BlockMap(*ind));
-                curr_indent
-            }
-            _ => start_indent,
-        };
+        let mut curr_indent = curr_state.get_block_indent(self.col);
         let mut had_comment = false;
 
         while !self.eof() {

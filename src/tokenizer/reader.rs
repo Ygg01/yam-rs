@@ -92,6 +92,7 @@ pub trait Reader {
     fn read_plain_scalar(
         &mut self,
         start_indent: usize,
+        init_indent: usize,
         curr_state: &ParserState,
     ) -> (Vec<SpanToken>, Option<ParserState>);
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> usize;
