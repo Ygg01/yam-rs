@@ -44,7 +44,7 @@ impl<'a> From<&'a str> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
             buffer: value.as_bytes(),
             tag: None,
             anchor: None,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 }
@@ -57,7 +57,7 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
             buffer: value,
             tag: None,
             anchor: None,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 }
