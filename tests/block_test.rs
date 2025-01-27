@@ -72,7 +72,6 @@ const WRONG_SEQ_INDENT_EVENTS: &str = r#"
     =VAL :b
    -SEQ
    ERR
-   ERR
    =VAL :c
   -MAP
  -DOC"#;
@@ -343,7 +342,7 @@ const MAP2_EVENTS: &str = r#"
  -DOC"#;
 
 const MAP_NESTED_INPUT: &str = r#"
-a:
+a :
  b:
   c:
 d:"#;

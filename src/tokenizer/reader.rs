@@ -94,7 +94,6 @@ pub trait Reader<B> {
     );
     fn read_double_quote(
         &mut self,
-        is_multiline: &mut bool,
         errors: &mut Vec<ErrorType>,
     ) -> Vec<usize>;
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
