@@ -228,7 +228,7 @@ impl Lexer {
                     }
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
                     Some(b':') if reader.peek_byte2().map_or(true, is_white_tab_or_break) => {
-                        self.process_colon(reader, curr_state, indent);
+                        self.process_colon(reader, indent);
                     }
                     Some(b'-') if reader.peek_byte2().map_or(false, is_white_tab_or_break) => {
                         let new_indent = reader.col();
@@ -459,7 +459,8 @@ impl Lexer {
         }
     }
 
-    fn process_colon<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState, indent: u32) {
+    fn process_colon<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) {
+        let curr_state = self.curr_state();
         let col = reader.col();
         reader.consume_bytes(1);
 
