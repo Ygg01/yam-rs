@@ -32,6 +32,9 @@ xt
     const SEQ_FLOW_INPUT: &'static str = r#"
 [x, y]
 "#;
+    const SEQ_FLOW_INPUT2: &'static str = r#"
+[x, y]
+"#;
     const SEQ_FLOW_EXPECTED: &'static str = r#"
 +SEQ
 =VAL x
@@ -59,5 +62,7 @@ xt
     #[test]
     fn parse_flow_seq() {
         assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EXPECTED);
+        assert_eq_event(SEQ_FLOW_INPUT2, SEQ_FLOW_EXPECTED);
+
     }
 }

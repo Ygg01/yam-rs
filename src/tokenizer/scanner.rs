@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::ops::ControlFlow::{Break, Continue};
+use std::ops::ControlFlow::{self, Break, Continue};
 
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::DocumentStart;
@@ -10,13 +10,9 @@ use crate::tokenizer::iter::{ErrorType, StrIterator};
 use crate::tokenizer::reader::IndentType::{EqualIndent, LessOrEqualIndent};
 use crate::tokenizer::reader::{is_flow_indicator, is_tab_space, is_whitespace, Reader, StrReader};
 use crate::tokenizer::scanner::NodeContext::{BlockIn, BlockKey, FlowIn, FlowKey, FlowOut};
-use crate::tokenizer::scanner::ParserState::{FlowNode, PreDocStart, RootBlock};
+use crate::tokenizer::scanner::ParserState::{FlowMap, FlowSeq, PreDocStart, RootBlock};
 use crate::tokenizer::scanner::QuoteType::{Double, Single};
-use crate::tokenizer::scanner::SpanToken::{
-    Directive, ErrorToken, MappingStart, MarkEnd, MarkStart, SequenceEnd, SequenceStart,
-};
-
-use super::reader::is_yaml_collection;
+use crate::tokenizer::scanner::SpanToken::{Directive, ErrorToken, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd, SequenceStart};
 
 #[derive(Clone)]
 pub struct Scanner {
@@ -41,7 +37,8 @@ impl Default for Scanner {
 pub(crate) enum ParserState {
     PreDocStart,
     RootBlock,
-    FlowNode(NodeContext, u32),
+    FlowSeq(NodeContext, u32),
+    FlowMap(NodeContext, u32),
     AfterDocEnd,
 }
 
@@ -123,43 +120,6 @@ impl Scanner {
     pub(crate) fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
         self.scan_to_next_token(reader, true);
         match self.curr_state {
-            RootBlock => match reader.peek_byte() {
-                Some(b'{') => self.fetch_flow_col(reader, FlowOut, 0),
-                Some(b'[') => self.fetch_flow_col(reader, FlowOut, 0),
-                Some(b'&') => self.fetch_flow_alias(reader),
-                Some(b'*') => self.fetch_anchor(reader),
-                Some(b':') => self.fetch_block_map(reader),
-                Some(b'-') => self.fetch_block_seq(reader, BlockIn, 0, true),
-                Some(b'?') => self.fetch_block_map_key(reader),
-                Some(b'!') => self.fetch_tag(reader),
-                Some(b'>') => self.fetch_block_scalar(reader, false),
-                Some(b'|') => self.fetch_block_scalar(reader, false),
-                Some(b'\'') => self.fetch_flow_scalar(reader, Single),
-                Some(b'"') => self.fetch_flow_scalar(reader, Double),
-                Some(b'#') => {
-                    // comment
-                    reader.read_line();
-                }
-                Some(x) => {
-                    if x != b']' && x != b'}' && x != b'@' {
-                        self.fetch_plain_scalar(reader, BlockIn, 0);
-                    } else {
-                        self.tokens
-                            .push_back(ErrorToken(UnexpectedSymbol(x as char)))
-                    }
-                }
-                None => self.stream_end = true,
-            },
-            FlowNode(context, indent) => match reader.peek_byte() {
-                Some(b'{') => self.fetch_flow_col(reader, context, indent + 1),
-                Some(b'[') => self.fetch_flow_col(reader, context, indent + 1),
-                Some(b']') if indent > 0 => self.fetch_flow_col(reader, context, indent - 1),
-                Some(b'}') if indent > 0 => self.fetch_flow_col(reader, context, indent - 1),
-                Some(b']') => self.tokens.push_back(ErrorToken(UnexpectedSymbol(']'))),
-                Some(b'}') => self.tokens.push_back(ErrorToken(UnexpectedSymbol('}'))),
-                Some(_) => {}
-                None => self.stream_end = true,
-            },
             PreDocStart => {
                 if !reader.peek_byte_is(b'%') {
                     self.curr_state = RootBlock;
@@ -196,6 +156,75 @@ impl Scanner {
                     self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
                 }
             }
+            RootBlock => match reader.peek_byte() {
+                Some(b'{') => self.fetch_flow_col(reader, FlowOut, 0),
+                Some(b'[') => self.fetch_flow_col(reader, FlowOut, 0),
+                Some(b'&') => self.fetch_flow_alias(reader),
+                Some(b'*') => self.fetch_anchor(reader),
+                Some(b':') => self.fetch_block_map(reader),
+                Some(b'-') => self.fetch_block_seq(reader, BlockIn, 0, true),
+                Some(b'?') => self.fetch_block_map_key(reader),
+                Some(b'!') => self.fetch_tag(reader),
+                Some(b'>') => self.fetch_block_scalar(reader, false),
+                Some(b'|') => self.fetch_block_scalar(reader, false),
+                Some(b'\'') => self.fetch_flow_scalar(reader, Single),
+                Some(b'"') => self.fetch_flow_scalar(reader, Double),
+                Some(b'#') => {
+                    // comment
+                    reader.read_line();
+                }
+                Some(x) => {
+                    if x != b']' && x != b'}' && x != b'@' {
+                        self.fetch_plain_scalar(reader, BlockIn, 0);
+                    } else {
+                        reader.consume_bytes(1);
+                        self.tokens
+                            .push_back(ErrorToken(UnexpectedSymbol(x as char)))
+                    }
+                }
+                None => self.stream_end = true,
+            },
+            FlowSeq(context, indent) => match reader.peek_byte() {
+                Some(b'[') => self.fetch_flow_col(reader, context, indent + 1),
+                Some(b'{') => self.fetch_flow_col(reader, context, indent + 1),
+                Some(b']') => {
+                    reader.consume_bytes(1);
+                    self.tokens.push_back(SequenceEnd);
+                    self.pop_state();
+                }
+                Some(b'}') => {
+                    reader.consume_bytes(1);
+                    self.tokens.push_back(ErrorToken(UnexpectedSymbol('}')));
+                }
+                Some(b',') => reader.consume_bytes(1),
+                Some(b'\'') => self.fetch_flow_scalar(reader, Single),
+                Some(b'"') => self.fetch_flow_scalar(reader, Double),
+                Some(_) => {
+                    self.fetch_plain_scalar(reader, context, indent);
+                }
+                None => self.stream_end = true,
+            },
+            FlowMap(context, indent) => match reader.peek_byte() {
+                Some(b'[') => self.fetch_flow_col(reader, context, indent + 1),
+                Some(b'{') => self.fetch_flow_col(reader, context, indent + 1),
+                Some(b'}') => {
+                    reader.consume_bytes(1);
+                    self.tokens.push_back(MappingEnd);
+                    self.pop_state();
+                }
+                Some(b']') => {
+                    reader.consume_bytes(1);
+                    self.tokens.push_back(ErrorToken(UnexpectedSymbol(']')));
+                }
+                Some(b',') => reader.consume_bytes(1),
+                Some(b'\'') => self.fetch_flow_scalar(reader, Single),
+                Some(b'"') => self.fetch_flow_scalar(reader, Double),
+                Some(_) => {
+                    self.fetch_plain_scalar(reader, context, indent);
+                }
+                None => self.stream_end = true,
+            },
+
             _ => {}
         }
 
@@ -223,17 +252,17 @@ impl Scanner {
     }
 
     fn fetch_flow_col<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
-        if reader.peek_byte_is(b'[') {
-            reader.consume_bytes(1);
-            self.tokens.push_back(SequenceStart);
-        }
-        if reader.peek_byte_is(b'{') {
-            reader.consume_bytes(1);
-            self.tokens.push_back(MappingStart);
-        }
-
+        let peek = reader.peek_byte().unwrap_or(b'\0');
+        reader.consume_bytes(1);
         self.skip_separation_spaces(reader, context, indent);
-        self.push_state(FlowNode(context.to_flow(), indent));
+
+        if peek == b'[' {
+            self.tokens.push_back(SequenceStart);
+            self.push_state(FlowSeq(context.to_flow(), indent));
+        } else if peek == b'{' {
+            self.tokens.push_back(MappingStart);
+            self.push_state(FlowMap(context.to_flow(), indent));
+        }
     }
 
     fn push_state(&mut self, state: ParserState) {
@@ -307,24 +336,27 @@ impl Scanner {
         self.read_plain_one_line(context, reader);
 
         // if multiline then we process next plain scalar
-        while is_multiline && !reader.eof() {
-            // separate in line
-            if reader.col() != 0 {
-                reader.skip_space_tab(true);
-            }
-            // b-l-folded
-            self.read_folded(context, indent, reader);
-
-            //s-flow-line-prefix
-            if reader.try_read_indent(EqualIndent(indent)).is_ok() {
+        if !reader.peek_byte_at_check(0, is_flow_indicator) {
+            while is_multiline && !reader.eof() {
+                // separate in line
                 if reader.col() != 0 {
                     reader.skip_space_tab(true);
                 }
-                self.read_plain_one_line(context, reader);
-            } else {
-                self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
+                // b-l-folded
+                self.read_folded(FlowIn, indent, reader);
+    
+                //s-flow-line-prefix
+                if reader.try_read_indent(EqualIndent(indent)).is_ok() {
+                    if reader.col() != 0 {
+                        reader.skip_space_tab(true);
+                    }
+                    self.read_plain_one_line(context, reader);
+                } else {
+                    self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
+                }
             }
         }
+        
     }
 
     #[inline]
@@ -363,40 +395,24 @@ impl Scanner {
     #[inline]
     fn read_plain_one_line<R: Reader>(&mut self, context: NodeContext, reader: &mut R) {
         let start = reader.pos();
+        let in_flow_collection = context.in_flow_collection();
         let mut offset = 0;
         while !reader.is_eof(offset as usize) {
             offset += reader.skip_space_tab(true);
             let read = reader.position_until(offset, |pos, x0, x1| {
-                if is_whitespace(x0) {
-                    return Break(pos);
-                } else if is_whitespace(x1) {
-                    return Break(pos + 1);
-                };
-
-                // ns-plain-char  prevent ` #`
-                if is_whitespace(x0) && x1 == b'#' {
-                    return Break(pos);
-                }
-
-                // ns-plain-char prevent `: `
-                // or `:{`  in flow collections
-                if x0 == b':'
-                    && (is_whitespace(x1)
-                        || (context.in_flow_collection() && is_flow_indicator(x1)))
-                {
-                    self.tokens.push_back(MappingStart);
-                    return Break(pos);
-                }
-
-                Continue(pos + 1)
+                is_invalid_plain_scalar(pos, x0, x1, in_flow_collection)
             });
             if read != 0 {
                 offset += read;
+                if in_flow_collection
+                    && reader.peek_byte_at(offset).map_or(false, is_flow_indicator)
+                {
+                    break;
+                }
             } else {
                 break;
             }
         }
-
         if offset > 0 {
             self.tokens.push_back(MarkStart(start));
             self.tokens.push_back(MarkEnd(start + offset));
@@ -406,18 +422,38 @@ impl Scanner {
 }
 
 #[inline]
-fn is_invalid_scalar(x0: u8, x1: u8, in_flow_collection: bool) -> bool {
-    if is_whitespace(x0) || is_whitespace(x1) {
-        true
-    } else if is_yaml_collection(x0)
-        && (is_whitespace(x1) || (in_flow_collection && is_flow_indicator(x1)))
-    {
-        true
-    } else if is_flow_indicator(x0) || is_flow_indicator(x1) {
-        true
-    } else {
-        false
+fn is_invalid_plain_scalar(
+    pos: usize,
+    x0: u8,
+    x1: u8,
+    in_flow_collection: bool,
+) -> ControlFlow<usize, usize> {
+    if is_whitespace(x0) {
+        return Break(pos);
+    } else if is_whitespace(x1) {
+        return Break(pos + 1);
+    };
+
+    if in_flow_collection {
+        if is_flow_indicator(x0) {
+            return Break(pos);
+        } else if is_flow_indicator(x1) {
+            return Break(pos + 1);
+        }
     }
+
+    // ns-plain-char  prevent ` #`
+    if is_whitespace(x0) && x1 == b'#' {
+        return Break(pos);
+    }
+
+    // ns-plain-char prevent `: `
+    // or `:{`  in flow collections
+    if x0 == b':' && (is_whitespace(x1) || (in_flow_collection && is_flow_indicator(x1))) {
+        return Break(pos);
+    }
+
+    Continue(pos + 1)
 }
 
 #[derive(Copy, Clone)]
