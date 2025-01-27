@@ -74,8 +74,13 @@ pub trait Reader {
     fn position_until<P>(&self, offset: usize, lookahead_predicate: P) -> usize
     where
         P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
-    fn skip_space_tab(&mut self, allow_tab: bool) -> usize;
-    fn consume_bytes(&mut self, amount: usize);
+    fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
+        let x = self.count_space_tab(allow_tab);
+        self.consume_bytes(x);
+        x
+    }
+    fn count_space_tab(&mut self, allow_tab: bool) -> usize;
+    fn consume_bytes(&mut self, amount: usize) -> usize;
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn find_next_whitespace(&self) -> Option<usize>;
@@ -118,21 +123,21 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     #[inline]
-    fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
-        let x = match self.slice.as_bytes()[self.pos..]
+    fn count_space_tab(&mut self, allow_tab: bool) -> usize {
+        match self.slice.as_bytes()[self.pos..]
             .iter()
             .try_fold(0usize, |acc, x| is_tab_space(acc, *x, allow_tab))
         {
             Continue(x) | Break(x) => x,
-        };
-        self.consume_bytes(x);
-        x
+        }
     }
 
+
     #[inline(always)]
-    fn consume_bytes(&mut self, amount: usize) {
+    fn consume_bytes(&mut self, amount: usize) -> usize{
         self.pos += amount;
         self.col += amount;
+        self.pos
     }
 
     fn slice_bytes(&self, start: usize, end: usize) -> &'r [u8] {

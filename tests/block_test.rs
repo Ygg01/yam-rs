@@ -29,8 +29,8 @@ const BLOCK_EXPECTED: &'static str = r#"
 
 mod common;
 
-// #[test]
-// pub fn block_seq() {
-//     assert_eq_event(BLOCK1_INPUT, BLOCK_EXPECTED);
-//     // assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
-// }
+#[test]
+pub fn block_seq() {
+    assert_eq_event(BLOCK1_INPUT, BLOCK_EXPECTED);
+    // assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
+}
