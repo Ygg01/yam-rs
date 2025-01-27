@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rand::random;
+use yam_dark_core::util::select_consecutive_bits_branchless;
 
 #[doc(hidden)]
 pub fn select_consecutive_bits(input: u64, selector: u64) -> u64 {
@@ -30,6 +31,19 @@ fn find_bits(c: &mut Criterion) {
     });
     group.finish();
 }
+fn find_bits_branchless(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bench-quotes-branchless");
+    let selector: u64 = 0b00000000_00000000_00000000_00000000_00100000_00000000_00000000_00100000;
 
-criterion_group!(benches, find_bits,);
+    group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(64));
+    group.bench_function("quotes_branching", |b| {
+        b.iter(|| {
+            black_box(select_consecutive_bits_branchless(random(), selector));
+        });
+    });
+    group.finish();
+}
+
+criterion_group!(benches, find_bits,find_bits_branchless,);
 criterion_main!(benches);
