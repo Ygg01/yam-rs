@@ -80,6 +80,7 @@ impl NodeSpans {
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum MapState {
+    BeforeComplexKey,
     #[default]
     BeforeFirstKey,
     BeforeKey,
@@ -90,7 +91,7 @@ pub enum MapState {
 impl MapState {
     pub fn next_state(self) -> MapState {
         match self {
-            BeforeKey | BeforeFirstKey => BeforeColon,
+            BeforeComplexKey | BeforeKey | BeforeFirstKey => BeforeColon,
             BeforeColon => AfterColon,
             AfterColon => BeforeKey,
         }
@@ -1012,6 +1013,10 @@ impl<B> Lexer<B> {
                     );
                 }
                 seq_state = BeforeElem;
+            } else if chr == b'?' && is_white_tab_or_break(peek_next) {
+                spans.push(MAP_START_EXP);
+                self.push_state(FlowMap);
+                spans.extend(self.get_flow_map(reader, MapState::BeforeComplexKey).spans);
             } else if chr == b':'
                 && matches!(
                     peek_next,
@@ -1108,7 +1113,7 @@ impl<B> Lexer<B> {
 
         let start_begin = reader.line();
         let col_start = reader.col();
-        let is_nested = init_state == AfterColon;
+        let is_nested = init_state != MapState::default();
 
         if reader.peek_byte_is(&mut self.buf, b'{') {
             reader.consume_bytes(1);
