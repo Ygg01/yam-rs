@@ -1089,11 +1089,26 @@ const NESTED_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X_7ZZ5_INPUT: &str = r"
+key2: {}
+";
+
+const X_7ZZ5_EVENTS: &str = r"
++DOC
++MAP
+=VAL :key2
++MAP {}
+-MAP
+-MAP
+-DOC";
+
+
 #[test]
 pub fn block_map_complex() {
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
     assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
     assert_eq_event(NESTED_INPUT, NESTED_EVENTS);
+    assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
 }
 
 const MAPS_WITH_QUOTES_INPUT: &str = r#"
