@@ -153,22 +153,22 @@ pub fn count_indent_native(mut newline_mask: u64, mut space_mask: u64, indents: 
     indents.reserve(64);
 
     while newline_mask != 0 {
-        let v0 = newline_mask.trailing_zeros() + 1;
+        let v0 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
         let part0 = space_mask % (1 << v0);
         space_mask >>= v0;
 
-        let v1 = newline_mask.trailing_zeros() + 1;
+        let v1 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
         let part1 = space_mask % (1 << v1);
         space_mask >>= v1;
 
-        let v2 = newline_mask.trailing_zeros() + 1;
+        let v2 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
         let part2 = space_mask % (1 << v2);
         space_mask >>= v2;
 
-        let v3 = newline_mask.trailing_zeros() + 1;
+        let v3 = newline_mask.trailing_zeros() & 0x3F;
         newline_mask &= newline_mask.wrapping_sub(1);
         let part3 = space_mask % (1 << v3);
         space_mask >>= v3;
