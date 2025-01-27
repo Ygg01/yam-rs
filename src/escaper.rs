@@ -1,7 +1,7 @@
 use std::{borrow::Cow, ops::Deref};
 
 pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
-    _escape(input, |ch| matches!(ch, b'\\' | b'\t'))
+    _escape(input, |ch| matches!(ch, b'\n' | b'\t' | b'\\'))
 }
 
 pub(crate) fn _escape<F: Fn(u8) -> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> Cow<'_, [u8]> {

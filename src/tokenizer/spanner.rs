@@ -416,7 +416,9 @@ impl Lexer {
             }
             Some(b']') => {
                 if self.is_prev_sequence() {
-                    self.push_empty_token();
+                    if self.is_unfinished() {
+                        self.push_empty_token();
+                    }
                     self.tokens.push_back(MappingEnd as usize);
                     self.pop_state();
                 } else {
@@ -428,6 +430,10 @@ impl Lexer {
             Some(b'?') => self.fetch_explicit_map(reader),
             Some(b',') => {
                 reader.consume_bytes(1);
+                if self.is_prev_sequence() {
+                    self.tokens.push_back(MAP_END);
+                    self.pop_state();
+                }
             }
             Some(b'\'') => {
                 reader.read_single_quote(self.curr_state().is_implicit(), &mut self.tokens)
@@ -498,7 +504,12 @@ impl Lexer {
                 {
                     if let Some(amount) = reader.peek_non_space_byte(b':') {
                         reader.consume_bytes(amount);
-                        self.tokens.insert(pos, MAP_START_BLOCK);
+                        let token = if self.curr_state().in_flow_collection() {
+                            MAP_START
+                        } else {
+                            MAP_START_BLOCK
+                        };
+                        self.tokens.insert(pos, token);
                         self.push_state(FlowMap(indent as u32, AfterColon));
                     }
                 }
@@ -731,12 +742,7 @@ impl Lexer {
             &mut ends_with,
         );
         self.tokens.extend(scalar);
-
-        match self.curr_state() {
-            FlowMap(indent, BeforeKey) => self.set_curr_state(FlowMap(indent, BeforeColon)),
-            FlowMap(indent, BeforeColon) => self.set_curr_state(FlowMap(indent, BeforeKey)),
-            _ => {}
-        }
+        self.set_next_map_state();
     }
 
     fn get_plain_scalar<B, R: Reader<B>>(
@@ -853,6 +859,14 @@ impl Lexer {
     fn is_prev_sequence(&self) -> bool {
         match self.stack.iter().nth_back(1) {
             Some(FlowSeq(_, _)) => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    fn is_unfinished(&self) -> bool {
+        match self.curr_state() {
+            FlowMap(_, AfterColon) | FlowKeyExp(_, AfterColon) => true,
             _ => false,
         }
     }

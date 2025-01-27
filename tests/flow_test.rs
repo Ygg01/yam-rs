@@ -310,8 +310,44 @@ const SEQ_KEY2_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
+ const SEQ_KEY3: &str = r#"
+ [[a]: 3]"#;
+
+const  SEQ_KEY3_EXPECTED: &str = r#"
+ +DOC
+  +SEQ []
+   +MAP {}
+    +SEQ []
+     =VAL :a
+    -SEQ
+    =VAL :3
+   -MAP
+  -SEQ
+ -DOC"#;
+
+ const SEQ_KEY4: &str = r#"
+ [ [a]: d, e]: 3"#;
+
+const SEQ_KEY4_EXPECTED: &str = r#"
+ +DOC
+  +MAP
+   +SEQ []
+    +MAP {}
+     +SEQ []
+      =VAL :a
+     -SEQ
+     =VAL :d
+    -MAP
+    =VAL :e
+   -SEQ
+   =VAL :3
+  -MAP
+ -DOC"#;
+
 #[test]
 fn seq_as_key() {
     assert_eq_event(SEQ_KEY, SEQ_KEY_EXPECTED);
     assert_eq_event(SEQ_KEY2, SEQ_KEY2_EXPECTED);
+    assert_eq_event(SEQ_KEY3, SEQ_KEY3_EXPECTED);
+    assert_eq_event(SEQ_KEY4, SEQ_KEY4_EXPECTED);
 }

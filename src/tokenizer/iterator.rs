@@ -286,7 +286,7 @@ where
                                     if line == 0 {
                                         cow.to_mut().extend(" ".as_bytes());
                                     } else {
-                                        cow.to_mut().extend("\\n".repeat(line).as_bytes())
+                                        cow.to_mut().extend("\n".repeat(line).as_bytes())
                                     }
                                     self.state.pop_token();
                                     self.state.pop_token();
@@ -297,7 +297,9 @@ where
                             }
                         }
                         let cow = match scalar_type {
-                            ScalarType::Plain => escape_plain(cow),
+                            ScalarType::Plain | ScalarType::Literal | ScalarType::Folded => {
+                                escape_plain(cow)
+                            }
                             _ => cow,
                         };
                         return Some((
