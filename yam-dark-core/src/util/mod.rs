@@ -527,3 +527,41 @@ fn test_quick_count() {
         ]
     );
 }
+
+#[doc(hidden)]
+pub fn select_consecutive_bits_branchless(input: u64, mask: u64) -> u64 {
+    let mut result = 0;
+
+    result |= input & mask;
+
+    let mut a = input & 0x7FFF_FFFF_FFFF_FFFF;
+    result |= (result >> 1) & a;
+
+    a &= a << 1;
+    result |= ((result >> 1) & a) >> 1;
+
+    a &= a << 2;
+    result |= ((result >> 1) & a) >> 3;
+
+    a &= a << 4;
+    result |= ((result >> 1) & a) >> 7;
+
+    a &= a << 8;
+    result |= ((result >> 1) & a) >> 15;
+
+    a &= a << 16;
+    result |= ((result >> 1) & a) >> 32;
+
+    result
+}
+
+#[test]
+fn test_branchless() {
+    let actual = select_consecutive_bits_branchless(0b01111_0110, 0b01000_0000);
+    let expected = 0b01111_0000;
+    assert_eq!(
+        actual, expected,
+        "\nExpected: {:#018b}\n  Actual: {:#018b}",
+        expected, actual
+    );
+}
