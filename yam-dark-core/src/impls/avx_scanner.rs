@@ -1,4 +1,4 @@
-use crate::{Stage1Scanner, YamlChunkState, YamlParserState, SIMD_CHUNK_LENGTH};
+use crate::{Stage1Scanner, YamlChunkState, YamlParserState};
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86::{
@@ -26,19 +26,11 @@ unsafe impl Stage1Scanner for AvxScanner {
         ChunkedUtf8ValidatorImp::new()
     }
 
-    fn from_chunk(_values: &[u8; SIMD_CHUNK_LENGTH]) -> Self {
+    fn from_chunk(_values: &[u8; 64]) -> Self {
         todo!()
     }
 
     fn cmp_ascii_to_input(&self, _m: u8) -> u64 {
-        todo!()
-    }
-
-    fn calculate_row_cols(
-        &self,
-        _chunk_state: &mut YamlChunkState,
-        _prev_state: &mut YamlParserState,
-    ) {
         todo!()
     }
 
@@ -54,6 +46,14 @@ unsafe impl Stage1Scanner for AvxScanner {
         _base: &mut YamlParserState,
         _yaml_chunk_state: &YamlChunkState,
         _bits: u64,
+    ) {
+        todo!()
+    }
+
+    fn calculate_row_cols(
+        &self,
+        _chunk_state: &mut YamlChunkState,
+        _prev_state: &mut YamlParserState,
     ) {
         todo!()
     }

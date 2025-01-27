@@ -1,5 +1,4 @@
 #![allow(unused)]
-use crate::SIMD_CHUNK_LENGTH;
 use core::slice::from_raw_parts;
 
 pub struct ChunkyIterator<'a> {
@@ -7,11 +6,11 @@ pub struct ChunkyIterator<'a> {
 }
 
 impl<'a> Iterator for ChunkyIterator<'a> {
-    type Item = &'a [u8; SIMD_CHUNK_LENGTH];
+    type Item = &'a [u8; 64];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.bytes.len() < SIMD_CHUNK_LENGTH {
+        if self.bytes.len() < 64 {
             None
         } else {
             let len = self.bytes.len();
@@ -19,14 +18,14 @@ impl<'a> Iterator for ChunkyIterator<'a> {
             // SAFETY: We manually verified the bounds of the split.
             let (first, tail) = unsafe {
                 (
-                    from_raw_parts(ptr, SIMD_CHUNK_LENGTH),
-                    from_raw_parts(ptr.add(SIMD_CHUNK_LENGTH), len - SIMD_CHUNK_LENGTH),
+                    from_raw_parts(ptr, 64),
+                    from_raw_parts(ptr.add(64), len - 64),
                 )
             };
             self.bytes = tail;
             // SAFETY: We explicitly check for the correct number of elements,
             //   and do not let the references outlive the slice.
-            Some(unsafe { &*(first.as_ptr() as *const [u8; SIMD_CHUNK_LENGTH]) })
+            Some(unsafe { &*(first.as_ptr() as *const [u8; 64]) })
         }
     }
 }
@@ -42,8 +41,8 @@ impl<'a> ChunkyIterator<'a> {
 
 #[test]
 fn test_chunk() {
-    let a = [0u8; SIMD_CHUNK_LENGTH];
-    let b = [1u8; SIMD_CHUNK_LENGTH];
+    let a = [0u8; 64];
+    let b = [1u8; 64];
     let x = [a, b].concat();
     let mut iter = ChunkyIterator { bytes: &x };
     assert_eq!(iter.next(), Some(&a));
