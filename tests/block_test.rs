@@ -1,5 +1,7 @@
 use crate::common::assert_eq_event;
 
+mod common;
+
 const BLOCK1_INPUT: &str = r#"
  - x
  - y
@@ -18,12 +20,30 @@ const BLOCK_EVENTS: &str = r#"
   -SEQ
  -DOC"#;
 
-mod common;
+
+
+const SEQ_PLAIN_INPUT: &str = r#"
+  - x
+   - y
+"#;
+
+const SEQ_PLAIN2_INPUT: &str = r#"
+- x - y
+"#;
+
+const SEQ_PLAIN_EVENTS: &str = r#"
+ +DOC
+  +SEQ
+   =VAL :x - y
+  -SEQ
+ -DOC"#;
 
 #[test]
 pub fn block_seq() {
     assert_eq_event(BLOCK1_INPUT, BLOCK_EVENTS);
     assert_eq_event(BLOCK2_INPUT, BLOCK_EVENTS);
+    assert_eq_event(SEQ_PLAIN_INPUT, SEQ_PLAIN_EVENTS);
+    assert_eq_event(SEQ_PLAIN2_INPUT, SEQ_PLAIN_EVENTS);
 }
 
 const BLOCK_ERR_INPUT: &str = r#"
@@ -109,25 +129,6 @@ pub fn seq_block_nested() {
     assert_eq_event(BLOCK_NESTED_SEQ2_INPUT, BLOCK_NESTED_SEQ2_EVENTS);
 }
 
-const BLOCK_STR_INPUT: &str = r#"
-  - |+ # Keep indicator↓
-    # keep
-
-  # Trail 
-   # comment
-  - | # Empty header↓
-   literal
-   next line
-  - > # Indentation indicator↓
-    folded
-    are continued
-
-  - >1- # Both indicators↓
-   strip
-    newline
-   
-"#;
-
 const FOLD_STRING_INPUT: &str = r#"
   - >1-
    1
@@ -137,16 +138,6 @@ const FOLD_STRING_INPUT: &str = r#"
    
 "#;
 
-const BLOCK_STR_EVENTS: &str = r#"
- +DOC
-  +SEQ
-   =VAL |# keep\n\n
-   =VAL |literal\nnext line\n
-   =VAL >folded are continued\n
-   =VAL >strip\n newline
-  -SEQ
- -DOC"#;
-
 const FOLD_STRING_EVENTS: &str = r#"
  +DOC
   +SEQ
@@ -154,25 +145,7 @@ const FOLD_STRING_EVENTS: &str = r#"
   -SEQ
  -DOC"#;
 
-const BLOCK_STR2_INPUT: &str = r#"
-strip: |-
-  text
-clip: |
-  text
-keep: |
-  text"#;
 
-const BLOCK_STR2_EVENTS: &str = r#"
- +DOC
-  +MAP
-   =VAL :strip
-   =VAL |text
-   =VAL :clip
-   =VAL |text\n
-   =VAL :keep
-   =VAL |text\n
-  -MAP
- -DOC"#;
 
 const BLOCK_QUOTE_INPUT: &str = r#"
 plain: 
@@ -193,27 +166,10 @@ const BLOCK_QUOTE_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
-const MULTILINE_PLAIN_INPUT: &str = r##"
-generic: !!str 
- test
- test
-"##;
-
-const MULTILINE_PLAIN_EVENTS: &str = r##"
- +DOC
-  +MAP
-   =VAL :generic
-   =VAL <tag:yaml.org,2002:str> |test\ntest\n
-  -MAP
- -DOC"##;
-
 #[test]
-pub fn literal_block() {
-    assert_eq_event(BLOCK_STR2_INPUT, BLOCK_STR2_EVENTS);
+pub fn block_fold() {
     assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
-    assert_eq_event(BLOCK_STR_INPUT, BLOCK_STR_EVENTS);
     assert_eq_event(FOLD_STRING_INPUT, FOLD_STRING_EVENTS);
-    assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
 }
 
 const BLOCK_PLAIN_INPUT: &str = r#"
@@ -245,7 +201,7 @@ const BLOCK_PLAIN2_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn plain_block() {
+pub fn block_plain_scalar() {
     assert_eq_event(BLOCK_PLAIN_INPUT, BLOCK_PLAIN_EVENTS);
     assert_eq_event(BLOCK_PLAIN2_INPUT, BLOCK_PLAIN2_EVENTS);
 }
@@ -294,6 +250,47 @@ const SIMPLE_FOLDED_EVENTS: &str = r#"
   =VAL |
  -DOC"#;
 
+const LIT_STR2_INPUT: &str = r#"
+strip: |-
+  text
+clip: |
+  text
+keep: |
+  text"#;
+
+const LIT_STR2_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :strip
+   =VAL |text
+   =VAL :clip
+   =VAL |text\n
+   =VAL :keep
+   =VAL |text\n
+  -MAP
+ -DOC"#;
+
+const MULTILINE_PLAIN_INPUT: &str = r##"
+generic: !!str |
+ test
+ test
+"##;
+
+const MULTILINE_PLAIN_EVENTS: &str = r##"
+ +DOC
+  +MAP
+   =VAL :generic
+   =VAL <tag:yaml.org,2002:str> |test\ntest\n
+  -MAP
+ -DOC"##;
+
+#[test]
+pub fn block_literal() {
+    assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
+    assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
+    assert_eq_event(LIT_STR2_INPUT, LIT_STR2_EVENTS);
+    assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
+}
 const LITERAL_ERR_INPUT: &str = r#"
 --- |0"#;
 
@@ -306,9 +303,7 @@ const SIMPLE_FOLDED_ERR_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn block_literal() {
-    assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
-    assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
+pub fn block_literal_err() {
     assert_eq_event(LITERAL_ERR_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
     assert_eq_event(LITERAL_ERR2_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
 }
@@ -330,27 +325,6 @@ pub fn block_plain_multiline() {
     assert_eq_event(PLAIN_MULTI_INPUT, PLAIN_MULTI_EVENTS)
 }
 
-const SEQ_PLAIN_INPUT: &str = r#"
-  - x
-   - y
-"#;
-
-const SEQ_PLAIN2_INPUT: &str = r#"
-- x - y
-"#;
-
-const SEQ_PLAIN_EVENTS: &str = r#"
- +DOC
-  +SEQ
-   =VAL :x - y
-  -SEQ
- -DOC"#;
-
-#[test]
-pub fn seq_plain() {
-    assert_eq_event(SEQ_PLAIN_INPUT, SEQ_PLAIN_EVENTS);
-    assert_eq_event(SEQ_PLAIN2_INPUT, SEQ_PLAIN_EVENTS);
-}
 
 const MAP2_INPUT: &str = r#"
 :
@@ -464,7 +438,7 @@ const MIX_EMPTY_MAP_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn empty_map() {
+pub fn block_empty_map() {
     assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
     assert_eq_event(EMPTY_MAP2_INPUT, EMPTY_MAP2_EVENTS);
     assert_eq_event(EMPTY_MAP2_1_INPUT, EMPTY_MAP2_EVENTS);
@@ -520,7 +494,7 @@ const MULTILINE_COMMENT3_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn multiline_block_comment() {
+pub fn block_multiline_comment() {
     assert_eq_event(MULTILINE_COMMENT1_INPUT, MULTILINE_COMMENT1_EVENTS);
     assert_eq_event(MULTILINE_COMMENT1_2_INPUT, MULTILINE_COMMENT1_EVENTS);
     assert_eq_event(MULTILINE_COMMENT2_INPUT, MULTILINE_COMMENT2_EVENTS);
@@ -571,7 +545,7 @@ const EXP_MAP_FOLD_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn explicit_block_map() {
+pub fn block_exp_map() {
     assert_eq_event(EXP_MAP_INPUT, EXP_MAP_EVENTS);
     assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_MIX_INPUT, EXP_BLOCK_MAP_MIX_EVENTS);
@@ -609,7 +583,7 @@ const EXP_MAP_FAKE_EMPTY_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn explicit_block_empty_node_map() {
+pub fn block_empty_node_exp_map() {
     assert_eq_event(EXP_MAP_EMPTY_INPUT, EXP_MAP_EMPTY_INPUT_EVENTS);
     assert_eq_event(EXP_MAP_FAKE_EMPTY_INPUT, EXP_MAP_FAKE_EMPTY_EVENTS);
 }
@@ -643,7 +617,7 @@ const EXP_BLOCK_MAP_ERR2_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn explicit_block_map_err() {
+pub fn block_exp_map_err() {
     assert_eq_event(EXP_BLOCK_MAP_ERR1, EXP_BLOCK_MAP_ERR1_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_ERR2, EXP_BLOCK_MAP_ERR2_EVENTS);
 }
@@ -722,7 +696,7 @@ const MAPS_WITH_QUOTES_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn test_map_scalar_and_ws() {
+pub fn block_map_scalar_and_ws() {
     assert_eq_event(MAPS_WITH_QUOTES_INPUT, MAPS_WITH_QUOTES_EVENTS);
 }
 
@@ -754,7 +728,7 @@ const NESTED_MAPS_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn test_nested_maps() {
+pub fn block_nested_maps() {
     assert_eq_event(NESTED_MAPS_INPUT, NESTED_MAPS_EVENTS);
 }
 
@@ -802,7 +776,7 @@ const ANCHOR_COLON_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn test_anchor() {
+pub fn block_anchor() {
     assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
 }
 
@@ -831,7 +805,7 @@ const MIX_BLOCK_EVENTS: &str = r##"
  -DOC"##;
 
 #[test]
-pub fn test_mix_blocks() {
+pub fn block_mix_seq() {
     assert_eq_event(MIX_BLOCK_INPUT, MIX_BLOCK_EVENTS);
 }
 
@@ -884,32 +858,6 @@ fn multi_line_value() {
     assert_eq_event(MULTI_LINE_INPUT, MULTI_LINE_EVENTS);
 }
 
-const MULTI_DOC_INPUT: &str = r#"
----
-? a
-: b
----
-- c
-"#;
-
-const MULTI_DOC_EVENTS: &str = r#"
- +DOC ---
-  +MAP
-   =VAL :a
-   =VAL :b
-  -MAP
- -DOC
- +DOC ---
-  +SEQ
-   =VAL :c
-  -SEQ
- -DOC"#;
-
-#[test]
-fn multi_doc() {
-    assert_eq_event(MULTI_DOC_INPUT, MULTI_DOC_EVENTS);
-}
-
 const INDENT_TAB_INPUT: &str = r#"
 a: 
 	b: c
@@ -928,6 +876,6 @@ const INDENT_TAB_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-fn invalid_tabs_in_map() {
+fn block_invalid_map_tabs() {
     assert_eq_event(INDENT_TAB_INPUT, INDENT_TAB_EVENTS);
 }
