@@ -525,7 +525,7 @@ pub unsafe trait Stage1Scanner {
     ///  );
     /// ```
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
-        util::select_consecutive_bits_branchless(quote_bits, even_ends)
+        util::select_right_bits_branch_less(quote_bits, even_ends)
     }
 
     /// Scans the whitespace and structurals in the given YAML chunk state.
