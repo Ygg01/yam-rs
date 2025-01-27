@@ -74,6 +74,13 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
     state: &'input mut YamlParserState,
 ) -> ParseResult<YamlChunkState>;
 
+/// A trait representing a stage 1 scanner for parsing YAML input.
+///
+/// This trait provides methods for validating and scanning chunks of data, and finding important
+/// parts like structural starts and so on.
+///
+/// This trait provides methods for validating and scanning chunks of data, as well as
+/// processing the next chunk of YAML input.
 pub trait Stage1Scanner {
     type SimdType;
     type Validator: ChunkedUtf8Validator;
@@ -392,6 +399,25 @@ pub trait Stage1Scanner {
     /// ```
     fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState);
 
+    /// Scans the input for double quote bitmask.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_state` - A mutable reference to the `YamlChunkState` struct.
+    /// * `prev_iter_state` - A mutable reference to the `YamlParserState` struct.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    ///
+    ///  let mut block_state = YamlChunkState::default();
+    ///  let mut prev_iter_state = YamlParserState::default();
+    ///  let chunk = b" \"  \"                                                           ";
+    ///  let scanner = NativeScanner::from_chunk(chunk);
+    ///  let result = scanner.scan_double_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
+    /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_double_quote_bitmask(
         &self,
