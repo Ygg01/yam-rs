@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_dark_core::util::{
-    count_table_small, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    count_col_rows, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
 use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
@@ -137,21 +137,16 @@ fn col_count_small(c: &mut Criterion) {
         b.iter(|| {
             let mut prev_col = 0;
             let mut prev_row = 0;
-            let mut prev_indent = -1;
             let mut count_row = [0; 64];
             let mut count_col = [0; 64];
-            let mut count_indent = [0; 64];
-            count_table_small(
+            count_col_rows(
                 mask,
-                space_mask,
                 &mut prev_col,
                 &mut prev_row,
-                &mut prev_indent,
                 &mut count_col,
                 &mut count_row,
-                &mut count_indent,
             );
-            black_box(count_col[0] > 0 && count_row[3] == 0 && count_indent[2] == 4);
+            black_box(count_col[0] > 0 && count_row[3] == 0);
         })
     });
     group.finish();
