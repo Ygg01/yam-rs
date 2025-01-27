@@ -178,30 +178,10 @@ unsafe impl Stage1Scanner for NativeScanner {
             // shouldn't be a SAFETY problem.
             let cols: [u32; 4] = unsafe {
                 [
-                    *base.byte_cols.get_unchecked(v0 as usize)
-                        + if *base.byte_rows.get_unchecked(v0 as usize) == 0 {
-                            base.last_col
-                        } else {
-                            0
-                        },
-                    *base.byte_cols.get_unchecked(v1 as usize)
-                        + if *base.byte_rows.get_unchecked(v1 as usize) == 0 {
-                            base.last_col
-                        } else {
-                            0
-                        },
-                    *base.byte_cols.get_unchecked(v2 as usize)
-                        + if *base.byte_rows.get_unchecked(v2 as usize) == 0 {
-                            base.last_col
-                        } else {
-                            0
-                        },
-                    *base.byte_cols.get_unchecked(v3 as usize)
-                        + if *base.byte_rows.get_unchecked(v3 as usize) == 0 {
-                            base.last_col
-                        } else {
-                            0
-                        },
+                    *indent_info.cols.get_unchecked(v0 as usize),
+                    *indent_info.cols.get_unchecked(v1 as usize),
+                    *indent_info.cols.get_unchecked(v2 as usize),
+                    *indent_info.cols.get_unchecked(v3 as usize),
                 ]
             };
             // SAFETY:
@@ -210,12 +190,24 @@ unsafe impl Stage1Scanner for NativeScanner {
             // shouldn't be a SAFETY problem.
             let rows = unsafe {
                 [
-                    *base.byte_rows.get_unchecked(v0 as usize) + base.last_row,
-                    *base.byte_rows.get_unchecked(v1 as usize) + base.last_row,
-                    *base.byte_rows.get_unchecked(v2 as usize) + base.last_row,
-                    *base.byte_rows.get_unchecked(v3 as usize) + base.last_row,
+                    *indent_info.rows.get_unchecked(v0 as usize),
+                    *indent_info.rows.get_unchecked(v1 as usize),
+                    *indent_info.rows.get_unchecked(v2 as usize),
+                    *indent_info.rows.get_unchecked(v3 as usize),
                 ]
             };
+
+            // SAFETY:
+            // Get unchecked will be less than 64, because trailing zeroes of u64 can't be greater than 64
+            let indents = unsafe {
+                [
+                    *indent_info.indents.get_unchecked(v0 as usize),
+                    *indent_info.indents.get_unchecked(v1 as usize),
+                    *indent_info.indents.get_unchecked(v2 as usize),
+                    *indent_info.indents.get_unchecked(v3 as usize),
+                ]
+            };
+
             // SAFETY:
             // Writing arrays into vec will always be aligned.
             unsafe {
@@ -226,14 +218,9 @@ unsafe impl Stage1Scanner for NativeScanner {
                         .cast::<[usize; 4]>(),
                     v,
                 );
-                write(
-                    base.byte_cols.as_mut_ptr().add(base_len).cast::<[u32; 4]>(),
-                    cols,
-                );
-                write(
-                    base.byte_rows.as_mut_ptr().add(base_len).cast::<[u32; 4]>(),
-                    rows,
-                );
+                Self::write_u32x4(&mut base.byte_cols, base_len, cols);
+                Self::write_u32x4(&mut base.byte_rows, base_len, rows);
+                Self::write_u32x4(&mut base.indents, base_len, indents);
             }
 
             base_len += 4;
@@ -247,5 +234,12 @@ unsafe impl Stage1Scanner for NativeScanner {
             base.byte_rows.set_len(final_len);
             base.indents.set_len(final_len);
         }
+    }
+}
+
+impl NativeScanner {
+    #[inline]
+    unsafe fn write_u32x4(field: &mut Vec<u32>, pos: usize, data: [u32; 4]) {
+        write(field.as_mut_ptr().add(pos).cast::<[u32; 4]>(), data);
     }
 }
