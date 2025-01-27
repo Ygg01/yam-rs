@@ -2,7 +2,7 @@ extern crate steel_yaml;
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::{format, Debug, Write};
+    use std::fmt::{Debug, format, Write};
 
     use steel_yaml::Scanner;
 
@@ -13,7 +13,7 @@ mod tests {
 "#;
     const EMPTY_DOC_EXPECTED: &'static str = r#"
 #YAML 1.3
-ERR"#;
+ERR(NoDocStartAfterTag)"#;
 
     const NULL_YAML_INPUT: &'static str = r#"
 null
