@@ -98,6 +98,7 @@ pub trait Reader<B> {
         &mut self,
         literal: bool,
         curr_state: &LexerState,
+        prev_indent: usize,
         tokens: &mut VecDeque<usize>,
         errors: &mut Vec<ErrorType>,
     );
