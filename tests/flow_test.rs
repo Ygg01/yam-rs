@@ -186,12 +186,20 @@ const DQUOTE_STR2: &'static str = r#"
 "#;
 
 const DQUOTE_STR_EXPECTED: &'static str = r#"
-  =VAL "double quote"#;
+  =VAL double quote"#;
+
+const DQUOTE_STR_ESCAPE1: &'static str = r#"
+  "double quote (\")""#;
+
+const DQUOTE_STR_ESCAPE_EXPECTED: &'static str = r#"
+  =VAL double quote (")"#;
+
 
 #[test]
 fn flow_double_quote() {
     assert_eq_event(DQUOTE_STR1, DQUOTE_STR_EXPECTED);
     assert_eq_event(DQUOTE_STR2, DQUOTE_STR_EXPECTED);
+    assert_eq_event(DQUOTE_STR_ESCAPE1, DQUOTE_STR_ESCAPE_EXPECTED);
 }
 
 const ERR_PLAIN_SCALAR: &'static str = r#"
