@@ -114,10 +114,13 @@ pub unsafe trait Stage1Scanner {
     /// [`ChunkedUtf8Validator`] that matches the [`Stage1Scanner`] architecture.
     type Validator: ChunkedUtf8Validator;
 
-    /// Returns the validator for the given type.
+    /// Returns the  [`Self::Validator`] for the given trait implementor.
     ///
-    /// The `validator` function is a generic method that returns the validator for the type it is called on. The `Self` keyword is used to refer to the type of the implementing struct or trait.
-    fn validator() -> Self::Validator;
+    /// The `validator` function is a generic method that returns the validator for the type it is called on.
+    ///
+    /// # Safety
+    /// Method implementers need to make sure they are calling the right implementation for correct architecture.
+    unsafe fn validator() -> Self::Validator;
 
     /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
     ///

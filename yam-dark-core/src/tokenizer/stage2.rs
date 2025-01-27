@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::error::Error;
-use crate::impls::NativeScanner;
+use crate::impls::{AvxScanner, NativeScanner};
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlChunkState};
 use crate::tokenizer::visitor::{EventStringVisitor, YamlVisitor};
 use crate::util::{ChunkyIterator, NoopValidator};
@@ -93,10 +93,13 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
             return Box::new(NoopValidator::new());
         }
     }
-    if core_detect::is_x86_feature_detected!("avx2") {
-        Box::new(NativeScanner::validator())
-    } else {
-        Box::new(NativeScanner::validator())
+
+    unsafe {
+        if core_detect::is_x86_feature_detected!("avx2") {
+            Box::new(AvxScanner::validator())
+        } else {
+            Box::new(NativeScanner::validator())
+        }
     }
 }
 
