@@ -486,22 +486,6 @@ pub unsafe trait Stage1Scanner {
     ) {
     }
 
-    #[deprecated]
-    fn calculate_cols_rows_indents(state: &mut YamlParserState, chunk_state: &YamlChunkState) {
-        Self::calculate_cols_rows(
-            &mut state.byte_cols,
-            &mut state.byte_rows,
-            state.pos,
-            chunk_state.characters.line_feeds,
-        );
-        Self::calculate_indents(
-            &mut state.indents,
-            chunk_state.characters.line_feeds,
-            chunk_state.characters.spaces,
-            &mut state.is_indent_running,
-        );
-    }
-
     /// Computes a quote mask based on the given quote bit mask.
     ///
     /// The `compute_quote_mask` function takes an input `quote_bits` of type `u64` and calculates
