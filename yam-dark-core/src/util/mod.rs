@@ -1,6 +1,4 @@
-use alloc::vec::Vec;
 use core::ptr;
-use core::ptr::write;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
@@ -142,66 +140,35 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
     let pre_calc_row = U8_ROW_TABLE[index_mask];
     let rows = [
         *prev_row,
-        *prev_row + pre_calc_row[0] as u32,
-        *prev_row + pre_calc_row[1] as u32,
-        *prev_row + pre_calc_row[2] as u32,
-        *prev_row + pre_calc_row[3] as u32,
-        *prev_row + pre_calc_row[4] as u32,
-        *prev_row + pre_calc_row[5] as u32,
-        *prev_row + pre_calc_row[6] as u32,
+        *prev_row + u32::from(pre_calc_row[0]),
+        *prev_row + u32::from(pre_calc_row[1]),
+        *prev_row + u32::from(pre_calc_row[2]),
+        *prev_row + u32::from(pre_calc_row[3]),
+        *prev_row + u32::from(pre_calc_row[4]),
+        *prev_row + u32::from(pre_calc_row[5]),
+        *prev_row + u32::from(pre_calc_row[6]),
     ];
-    *prev_row += pre_calc_row[7] as u32;
+    *prev_row += u32::from(pre_calc_row[7]);
     rows
 }
 
+#[doc(hidden)]
+// TODO SAFETY
 pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mut u32, idx: usize) {
     let src = U8_ROW_TABLE[newlines];
     *dst.get_unchecked_mut(idx) = *prev_row;
-    *dst.get_unchecked_mut(idx + 1) = *src.get_unchecked(0) as u32 + *prev_row;
-    *dst.get_unchecked_mut(idx + 2) = *src.get_unchecked(1) as u32 + *prev_row;
-    *dst.get_unchecked_mut(idx + 3) = *src.get_unchecked(2) as u32 + *prev_row;
-    *dst.get_unchecked_mut(idx + 4) = *src.get_unchecked(3) as u32 + *prev_row;
-    *dst.get_unchecked_mut(idx + 5) = *src.get_unchecked(4) as u32 + *prev_row;
-    *dst.get_unchecked_mut(idx + 6) = *src.get_unchecked(5) as u32 + *prev_row;
-    *dst.get_unchecked_mut(idx + 7) = *src.get_unchecked(6) as u32 + *prev_row;
-    *prev_row += *dst.get_unchecked(idx + 7)
+    *dst.get_unchecked_mut(idx + 1) = u32::from(*src.get_unchecked(0)) + *prev_row;
+    *dst.get_unchecked_mut(idx + 2) = u32::from(*src.get_unchecked(1)) + *prev_row;
+    *dst.get_unchecked_mut(idx + 3) = u32::from(*src.get_unchecked(2)) + *prev_row;
+    *dst.get_unchecked_mut(idx + 4) = u32::from(*src.get_unchecked(3)) + *prev_row;
+    *dst.get_unchecked_mut(idx + 5) = u32::from(*src.get_unchecked(4)) + *prev_row;
+    *dst.get_unchecked_mut(idx + 6) = u32::from(*src.get_unchecked(5)) + *prev_row;
+    *dst.get_unchecked_mut(idx + 7) = u32::from(*src.get_unchecked(6)) + *prev_row;
+    *prev_row += *dst.get_unchecked(idx + 7);
 }
 
-pub unsafe fn compress(src: &[u32; 8], k1: &[bool; 8], dst: &mut [u32; 8]) {
-    let mut k = 0;
-
-    let x0 = k1.get_unchecked(0);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(0) * *x0 as u32;
-    k += *x0 as usize;
-
-    let x1 = k1.get_unchecked(1);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(1) * *x1 as u32;
-    k += *x1 as usize;
-
-    let x2 = k1.get_unchecked(2);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(2) * *x2 as u32;
-    k += *x2 as usize;
-
-    let x3 = k1.get_unchecked(3);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(3) * *x3 as u32;
-    k += *x3 as usize;
-
-    let x4 = k1.get_unchecked(4);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(4) * *x4 as u32;
-    k += *x4 as usize;
-
-    let x5 = k1.get_unchecked(5);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(5) * *x5 as u32;
-    k += *x5 as usize;
-
-    let x6 = k1.get_unchecked(6);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(6) * *x6 as u32;
-    k += *x6 as usize;
-
-    let x7 = k1.get_unchecked(7);
-    *dst.get_unchecked_mut(k) = *src.get_unchecked(7) * *x7 as u32;
-}
-
+#[doc(hidden)]
+// TODO SAFETY
 pub unsafe fn add_cols_unchecked(dst: &mut [u32], newlines: usize, prev_col: &mut u32, idx: usize) {
     let cols = U8_BYTE_COL_TABLE[newlines];
     let rows = U8_ROW_TABLE[newlines];
