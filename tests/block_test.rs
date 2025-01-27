@@ -411,26 +411,11 @@ const EXP_MAP_COMBINATION_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
-const EXPLICIT_BLOCK_MAP_ERR2: &str = r#"
-  ? test
-   : value
-"#;
-
-const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &str = r#"
- +DOC
-  +MAP
-   =VAL :test
-   ERR
-   =VAL :value
-  -MAP
- -DOC"#;
-
-
 #[test]
 pub fn explicit_block_map() {
     assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
-    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
     assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
+    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
 }
 
 const EXPLICIT_BLOCK_MAP_ERR1: &str = r#"
@@ -447,12 +432,25 @@ const EXPLICIT_BLOCK_MAP_ERR1_EXPECTED: &str = r#"
   -MAP
  -DOC"#;
 
+const EXPLICIT_BLOCK_MAP_ERR2: &str = r#"
+ ? test
+  : value
+"#;
+
+const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &str = r#"
+ +DOC
+  +MAP
+   =VAL :test
+   ERR
+   =VAL :value
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn explicit_block_map_err() {
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR1, EXPLICIT_BLOCK_MAP_ERR1_EXPECTED);
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR2, EXPLICIT_BLOCK_MAP_ERR2_EXPECTED);
 }
-
 
 const COMPLEX_BLOCK_KEY: &str = r##"
 a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
@@ -471,7 +469,6 @@ const COMPLEX_BLOCK_EXPECTED: &str = r##"
    =VAL :boo
   -MAP
  -DOC"##;
-
 
 #[test]
 pub fn test_complex_block() {
