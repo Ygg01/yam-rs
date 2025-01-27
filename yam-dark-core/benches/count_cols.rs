@@ -135,7 +135,8 @@ fn col_count_small(c: &mut Criterion) {
     group.bench_function("col_count_small", |b| {
         b.iter(|| {
             let mut prev_indent = 0;
-            let count = count_table_small(mask, &mut prev_indent);
+            let mut count = [0; 64];
+            count_table_small(mask, &mut prev_indent, &mut count);
             black_box(count[0] > 0);
         })
     });
