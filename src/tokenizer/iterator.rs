@@ -53,6 +53,15 @@ where
     }
 }
 
+impl<'a, R, B> From<&'a [u8]> for EventIterator<'a, R, B>
+where
+    R: Reader<B> + From<&'a [u8]>,
+{
+    fn from(value: &'a [u8]) -> Self {
+        EventIterator::new(From::from(value))
+    }
+}
+
 impl<'a, R, B, S: BufRead> EventIterator<'a, R, B, S>
 where
     R: Reader<B> + From<S>,

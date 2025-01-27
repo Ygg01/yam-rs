@@ -39,6 +39,16 @@ impl<'a> From<&'a str> for StrReader<'a> {
     }
 }
 
+impl<'a> From<&'a [u8]> for StrReader<'a> {
+    fn from(value: &'a [u8]) -> Self {
+        Self {
+            slice: value,
+            pos: 0,
+            col: 0,
+        }
+    }
+}
+
 impl<'a> Slicer<'a> for StrReader<'a> {
     fn slice(&self, start: usize, end: usize) -> &'a [u8] {
         unsafe { self.slice.get_unchecked(start..end) }
