@@ -1,17 +1,17 @@
 use std::collections::VecDeque;
-use std::ops::{RangeFrom, RangeInclusive};
 use std::ops::ControlFlow::{Break, Continue};
+use std::ops::{RangeFrom, RangeInclusive};
 
 use memchr::memchr3_iter;
 
-use crate::tokenizer::{DirectiveType, ErrorType, reader, Reader, SpanToken};
-use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::reader::{ChompIndicator, LookAroundBytes};
 use crate::tokenizer::spanner::ParserState;
 use crate::tokenizer::spanner::ParserState::{BlockMap, BlockSeq};
+use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::SpanToken::{
     Directive, ErrorToken, MappingStart, MarkEnd, MarkStart, NewLine, Separator, Space,
 };
+use crate::tokenizer::{reader, DirectiveType, ErrorType, Reader, SpanToken};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -28,7 +28,6 @@ impl<'a> StrReader<'a> {
         }
     }
 
-
     #[inline]
     fn eof_or_pos(&self, pos: usize) -> usize {
         pos.min(self.slice.len() - 1)
@@ -38,7 +37,6 @@ impl<'a> StrReader<'a> {
     fn get_lookahead_iterator(&self, range: RangeInclusive<usize>) -> LookAroundBytes {
         LookAroundBytes::new(self.slice, range)
     }
-
 
     #[inline]
     fn peek_byte_unwrap(&self, offset: usize) -> u8 {
@@ -51,8 +49,8 @@ impl<'a> StrReader<'a> {
     #[inline]
     fn count_space_tab_range_from(&self, range: RangeFrom<usize>, allow_tab: bool) -> usize {
         match self.slice[range]
-                .iter()
-                .try_fold(0usize, |acc, x| reader::is_tab_space(acc, *x, allow_tab))
+            .iter()
+            .try_fold(0usize, |acc, x| reader::is_tab_space(acc, *x, allow_tab))
         {
             Continue(x) | Break(x) => x,
         }
@@ -60,16 +58,16 @@ impl<'a> StrReader<'a> {
 
     fn find_next_whitespace(&self) -> Option<usize> {
         self.slice[self.pos..]
-                .iter()
-                .position(|p| reader::is_white_tab_or_break(*p))
+            .iter()
+            .position(|p| reader::is_white_tab_or_break(*p))
     }
 
     fn skip_n_spaces(&mut self, num_spaces: usize) -> Result<(), ErrorType> {
         let count = self.slice[self.pos..]
-                .iter()
-                .enumerate()
-                .take_while(|&(count, &x)| x == b' ' && count < num_spaces)
-                .count();
+            .iter()
+            .enumerate()
+            .take_while(|&(count, &x)| x == b' ' && count < num_spaces)
+            .count();
 
         if count != num_spaces {
             return Err(ErrorType::ExpectedIndent {
@@ -162,12 +160,12 @@ impl<'a> StrReader<'a> {
         let start = self.pos;
 
         if !(allow_minus && self.peek_byte_is(b'-'))
-                && (self.eof()
+            && (self.eof()
                 || self.peek_byte_at_check(0, reader::is_white_tab_or_break)
                 || self.peek_byte_at_check(0, reader::is_indicator)
                 || (self.peek_byte_is(b'-') && !self.peek_byte_at_check(1, reader::is_white_tab))
                 || ((self.peek_byte_is(b'?') || self.peek_byte_is(b':'))
-                && !self.peek_byte_at_check(1, reader::is_white_tab_or_break)))
+                    && !self.peek_byte_at_check(1, reader::is_white_tab_or_break)))
         {
             return None;
         }
@@ -564,8 +562,8 @@ impl<'r> Reader for StrReader<'r> {
             let newline_indent = self.count_space_tab(false);
 
             if !is_trailing_comment
-                    && newline_indent < indentation
-                    && self.peek_byte_unwrap(newline_indent) == b'#'
+                && newline_indent < indentation
+                && self.peek_byte_unwrap(newline_indent) == b'#'
             {
                 trailing.push(NewLine(new_line_token - 1));
                 is_trailing_comment = true;
@@ -573,7 +571,7 @@ impl<'r> Reader for StrReader<'r> {
             };
 
             let newline_is_empty = self.peek_byte_at_check(newline_indent, reader::is_newline)
-                    || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
+                || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
 
             if indentation == 0 && newline_indent > 0 && !newline_is_empty {
                 indentation = newline_indent;
@@ -592,11 +590,11 @@ impl<'r> Reader for StrReader<'r> {
             if start != end {
                 if new_line_token > 0 {
                     let token =
-                            if new_line_token == 1 && !literal && previous_indent == newline_indent {
-                                Space
-                            } else {
-                                NewLine(new_line_token)
-                            };
+                        if new_line_token == 1 && !literal && previous_indent == newline_indent {
+                            Space
+                        } else {
+                            NewLine(new_line_token)
+                        };
                     tokens.push_back(token);
                 }
                 previous_indent = newline_indent;
@@ -648,6 +646,3 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 }
-
-
-
