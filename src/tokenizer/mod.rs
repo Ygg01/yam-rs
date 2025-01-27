@@ -32,6 +32,7 @@ pub enum ErrorType {
     ExpectedNewlineInFolded,
     ImplicitKeysNeedToBeInline,
     InvalidAnchorDeclaration,
+    InvalidCommentStart,
     InvalidCommentInScalar,
     InvalidEscapeCharacter,
     InvalidQuoteIndent { actual: u32, expected: u32 },
