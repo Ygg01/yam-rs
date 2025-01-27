@@ -1,25 +1,52 @@
 use std::collections::VecDeque;
+use std::fs::read;
 
 use crate::error::YamlError;
 use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::event::YamlEvent::{Directive, DocEnd};
 use crate::tokenizer::iter::{ErrorType, StrIterator};
+use crate::tokenizer::iter::ErrorType::StartedBlockInFlow;
 use crate::tokenizer::reader::{Reader, StrReader};
-use crate::tokenizer::scanner::FlowStyle::Block;
-use crate::tokenizer::scanner::State::{InDoc, StreamEnd, StreamStart};
+use crate::tokenizer::scanner::Control::{Continue, Eof};
+use crate::tokenizer::scanner::QuoteType::{Double, Plain, Single};
+use crate::tokenizer::scanner::ScannerContext::BlockIn;
+use crate::tokenizer::scanner::State::{InDoc, InFlowScalar, StreamEnd, StreamStart};
 
 #[derive(Clone, Default)]
 pub struct Scanner {
-    state: State,
+    pub(crate) curr_state: State,
+    closing: bool,
+    context: ScannerContext,
     tokens: VecDeque<SpanToken>,
+}
+#[derive(Copy, Clone,)]
+pub(crate) enum ScannerContext {
+    BlockIn,
+    BlockOut,
+    BlockKey,
+    FlowIn,
+    FlowOut,
+    FlowKey,
+}
+
+impl Default for ScannerContext {
+    fn default() -> Self {
+        BlockIn
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
-pub enum State {
+pub(crate) enum State {
     StreamStart,
     InDoc,
     StreamEnd,
-    Sequence(FlowStyle),
+    InFlowSeq,
+    InBlockSeq,
+    InFlowMap,
+    InBlockMap,
+    InMap,
+    InFlowScalar(QuoteType),
+    InBlockScalar,
 }
 
 impl Default for State {
@@ -29,21 +56,23 @@ impl Default for State {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-pub enum FlowStyle {
-    Block,
-    Flow,
+pub(crate) enum QuoteType {
+    Plain,
+    Single,
+    Double,
 }
 
-impl Default for FlowStyle {
+impl Default for QuoteType {
     fn default() -> Self {
-        Block
+        Plain
     }
 }
 
+#[derive(PartialEq)]
 pub enum Control {
     Continue,
     Eof,
-    Err(YamlError),
+    End,
 }
 
 impl Scanner {
@@ -55,12 +84,13 @@ impl Scanner {
     }
 
     pub(crate) fn emit_end_of_stream(&mut self) {
-        match self.state {
+        match self.curr_state {
             InDoc => self.tokens.push_back(SpanToken::DocEnd),
             _ => (),
         }
         self.tokens.push_back(SpanToken::StreamEnd);
-        self.state = StreamEnd;
+        self.curr_state = StreamEnd;
+        self.closing = true;
     }
 
     pub(crate) fn pop_token(&mut self) -> Option<SpanToken> {
@@ -68,16 +98,21 @@ impl Scanner {
     }
 
     pub(crate) fn next_state<R: Reader>(&mut self, reader: &mut R) -> Control {
-        match self.state {
+        if reader.eof() && !self.closing {
+            self.closing = true;
+            self.emit_end_of_stream()
+        }
+        match self.curr_state {
             StreamStart => self.read_start_stream(reader),
             InDoc => self.read_in_doc(reader),
-            StreamEnd => return Control::Eof,
-            _ => {},
+            InFlowScalar(_) => self.read_flow_scalar(reader),
+            _  => (),
         };
-        if reader.eof() && self.state != StreamEnd {
-            self.emit_end_of_stream();
+        if !self.tokens.is_empty() || !self.closing {
+            return Continue;
         }
-        Control::Continue
+
+        return Eof;
     }
 
     pub(crate) fn read_start_stream<R: Reader>(&mut self, reader: &mut R) {
@@ -112,16 +147,59 @@ impl Scanner {
                     .push_back(SpanToken::ErrorToken(ErrorType::ExpectedDocumentStart));
             }
         }
-        self.state = InDoc;
+        self.curr_state = InDoc;
         self.tokens.push_back(SpanToken::DocStart);
     }
 
     pub(crate) fn read_in_doc<R: Reader>(&mut self, reader: &mut R) {
         reader.skip_whitespace();
-        match reader.peek_byte().unwrap_or(b'\0') {
-            // b'[' => self.state = Collection(S)
-            _ => {}
+        let mut consume = 1;
+        if let Some(x) = reader.peek_byte() {
+            match x {
+                b'[' => {
+                    self.switch_state(State::InFlowSeq);
+                }
+                b'-' => {
+                    self.switch_state(State::InBlockSeq);
+                    consume = 0; // Can be re-consumed as scalar `--`
+                }
+                b'{' => {
+                    self.switch_state(State::InFlowMap);
+                }
+                b'?' => {
+                    self.switch_state(State::InBlockMap);
+                    consume = 0; // Can be re-consumed as `??` scalar
+                }
+                b'\'' => {
+                    self.switch_state(State::InFlowScalar(Single));
+                }
+                b'"' => {
+                    self.switch_state(State::InFlowScalar(Double));
+                }
+                b'|' => {
+                    self.switch_state(State::InBlockScalar);
+                }
+                b'.' => {
+                    if reader.try_read_slice_exact("...") {
+                        self.curr_state = StreamEnd;
+                    }
+                }
+                _ => {
+                    self.switch_state(State::InFlowScalar(Plain));
+                    consume = 0;
+                }
+            }
         };
+        reader.consume_bytes(consume);
+    }
+
+    pub(crate) fn switch_state(&mut self, next_state: State) {
+        self.curr_state = next_state;
+    }
+
+    pub(crate) fn read_flow_scalar<R: Reader>(&mut self, reader: &mut R) {
+        self.curr_state = InDoc;
+        reader.read_line();
     }
 
     fn try_skip_comments<T: Reader>(&self, reader: &mut T) {

@@ -111,7 +111,7 @@ impl<'r> Reader for StrReader<'r> {
         let n = self.slice.as_bytes()[self.pos..]
             .iter()
             .position(|b| !is_whitespace(*b))
-            .unwrap_or(0);
+            .unwrap_or(0) ;
         self.consume_bytes(n);
         n
     }
@@ -234,6 +234,14 @@ pub fn read_non_comment_line() {
     assert_eq!(None, lin_reader.peek_byte());
     assert_eq!(8, lin_reader.pos);
     assert_eq!(0, lin_reader.col);
+}
+
+#[test]
+pub fn skip_whitespace() {
+    assert_eq!(0, StrReader::new("null").skip_whitespace());
+    assert_eq!(0, StrReader::new("").skip_whitespace());
+    assert_eq!(1, StrReader::new(" null").skip_whitespace());
+    assert_eq!(2, StrReader::new("\t null").skip_whitespace());
 }
 
 #[inline]

@@ -1,8 +1,10 @@
 use std::borrow::Cow;
+
 use crate::Scanner;
 use crate::tokenizer::event::YamlEvent;
-use crate::tokenizer::reader::StrReader;
+use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::{Control, SpanToken};
+use crate::tokenizer::scanner::State::StreamEnd;
 
 pub struct StrIterator<'a> {
     pub(crate) state: Scanner,
@@ -39,9 +41,8 @@ impl<'a> Iterator for StrIterator<'a> {
             } else {
                 match self.state.next_state(&mut self.reader) {
                     Control::Continue => continue,
-                    Control::Eof => return None,
-                    Control::Err(_) => return None,
-                }
+                    _ => return None,
+                };
             }
         };
         Some(self.to_token(span))
@@ -51,4 +52,5 @@ impl<'a> Iterator for StrIterator<'a> {
 #[derive(Copy, Clone)]
 pub enum ErrorType {
     ExpectedDocumentStart,
+    StartedBlockInFlow,
 }
