@@ -1,4 +1,4 @@
-use memchr::{memchr, memchr2};
+use memchr::{memchr, memchr2, memchr3};
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -8,7 +8,11 @@ pub struct StrReader<'a> {
 
 impl<'a> StrReader<'a> {
     pub fn new(slice: &'a str) -> StrReader<'a> {
-        Self { slice, pos: 0, col: 0 }
+        Self {
+            slice,
+            pos: 0,
+            col: 0,
+        }
     }
 }
 
@@ -23,10 +27,10 @@ pub(crate) trait Reader {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool {
         self.try_read_slice(needle, true)
     }
-    fn read_fast1(&mut self, needle: u8) -> Option<usize>;
-    fn find_fast2(&mut self, needle1: u8, needle2: u8) -> Option<usize>;
+    fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
     fn skip_space_tab(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
+    fn read_non_comment_line(&mut self) -> (usize, usize);
 }
 
 impl<'r> Reader for StrReader<'r> {
@@ -44,6 +48,7 @@ impl<'r> Reader for StrReader<'r> {
         }
     }
 
+    #[inline(always)]
     fn consume_bytes(&mut self, amount: usize) {
         self.pos += amount;
     }
@@ -72,18 +77,9 @@ impl<'r> Reader for StrReader<'r> {
         read
     }
 
-    #[inline]
-    fn read_fast1(&mut self, needle: u8) -> Option<usize> {
-        if let Some(n) = memchr(needle, &self.slice.as_bytes()[self.pos..]) {
-            return Some(n);
-        }
-        None
-    }
-
-    #[inline]
-    fn find_fast2(&mut self, needle1: u8, needle2: u8) -> Option<usize> {
+    fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)> {
         if let Some(n) = memchr2(needle1, needle2, &self.slice.as_bytes()[self.pos..]) {
-            return Some(n);
+            return Some((self.pos, self.pos + n));
         }
         None
     }
@@ -98,16 +94,39 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn read_line(&mut self) -> (usize, usize) {
-        if let Some(n) = self.find_fast2(b'\r', b'\n') {
-            let x = (self.pos, self.pos + n);
-            self.consume_bytes(n + 1);
-            if self.peek_byte_is(b'\n') {
-                self.consume_bytes(1);
-            };
+        let start = self.pos;
+        let content = &self.slice.as_bytes()[start..];
+        let (n, consume) = memchr::memchr2_iter(b'\r', b'\n', content)
+            .next()
+            .map_or((0, 0), |p| {
+                if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
+                    (p, p + 2)
+                } else {
+                    (p, p + 1)
+                }
+            });
+        self.consume_bytes(consume);
+        self.col = 0;
+        (start, start + n)
+    }
+
+    fn read_non_comment_line(&mut self) -> (usize, usize) {
+        let start = self.pos;
+        let content = &self.slice.as_bytes()[start..];
+        let consume: usize = memchr::memchr3_iter(b'\r', b'\n', b'#', content)
+            .map(|p| {
+                if content[p] == b'\r' && content[p + 1] == b'\n' {
+                    p
+                } else {
+                    p - 1
+                }
+            })
+            .sum();
+        self.consume_bytes(consume);
+        if content[start + consume] == b'\r' || content[start + consume] == b'\n' {
             self.col = 0;
-            return x;
         }
-        (0, 0)
+        (start, start + consume)
     }
 }
 
@@ -137,7 +156,6 @@ pub(crate) fn is_tab_space(b: u8) -> bool {
         _ => false,
     }
 }
-
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum FastRead {

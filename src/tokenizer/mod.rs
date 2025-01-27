@@ -40,13 +40,13 @@ pub struct StrIterator<'a> {
     reader: StrReader<'a>,
 }
 
-
 impl<'a> StrIterator<'a> {
     pub(crate) fn to_token(&self, token: SpanToken) -> YamlEvent<'a> {
         match token {
             SpanToken::StreamStart => YamlEvent::StreamStart,
             SpanToken::StreamEnd => YamlEvent::StreamEnd,
             SpanToken::Scalar(start, end) => YamlEvent::ScalarValue(self.to_cow(start, end)),
+            SpanToken::YamlTag(start, end) => YamlEvent::YamlTag(self.to_cow(start, end)),
         }
     }
 

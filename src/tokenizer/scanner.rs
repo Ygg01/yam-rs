@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
 use crate::error::YamlError;
-use crate::tokenizer::StrIterator;
 use crate::tokenizer::reader::{Reader, StrReader};
 use crate::tokenizer::scanner::State::StreamStart;
+use crate::tokenizer::StrIterator;
 
 #[derive(Clone, Default)]
 pub struct Scanner {
@@ -31,7 +31,6 @@ pub enum Control {
     Err(YamlError),
 }
 
-
 impl Scanner {
     pub fn from_str_reader(string: &str) -> StrIterator<'_> {
         StrIterator {
@@ -56,14 +55,25 @@ impl Scanner {
         Control::Continue
     }
 
-    pub(crate) fn read_start_stream<T: Reader>(&mut self, reader: &mut T)  {
+    pub(crate) fn read_start_stream<T: Reader>(&mut self, reader: &mut T) {
         self.try_skip_comments(reader);
+        if reader.peek_byte_is(b'%') {
+            if reader.try_read_slice_exact("%YAML") {
+                reader.skip_space_tab();
+                if let Some(x) = reader.find_fast2_offset(b'\t', b' ') {
+                    self.tokens.push_back(SpanToken::YamlTag(x.0, x.1));
+                    reader.consume_bytes(x.1 - x.0);
+                    reader.read_line();
+                }
+            } else if reader.try_read_slice_exact("%TAG") {
+                reader.skip_space_tab();
+            }
+        }
         self.state = State::DocStart;
         self.tokens.push_back(SpanToken::StreamStart);
     }
 
-    fn try_skip_comments<T: Reader>(&self, reader: &mut T)  {
-
+    fn try_skip_comments<T: Reader>(&self, reader: &mut T) {
         while {
             // do
             reader.skip_space_tab();
@@ -72,13 +82,15 @@ impl Scanner {
             // while
             reader.read_line();
         }
-
     }
+
+    fn read_tag<T: Reader>(&mut self, reader: &mut T) {}
 }
 
 #[derive(Copy, Clone)]
 pub enum SpanToken {
     Scalar(usize, usize),
+    YamlTag(usize, usize),
     StreamStart,
     StreamEnd,
 }
