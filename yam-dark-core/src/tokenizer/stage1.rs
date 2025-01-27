@@ -373,7 +373,7 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments
     ///
     /// * `chunk` - A reference to a byte slice `chunk` containing the next 64 bytes of input data.
-    /// * `buffers` - A mutable reference to a `buffers` object implementing the `Buffer` trait.
+    /// * `buffers` - A mutable reference to a `buffers` object implementing the [`Buffer`] trait.
     /// * `prev_state` - A mutable reference to a [`YamlParserState`] object that stores previous iteration state information.
     ///
     /// # Returns
@@ -406,22 +406,35 @@ pub unsafe trait Stage1Scanner {
         prev_state.merge_state(chunk, buffers, &mut chunk_state)
     }
 
+    /// This function processes the comments for current chunk of characters.
+    ///
+    /// It takes a mutable reference to current [`chunk_state`](YamlChunkState) containing the current chunk data (like spaces and line feeds, etc.)
+    /// and a  mutable reference to a [`parser_state`](YamlParserState) which tracks parser state.
+    ///
+    /// # Arguments
+    ///
+    /// * `chunk_state` - A mutable reference to a [YamlChunkState] object that contains current chunk data.
+    /// * `parser_state` - A mutable reference to a [YamlParserState] object that stores parser's state information.
+    ///
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_for_comments(
         &self,
         chunk_state: &mut YamlChunkState,
-        prev_iter_state: &mut YamlParserState,
+        parser_state: &mut YamlParserState,
     ) {
         let character = self.cmp_ascii_to_input(b'#');
-        let shifted_spaces = (chunk_state.characters.spaces << 1)
-            ^ u64::from(prev_iter_state.is_previous_white_space);
+        let shifted_spaces =
+            (chunk_state.characters.spaces << 1) ^ u64::from(parser_state.is_previous_white_space);
 
-        let comment_start = (character & shifted_spaces) | u64::from(prev_iter_state.is_in_comment);
+        let comment_start = (character & shifted_spaces) | u64::from(parser_state.is_in_comment);
         let not_whitespace = !chunk_state.characters.line_feeds;
 
-        // TODO actual comment shadowing
+        chunk_state.characters.in_comment =
+            util::select_left_bits_branch_less(not_whitespace, comment_start);
 
-        prev_iter_state.is_previous_white_space = (chunk_state.characters.spaces >> 63) == 1;
+        // Update values for next iteration.
+        parser_state.is_in_comment = chunk_state.characters.in_comment >> 63 == 1;
+        parser_state.is_previous_white_space = (chunk_state.characters.spaces >> 63) == 1;
     }
 
     /// Returns a bitvector indicating where there are characters that end an odd-length sequence
