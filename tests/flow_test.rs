@@ -349,8 +349,26 @@ ERR
 -SEQ
 -DOC";
 
+const X_CML9_INPUT: &str = r"
+key: [ word1
+  #  xxx
+  word2 ]";
+
+const X_CML9_EVENTS: &str = r"
++DOC
++MAP
+=VAL :key
++SEQ []
+=VAL :word1
+ERR
+=VAL :word2
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 fn flow_seq_err() {
+    assert_eq_event(X_CML9_INPUT, X_CML9_EVENTS);
     assert_eq_event(FLOW_ERR2_INPUT, FLOW_ERR2_EVENTS);
     assert_eq_event(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS);
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);

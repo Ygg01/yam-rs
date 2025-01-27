@@ -1824,10 +1824,11 @@ impl<B> Lexer<B> {
                     self.errors.push(ErrorType::UnexpectedScalarAtNodeEnd);
                     self.set_block_state(AfterDocBlock, reader.line());
                     break;
+                } else {
+                    self.push_error_token(ErrorType::UnexpectedCommentInScalar, &mut tokens);
+                    tokens.push(SCALAR_PLAIN);
+                    num_newlines = 0;
                 }
-
-                tokens.push(ERROR_TOKEN);
-                self.errors.push(ErrorType::UnexpectedCommentInScalar);
             }
 
             match num_newlines {
@@ -1855,6 +1856,10 @@ impl<B> Lexer<B> {
 
                 if reader.col() >= last_indent {
                     num_newlines = folded_newline.0 as usize;
+                }
+                reader.skip_space_tab();
+                if multliline_comment {
+                    had_comment = true;
                 }
                 curr_indent = reader.col();
             }
@@ -1884,19 +1889,17 @@ impl<B> Lexer<B> {
                 match curr_state {
                     DocBlock => {
                         self.read_line(reader);
-                        tokens.push(ErrorToken as usize);
-                        self.errors.push(ExpectedIndent {
+                        self.push_error_token(ExpectedIndent {
                             actual: curr_indent,
                             expected: scalar_start,
-                        });
+                        }, &mut tokens);
                     }
                     BlockMap(indent, _) | BlockMapExp(indent, _) => {
                         self.read_line(reader);
-                        tokens.push(ErrorToken as usize);
-                        self.errors.push(ExpectedIndent {
+                        self.push_error_token(ExpectedIndent {
                             actual: curr_indent,
                             expected: indent,
-                        });
+                        }, &mut tokens);
                     }
                     FlowMap | FlowSeq  if last_indent < reader.col() => {
                         continue;
@@ -1905,8 +1908,7 @@ impl<B> Lexer<B> {
                 }
                 break;
             } else if multliline_comment {
-                tokens.push(ERROR_TOKEN);
-                self.errors.push(ErrorType::InvalidCommentInScalar);
+                self.push_error_token(InvalidCommentInScalar, &mut tokens);
                 break;
             }
         }
