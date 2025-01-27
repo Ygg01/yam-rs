@@ -188,7 +188,7 @@ impl<'a> Iterator for EventIterator<'a> {
                                 curr_indent,
                             ))
                         } else {
-                            panic!("Error in proccessing YAML file");
+                            panic!("Error in processing YAML file");
                         };
                     }
                     ScalarPlain | ScalarLit | ScalarFold | ScalarDoubleQuote
@@ -224,7 +224,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             }
                         }
                         return Some((
-                            Event::Scalar {
+                            Scalar {
                                 scalar_type,
                                 value: cow,
                             },
@@ -250,7 +250,7 @@ pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     scan.for_each(|(ev, indent)| {
         line.push('\n');
         line.push_str(&" ".repeat(indent));
-        write!(line, "{:}", ev);
+        write!(line, "{:}", ev).unwrap();
     });
 
     assert_eq!(expect, line, "Error in {input_yaml}");

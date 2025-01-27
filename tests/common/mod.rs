@@ -10,7 +10,7 @@ pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     scan.for_each(|(ev, indent)| {
         line.push_str("\n");
         line.push_str(&" ".repeat(indent));
-        write!(line, "{:}", ev);
+        write!(line, "{:}", ev).unwrap();
     });
 
     assert_eq!(expect, line, "Error in {input_yaml}");

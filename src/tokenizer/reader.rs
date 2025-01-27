@@ -90,7 +90,7 @@ pub trait Reader<B> {
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn read_plain_one_line(
         &mut self,
-        aloow_minus: bool,
+        allow_minus: bool,
         had_comment: &mut bool,
         in_flow_collection: bool,
         tokens: &mut Vec<usize>,
