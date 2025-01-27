@@ -92,6 +92,20 @@ pub fn escape_double_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
             [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
             [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
             [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
+            [b'\'', ..] => EscapeControl::Append([1, 2, b'\\', b'\'', 0, 0, 0, 0]),
+            _ => EscapeControl::Break,
+        },
+    )
+}
+
+pub fn escape_single_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
+    _escape(
+        input,
+        |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n' || chr == b'\r',
+        |input| match input {
+            [b'\r', ..] => EscapeControl::Append([1, 2, b'\\', b'r', 0, 0, 0, 0]),
+            [b'\t', ..] => EscapeControl::Append([1, 2, b'\\', b't', 0, 0, 0, 0]),
+            [b'\n', ..] => EscapeControl::Append([1, 2, b'\\', b'n', 0, 0, 0, 0]),
             [b'\\', ..] => EscapeControl::Append([1, 2, b'\\', b'\\', 0, 0, 0, 0]),
             [b'\'', ..] => EscapeControl::Append([1, 2, b'\\', b'\'', 0, 0, 0, 0]),
             _ => EscapeControl::Break,

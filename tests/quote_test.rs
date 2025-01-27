@@ -10,19 +10,30 @@ const DQUOTE_STR_ESC_EVENTS: &str = r#"
 =VAL "double quote (")
 -DOC"#;
 
-const DQUOTE_ESC_INPUT: &str = r##"
+const DQUOTE_ESC1_INPUT: &str = r#"
  "a\/b"
-"##;
+"#;
 
-const DQUOTE_ESC_EVENTS: &str = r#"
+const DQUOTE_ESC1_EVENTS: &str = r#"
 +DOC
 =VAL "a/b
 -DOC"#;
 
+const DQUOTE_ESC2_INPUT: &str = r#"
+"foo\nbar\\baz": 23"#;
+
+const DQUOTE_ESC2_EVENTS: &str = r#"
++DOC
++MAP
+=VAL "foo\nbar\\baz
+=VAL :23
+-MAP
+-DOC"#;
+
 #[test]
 fn dquote_escape() {
-    assert_eq_event(DQUOTE_ESC_INPUT, DQUOTE_ESC_EVENTS);
-
+    assert_eq_event(DQUOTE_ESC1_INPUT, DQUOTE_ESC1_EVENTS);
+    assert_eq_event(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS);
     assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
 }
 
@@ -137,7 +148,7 @@ const DQUOTE_ERR2_INPUT: &str = r##"
 const DQUOTE_ERR2_EVENTS: &str = r#"
 +DOC
 ERR
-=VAL "\\c
+=VAL "\c
 -DOC"#;
 
 #[test]

@@ -8,7 +8,7 @@ use std::{fmt::Write, io, str::from_utf8_unchecked};
 
 use urlencoding::decode_binary;
 
-use crate::escaper::{escape_double_quotes, escape_plain};
+use crate::escaper::{escape_double_quotes, escape_plain, escape_single_quotes};
 use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
 use crate::Lexer;
@@ -351,7 +351,7 @@ where
                                 escape_plain(cow)
                             }
                             ScalarType::DoubleQuote => escape_double_quotes(cow),
-                            _ => cow,
+                            ScalarType::SingleQuote => escape_single_quotes(cow),
                         };
                         return Some(
                             Scalar {
