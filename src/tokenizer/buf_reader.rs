@@ -55,11 +55,31 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
+    fn count_whitespace(&self, _buf: &mut S) -> usize {
+        todo!()
+    }
+
     fn count_spaces_till(&self, _indent: u32) -> usize {
         todo!()
     }
 
     fn is_empty_newline(&self) -> bool {
+        todo!()
+    }
+
+    fn get_double_quote(&self, _buf: &mut S) -> Option<usize> {
+        todo!()
+    }
+
+    fn get_double_quote_trim(&self, _buf: &mut S, _start_str: usize) -> Option<(usize, usize)> {
+        todo!()
+    }
+
+    fn get_single_quote(&self, _buf: &mut S) -> Option<usize> {
+        todo!()
+    }
+
+    fn get_single_quote_trim(&self, _buf: &mut S, _start_str: usize) -> Option<(usize, usize)> {
         todo!()
     }
 
@@ -93,26 +113,6 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
     }
 
     fn read_break(&mut self) -> Option<(usize, usize)> {
-        todo!()
-    }
-
-    fn get_double_quote(&self, _buf: &mut S) -> Option<usize> {
-        todo!()
-    }
-
-    fn get_double_quote_trim(&self, _buf: &mut S, _start_str: usize) -> Option<(usize, usize)> {
-        todo!()
-    }
-
-    fn get_single_quote(&self, _buf: &mut S) -> Option<usize> {
-        todo!()
-    }
-
-    fn get_single_quote_trim(&self, _buf: &mut S, _start_str: usize) -> Option<(usize, usize)> {
-        todo!()
-    }
-
-    fn count_whitespace(&self, _buf: &mut S) -> usize {
         todo!()
     }
 }

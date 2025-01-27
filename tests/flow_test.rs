@@ -533,8 +533,23 @@ ERR
 -SEQ
 -DOC";
 
+const X_CT4Q_INPUT: &str = r"
+[? foo 
+    bar: baz ]";
+
+const X_CT4Q_EVENTS: &str = r"
++DOC
++SEQ []
++MAP {}
+=VAL :foo bar
+=VAL :baz
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn flow_map_edge() {
+    assert_eq_event(X_CT4Q_INPUT, X_CT4Q_EVENTS);
     assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
     assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);
     assert_eq_event(MAP_ERR_INPUT, MAP_ERR_EVENTS);

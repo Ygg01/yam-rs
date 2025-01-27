@@ -49,7 +49,7 @@ pub enum ErrorType {
     TabsNotAllowedAsIndentation,
     TwoDirectivesFound,
     UnexpectedEndOfScalar,
-    UnxpectedIndentDocEnd { actual: u32, expected: u32 },
+    UnexpectedIndentDocEnd { actual: u32, expected: u32 },
     UnexpectedComment,
     UnexpectedCommentInScalar,
     UnexpectedDirective,
