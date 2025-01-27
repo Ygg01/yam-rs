@@ -1374,8 +1374,23 @@ const X1_6HB6_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_4AW9_INPUT: &str = r"
+- aaa: |2
+    xxx";
+
+const X1_4AW9_EVENTS: &str = r"
++DOC
++SEQ
++MAP
+=VAL :aaa
+=VAL |xxx\n
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn block_flow_mix() {
+    assert_eq_event(X1_4AW9_INPUT, X1_4AW9_EVENTS);
     assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
     assert_eq_event(X1_6HB6_INPUT, X1_6HB6_EVENTS);
     assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
@@ -1517,8 +1532,49 @@ const ALIAS_N_SEQ3_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_G9HC_INPUT: &str = r"
+ seq:
+ &anchor
+ - a";
+
+const X1_G9HC_EVENTS: &str = r"
++DOC
++MAP
+=VAL :seq
+ERR
++SEQ &anchor
+=VAL :a
+-SEQ
+-MAP
+-DOC";
+
+
+const X2_1_G9HC_INPUT: &str = r"
+seq:
+ &anchor
+ - a";
+
+const X2_2_G9HC_INPUT: &str = r"
+ seq:
+  	&anchor
+  - a";
+
+const X2_G9HC_EVENTS: &str = r"
++DOC
++MAP
+=VAL :seq
++SEQ &anchor
+=VAL :a
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 fn block_seq_anchor_alias() {
+    assert_eq_event(X1_G9HC_INPUT, X1_G9HC_EVENTS);
+    assert_eq_event(X2_1_G9HC_INPUT, X2_G9HC_EVENTS);
+    assert_eq_event(X2_2_G9HC_INPUT, X2_G9HC_EVENTS);
+
     assert_eq_event(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS);
     assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
     assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
@@ -1883,8 +1939,23 @@ const X3_9KAX_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X4_9KAX_INPUT: &str = r"
+a6: 1
+&anchor6 b6: 2";
+
+const X4_9KAX_EVENTS: &str = r"
++DOC
++MAP
+=VAL :a6
+=VAL :1
+=VAL &anchor6 :b6
+=VAL :2
+-MAP
+-DOC";
+
 #[test]
 fn block_tag_anchor() {
+    assert_eq_event(X4_9KAX_INPUT, X4_9KAX_EVENTS);
     assert_eq_event(X1_9KAX_INPUT, X1_9KAX_EVENTS);
     assert_eq_event(X2_9KAX_INPUT, X1_9KAX_EVENTS);
     assert_eq_event(X3_9KAX_INPUT, X3_9KAX_EVENTS);

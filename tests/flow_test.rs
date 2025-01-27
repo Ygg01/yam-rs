@@ -743,3 +743,26 @@ ERR
 fn flow_in_seq_indents() {
     assert_eq_event(X1_Y79Y_003_INPUT, X1_Y79Y_003_EVENTS);
 }
+
+const X1_5T43_INPUT: &str = r#"
+- { "key":value }
+- { "key"::value }"#;
+
+const X1_5T43_EVENTS: &str = r#"
++DOC
++SEQ
++MAP {}
+=VAL "key
+=VAL :value
+-MAP
++MAP {}
+=VAL "key
+=VAL ::value
+-MAP
+-SEQ
+-DOC"#;
+
+#[test]
+fn flow_mix() {
+    assert_eq_event(X1_5T43_INPUT, X1_5T43_EVENTS);
+}
