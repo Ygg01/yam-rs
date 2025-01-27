@@ -1,14 +1,13 @@
 extern crate steel_yaml;
 
-mod tokenizer;
 
 #[cfg(test)]
 mod tests {
     use std::fmt::{Debug, format, Write};
 
     use steel_yaml::Scanner;
+    use steel_yaml::tokenizer::EventIterator;
 
-    use crate::tokenizer::StrIterator;
 
     const EMPTY_DOC_INPUT: &'static str = r#"
 # test"
@@ -116,7 +115,7 @@ xt
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
-        let scan = StrIterator::new_from_string(input_yaml);
+        let scan = EventIterator::new_from_string(input_yaml);
         scan.for_each(|x| event.push_str(x.as_ref()));
         assert_eq!(expect, event);
     }
