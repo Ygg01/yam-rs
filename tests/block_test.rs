@@ -8,6 +8,17 @@ const BLOCK2_INPUT: &'static str = r#"
 - y
 "#;
 
+const BLOCK3_INPUT_ERR: &'static str = r#"
+  - x
+ - y
+"#;
+
+const BLOCK_AS_PLAIN: &'static str = r#"
+  - x
+   - y
+"#;
+
+
 const BLOCK_EXPECTED: &'static str = r#"
   +MAP
     =VAL x

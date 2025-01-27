@@ -16,6 +16,8 @@ use crate::tokenizer::scanner::SpanToken::{
 use crate::tokenizer::ErrorType::{ExpectedIndent, UnexpectedSymbol};
 use crate::tokenizer::{DirectiveType, ErrorType};
 
+use super::reader::is_newline;
+
 #[derive(Clone)]
 pub struct Scanner {
     pub(crate) curr_state: ParserState,
@@ -173,9 +175,9 @@ impl Scanner {
                 None => self.stream_end = true,
             },
             BlockSeq(indent) => match reader.peek_byte() {
-                Some(b'-') => self.switch_to_block_seq(reader, indent + 1),
+                Some(b'-') => self.fetch_block_seq(reader, indent + 1),
                 Some(_) => {
-                        self.fetch_plain_scalar(reader, FlowSeq(indent+1));
+                    self.fetch_plain_scalar(reader, FlowSeq(indent + 1));
                 }
                 _ => todo!(),
             },
@@ -320,15 +322,26 @@ impl Scanner {
     }
 
     fn switch_to_block_seq<R: Reader>(&mut self, reader: &mut R, indent: usize) {
-        if reader.peek_byte_at_check(1, is_whitespace){
+        if reader.peek_byte_at_check(1, is_whitespace) {
             let new_indent: usize = reader.col();
-            reader.consume_bytes(2);            
+            if reader.peek_byte_at_check(1, is_newline) {
+                reader.consume_bytes(1);
+                reader.read_break();
+            } else {
+                reader.consume_bytes(2);
+            }
+
             if new_indent > indent {
                 self.push_state(BlockSeq(new_indent));
             }
         } else {
-            self.fetch_plain_scalar(reader, FlowSeq(indent+1));
+            self.fetch_plain_scalar(reader, FlowSeq(indent + 1));
         }
+    }
+
+    
+    fn fetch_block_seq<R: Reader>(&self, reader: &mut R, indent: usize) {
+        todo!()
     }
 
     fn fetch_block_map_key<R: Reader>(&mut self, reader: &mut R) {
@@ -415,15 +428,12 @@ impl Scanner {
     ) -> Vec<SpanToken> {
         let mut tokens = vec![];
 
-        if !reader.eof() {
-            return tokens;
-        }
 
         if reader.read_break().is_none() {
             tokens.push(ErrorToken(ErrorType::ExpectedNewlineInFolded));
         } else {
             let mut break_as_space = true;
-            loop {
+            while reader.peek_byte_is( b' ')  {
                 match reader.try_read_indent(LessOrEqualIndent(context.indent())) {
                     EndInstead => break,
                     EqualIndent(_) if context.is_flow() => {
@@ -434,15 +444,16 @@ impl Scanner {
                     }
                     _ => {}
                 }
+
                 break_as_space = false;
 
                 if let Some(_) = reader.read_break() {
-                    self.tokens.push_back(NewLine);
+                    tokens.push(NewLine);
                 }
             }
 
             if break_as_space {
-                self.tokens.push_back(Space);
+                tokens.push(Space);
             }
         };
 

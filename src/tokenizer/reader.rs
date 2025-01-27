@@ -60,8 +60,6 @@ pub enum IndentType {
     LessOrEqualIndent(usize),
 }
 
-impl IndentType {}
-
 impl IndentType {
     #[inline]
     pub(crate) fn compare(&self, value: usize) -> IndentType {
@@ -84,6 +82,14 @@ impl IndentType {
             LessIndent(rhs) => lhs + 1 < *rhs,
             EqualIndent(rhs) => lhs + 1 <= *rhs,
             LessOrEqualIndent(rhs) => lhs + 1 <= *rhs,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_nonzero(&self) -> bool {
+        match self {
+            LessIndent(0) | EqualIndent(0) | LessOrEqualIndent(0) => false,
+            _ => true
         }
     }
 }
@@ -204,7 +210,7 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType {
-        if self.eof() {
+        if self.eof() && indent_type.is_nonzero(){
             return EndInstead;
         }
         let consume = match self.slice.as_bytes()[self.pos..]
@@ -502,6 +508,14 @@ pub fn test_try_read_indent() {
 pub(crate) fn is_whitespace(chr: u8) -> bool {
     match chr {
         b' ' | b'\t' | b'\r' | b'\n' => true,
+        _ => false,
+    }
+}
+
+#[inline]
+pub(crate) fn is_newline(chr: u8) -> bool {
+    match chr {
+        b'\r' | b'\n' => true,
         _ => false,
     }
 }
