@@ -23,7 +23,7 @@ mod common;
 #[test]
 pub fn block_seq() {
     assert_eq_event(BLOCK1_INPUT, BLOCK_EXPECTED);
-    // assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
+    assert_eq_event(BLOCK2_INPUT, BLOCK_EXPECTED);
 }
 
 const BLOCK_ERR_INPUT: &str = r#"
@@ -76,7 +76,7 @@ const BLOCK_NESTED_SEQ_EXPECTED2: &str = r#"
     =VAL :a
     =VAL :b
     +SEQ
-    =VAL :c
+     =VAL :c
     -SEQ
    -SEQ
    =VAL :d

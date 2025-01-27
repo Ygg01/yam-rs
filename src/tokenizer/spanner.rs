@@ -482,14 +482,12 @@ impl Lexer {
     }
 
     fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
+        // move seq processing here
         if reader.peek_byte2().map_or(false, is_white_tab_or_break) {
             let new_indent = reader.col();
-
-            if new_indent > indent || self.curr_state() == RootBlock {
-                self.tokens.push_back(SequenceStart as usize);
-                self.push_state(BlockSeq(new_indent as u32));
-            }
             reader.consume_bytes(1);
+
+            self.process_seq(new_indent, indent);
         };
     }
 
@@ -535,15 +533,13 @@ impl Lexer {
         let chr = reader.peek_byte().unwrap_or(b'\0');
         if chr == b':' || matches!(self.curr_state(), BlockMap(_, _)) {
             self.process_map(init_indent, scalar_tokens, ends_with);
-        } else if chr == b'-' || matches!(self.curr_state(), BlockSeq(_)) {
-            self.process_seq(init_indent, scalar_tokens);
         } else {
             self.tokens.extend(scalar_tokens);
             self.set_next_map_state();
         }
     }
 
-    fn process_map(&mut self, init_indent: usize, mut scalar_tokens: Vec<usize>, chr: u8) {
+    fn process_map(&mut self, init_indent: usize, scalar_tokens: Vec<usize>, chr: u8) {
         match self.curr_state() {
             RootBlock => {
                 self.push_state(BlockMap(init_indent as u32, BeforeColon));
@@ -578,7 +574,6 @@ impl Lexer {
             }
             _ => {
                 self.unwind_nested_blocks(
-                    &mut scalar_tokens,
                     init_indent,
                     init_indent,
                     |state, indent| matches!(state, BlockMap(ind, _) if ind as usize == indent),
@@ -589,34 +584,32 @@ impl Lexer {
         }
     }
 
-    fn process_seq(&mut self, init_indent: usize, mut scalar_tokens: Vec<usize>) {
-        match self.curr_state() {
+    fn process_seq(&mut self, indent: usize, expected_indent: usize) {
+        let curr_state = self.curr_state();
+        match curr_state {
             RootBlock => {
-                self.push_state(BlockSeq(init_indent as u32));
+                self.push_state(BlockSeq(indent as u32));
                 self.tokens.push_back(SequenceStart as usize);
-                self.tokens.extend(scalar_tokens);
             }
-            BlockSeq(indent) if init_indent == indent as usize => {
-                self.tokens.extend(scalar_tokens);
+            BlockSeq(ind) if indent > ind as usize => {
+                self.push_state(BlockSeq(indent as u32));
+                self.tokens.push_back(SequenceStart as usize);
             }
+            BlockSeq(ind) if indent == ind as usize => {}
             _ => {
                 self.unwind_nested_blocks(
-                    &mut scalar_tokens,
-                    init_indent,
-                    init_indent,
-                    |state, indent| matches!(state, BlockMap(ind, _) if ind as usize == indent),
+                    indent,
+                    expected_indent,
+                    |state, indent| matches!(state, BlockSeq(ind) if ind as usize == indent),
                 );
-                self.tokens.extend(scalar_tokens);
-                self.set_next_map_state();
             }
         }
     }
 
     fn unwind_nested_blocks(
         &mut self,
-        scalar_tokens: &mut Vec<usize>,
-        actual_indent: usize,
         init_indent: usize,
+        expected_indent: usize,
         f: fn(LexerState, usize) -> bool,
     ) {
         if let Some(unwind) = self
@@ -630,7 +623,7 @@ impl Lexer {
             }
             for _ in 0..unwind {
                 match self.stack.pop() {
-                    Some(BlockSeq(_)) => scalar_tokens.push(SequenceEnd as usize),
+                    Some(BlockSeq(_)) => self.tokens.push_back(SequenceEnd as usize),
                     Some(BlockMap(_, AfterColon) | BlockMapExp(_, AfterColon)) => {
                         self.tokens.push_back(ScalarPlain as usize);
                         self.tokens.push_back(ScalarEnd as usize);
@@ -645,8 +638,8 @@ impl Lexer {
         } else {
             self.tokens.push_back(ErrorToken as usize);
             self.errors.push(ErrorType::ExpectedIndent {
-                actual: actual_indent,
-                expected: init_indent,
+                actual: init_indent,
+                expected: expected_indent,
             });
         }
     }
