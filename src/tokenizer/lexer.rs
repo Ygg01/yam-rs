@@ -2,7 +2,6 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
-use std::fs::read;
 use std::hint::unreachable_unchecked;
 use std::mem::take;
 use std::num::NonZeroU32;
@@ -66,6 +65,7 @@ impl<S> Lexer<S> {
             stack: Vec::default(),
         }
     }
+
 }
 
 #[derive(Clone, Default)]
@@ -397,7 +397,7 @@ impl<B> Lexer<B> {
                 self.set_curr_state(InDocEnd, 0);
             }
             [b'#', ..] => {
-                reader.read_line();
+                self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
                 self.skip_separation_spaces(reader);
@@ -428,12 +428,12 @@ impl<B> Lexer<B> {
                     }
                 } else {
                     self.push_error(ErrorType::TwoDirectivesFound);
-                    reader.read_line();
+                    self.read_line(reader);
                     self.continue_processing = false;
                 }
             }
             [b'#', ..] => {
-                reader.read_line();
+                self.read_line(reader);
             }
             [b'%', ..] => self.fetch_read_tag(reader, directive_state),
             b"..." => {
@@ -456,7 +456,7 @@ impl<B> Lexer<B> {
             }
             [peek, ..] if !is_white_tab_or_break(*peek) => {
                 self.prepend_error(ErrorType::YamlMustHaveOnePart);
-                reader.read_line();
+                self.read_line(reader);
             }
             _ => {
                 self.continue_processing = false;
@@ -476,18 +476,18 @@ impl<B> Lexer<B> {
                     let has_ws_break = reader.peek_byte().map_or(false, is_white_tab_or_break);
                     if !has_ws_break {
                         self.prepend_error(ErrorType::UnsupportedYamlVersion);
-                        reader.read_line();
+                        self.read_line(reader);
                     }
                     has_ws_break
                 }
                 b"..." | b"---" => false,
                 _ => {
-                    reader.read_line();
+                    self.read_line(reader);
                     false
                 }
             };
         } else {
-            reader.read_line();
+            self.read_line(reader);
             false
         }
     }
@@ -545,7 +545,7 @@ impl<B> Lexer<B> {
                 self.set_curr_state(InDocEnd, 0);
             }
             [b'#', ..] => {
-                reader.read_line();
+                self.read_line(reader);
             }
             [b'%', ..] => {
                 self.prepend_error(ErrorType::ExpectedDocumentEndOrContents);
@@ -590,7 +590,7 @@ impl<B> Lexer<B> {
             [] => {}
         }
         if consume_line {
-            reader.read_line();
+            self.read_line(reader);
         }
     }
 
@@ -599,7 +599,7 @@ impl<B> Lexer<B> {
         let read_line = reader.line();
         match reader.peek_byte() {
             Some(b'#') => {
-                reader.read_line();
+                self.read_line(reader);
             }
             Some(b'%') => {
                 self.set_curr_state(DirectiveSection, read_line);
@@ -620,7 +620,7 @@ impl<B> Lexer<B> {
                 self.set_curr_state(PreDocStart, read_line);
             }
             Some(_) => {
-                reader.read_line();
+                self.read_line(reader);
                 self.push_error(ErrorType::ExpectedDocumentStartOrContents);
             }
             None => {
@@ -705,12 +705,12 @@ impl<B> Lexer<B> {
             }
             [peek, b'#', ..] if is_white_tab(*peek) => {
                 // comment
-                reader.read_line();
+                self.read_line(reader);
             }
             [b'#', ..] if reader.col() > 0 => {
                 // comment that doesnt
                 self.push_error(ErrorType::MissingWhitespaceBeforeComment);
-                reader.read_line();
+                self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
                 self.has_tab = self.skip_separation_spaces(reader).1;
@@ -861,7 +861,7 @@ impl<B> Lexer<B> {
             }
             [b'#', ..] => {
                 // comment
-                reader.read_line();
+                self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
                 self.has_tab = self.skip_separation_spaces(reader).1;
@@ -943,7 +943,7 @@ impl<B> Lexer<B> {
             }
             [b'#', ..] => {
                 // comment
-                reader.read_line();
+                self.read_line(reader);
             }
             [peek, ..] if is_white_tab_or_break(*peek) => {
                 self.has_tab = self.skip_separation_spaces(reader).1;
@@ -1225,7 +1225,7 @@ impl<B> Lexer<B> {
                     {
                         self.push_error(ErrorType::MissingWhitespaceBeforeComment);
                     }
-                    reader.read_line();
+                    self.read_line(reader);
                     found_eol = true;
                     num_breaks += 1;
                     continue;
@@ -1599,6 +1599,8 @@ impl<B> Lexer<B> {
         }
     }
 
+
+
     fn get_plain_scalar<R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -1679,7 +1681,7 @@ impl<B> Lexer<B> {
                 // However not important for first line.
                 match curr_state {
                     DocBlock => {
-                        reader.read_line();
+                        self.read_line(reader);
                         tokens.push(ErrorToken as usize);
                         self.errors.push(ExpectedIndent {
                             actual: curr_indent,
@@ -1687,7 +1689,7 @@ impl<B> Lexer<B> {
                         });
                     }
                     BlockMap(ind, _) | BlockMapExp(ind, _) => {
-                        reader.read_line();
+                        self.read_line(reader);
                         tokens.push(ErrorToken as usize);
                         self.errors.push(ExpectedIndent {
                             actual: curr_indent,
@@ -1731,6 +1733,13 @@ impl<B> Lexer<B> {
             reader.consume_bytes(1);
             reader.skip_space_tab();
         }
+    }
+
+    #[inline(always)]
+    fn read_line<R: Reader<B>>(&mut self, reader: &mut R) -> (usize, usize) {
+        let line = reader.read_line();
+        self.col_start = None;
+        line
     }
 
     pub const fn get_default_namespace(namespace: &[u8]) -> Option<Cow<'static, [u8]>> {
@@ -1818,7 +1827,7 @@ impl<B> Lexer<B> {
         self.tokens.is_empty()
     }
 
-    #[inline]
+    // #[inline]
     fn update_col<R: Reader<B>>(&mut self, reader: &R) -> u32 {
         match self.col_start {
             Some(x) => x,
@@ -1930,10 +1939,10 @@ impl<B> Lexer<B> {
         reader.skip_space_tab();
         match reader.peek_byte() {
             Some(b'#' | b'\r' | b'\n') => {
-                reader.read_line();
+                self.read_line(reader);
             }
             Some(chr) => {
-                reader.read_line();
+                self.read_line(reader);
                 self.push_error(ErrorType::UnexpectedSymbol(chr as char));
                 return tokens;
             }
@@ -2030,7 +2039,7 @@ impl<B> Lexer<B> {
                 }
             };
 
-            let (start, end) = reader.read_line();
+            let (start, end) = self.read_line(reader);
             if start != end {
                 if new_line_token > 0 {
                     if !literal

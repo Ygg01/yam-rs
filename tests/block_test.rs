@@ -965,10 +965,30 @@ const COMPLEX_NESTED_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const NESTED_INPUT: &str = r"
+---
+hr: # 1998 hr ranking
+  - Mark McGwire
+  - Sammy Sosa
+";
+
+
+const NESTED_EVENTS: &str = r"
++DOC ---
++MAP
+=VAL :hr
++SEQ
+=VAL :Mark McGwire
+=VAL :Sammy Sosa
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 pub fn block_map_complex() {
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
     assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
+    assert_eq_event(NESTED_INPUT, NESTED_EVENTS);
 }
 
 const MAPS_WITH_QUOTES_INPUT: &str = r#"
