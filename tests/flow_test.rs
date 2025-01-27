@@ -583,8 +583,29 @@ const ALIAS_N_COMP_MAP_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X_CN3R_INPUT: &str = r"
+[
+ { &e e: f },
+ &g { g: h }
+]";
+
+const X_CN3R_EVENTS: &str = r"
++DOC
++SEQ []
++MAP {}
+=VAL &e :e
+=VAL :f
+-MAP
++MAP {} &g
+=VAL :g
+=VAL :h
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn flow_alias() {
+    assert_eq_event(X_CN3R_INPUT, X_CN3R_EVENTS);
     assert_eq_event(FLOW_ALIAS_INPUT, FLOW_ALIAS_EVENTS);
     assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
 }

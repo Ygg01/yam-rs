@@ -1181,7 +1181,9 @@ impl<B> Lexer<B> {
             } else {
                 let scalar_spans = self.get_flow_node(reader);
                 skip_colon_space = is_skip_colon_space(&scalar_spans);
-                map_state.set_next_state();
+                if !scalar_spans.is_empty() {
+                    map_state.set_next_state();
+                }
                 spans.extend(scalar_spans.spans);
             }
         }
