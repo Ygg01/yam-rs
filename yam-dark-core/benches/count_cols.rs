@@ -584,10 +584,168 @@ fn col_count_all_naive(c: &mut Criterion) {
     group.finish();
 }
 
+fn col_count_batch(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bench-col-batch");
+    group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(64 * 2));
+
+    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
+    let chunk = chunk_iter.next().unwrap();
+    let newline_mask = u8x64_eq(chunk, b'\n');
+    let space_mask = u8x64_eq(chunk, b' ');
+
+    let chunk2 = chunk_iter.next().unwrap();
+    let newline_mask2 = u8x64_eq(chunk2, b'\n');
+    let space_mask2 = u8x64_eq(chunk2, b' ');
+
+    let mut indents = Vec::new();
+    let mut byte_cols = [0; 64];
+    let mut byte_rows = [0; 64];
+
+    group.bench_function("col_batch", |b| {
+        b.iter(|| {
+            count_batch(
+                newline_mask,
+                space_mask,
+                &mut byte_cols,
+                &mut byte_rows,
+                &mut indents,
+            );
+            black_box(indents.get(9) == None);
+
+            count_batch(
+                newline_mask2,
+                space_mask2,
+                &mut byte_cols,
+                &mut byte_rows,
+                &mut indents,
+            );
+            black_box(byte_rows[3] == 0);
+        })
+    });
+    group.finish();
+}
+
+fn count_batch(
+    newline_mask: u64,
+    space_mask: u64,
+    byte_rows: &mut [u8; 64],
+    byte_cols: &mut [u8; 64],
+    indents: &mut Vec<u32>,
+) {
+    fn cnt_naive(mut newline_mask: u64, mut space_mask: u64, indents: &mut Vec<u32>) {
+        let mut base_len = indents.len();
+        indents.reserve(64);
+        // let idx_32_8: [u32; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+
+        let is_unaligned = base_len % 4 != 0;
+        let write_fn = if is_unaligned {
+            core::ptr::write_unaligned
+        } else {
+            core::ptr::write
+        };
+
+        while newline_mask != 0 {
+            let v0 = newline_mask.trailing_zeros() + 1;
+            newline_mask &= newline_mask.wrapping_sub(1);
+            let part0 = space_mask % (1 << v0);
+            space_mask >>= v0;
+
+            let v1 = newline_mask.trailing_zeros() + 1;
+            newline_mask &= newline_mask.wrapping_sub(1);
+            let part1 = space_mask % (1 << v1);
+            space_mask >>= v1;
+
+            let v2 = newline_mask.trailing_zeros() + 1;
+            newline_mask &= newline_mask.wrapping_sub(1);
+            let part2 = space_mask % (1 << v2);
+            space_mask >>= v2;
+
+            let v3 = newline_mask.trailing_zeros() + 1;
+            newline_mask &= newline_mask.wrapping_sub(1);
+            let part3 = space_mask % (1 << v3);
+            space_mask >>= v3;
+
+            let v = [part0 as u32, part1 as u32, part2 as u32, part3 as u32];
+            unsafe { write_fn(indents.as_mut_ptr().add(base_len).cast::<[u32; 4]>(), v) }
+            base_len += 4;
+        }
+    }
+
+    let nl_ind0 = (newline_mask & 0xFF) as usize;
+    let row0 = U8_ROW_TABLE[nl_ind0];
+    let col0 = U8_BYTE_COL_TABLE[nl_ind0];
+    byte_rows[0..8].copy_from_slice(&row0);
+    byte_cols[0..8].copy_from_slice(&col0);
+
+    let mut prev_col = col0[7];
+    let mut prev_row = row0[7];
+
+    let nl_ind = ((newline_mask >> 8) & 0xFF) as usize;
+    byte_rows[8..16].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+    byte_cols[8..16].copy_from_slice(&calculate_cols(
+        U8_ROW_TABLE[nl_ind],
+        U8_BYTE_COL_TABLE[nl_ind],
+        &mut prev_col,
+    ));
+
+    let nl_ind = ((newline_mask >> 16) & 0xFF) as usize;
+    byte_rows[16..24].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+    byte_cols[16..24].copy_from_slice(&calculate_cols(
+        U8_ROW_TABLE[nl_ind],
+        U8_BYTE_COL_TABLE[nl_ind],
+        &mut prev_col,
+    ));
+
+    let nl_ind = ((newline_mask >> 24) & 0xFF) as usize;
+    byte_rows[24..32].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+    byte_cols[24..32].copy_from_slice(&calculate_cols(
+        U8_ROW_TABLE[nl_ind],
+        U8_BYTE_COL_TABLE[nl_ind],
+        &mut prev_col,
+    ));
+
+    let nl_ind = ((newline_mask >> 32) & 0xFF) as usize;
+    byte_rows[32..40].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+    byte_cols[32..40].copy_from_slice(&calculate_cols(
+        U8_ROW_TABLE[nl_ind],
+        U8_BYTE_COL_TABLE[nl_ind],
+        &mut prev_col,
+    ));
+
+    let nl_ind = ((newline_mask >> 40) & 0xFF) as usize;
+    byte_rows[40..48].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+    byte_cols[40..48].copy_from_slice(&calculate_cols(
+        U8_ROW_TABLE[nl_ind],
+        U8_BYTE_COL_TABLE[nl_ind],
+        &mut prev_col,
+    ));
+
+    let nl_ind = ((newline_mask >> 48) & 0xFF) as usize;
+    byte_rows[48..56].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+    byte_cols[48..56].copy_from_slice(&calculate_cols(
+        U8_ROW_TABLE[nl_ind],
+        U8_BYTE_COL_TABLE[nl_ind],
+        &mut prev_col,
+    ));
+
+    let nl_ind = ((newline_mask >> 56) & 0xFF) as usize;
+    byte_rows[56..64].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+    byte_cols[56..64].copy_from_slice(&calculate_cols(
+        U8_ROW_TABLE[nl_ind],
+        U8_BYTE_COL_TABLE[nl_ind],
+        &mut prev_col,
+    ));
+
+    // indents.copy_from_slice(&byte_cols[0..64]);
+    cnt_naive(newline_mask, space_mask, indents);
+}
+
 criterion_group!(
     benches,
-    col_count_indent,
-    col_count_indent_naive,
-    col_count_all_naive
+    // col_count_indent,
+    // col_count_indent_naive,
+    // col_count_all_naive,
+    col_count_batch,
 );
 criterion_main!(benches);
