@@ -448,7 +448,7 @@ pub trait Stage1Scanner {
         // compliant as of C++20,
         // John Regher from Utah U. says this is fine code
         prev_iter_state.prev_iter_inside_quote = unsafe {
-            core::mem::transmute::<_, u64>(core::mem::transmute::<_, i64>(quote_mask) >> 63)
+            core::mem::transmute::<i64, u64>(core::mem::transmute::<u64, i64>(quote_mask) >> 63)
         };
         chunk_state.double_quote.quote_bits = quote_mask;
     }
