@@ -44,12 +44,14 @@ impl<'a> Iterator for EventIterator<'a> {
 
                             match self.lines.back_mut() {
                                 Some(line) if line[self.indent + 1..].starts_with("=VAL") => {
-                                    line.push_str(scalar.as_str());
+                                    unsafe {
+                                        line.as_mut_vec().extend(scalar);
+                                    }
                                 }
                                 _ => {
                                     ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
                                     ind.extend("=VAL ".as_bytes());
-                                    ind.extend(scalar.as_bytes().to_vec());
+                                    ind.extend(scalar.to_vec());
                                     unsafe {
                                         self.lines.push_back(String::from_utf8_unchecked(ind));
                                     }
@@ -130,7 +132,7 @@ impl<'a> Iterator for EventIterator<'a> {
                             if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
                                 (self.state.pop_token(), self.state.pop_token())
                             {
-                                ind.extend(self.reader.slice[start..end].as_bytes());
+                                ind.extend(self.reader.slice[start..end].to_vec());
                             }
                             unsafe {
                                 self.lines.push_back(String::from_utf8_unchecked(ind));
