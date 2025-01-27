@@ -131,7 +131,7 @@ pub(crate) fn is_white_tab_or_break(chr: u8) -> bool {
 #[inline]
 pub(crate) fn ns_plain_safe(chr: u8, in_flow: bool) -> bool {
     match chr {
-        b' ' | b'\t' | b'\r' | b'\n' => false,
+        b'\0' | b' ' | b'\t' | b'\r' | b'\n' => false,
         b',' | b'[' | b']' | b'{' | b'}' if in_flow => false,
         _ => true,
     }

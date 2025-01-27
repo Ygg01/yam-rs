@@ -317,7 +317,6 @@ where
     }
 }
 
-
 pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     let mut line = String::new();
     let scan: EventIterator<'_, StrReader> = EventIterator::from(input_yaml);

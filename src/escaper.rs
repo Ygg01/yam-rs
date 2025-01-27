@@ -1,10 +1,10 @@
 use std::{borrow::Cow, ops::Deref};
 
 pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
-    _escape(input, |ch| matches!(ch, b'\\' | b'\t' ))
+    _escape(input, |ch| matches!(ch, b'\\' | b'\t'))
 }
 
-pub (crate) fn _escape<F: Fn(u8)-> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> Cow<'_, [u8]> {
+pub(crate) fn _escape<F: Fn(u8) -> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> Cow<'_, [u8]> {
     let raw = input.deref();
     let mut iter = raw.iter();
     let mut pos = 0;
@@ -23,13 +23,13 @@ pub (crate) fn _escape<F: Fn(u8)-> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> 
             b'\n' => escaped.extend("\\n".as_bytes()),
             b'\'' => escaped.extend("\\'".as_bytes()),
             b'"' => escaped.extend("\\\"".as_bytes()),
-            _ => unreachable!("Only '\' are secaped")
+            _ => unreachable!("Only '\' are secaped"),
         }
         pos = new_pos + 1;
     }
 
     if let Some(mut escaped) = escaped {
-        if let Some (raw) = raw.get(pos..) {
+        if let Some(raw) = raw.get(pos..) {
             escaped.extend(raw);
         }
         Cow::Owned(escaped)

@@ -91,11 +91,12 @@ impl LexerState {
     }
 
     #[inline]
-    pub(crate) fn is_new_block_col(&self, curr_indent: usize) -> bool {
+    pub(crate) fn is_new_block_col(&self, curr_indent: usize, start_indent: usize) -> bool {
         match &self {
             FlowKey(_) | FlowKeyExp(_) | FlowMap(_) | FlowSeq(_) => false,
+            BlockMap(x) | BlockMapVal(x) if start_indent == *x as usize => false,
             BlockMap(x) | BlockMapVal(x) | BlockMapKeyExp(x) | BlockMapVal(x)
-                if *x as usize == curr_indent =>
+                if curr_indent == *x as usize =>
             {
                 false
             }
@@ -179,9 +180,7 @@ impl Lexer {
                     Some(b':')
                         if indent == 0
                             && reader.col() == 0
-                            && reader
-                                .peek_byte_at(1)
-                                .map_or(true, is_white_tab_or_break) =>
+                            && reader.peek_byte_at(1).map_or(true, is_white_tab_or_break) =>
                     {
                         reader.consume_bytes(1);
                         if self.curr_state == RootBlock {
@@ -194,11 +193,7 @@ impl Lexer {
                         }
                         self.curr_state = BlockMapVal(0);
                     }
-                    Some(b':')
-                        if reader
-                            .peek_byte_at(1)
-                            .map_or(true, is_white_tab_or_break) =>
-                    {
+                    Some(b':') if reader.peek_byte_at(1).map_or(true, is_white_tab_or_break) => {
                         reader.consume_bytes(1);
                         if let BlockMapKeyExp(x1) = self.curr_state {
                             self.curr_state = BlockMapValExp(x1);
@@ -425,7 +420,7 @@ impl Lexer {
         init_indent: usize,
     ) {
         let mut first_line_block = !self.curr_state.in_flow_collection();
-
+        let mut is_multiline = false;
         let mut num_newlines = 0;
         let mut tokens = vec![ScalarPlain as usize];
         let mut new_state = match self.curr_state {
@@ -452,7 +447,7 @@ impl Lexer {
             } else if curr_indent < init_indent {
                 // if plain scalar is less indented than previous
                 // It can be
-                // a) Part of BlockMap
+                // a) Part of BlockMap so we must break
                 // b) An error outside of block map
                 if !matches!(
                     self.curr_state,
@@ -490,9 +485,7 @@ impl Lexer {
                 {
                     tokens.push(ScalarEnd as usize);
                     tokens.push(ScalarPlain as usize);
-                } else if !matches!(self.curr_state, BlockMap(x)| BlockMapVal(x) if start_indent == x as usize)
-                    && self.curr_state.is_new_block_col(curr_indent)
-                {
+                } else if self.curr_state.is_new_block_col(curr_indent, start_indent) {
                     reader.consume_bytes(1);
                     new_state = Some(BlockMapVal(curr_indent as u32));
                     tokens.insert(0, MappingStart as usize);
@@ -512,12 +505,14 @@ impl Lexer {
 
             match num_newlines {
                 x if x == 1 => {
+                    is_multiline = true;
                     tokens.push(NewLine as usize);
                     tokens.push(0);
                 }
                 x if x > 1 => {
+                    is_multiline = true;
                     tokens.push(NewLine as usize);
-                    tokens.push(x as usize);
+                    tokens.push(x as usize - 1);
                 }
                 _ => {}
             }
