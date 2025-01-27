@@ -26,14 +26,14 @@ use alloc::vec::Vec;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-use crate::{EVEN_BITS, ODD_BITS, ParseResult};
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
+use crate::{ParseResult, EVEN_BITS, ODD_BITS};
 
 #[derive(Default)]
 pub struct YamlChunkState {
     double_quote: YamlDoubleQuoteChunk,
     single_quote: YamlSingleQuoteChunk,
-    pub(crate) characters: YamlCharacterChunk,
+    pub characters: YamlCharacterChunk,
     rows: Vec<u32>,
     cols: Vec<u32>,
     follows_non_quote_scalar: u64,
@@ -61,11 +61,11 @@ pub struct YamlSingleQuoteChunk {
 #[derive(Default)]
 pub struct YamlCharacterChunk {
     /// Space bitmask
-    pub(crate) spaces: u64,
+    pub spaces: u64,
     /// Newline bitmask
-    pub(crate) newline: u64,
+    pub newline: u64,
     /// Operators
-    pub(crate) op: u64,
+    pub op: u64,
 }
 
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
@@ -77,7 +77,6 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
 pub trait Stage1Scanner {
     type SimdType;
     type Validator: ChunkedUtf8Validator;
-
 
     /// Returns the validator for the given type.
     ///

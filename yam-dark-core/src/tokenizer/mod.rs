@@ -1,2 +1,2 @@
-pub mod stage1;
-pub mod stage2;
+pub(crate) mod stage1;
+pub(crate) mod stage2;
