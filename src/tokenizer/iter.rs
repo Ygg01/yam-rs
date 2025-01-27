@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
-use crate::Scanner;
 use crate::tokenizer::event::YamlEvent;
 use crate::tokenizer::reader::StrReader;
-use crate::tokenizer::scanner::{SpanToken};
+use crate::tokenizer::scanner::SpanToken;
+use crate::Scanner;
 
 pub struct StrIterator<'a> {
     pub(crate) state: Scanner,
@@ -22,6 +22,7 @@ impl<'a> StrIterator<'a> {
                 YamlEvent::Directive(typ, self.to_cow(start, end))
             }
             SpanToken::ErrorToken(err) => YamlEvent::Error(err),
+            _ => YamlEvent::StreamStart,
         }
     }
 
@@ -41,8 +42,8 @@ impl<'a> Iterator for StrIterator<'a> {
                 if self.state.is_empty() && !self.state.stream_end {
                     self.state.fetch_next_token(&mut self.reader);
                 }
-                if self.state.is_empty() {
-                    return None
+                if self.state.is_empty() && self.state.stream_end {
+                    return None;
                 }
             }
         };
@@ -52,6 +53,8 @@ impl<'a> Iterator for StrIterator<'a> {
 
 #[derive(Copy, Clone)]
 pub enum ErrorType {
+    NoDocStartAfterTag,
+    UnexpectedSymbol,
     ExpectedDocumentStart,
     ExpectedNewline,
     ExpectedIndent(usize),

@@ -1,6 +1,7 @@
-use memchr::memchr2;
+use std::ops::ControlFlow::{Break, Continue};
+use std::{ops::ControlFlow, slice::Windows};
 
-use crate::tokenizer::scanner::ScannerContext;
+use memchr::memchr2;
 
 pub struct StrReader<'a> {
     pub slice: &'a str,
@@ -18,12 +19,54 @@ impl<'a> StrReader<'a> {
     }
 }
 
+pub trait QueryUntil {
+    fn position_until<P>(&mut self, predicate: P) -> usize
+    where
+        Self: Sized,
+        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
+}
+
+impl<'a> QueryUntil for Windows<'a, u8> {
+    #[inline]
+    fn position_until<P>(&mut self, predicate: P) -> usize
+    where
+        Self: Sized,
+        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+    {
+        #[inline]
+        fn check<'a>(
+            mut predicate: impl FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+        ) -> impl FnMut(usize, &'a [u8]) -> ControlFlow<usize, usize> {
+            move |pos, x| predicate(pos, x[0], x[1])
+        }
+
+        match self.try_fold(0usize, check(predicate)) {
+            ControlFlow::Break(x) | Continue(x) => x,
+        }
+    }
+}
+
 pub(crate) trait Reader {
     fn eof(&self) -> bool;
     fn pos(&self) -> usize;
     fn col(&self) -> usize;
-    fn peek_byte(&mut self) -> Option<u8>;
-    fn peek_byte_is(&mut self, needle: u8) -> bool;
+    fn peek_byte_at(&self, offset: i8) -> Option<u8>;
+    fn peek_byte(&self) -> Option<u8>;
+    fn peek_byte_is(&self, needle: u8) -> bool {
+        match self.peek_byte() {
+            Some(x) if x == needle => true,
+            _ => false,
+        }
+    }
+    fn peek_byte_at_check(&self, offset: i8, check: fn(u8) -> bool) -> bool {
+        match self.peek_byte_at(offset) {
+            Some(x) if check(x) => true,
+            _ => false,
+        }
+    }
+    fn position_until<L>(&self, lookahead_predicate: L) -> usize
+    where
+        L: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>;
     fn consume_bytes(&mut self, amount: usize);
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
@@ -37,7 +80,6 @@ pub(crate) trait Reader {
     fn skip_indent_less(&mut self, indent: usize) -> bool;
     fn read_line(&mut self) -> (usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
-    fn read_plain_in_line(&mut self, start: usize, is_flow_context: bool) -> usize;
 }
 
 impl<'r> Reader for StrReader<'r> {
@@ -54,18 +96,32 @@ impl<'r> Reader for StrReader<'r> {
         self.col
     }
 
-    fn peek_byte(&mut self) -> Option<u8> {
+    fn peek_byte_at(&self, offset: i8) -> Option<u8> {
+        let new_pos = if offset >= 0 {
+            self.pos + offset as usize
+        } else {
+            self.pos - offset.abs() as usize
+        };
+        match self.slice.as_bytes().get(new_pos) {
+            Some(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    fn peek_byte(&self) -> Option<u8> {
         match self.slice.as_bytes().get(self.pos) {
             Some(x) => Some(*x),
             _ => None,
         }
     }
 
-    fn peek_byte_is(&mut self, needle: u8) -> bool {
-        match self.slice.as_bytes().get(self.pos) {
-            Some(x) if x == &needle => true,
-            _ => false,
-        }
+    fn position_until<P>(&self, predicate: P) -> usize
+    where
+        P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
+    {
+        self.slice.as_bytes()[self.pos..]
+            .windows(2)
+            .position_until(predicate)
     }
 
     #[inline(always)]
@@ -165,14 +221,13 @@ impl<'r> Reader for StrReader<'r> {
     #[inline]
     fn skip_indent_less(&mut self, indent: usize) -> bool {
         let n = self.slice.as_bytes()[self.pos..]
-            .iter().enumerate()
-            .position(|(pos, x)| {
-                *x == b' ' && pos < indent
-            }).unwrap_or(0);
+            .iter()
+            .enumerate()
+            .position(|(pos, x)| *x == b' ' && pos < indent)
+            .unwrap_or(0);
         self.consume_bytes(n);
         n > 0
     }
-
 
     fn read_line(&mut self) -> (usize, usize) {
         let start = self.pos;
@@ -196,7 +251,7 @@ impl<'r> Reader for StrReader<'r> {
         let content = &self.slice.as_bytes()[start..];
         let mut iter = memchr::memchr3_iter(b'\r', b'\n', b'#', content);
         let mut end = self.pos;
-        let mut consume = 0usize;
+        let mut consume = 0;
 
         if let Some((new_end, c)) = iter.next().map(|p| (p, content[p])) {
             end = new_end;
@@ -222,13 +277,6 @@ impl<'r> Reader for StrReader<'r> {
         }
 
         (start, end)
-    }
-
-    fn read_plain_in_line(&mut self, start: usize, is_flow_context: bool) -> usize {
-        self.slice.as_bytes()[start..]
-            .windows(2)
-            .position(|win| is_plain(is_flow_context, win[0], win[1]))
-            .map_or(0, |x| x + 2)
     }
 }
 
@@ -311,6 +359,50 @@ pub fn skip_whitespace() {
     assert_eq!(2, StrReader::new("\t null").skip_whitespace());
 }
 
+#[test]
+pub fn test_position_until() {
+    let look_ahead = StrReader::new("test #");
+
+    assert_eq!(
+        4,
+        look_ahead.position_until(|pos, x0, x1| {
+            if is_tab_space(x0) && x1 == b'#' {
+                Break(pos)
+            } else {
+                Continue(pos + 1)
+            }
+        })
+    );
+
+    let look_behind = StrReader::new("test# ");
+
+    assert_eq!(
+        4,
+        look_behind.position_until(|pos, x0, x1| {
+            if x0 == b'#' && is_tab_space(x1) {
+                Break(pos)
+            } else {
+                Continue(pos + 1)
+            }
+        })
+    );
+
+    let look_any = StrReader::new("test# ");
+
+    assert_eq!(
+        5,
+        look_any.position_until(|pos, x0, x1| {
+            if is_tab_space(x0) {
+                Break(pos)
+            } else if is_tab_space(x1) {
+                Break(pos + 1)
+            } else {
+                Continue(pos + 1)
+            }
+        })
+    );
+}
+
 #[inline]
 pub(crate) fn is_tab_space(b: u8) -> bool {
     match b {
@@ -337,17 +429,16 @@ pub(crate) fn is_indicator(chr: u8) -> bool {
 }
 
 #[inline]
-fn is_plain(is_flow_context: bool, win0: u8, win1: u8) -> bool {
-    is_whitespace(win0)
-        || is_whitespace(win1)
-        || (win0 == b':' && (is_whitespace(win1) || is_flow_context && is_flow_indicator(win1)))
-        || (win1 == b'#' && is_whitespace(win0))
-}
-
-#[inline]
 pub(crate) fn is_flow_indicator(chr: u8) -> bool {
     match chr {
         b',' | b'[' | b']' | b'{' | b'}' => true,
         _ => false,
     }
+}
+
+fn is_invalid_plain(is_flow_context: bool, win0: u8, win1: u8) -> bool {
+    is_whitespace(win0)
+        || is_whitespace(win1)
+        || (win0 == b':' && (is_whitespace(win1) || (is_flow_context && is_flow_indicator(win1))))
+        || (win1 == b'#' && (is_whitespace(win0)))
 }
