@@ -193,12 +193,27 @@ const BLOCK_QUOTE_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const MULTILINE_PLAIN_INPUT: &str = r##"
+generic: !!str 
+ test
+ test
+"##;
+
+const MULTILINE_PLAIN_EVENTS: &str = r##"
+ +DOC
+  +MAP
+   =VAL :generic
+   =VAL <tag:yaml.org,2002:str> |test\ntest\n
+  -MAP
+ -DOC"##;
+
 #[test]
 pub fn literal_block() {
-    assert_eq_event(BLOCK_STR_INPUT, BLOCK_STR_EVENTS);
     assert_eq_event(BLOCK_STR2_INPUT, BLOCK_STR2_EVENTS);
-    assert_eq_event(FOLD_STRING_INPUT, FOLD_STRING_EVENTS);
     assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
+    assert_eq_event(BLOCK_STR_INPUT, BLOCK_STR_EVENTS);
+    assert_eq_event(FOLD_STRING_INPUT, FOLD_STRING_EVENTS);
+    assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
 }
 
 const BLOCK_PLAIN_INPUT: &str = r#"
