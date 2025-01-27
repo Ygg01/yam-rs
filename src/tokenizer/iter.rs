@@ -1,8 +1,11 @@
 use std::borrow::Cow;
 
+use SpanToken::*;
+
 use crate::tokenizer::event::YamlEvent;
 use crate::tokenizer::reader::StrReader;
 use crate::tokenizer::scanner::SpanToken;
+use crate::tokenizer::scanner::SpanToken::{MarkEnd, MarkStart};
 use crate::Scanner;
 
 pub struct StrIterator<'a> {
@@ -11,21 +14,6 @@ pub struct StrIterator<'a> {
 }
 
 impl<'a> StrIterator<'a> {
-    pub(crate) fn to_token(&self, token: SpanToken) -> YamlEvent<'a> {
-        match token {
-            SpanToken::DocStart => YamlEvent::DocStart,
-            SpanToken::DocEnd => YamlEvent::DocEnd,
-            SpanToken::StreamStart => YamlEvent::StreamStart,
-            SpanToken::StreamEnd => YamlEvent::StreamEnd,
-            SpanToken::Scalar(start, end) => YamlEvent::ScalarValue(self.to_cow(start, end)),
-            SpanToken::Directive(typ, start, end) => {
-                YamlEvent::Directive(typ, self.to_cow(start, end))
-            }
-            SpanToken::ErrorToken(err) => YamlEvent::Error(err),
-            _ => YamlEvent::StreamStart,
-        }
-    }
-
     fn to_cow(&self, start: usize, end: usize) -> Cow<'a, [u8]> {
         Cow::Borrowed(self.reader.slice[start..end].as_bytes())
     }
@@ -47,14 +35,41 @@ impl<'a> Iterator for StrIterator<'a> {
                 }
             }
         };
-        Some(self.to_token(span))
+        let event = match span {
+            Directive(tag) => {
+                if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
+                    (self.state.pop_token(), self.state.pop_token())
+                {
+                    YamlEvent::Directive(tag, self.to_cow(start, end))
+                } else {
+                    YamlEvent::Error(ErrorType::UnexpectedEndOfFile)
+                }
+            }
+            MarkStart(start) => {
+                if let Some(MarkEnd(end)) = self.state.pop_token() {
+                    YamlEvent::ScalarValue(self.to_cow(start, end))
+                } else {
+                    YamlEvent::Error(ErrorType::UnexpectedEndOfFile)
+                }
+            }
+            MarkEnd(_) => panic!("Unexpected Mark end"),
+            DocumentStart => YamlEvent::DocStart,
+            DocumentEnd => YamlEvent::DocEnd,
+            SequenceStart => YamlEvent::SeqStart,
+            SequenceEnd => YamlEvent::SeqEnd,
+            MappingStart => YamlEvent::MapStart,
+            MappingEnd => YamlEvent::MapEnd,
+            ErrorToken(err) => YamlEvent::Error(err),
+        };
+        Some(event)
     }
 }
 
 #[derive(Copy, Clone)]
 pub enum ErrorType {
     NoDocStartAfterTag,
-    UnexpectedSymbol,
+    UnexpectedEndOfFile,
+    UnexpectedSymbol(char),
     ExpectedDocumentStart,
     ExpectedNewline,
     ExpectedNewlineInFolded,

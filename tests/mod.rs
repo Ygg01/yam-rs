@@ -12,39 +12,31 @@ mod tests {
 %YAML 1.3 #arst
 "#;
     const EMPTY_DOC_EXPECTED: &'static str = r#"
-+STR
 #YAML 1.3
-ERR
--STR"#;
+ERR"#;
 
     const NULL_YAML_INPUT: &'static str = r#"
 null
 "#;
     const NULL_YAML_EXPECTED: &'static str = r#"
-+STR
-+VAL null
--STR"#;
+=VAL null"#;
 
     const MULTILINE_INPUT: &'static str = r#"
 test
 xt
 "#;
     const MULTILINE_EXPECTED: &'static str = r#"
-+STR
-+VAL test
-+VAL xt
--STR"#;
+=VAL test
+=VAL xt"#;
 
     const SEQ_FLOW_INPUT: &'static str = r#"
 [x, y]
 "#;
     const SEQ_FLOW_EXPECTED: &'static str = r#"
-+STR
 +SEQ
-+VAL x
-+VAL y
--SEQ
--STR"#;
+=VAL x
+=VAL y
+-SEQ"#;
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
