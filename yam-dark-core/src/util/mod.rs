@@ -104,7 +104,7 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u8) -> [u8; 8] {
 
 #[doc(hidden)]
 #[inline]
-pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &mut u8) -> [u8; 8] {
+pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 8] {
     [
         cols[0] + *prev_col,
         if rows_data[0] == 0 {
