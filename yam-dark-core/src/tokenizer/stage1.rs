@@ -34,8 +34,9 @@ pub struct YamlChunkState {
     pub double_quote: YamlDoubleQuoteChunk,
     pub single_quote: YamlSingleQuoteChunk,
     pub characters: YamlCharacterChunk,
-    rows: Vec<u32>,
-    cols: Vec<u32>,
+    pub rows: Vec<u32>,
+    pub cols: Vec<u32>,
+    pub indents: Vec<u32>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
 }
@@ -135,33 +136,22 @@ pub trait Stage1Scanner {
     /// ```
     fn cmp_ascii_to_input(&self, m: u8) -> u64;
 
-    /// Returns the number of leading spaces in a given [`YamlCharacterChunk`].
+    /// Calculates the indents of the given chunk and updates the `chunk_state` accordingly.
     ///
-    /// This function takes a mutable reference to a [`YamlCharacterChunk`] and returns a tuple `(u32, u32)`.
-    /// The first value in the tuple represents the number of leading spaces counted from the start of
-    /// the [`YamlCharacterChunk`]. The second value represents the number of recognized spaces counted
-    /// from the start of the line containing the [`YamlCharacterChunk`].
+    /// For a chunk represented by this scanner, will calculate indents for each 64-character and
+    /// will update `chunk_state`, taking into consideration previous indents in `prev_state`
     ///
     /// # Arguments
     ///
-    /// * `spaces` - A mutable reference to a `YamlCharacterChunk` object which is updated with leading spaces
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the number of leading spaces and recognized spaces respectively.
+    /// - `chunk_state`: A mutable reference to a [`YamlChunkState`] that represents the YAML
+    ///    chunk to calculate the indents for.
+    /// - `prev_state`: A mutable reference to a [`YamlParserState`] that represents the previous
+    ///    state of the YAML parser.
     ///
     /// # Examples
     ///
-    /// ```
-    /// use yam_dark_core::{Stage1Scanner, NativeScanner, YamlCharacterChunk};
-    ///
-    /// let mut chunk = YamlCharacterChunk::default();
-    /// let scanner = NativeScanner::from_chunk(&[0; 64]);
-    /// let (leading_spaces, recognized_spaces) = scanner.leading_spaces(&mut chunk);
-    /// println!("Leading spaces: {}", leading_spaces);
-    /// println!("Recognized spaces: {}", recognized_spaces);
-    /// ```
-    fn leading_spaces(&self, spaces: &mut YamlCharacterChunk) -> (u32, u32);
+    /// TODO
+    fn calculate_indents(&self, chunk_state: &mut YamlChunkState, prev_state: &mut YamlParserState);
 
     /// Computes a quote mask based on the given quote bit mask.
     ///
@@ -359,7 +349,7 @@ pub trait Stage1Scanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
         &self,
-        block_state: &mut YamlChunkState,
+        chunk_state: &mut YamlChunkState,
         prev_iter_state: &mut YamlParserState,
     ) {
         let quote_bits = self.cmp_ascii_to_input(b'\'');
@@ -370,7 +360,7 @@ pub trait Stage1Scanner {
 
         let shift_even = even_bit << 1;
         let odd_starts = shift_even ^ odd_bit;
-        block_state.single_quote.quote = odd_starts;
+        chunk_state.single_quote.quote = odd_starts;
         prev_iter_state.prev_iter_odd_quote = Self::count_odd_bits(odd_starts);
     }
 
@@ -397,7 +387,7 @@ pub trait Stage1Scanner {
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     ///  assert_eq!(block_state.characters.structurals, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
     /// ```
-    fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState);
+    fn scan_whitespace_and_structurals(&self, chunk_state: &mut YamlChunkState);
 
     /// Scans the input for double quote bitmask.
     ///
@@ -421,16 +411,16 @@ pub trait Stage1Scanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_double_quote_bitmask(
         &self,
-        block_state: &mut YamlChunkState,
+        chunk_state: &mut YamlChunkState,
         prev_iter_state: &mut YamlParserState,
     ) {
         let odds_ends = self.scan_for_odd_backslashes(&mut prev_iter_state.prev_iter_odd_backslash);
 
-        block_state.double_quote.quote_bits = self.cmp_ascii_to_input(b'"');
-        block_state.double_quote.quote_bits &= !odds_ends;
+        chunk_state.double_quote.quote_bits = self.cmp_ascii_to_input(b'"');
+        chunk_state.double_quote.quote_bits &= !odds_ends;
 
         // remove from the valid quoted region the unescaped characters.
-        let mut quote_mask: u64 = Self::compute_quote_mask(block_state.double_quote.quote_bits);
+        let mut quote_mask: u64 = Self::compute_quote_mask(chunk_state.double_quote.quote_bits);
         quote_mask ^= prev_iter_state.prev_iter_inside_quote;
 
         // All Unicode characters may be placed within the
@@ -439,14 +429,14 @@ pub trait Stage1Scanner {
         //through U+001F).
         // https://tools.ietf.org/html/rfc8259
         let unescaped: u64 = self.unsigned_lteq_against_splat(0x1F);
-        block_state.error_mask |= quote_mask & unescaped;
+        chunk_state.error_mask |= quote_mask & unescaped;
         // right shift of a signed value expected to be well-defined and standard
         // compliant as of C++20,
         // John Regher from Utah U. says this is fine code
         prev_iter_state.prev_iter_inside_quote = unsafe {
             core::mem::transmute::<_, u64>(core::mem::transmute::<_, i64>(quote_mask) >> 63)
         };
-        block_state.double_quote.quote_bits = quote_mask;
+        chunk_state.double_quote.quote_bits = quote_mask;
     }
 }
 
