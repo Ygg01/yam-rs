@@ -111,4 +111,8 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
     fn get_single_quote_trim(&self, _buf: &mut S, _start_str: usize) -> Option<(usize, usize)> {
         todo!()
     }
+
+    fn count_whitespace(&self, _buf: &mut S) -> usize {
+        todo!()
+    }
 }

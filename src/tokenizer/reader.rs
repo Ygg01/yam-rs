@@ -69,6 +69,7 @@ pub trait Reader<B> {
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn read_line(&mut self) -> (usize, usize);
     fn count_spaces(&self) -> u32;
+    fn count_whitespace(&self, buf: &mut B) -> usize;
     fn count_spaces_till(&self, indent: u32) -> usize;
     fn is_empty_newline(&self) -> bool;
     fn get_double_quote(&self, buf: &mut B) -> Option<usize>;
