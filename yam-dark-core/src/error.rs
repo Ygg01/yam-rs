@@ -2,7 +2,11 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq)]
-pub enum ErrorType {}
+pub enum ErrorType {
+    Eof,
+    Syntax,
+    InvalidUtf8,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Error {
