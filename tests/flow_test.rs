@@ -51,7 +51,7 @@ const SEQ_FLOW_EVENTS: &str = r"
 -DOC";
 
 #[test]
-fn flow_flow_seq() {
+fn flow_seq() {
     assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EVENTS);
     assert_eq_event(SEQ_FLOW2_INPUT, SEQ_FLOW_EVENTS);
 }
@@ -221,11 +221,11 @@ fn flow_err_plain_scalar() {
     assert_eq_event(ERR_PLAIN_SCALAR_INPUT, ERR_PLAIN_SCALAR_EVENTS);
 }
 
-const DOC_END_ERR_INPUT: &str = r"
+const FLOW_ERR1_INPUT: &str = r"
 ---
 [a, b] ]";
 
-const DOC_END_ERR_EVENTS: &str = r"
+const FLOW_ERR1_EVENTS: &str = r"
 +DOC ---
 +SEQ []
 =VAL :a
@@ -234,9 +234,36 @@ const DOC_END_ERR_EVENTS: &str = r"
 -DOC
 ERR";
 
+const FLOW_ERR2_INPUT: &str = r"
+---
+[ [a, b] ";
+
+const FLOW_ERR2_EVENTS: &str = r"
++DOC ---
++SEQ []
++SEQ []
+=VAL :a
+=VAL :b
+-SEQ
+ERR
+-SEQ
+-DOC";
+
+const SEQ_ERR_INPUT: &str = r"
+ [-]";
+
+const SEQ_ERR_EVENTS: &str = r"
++DOC
++SEQ []
+ERR
+-SEQ
+-DOC";
+
 #[test]
-fn doc_end_err() {
-    assert_eq_event(DOC_END_ERR_INPUT, DOC_END_ERR_EVENTS);
+fn flow_seq_err() {
+    assert_eq_event(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS);
+    assert_eq_event(FLOW_ERR2_INPUT, FLOW_ERR2_EVENTS);
+    assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
 }
 
 const SEQ_KEY1_INPUT: &str = r"
@@ -310,21 +337,6 @@ fn flow_seq_as_key() {
     assert_eq_event(SEQ_KEY2_INPUT, SEQ_KEY2_EVENTS);
     assert_eq_event(SEQ_KEY3_INPUT, SEQ_KEY3_EVENTS);
     assert_eq_event(SEQ_KEY4_INPUT, SEQ_KEY4_EVENTS);
-}
-
-const SEQ_ERR_INPUT: &str = r"
- [-]";
-
-const SEQ_ERR_EVENTS: &str = r"
-+DOC
-+SEQ []
-ERR
--SEQ
--DOC";
-
-#[test]
-fn flow_seq_err() {
-    assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
 }
 
 const SEQ_EDGE_INPUT: &str = r"

@@ -342,6 +342,11 @@ impl<B> Lexer<B> {
                     self.tokens.push_back(SCALAR_END);
                     DOC_END
                 }
+                FlowSeq(_, _) => {
+                    self.tokens.push_back(ERROR_TOKEN);
+                    self.errors.push(ErrorType::MissingFlowClosingBracket);
+                    SEQ_END
+                }
                 DocBlock | AfterDocBlock => DOC_END,
                 _ => continue,
             };
