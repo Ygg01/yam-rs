@@ -17,8 +17,8 @@ unsafe fn find_whitespace_and_structurals(
 
     let structural_shufti_mask: [u8; 16] = [0x7; 16];
     let whitespace_shufti_mask: [u8; 16] = [0x18; 16];
-    let low_nib_and_mask: [u8; 16] = [0xF; 16]; //8x16_splat(0xf);
-    let high_nib_and_mask: [u8; 16] = [0x7F; 16]; //u8x16_splat(0x7f);
+    let low_nib_and_mask: [u8; 16] = [0xF; 16];
+    let high_nib_and_mask: [u8; 16] = [0x7F; 16];
     let zero_mask: [u8; 16] = [0x0; 16];
 
     let v_v0 = v128_and(

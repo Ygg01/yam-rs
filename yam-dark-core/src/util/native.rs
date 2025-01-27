@@ -21,13 +21,13 @@ use core::ops::{BitAnd, Shr};
 /// array[2] = 2;
 /// array[4] = 2;
 /// array[9] = 2;
-/// let result = u8x64_eq(array, 2);
+/// let result = u8x64_eq(&array, 2);
 /// // Expect to find three instances of number `2`
 /// assert_eq!(result, 0b1000010100);
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn u8x64_eq(a: [u8; 64], cmp: u8) -> u64 {
+pub fn u8x64_eq(a: &[u8; 64], cmp: u8) -> u64 {
     (if a[0] == cmp { 1 } else { 0 })
         | (if a[1] == cmp { 1 << 1 } else { 0 })
         | (if a[2] == cmp { 1 << 2 } else { 0 })
@@ -586,4 +586,79 @@ pub fn mask_and_add_u8x16(a: &mut U8X16, b: U8X16, mask: u16) {
     } else {
         a.0[15]
     };
+}
+
+#[doc(hidden)]
+#[inline]
+pub fn mask_merge(v0: U8X16, v1: U8X16, v2: U8X16, v3: U8X16) -> [u32; 64] {
+    [
+        // first 16 cols
+        v0.0[0] as u32,
+        v0.0[1] as u32,
+        v0.0[2] as u32,
+        v0.0[3] as u32,
+        v0.0[4] as u32,
+        v0.0[5] as u32,
+        v0.0[6] as u32,
+        v0.0[7] as u32,
+        v0.0[8] as u32,
+        v0.0[9] as u32,
+        v0.0[10] as u32,
+        v0.0[11] as u32,
+        v0.0[12] as u32,
+        v0.0[13] as u32,
+        v0.0[14] as u32,
+        v0.0[15] as u32,
+        // second 16 cols
+        v1.0[0] as u32,
+        v1.0[1] as u32,
+        v1.0[2] as u32,
+        v1.0[3] as u32,
+        v1.0[4] as u32,
+        v1.0[5] as u32,
+        v1.0[6] as u32,
+        v1.0[7] as u32,
+        v1.0[8] as u32,
+        v1.0[9] as u32,
+        v1.0[10] as u32,
+        v1.0[11] as u32,
+        v1.0[12] as u32,
+        v1.0[13] as u32,
+        v1.0[14] as u32,
+        v1.0[15] as u32,
+        // third 16 cols
+        v2.0[0] as u32,
+        v2.0[1] as u32,
+        v2.0[2] as u32,
+        v2.0[3] as u32,
+        v2.0[4] as u32,
+        v2.0[5] as u32,
+        v2.0[6] as u32,
+        v2.0[7] as u32,
+        v2.0[8] as u32,
+        v2.0[9] as u32,
+        v2.0[10] as u32,
+        v2.0[11] as u32,
+        v2.0[12] as u32,
+        v2.0[13] as u32,
+        v2.0[14] as u32,
+        v2.0[15] as u32,
+        // fourth 16 cols
+        v3.0[0] as u32,
+        v3.0[1] as u32,
+        v3.0[2] as u32,
+        v3.0[3] as u32,
+        v3.0[4] as u32,
+        v3.0[5] as u32,
+        v3.0[6] as u32,
+        v3.0[7] as u32,
+        v3.0[8] as u32,
+        v3.0[9] as u32,
+        v3.0[10] as u32,
+        v3.0[11] as u32,
+        v3.0[12] as u32,
+        v3.0[13] as u32,
+        v3.0[14] as u32,
+        v3.0[15] as u32,
+    ]
 }
