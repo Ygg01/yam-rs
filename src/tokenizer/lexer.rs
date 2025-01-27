@@ -253,6 +253,7 @@ enum DirectiveState {
     Tag,
     Directive,
     DirectiveAndTag,
+    Error,
 }
 
 impl DirectiveState {
@@ -268,7 +269,7 @@ impl DirectiveState {
         *self = match self {
             Self::NoContent => Self::Directive,
             Self::Tag => Self::DirectiveAndTag,
-            _ => *self,
+            Self::Directive | Self::DirectiveAndTag | Self::Error => Self::Error,
         }
     }
 }
