@@ -445,9 +445,9 @@ impl<'r> Reader<()> for StrReader<'r> {
             let (start, end) = self.read_line();
             if start != end {
                 if new_line_token > 0 {
-                    if new_line_token == 1 && !literal && previous_indent == newline_indent {
+                    if !literal && previous_indent == newline_indent {
                         tokens.push_back(NewLine as usize);
-                        tokens.push_back(0);
+                        tokens.push_back(new_line_token - 1);
                     } else {
                         tokens.push_back(NewLine as usize);
                         tokens.push_back(new_line_token);
