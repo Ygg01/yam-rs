@@ -108,6 +108,7 @@ pub trait Reader {
     fn skip_n_spaces(&mut self, skip: usize) -> Result<(), ErrorType>;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
+    fn slice_bytes_from(&self, start: usize) -> &[u8];
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
     fn find_next_whitespace(&self) -> Option<usize>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
@@ -121,7 +122,6 @@ pub trait Reader {
     }
     fn get_line_offset(&self) -> (usize, usize, usize);
     fn read_non_comment_line(&mut self) -> (usize, usize);
-    fn find_fast3_iter(&self, needle1: u8, needle2: u8, needle3: u8) -> Option<usize>;
 }
 
 impl<'r> Reader for StrReader<'r> {
@@ -215,8 +215,14 @@ impl<'r> Reader for StrReader<'r> {
         self.pos
     }
 
+    #[inline(always)]
     fn slice_bytes(&self, start: usize, end: usize) -> &'r [u8] {
         &self.slice.as_bytes()[start..end]
+    }
+
+    #[inline(always)]
+    fn slice_bytes_from(&self, start: usize) -> &'r [u8] {
+        &self.slice.as_bytes()[start..]
     }
 
     #[inline(always)]
@@ -314,16 +320,6 @@ impl<'r> Reader for StrReader<'r> {
         }
 
         (start, end)
-    }
-
-    fn find_fast3_iter(&self, needle1: u8, needle2: u8, needle3: u8) -> Option<usize> {
-        memchr3_iter(
-            needle1,
-            needle2,
-            needle3,
-            &self.slice.as_bytes()[self.pos..],
-        )
-        .next()
     }
 }
 

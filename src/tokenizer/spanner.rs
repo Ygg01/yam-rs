@@ -1,6 +1,9 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
+use std::fs::read;
+
+use memchr::memchr3_iter;
 
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
@@ -173,8 +176,9 @@ impl Spanner {
                     Some(b'!') => self.fetch_tag(reader),
                     Some(b'|') => self.fetch_block_scalar(reader, true),
                     Some(b'>') => self.fetch_block_scalar(reader, false),
-                    Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
-                    Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
+                    Some(b'\'') => self.fetch_single_quote(reader),
+                    // TODO
+                    // Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                     Some(b'#') => {
                         // comment
                         reader.read_line();
@@ -207,8 +211,9 @@ impl Spanner {
                     reader.consume_bytes(1);
                     self.tokens.push_back(Separator);
                 }
-                Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
-                Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
+                Some(b'\'') => self.fetch_single_quote(reader),
+                // TODO
+                // Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                 Some(b':') => {
                     reader.consume_bytes(1);
                     self.tokens.push_back(MappingStart);
@@ -246,8 +251,9 @@ impl Spanner {
                 Some(b',') => {
                     reader.consume_bytes(1);
                 }
-                Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
-                Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
+                Some(b'\'') => self.fetch_single_quote(reader),
+                // TODO
+                // Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                 Some(b'#') => {
                     // comment
                     reader.read_line();
@@ -465,32 +471,64 @@ impl Spanner {
     }
 
     // TODO Escaping properly
-    fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R, quote: u8) {
-        let mut start = reader.pos();
-        let mut first = 1;
+    // fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R, quote: u8) {
+    //     let mut start = reader.pos();
+    //     let mut first = 1;
+    //     reader.consume_bytes(1);
+    //     while let Some(offset) = reader.find_fast3_iter(quote, b'\r', b'\n') {
+    //         match reader.peek_byte_at(offset) {
+    //             Some(b'\r') | Some(b'\n') => {
+    //                 if offset > 0 {
+    //                     self.tokens.push_back(MarkStart(start));
+    //                     self.tokens.push_back(MarkEnd(start + offset + first));
+    //                     self.tokens.push_back(Space);
+    //                 }
+    //                 reader.read_line();
+    //                 reader.skip_space_tab(self.curr_state.is_implicit());
+    //                 start = reader.pos();
+    //                 first = 0;
+    //             }
+    //             Some(_) => {
+    //                 // consume offset and the next quote
+    //                 reader.consume_bytes(offset + 1);
+    //                 self.tokens.push_back(MarkStart(start));
+    //                 self.tokens.push_back(MarkEnd(start + offset + first));
+    //                 break;
+    //             }
+    //             None => {}
+    //         };
+    //     }
+    // }
+
+    fn fetch_single_quote<R: Reader>(&mut self, reader: &mut R) {
         reader.consume_bytes(1);
-        while let Some(offset) = reader.find_fast3_iter(quote, b'\r', b'\n') {
-            match reader.peek_byte_at(offset) {
-                Some(b'\r') | Some(b'\n') => {
-                    if offset > 0 {
-                        self.tokens.push_back(MarkStart(start));
-                        self.tokens.push_back(MarkEnd(start + offset + first));
-                        self.tokens.push_back(Space);
+        let is_implicit = self.curr_state.is_implicit();
+
+        loop {
+            let (line_start, line_end, _) = reader.get_line_offset();
+            let pos = memchr::memchr(b'\'', reader.slice_bytes(line_start, line_end));
+            match pos {
+                Some(len) => {
+                    if reader.peek_byte_at(len + 1) == Some(b'\'') {
+                        self.tokens.push_back(MarkStart(line_start)); 
+                        self.tokens.push_back(MarkEnd(line_start + len + 1)); 
+                        reader.consume_bytes(len + 2);
+                        continue;
+                    } else {
+                        self.tokens.push_back(MarkStart(line_start)); 
+                        self.tokens.push_back(MarkEnd(line_start + len)); 
+                        reader.consume_bytes(len + 1);
+                        break;
                     }
+                }
+                None => {
+                    self.tokens.push_back(MarkStart(line_start));
+                    self.tokens.push_back(MarkEnd(line_end));      
+                    self.tokens.push_back(Space); 
                     reader.read_line();
-                    reader.skip_space_tab(self.curr_state.is_implicit());
-                    start = reader.pos();
-                    first = 0;
+                    reader.skip_space_tab(is_implicit);
                 }
-                Some(_) => {
-                    // consume offset and the next quote
-                    reader.consume_bytes(offset + 1);
-                    self.tokens.push_back(MarkStart(start));
-                    self.tokens.push_back(MarkEnd(start + offset + first));
-                    break;
-                }
-                None => {}
-            };
+            }
         }
     }
 
@@ -525,11 +563,11 @@ impl Spanner {
                 break;
             }
 
-            let (start, end) = match self.read_plain_one_line(reader, allow_minus, &mut had_comment) {
+            let (start, end) = match self.read_plain_one_line(reader, allow_minus, &mut had_comment)
+            {
                 Some(x) => x,
                 None => break,
             };
-            
 
             reader.skip_space_tab(true);
 
@@ -648,7 +686,8 @@ impl Spanner {
             if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
                 if *had_comment {
-                    self.tokens.push_back(ErrorToken(ErrorType::UnexpectedComment))
+                    self.tokens
+                        .push_back(ErrorToken(ErrorType::UnexpectedComment))
                 } else {
                     *had_comment = true;
                     reader.set_pos(line_end);
