@@ -148,14 +148,14 @@ pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 
 }
 
 fn from_part_indent(part_indent: u32) -> (u32, bool) {
-    let is_frozen = (part_indent & 0x1) == 0;
+    let is_frozen = (part_indent & 0x1) != 0;
     let indent = part_indent >> 1;
     (indent, is_frozen)
 }
 
-fn into_part_indent(indent: u32, is_frozen: bool) -> u32 {
-    assert!(indent <= 2 << 31);
-    let frozen_bit = is_frozen as u32;
+fn into_part_indent(indent: u32, is_running: bool) -> u32 {
+    assert!(indent <= (1 << 31));
+    let frozen_bit = is_running as u32;
     (indent << 1) | frozen_bit
 }
 
@@ -164,15 +164,17 @@ pub fn count_indent_native(
     mut newline_mask: u64,
     space_mask: u64,
     indents: &mut Vec<u32>,
+    is_running: bool,
     previous_indent: &mut u32,
 ) {
     let start_len = indents.len();
-    let mut base_len = indents.len();
+    let mut i = 0;
 
     // Reserve enough space for the worst case since it can have
     indents.reserve(68);
     let count_cols = newline_mask.count_ones() + 1;
-    let mut neg_indents_mask = select_left_bits_branch_less(space_mask, newline_mask << 1);
+    let mut runners = Vec::<bool>::with_capacity(count_cols as usize);
+    let mut neg_indents_mask = !select_left_bits_branch_less(space_mask, (newline_mask << 1) ^ (is_running as u64));
 
     // To calculate indent we need to:
     // 1. Count trailing ones in space_mask this is the current indent
@@ -186,23 +188,28 @@ pub fn count_indent_native(
         neg_indents_mask = neg_indents_mask.overflowing_shr(v0).0;
 
         let part1 = neg_indents_mask.trailing_zeros();
-        let v1 = newline_mask.trailing_zeros();
-        newline_mask = newline_mask.overflowing_shr(v1 + 1).0;
-        neg_indents_mask = neg_indents_mask.overflowing_shr(v1 + 1).0;
+        let v1 = newline_mask.trailing_zeros() + 1;
+        newline_mask = newline_mask.overflowing_shr(v1).0;
+        neg_indents_mask = neg_indents_mask.overflowing_shr(v1).0;
 
         let part2 = neg_indents_mask.trailing_zeros();
-        let v2 = newline_mask.trailing_zeros();
-        newline_mask = newline_mask.overflowing_shr(v2 + 1).0;
-        neg_indents_mask = neg_indents_mask.overflowing_shr(v2 + 1).0;
+        let v2 = newline_mask.trailing_zeros() + 1;
+        newline_mask = newline_mask.overflowing_shr(v2).0;
+        neg_indents_mask = neg_indents_mask.overflowing_shr(v2).0;
 
         let part3 = neg_indents_mask.trailing_zeros();
-        let v3 = newline_mask.trailing_zeros();
-        newline_mask = newline_mask.overflowing_shr(v3 + 1).0;
-        neg_indents_mask = neg_indents_mask.overflowing_shr(v3 + 1).0;
+        let v3 = newline_mask.trailing_zeros() + 1;
+        newline_mask = newline_mask.overflowing_shr(v3).0;
+        neg_indents_mask = neg_indents_mask.overflowing_shr(v3).0;
 
         let v = [part0, part1, part2, part3];
-        unsafe { write(indents.as_mut_ptr().add(base_len).cast::<[u32; 4]>(), v) }
-        base_len += 4;
+        let running = [part0 == v0, part1 == v1, part2 == v2, part3 == v3];
+        unsafe { 
+            write(indents.as_mut_ptr().add(i+ start_len).cast::<[u32; 4]>(), v);
+            write(runners.as_mut_ptr().add(i).cast::<[bool; 4]>(), running); 
+ 
+        }
+        i += 4;
     }
     // We do some safety vector snipping here, then handle previous indent.
 
