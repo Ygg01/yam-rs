@@ -207,7 +207,7 @@ where
                         self.indent += 1;
                         return Some((
                             SeqStart {
-                                flow: self.state.curr_state.in_flow_collection(),
+                                flow: self.state.curr_state().in_flow_collection(),
                             },
                             curr_indent,
                         ));
@@ -216,7 +216,7 @@ where
                         self.indent += 1;
                         return Some((
                             MapStart {
-                                flow: self.state.curr_state.in_flow_collection(),
+                                flow: self.state.curr_state().in_flow_collection(),
                             },
                             curr_indent,
                         ));
