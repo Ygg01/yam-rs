@@ -13,7 +13,7 @@ mod str_reader;
 
 pub use iterator::assert_eq_event;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorType {
     NoDocStartAfterTag,
     UnexpectedEndOfFile,
@@ -21,13 +21,14 @@ pub enum ErrorType {
     ExpectedMapBlock,
     UnexpectedSymbol(char),
     ExpectedDocumentStart,
+    ExpectedDocumentEndOrContents,
     ExpectedNewline,
     ExpectedNewlineInFolded,
     DirectiveEndMark,
     ImplicitKeysNeedToBeInline,
     AliasAndAnchor,
     ExpectedIndentDocStart { actual: usize, expected: usize },
-    ExpectedIndentDocEnd { actual: usize, expected: usize },
+    UnxpectedIndentDocEnd { actual: usize, expected: usize },
     ExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
     TagNotTerminated,
@@ -37,6 +38,7 @@ pub enum ErrorType {
     TabsNotAllowedAsIndentation,
     TwoDirectivesFound,
     UnexpectedEndOfStream,
+    UnsupportedYamlVersion,
 }
 
 pub trait Slicer<'a> {
