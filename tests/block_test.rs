@@ -358,3 +358,27 @@ const EXP_MAP_COMBINATION_EXPECTED: &'static str = r#"
 pub fn explicit_block_combination() {
     assert_eq_event(EXP_MAP_COMBINATION, EXP_MAP_COMBINATION_EXPECTED);
 }
+
+// #a!"#$%&'()*+,-./09:;<=>?@AZ[\]^_`az{|}~: safe
+// # ?foo: bar
+// #this is#not: a comment
+const COMPLEX_BLOCK_KEY: &'static str = r##"
+:foo: baz
+-foo: boo
+"##;
+
+const COMPLEX_BLOCK_EXPECTED: &'static str = r##"
+ +DOC
+  +MAP
+   =VAL ::foo
+   =VAL :baz
+   =VAL :-foo
+   =VAL :boo
+  -MAP
+ -DOC"##;
+
+
+#[test]
+pub fn test_complex_block() {
+  assert_eq_event(COMPLEX_BLOCK_KEY, COMPLEX_BLOCK_EXPECTED);
+}

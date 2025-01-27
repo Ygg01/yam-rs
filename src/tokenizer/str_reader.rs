@@ -176,17 +176,6 @@ impl<'a> StrReader<'a> {
             None
         }
     }
-
-    #[inline]
-    fn not_safe_char(&self) -> bool {
-        match self.slice[self.pos..] {
-            [x, ..] if is_white_tab_or_break(x) || is_indicator(x) => true,
-            [b'-', x, ..] if is_white_tab(x) => true,
-            [b'?', x, ..] if is_white_tab_or_break(x) => true,
-            [b':', x, ..] if is_white_tab_or_break(x) => true,
-            _ => false,
-        }
-    }
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
@@ -240,6 +229,16 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos = consume;
         self.col = 0;
         (start, end)
+    }
+
+    fn not_safe_char(&self) -> bool {
+        match self.slice[self.pos..] {
+            [b'-', x, ..] => is_white_tab(x),
+            [b'?', x, ..] => is_white_tab_or_break(x),
+            [b':', x, ..] => is_white_tab_or_break(x),
+            [x, ..] if is_white_tab_or_break(x) || is_indicator(x) => true,
+            _ => false,
+        }
     }
 
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool {
@@ -318,8 +317,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 break;
             }
 
-            // if current character is a flow indicator, break
-            if is_flow_indicator(curr) {
+            // // if current character is a flow indicator, break
+            if is_flow_indicator(curr) && in_flow_collection{
                 break;
             }
 
@@ -401,7 +400,6 @@ impl<'r> Reader<()> for StrReader<'r> {
             {
                 if self.col + curr_indent as usize == *ind as usize {
                     self.consume_bytes((1 + curr_indent) as usize);
-                    // trailing.push(ScalarEnd as usize);
                     break;
                 }
             }
