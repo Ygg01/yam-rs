@@ -238,20 +238,22 @@ unsafe impl Stage1Scanner for NativeScanner {
     ) {
         let count_ones: usize = bits.count_ones() as usize;
         let mut base_len = base.structurals.len();
-        let idx_minus_64 = base.idx.wrapping_sub(64);
         let idx_64_v: [isize; 4] = [
-            core::mem::transmute::<usize, isize>(idx_minus_64),
-            core::mem::transmute::<usize, isize>(idx_minus_64),
-            core::mem::transmute::<usize, isize>(idx_minus_64),
-            core::mem::transmute::<usize, isize>(idx_minus_64),
+            core::mem::transmute::<usize, isize>(base.idx),
+            core::mem::transmute::<usize, isize>(base.idx),
+            core::mem::transmute::<usize, isize>(base.idx),
+            core::mem::transmute::<usize, isize>(base.idx),
         ];
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
         // then we truncate the base to the next base (that we calculated above)
-        // We later indiscriminatory write over the len we set but that's OK
+        // We later indiscriminately write over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.structurals.reserve(64);
+        base.byte_cols.reserve(64);
+        base.byte_rows.reserve(64);
+        base.indents.reserve(64);
         let final_len = base_len + count_ones;
 
         let is_unaligned = base_len % 4 != 0;
@@ -286,8 +288,13 @@ unsafe impl Stage1Scanner for NativeScanner {
             );
             base_len += 4;
         }
-        // We have written all the data
+        // Safety:
+        //  1. We have reserved 64 entries
+        //  2. We have written only `count_len` entries (maximum number is 64)
         base.structurals.set_len(final_len);
+        base.byte_cols.set_len(final_len);
+        base.byte_rows.set_len(final_len);
+        base.indents.set_len(final_len);
     }
 }
 

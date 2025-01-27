@@ -69,7 +69,10 @@ impl Buffer for Buffers {}
 /// - `is_in_comment`: Indicates whether the parser is currently inside a comment.
 #[derive(Default)]
 pub struct YamlParserState {
-    pub(crate) structurals: Vec<u32>,
+    pub(crate) structurals: Vec<usize>,
+    pub(crate) byte_cols: Vec<usize>,
+    pub(crate) byte_rows: Vec<usize>,
+    pub(crate) indents: Vec<usize>,
     pub(crate) idx: usize,
     pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
