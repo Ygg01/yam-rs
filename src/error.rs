@@ -1,9 +1,10 @@
+use std::io::Error;
 use std::str::Utf8Error;
 
 /// A specialized `Result` type where the error is hard-wired to [`Error`].
 ///
 /// [`Error`]: enum.Error.html
-pub type YamlResult<T> = std::result::Result<T, YamlError>;
+pub type YamlResult<T> = Result<T, YamlError>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum YamlError {
@@ -15,10 +16,10 @@ pub enum YamlError {
     NonDecodable(Option<Utf8Error>),
 }
 
-impl From<::std::io::Error> for YamlError {
+impl From<Error> for YamlError {
     /// Creates a new `Error::Io` from the given error
     #[inline]
-    fn from(error: ::std::io::Error) -> YamlError {
+    fn from(error:  Error) -> YamlError {
         YamlError::Io(error.to_string())
     }
 }

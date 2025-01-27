@@ -2,21 +2,21 @@ mod common;
 
 use crate::common::assert_eq_event;
 
-const EMPTY_DOC_ERR_INPUT: &'static str = r#"
+const EMPTY_DOC_ERR_INPUT: &str = r#"
 # test"
   # test
 %YAML 1.3 #arst
 "#;
-const EMPTY_DOC_ERR_EXPECTED: &'static str = r#"
+const EMPTY_DOC_ERR_EXPECTED: &str = r#"
  %YAML 1.3
  ERR
 -DOC"#;
 
-const EMPTY_DOC_INPUT: &'static str = r#"
+const EMPTY_DOC_INPUT: &str = r#"
 %YAML 1.2
 ---
 "#;
-const EMPTY_DOC_EXPECTED: &'static str = r#"
+const EMPTY_DOC_EXPECTED: &str = r#"
  %YAML 1.2
  +DOC ---
  -DOC"#;
@@ -27,28 +27,28 @@ fn parse_empty_document() {
     assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EXPECTED);
 }
 
-const NULL_YAML_INPUT: &'static str = r#"
+const NULL_YAML_INPUT: &str = r#"
 null
 "#;
 
-const NULL_YAML_INPUT2: &'static str = "\r\nnull\r\n";
-const NULL_YAML_EXPECTED: &'static str = r#"
+const NULL_YAML_INPUT2: &str = "\r\nnull\r\n";
+const NULL_YAML_EXPECTED: &str = r#"
  +DOC
   =VAL :null
  -DOC"#;
 
-const MULTI_WORD_INPUT: &'static str = r#"
+const MULTI_WORD_INPUT: &str = r#"
   null test xy"#;
-const MULTI_WORD_EXPECTED: &'static str = r#"
+const MULTI_WORD_EXPECTED: &str = r#"
  +DOC
   =VAL :null test xy
  -DOC"#;
 
-const MULTILINE_INPUT: &'static str = r#"
+const MULTILINE_INPUT: &str = r#"
 test
 xt
 "#;
-const MULTILINE_EXPECTED: &'static str = r#"
+const MULTILINE_EXPECTED: &str = r#"
  +DOC
   =VAL :test xt
  -DOC"#;
@@ -61,13 +61,13 @@ fn parse_flow_scalars() {
     assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
 }
 
-const SEQ_FLOW_INPUT: &'static str = r#"
+const SEQ_FLOW_INPUT: &str = r#"
 [x, y]
 "#;
-const SEQ_FLOW_INPUT2: &'static str = r#"
+const SEQ_FLOW_INPUT2: &str = r#"
 [x ,y]
 "#;
-const SEQ_FLOW_EXPECTED: &'static str = r#"
+const SEQ_FLOW_EXPECTED: &str = r#"
  +DOC
   +SEQ []
    =VAL :x
@@ -81,14 +81,14 @@ fn parse_flow_seq() {
     assert_eq_event(SEQ_FLOW_INPUT2, SEQ_FLOW_EXPECTED);
 }
 
-const SEQ_NESTED_COL1: &'static str = r#"
+const SEQ_NESTED_COL1: &str = r#"
 [:]
 "#;
-const SEQ_NESTED_COL2: &'static str = r#"
+const SEQ_NESTED_COL2: &str = r#"
 [{:}]
 "#;
 
-const SEQ_NESTED_COL1_EXPECTED: &'static str = r#"
+const SEQ_NESTED_COL1_EXPECTED: &str = r#"
  +DOC
   +SEQ []
    +MAP {}
@@ -104,10 +104,10 @@ fn parse_nested_col() {
     assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL1_EXPECTED);
 }
 
-const SEQ_EMPTY_MAP: &'static str = r#"
+const SEQ_EMPTY_MAP: &str = r#"
 {:}
 "#;
-const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
+const SEQ_EMPTY_MAP_EXPECTED: &str = r#"
  +DOC
   +MAP {}
    =VAL :
@@ -115,10 +115,10 @@ const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_XY_MAP1: &'static str = r#"
+const SEQ_XY_MAP1: &str = r#"
 {x:y}
 "#;
-const SEQ_XY_MAP1_EXPECTED: &'static str = r#"
+const SEQ_XY_MAP1_EXPECTED: &str = r#"
  +DOC
   +MAP {}
    =VAL :x:y
@@ -126,17 +126,17 @@ const SEQ_XY_MAP1_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_X_Y_MAP1: &'static str = r#"
+const SEQ_X_Y_MAP1: &str = r#"
 {x: y}
 "#;
-const SEQ_X_Y_MAP2: &'static str = r#"
+const SEQ_X_Y_MAP2: &str = r#"
 {? x: y}
 "#;
-const SEQ_X_Y_MAP3: &'static str = r#"
+const SEQ_X_Y_MAP3: &str = r#"
 {x: #comment
  y}
 "#;
-const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
+const SEQ_X_Y_MAP_EXPECTED: &str = r#"
  +DOC
   +MAP {}
    =VAL :x
@@ -144,11 +144,11 @@ const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
   -MAP
  -DOC"#;
 
-const SEQ_COMPLEX_MAP: &'static str = r#"
+const SEQ_COMPLEX_MAP: &str = r#"
 {[x,y]:a}
 "#;
 
-const SEQ_COMPLEX_MAP_EXPECTED: &'static str = r#"
+const SEQ_COMPLEX_MAP_EXPECTED: &str = r#"
  +DOC
   +MAP {}
    +SEQ []
@@ -173,23 +173,23 @@ fn parse_complex_map() {
     assert_eq_event(SEQ_COMPLEX_MAP, SEQ_COMPLEX_MAP_EXPECTED);
 }
 
-const SQUOTE_STR1: &'static str = r#"
+const SQUOTE_STR1: &str = r#"
   'single quote'
     "#;
 
-const SQUOTE_STR2: &'static str = r#"
+const SQUOTE_STR2: &str = r#"
   'single
   quote'"#;
 
-const SQUOTE_STR_EXPECTED: &'static str = r#"
+const SQUOTE_STR_EXPECTED: &str = r#"
  +DOC
   =VAL 'single quote
  -DOC"#;
 
-const SQUOTE_ESCAPE: &'static str = r#"'for single quote, use '' two of them'"#;
-const SQUOTE_ESCAPE2: &'static str = r#"'for single quote, use
+const SQUOTE_ESCAPE: &str = r#"'for single quote, use '' two of them'"#;
+const SQUOTE_ESCAPE2: &str = r#"'for single quote, use
 '' two of them'"#;
-const SQUOTE_ESCAPE_EXPECTED: &'static str = r#"
+const SQUOTE_ESCAPE_EXPECTED: &str = r#"
  +DOC
   =VAL 'for single quote, use ' two of them
  -DOC"#;
@@ -202,24 +202,24 @@ fn flow_single_quote() {
     assert_eq_event(SQUOTE_ESCAPE2, SQUOTE_ESCAPE_EXPECTED);
 }
 
-const DQUOTE_STR1: &'static str = r#"
+const DQUOTE_STR1: &str = r#"
   "double quote"
     "#;
 
-const DQUOTE_STR2: &'static str = r#"
+const DQUOTE_STR2: &str = r#"
   "double
   quote"
 "#;
 
-const DQUOTE_STR_EXPECTED: &'static str = r#"
+const DQUOTE_STR_EXPECTED: &str = r#"
  +DOC
   =VAL "double quote
  -DOC"#;
 
-const DQUOTE_STR_ESCAPE1: &'static str = r#"
+const DQUOTE_STR_ESCAPE1: &str = r#"
  "double quote (\")""#;
 
-const DQUOTE_STR_ESCAPE_EXPECTED: &'static str = r#"
+const DQUOTE_STR_ESCAPE_EXPECTED: &str = r#"
  +DOC
   =VAL "double quote (")
  -DOC"#;
@@ -231,12 +231,12 @@ fn flow_double_quote() {
     assert_eq_event(DQUOTE_STR_ESCAPE1, DQUOTE_STR_ESCAPE_EXPECTED);
 }
 
-const ERR_PLAIN_SCALAR: &'static str = r#"
+const ERR_PLAIN_SCALAR: &str = r#"
   a
   b
  c"#;
 
-const ERR_PLAIN_SCALAR_EXPECTED: &'static str = r#"
+const ERR_PLAIN_SCALAR_EXPECTED: &str = r#"
  +DOC
   =VAL :a b
   ERR
@@ -247,10 +247,10 @@ fn err_plain_scalar() {
     assert_eq_event(ERR_PLAIN_SCALAR, ERR_PLAIN_SCALAR_EXPECTED);
 }
 
-const SIMPLE_DOC: &'static str = r#"
+const SIMPLE_DOC: &str = r#"
 ---[]"#;
 
-const SIMPLE_DOC_EXPECTED: &'static str = r#"
+const SIMPLE_DOC_EXPECTED: &str = r#"
  +DOC ---
   +SEQ []
   -SEQ
