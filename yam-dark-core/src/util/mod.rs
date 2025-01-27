@@ -167,6 +167,41 @@ pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mu
     *prev_row += *dst.get_unchecked(idx + 7)
 }
 
+pub unsafe fn compress(src: &[u32; 8], k1: &[bool; 8], dst: &mut [u32; 8]) {
+    let mut k = 0;
+
+    let x0 = k1.get_unchecked(0);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(0) * *x0 as u32;
+    k += *x0 as usize;
+
+    let x1 = k1.get_unchecked(1);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(1) * *x1 as u32;
+    k += *x1 as usize;
+
+    let x2 = k1.get_unchecked(2);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(2) * *x2 as u32;
+    k += *x2 as usize;
+
+    let x3 = k1.get_unchecked(3);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(3) * *x3 as u32;
+    k += *x3 as usize;
+
+    let x4 = k1.get_unchecked(4);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(4) * *x4 as u32;
+    k += *x4 as usize;
+
+    let x5 = k1.get_unchecked(5);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(5) * *x5 as u32;
+    k += *x5 as usize;
+
+    let x6 = k1.get_unchecked(6);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(6) * *x6 as u32;
+    k += *x6 as usize;
+
+    let x7 = k1.get_unchecked(7);
+    *dst.get_unchecked_mut(k) = *src.get_unchecked(7) * *x7 as u32;
+}
+
 pub unsafe fn add_cols_unchecked(dst: &mut [u32], newlines: usize, prev_col: &mut u32, idx: usize) {
     let cols = U8_BYTE_COL_TABLE[newlines];
     let rows = U8_ROW_TABLE[newlines];
