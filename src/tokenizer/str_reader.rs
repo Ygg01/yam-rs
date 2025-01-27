@@ -190,6 +190,11 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
+    fn pos(&self) -> usize {
+        self.pos
+    }
+
+    #[inline]
     fn peek_byte_at(&self, offset: usize) -> Option<u8> {
         self.slice.get(self.pos + offset).copied()
     }
@@ -275,20 +280,15 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_plain_one_line(
         &mut self,
-        allow_minus: bool,
+        offset_start: Option<usize>,
         had_comment: &mut bool,
-        in_flow_collection: bool,
-        tokens: &mut Vec<usize>,
-        errors: &mut Vec<ErrorType>,
-    ) -> Option<(usize, usize)> {
-        let start = self.pos;
+        in_flow_collection: bool,    
+    ) -> (usize, usize, Option<ErrorType>) {
+  
 
-        if !(allow_minus && self.peek_byte_is(b'-')) && (self.eof() || self.not_safe_char()) {
-            return None;
-        }
-
-        let end = self.consume_bytes(1);
+        let start = offset_start.unwrap_or(self.pos);
         let (_, line_end, _) = self.get_line_offset();
+        let end = self.consume_bytes(1);
         let line_end = StrReader::eof_or_pos(self, line_end);
         let mut end_of_str = end;
 
@@ -297,14 +297,13 @@ impl<'r> Reader<()> for StrReader<'r> {
             if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
                 if *had_comment {
-                    tokens.push(ErrorToken as usize);
-                    errors.push(UnexpectedComment);
+                    self.pos = line_end;
+                    return (start, end_of_str, Some(UnexpectedComment));                    
                 } else {
                     *had_comment = true;
                     self.pos = line_end;
-                    return Some((start, end_of_str));
+                    break;
                 }
-                break;
             }
 
             // ns-plain-char prevent `: `
@@ -314,11 +313,13 @@ impl<'r> Reader<()> for StrReader<'r> {
                 if !is_white_tab(prev) && pos != end {
                     end_of_str += 1;
                 }
+                self.pos = end_of_str;
                 break;
             }
 
             // // if current character is a flow indicator, break
             if is_flow_indicator(curr) && in_flow_collection{
+                self.pos = end_of_str;
                 break;
             }
 
@@ -330,10 +331,10 @@ impl<'r> Reader<()> for StrReader<'r> {
                 continue;
             }
             end_of_str = pos;
-        }
-
-        self.pos = end_of_str;
-        Some((start, end_of_str))
+            
+        }      
+        self.pos = end_of_str; 
+        (start, end_of_str, None)
     }
 
     fn read_block_scalar(
@@ -619,4 +620,5 @@ impl<'r> Reader<()> for StrReader<'r> {
     fn read_tag(&self) -> Option<(usize, usize)> {
         todo!()
     }
+
 }

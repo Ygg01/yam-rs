@@ -62,6 +62,7 @@ impl<'a> Iterator for LookAroundBytes<'a> {
 pub trait Reader<B> {
     fn eof(&self) -> bool;
     fn col(&self) -> usize;
+    fn pos(&self) -> usize;
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     fn peek_byte(&self) -> Option<u8>;
     fn peek_byte_is(&self, needle: u8) -> bool {
@@ -91,12 +92,10 @@ pub trait Reader<B> {
     fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool;
     fn read_plain_one_line(
         &mut self,
-        allow_minus: bool,
+        offset_start: Option<usize>,
         had_comment: &mut bool,
         in_flow_collection: bool,
-        tokens: &mut Vec<usize>,
-        errors: &mut Vec<ErrorType>,
-    ) -> Option<(usize, usize)>;
+    ) -> (usize, usize, Option<ErrorType>);
     fn read_block_scalar(
         &mut self,
         literal: bool,
