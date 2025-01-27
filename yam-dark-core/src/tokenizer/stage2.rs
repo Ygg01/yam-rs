@@ -83,7 +83,7 @@ fn fill_tape<'de, B: Buffer>(
     buffer: &mut B,
     tape: &mut [Node<'de>],
 ) -> ParseResult<()> {
-    Deserializer::fill_tape(input, buffer, tape)
+    Deserializer::fill_tape::<B, NativeScanner>(input, buffer, tape)
 }
 
 #[derive(Debug, Default)]
@@ -100,7 +100,7 @@ pub(crate) enum State {
 }
 
 impl<'de> Deserializer<'de> {
-    fn fill_tape<B: Buffer>(
+    fn fill_tape<B: Buffer, S: Stage1Scanner>(
         input: &'de [u8],
         buffer: &mut B,
         tape: &mut [Node<'de>],
@@ -120,8 +120,8 @@ impl<'de> Deserializer<'de> {
             }
 
             // SAFETY: The next_fn should return the correct function for any given CPU
-            let chunk_state: YamlChunkState = unsafe { next_fn(chunk, buffer, &mut state) };
-            state.process_chunk(buffer, &chunk_state)?;
+            let chunk_state: YamlChunkState = S::next(chunk, buffer, &mut state);
+            state.process_chunk::<B, S>(buffer, &chunk_state)?;
         }
 
         Self::build_tape(&mut state, buffer, tape)
@@ -249,7 +249,7 @@ pub struct YamlParserState {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<B: Buffer>(
+    pub(crate) fn process_chunk<B: Buffer, S: Stage1Scanner>(
         &self,
         buffer: &mut B,
         chunk_state: &YamlChunkState,

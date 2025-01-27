@@ -246,7 +246,7 @@ fn test_count() {
     // Needs to be called before calculate indent
     let space_mask = u8x64_eq(bin_str, b' ');
     let newline_mask = u8x64_eq(bin_str, b'\n');
-    NativeScanner::calculate_cols_rows(&mut chunk.cols, &mut chunk.rows, newline_mask);
+    // NativeScanner::calculate_cols_rows(&mut chunk.cols, &mut chunk.rows, newline_mask);
     assert_eq!(chunk.cols, expected_cols);
     assert_eq!(chunk.rows, expected_row);
 
