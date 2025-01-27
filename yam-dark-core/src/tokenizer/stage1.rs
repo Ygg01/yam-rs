@@ -24,15 +24,9 @@
 #![allow(unused)]
 #![allow(clippy::module_name_repetitions)]
 
-use alloc::vec::Vec;
-use core::ptr::write;
-
 use crate::tokenizer::chunk::YamlChunkState;
 use crate::tokenizer::stage2::{Buffer, YamlIndentInfo, YamlParserState};
-use crate::util::{
-    add_cols_unchecked, add_rows_unchecked, calculate_byte_rows, calculate_cols,
-    select_right_bits_branch_less, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
-};
+use crate::util::{add_cols_unchecked, add_rows_unchecked, select_right_bits_branch_less};
 use crate::{util, EvenOrOddBits};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
@@ -168,192 +162,7 @@ pub unsafe trait Stage1Scanner {
         indent_info: &mut YamlIndentInfo,
     );
 
-    #[deprecated]
-    /// Calculates the indents of the given chunk and updates the `chunk_state` accordingly.
-    ///
-    /// For a chunk represented by this scanner, will calculate indents for each 64-character and
-    /// will update `chunk_state`, taking into consideration previous indents in `prev_state`
-    ///
-    /// # Implementation
-    ///
-    /// It's important for implementation to first check where spaces `0x20` and line feed characters are located
-    /// Since newline on Windows is `\r\n` Unicode `0x0A` and `0x0D` respectively we can approximate a newline with `\n`.
-    /// Spaces are important because only ` `(code point `0x20`) is a valid YAML indentation mechanism.
-    ///
-    /// # Arguments
-    ///
-    /// - `chunk_state`: A mutable reference to a [`YamlChunkState`] that represents the YAML
-    ///    chunk to calculate the indents for.
-    /// - `prev_state`: A mutable reference to a [`YamlParserState`] that represents the previous
-    ///    state of the YAML parser.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use yam_dark_core::{u8x64_eq, NativeScanner, Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
-    ///
-    /// let bin_str = b"                                                                ";
-    /// let range1_to_64 = (0..=63).collect::<Vec<_>>();
-    /// let scanner = NativeScanner::from_chunk(bin_str);
-    ///
-    /// // Needs to be called before calculate indent
-    /// let line_feeds = u8x64_eq(bin_str, b'\n');
-    /// let mut cols = vec![0; 64];
-    /// let mut rows = vec![0; 64];
-    /// // Will calculate col/row/indent
-    /// NativeScanner::calculate_cols_rows(&mut cols, &mut rows, 0, line_feeds);
-    /// assert_eq!(
-    ///     cols,
-    ///     range1_to_64
-    /// );
-    /// assert_eq!(
-    ///     rows,
-    ///     vec![0; 64]
-    /// );
-    /// ```
-    fn calculate_cols_rows(cols: &mut [u32], rows: &mut [u32], idx: usize, line_feeds: u64) {
-        let nl_ind = (line_feeds & 0xFF) as usize;
-
-        let mut prev_col = 0;
-        let mut prev_row = 0;
-
-        rows[0..8].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[0..8].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-        prev_col = cols[7] + 1;
-
-        let nl_ind = ((line_feeds >> 8) & 0xFF) as usize;
-        rows[8..16].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[8..16].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-        prev_col = cols[15] + 1;
-
-        let nl_ind = ((line_feeds >> 16) & 0xFF) as usize;
-        rows[16..24].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[16..24].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-        prev_col = cols[23] + 1;
-
-        let nl_ind = ((line_feeds >> 24) & 0xFF) as usize;
-        rows[24..32].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[24..32].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-        prev_col = cols[31] + 1;
-
-        let nl_ind = ((line_feeds >> 32) & 0xFF) as usize;
-        rows[32..40].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[32..40].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-        prev_col = cols[39] + 1;
-
-        let nl_ind = ((line_feeds >> 40) & 0xFF) as usize;
-        rows[40..48].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[40..48].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-        prev_col = cols[47] + 1;
-
-        let nl_ind = ((line_feeds >> 48) & 0xFF) as usize;
-        rows[48..56].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[48..56].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-        prev_col = cols[55] + 1;
-
-        let nl_ind = ((line_feeds >> 56) & 0xFF) as usize;
-        rows[56..64].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
-        cols[56..64].copy_from_slice(&calculate_cols(
-            U8_BYTE_COL_TABLE[nl_ind],
-            U8_ROW_TABLE[nl_ind],
-            &prev_col,
-        ));
-    }
-
-    #[deprecated]
-    fn calculate_indents(
-        indents: &mut Vec<usize>,
-        mut newline_mask: u64,
-        space_mask: u64,
-        is_indent_running: &mut bool,
-    ) {
-        let mut i = 0;
-        let count_cols = (newline_mask.count_ones() + 1);
-        let mut neg_indents_mask = select_right_bits_branch_less(
-            space_mask,
-            (newline_mask << 1) ^ u64::from(*is_indent_running),
-        );
-        let last_bit = (neg_indents_mask | newline_mask) & (1 << 63) != 0;
-        indents.reserve(68);
-        // To calculate indent we need to:
-        // 1. Count trailing ones in space_mask this is the current indent
-        // 2. Count the trailing zeros in newline mask to know how long the line is
-        // 3. Check to see if the indent is equal to how much we need to1 shift it, if true we set mask to 1 otherwise to 0.
-        while newline_mask != 0 {
-            let part0 = neg_indents_mask.trailing_ones() & 127;
-            let v0 = newline_mask.trailing_zeros() + 1;
-            newline_mask = newline_mask.overflowing_shr(v0).0;
-            neg_indents_mask = neg_indents_mask.overflowing_shr(v0).0 | 1 << 63;
-
-            let part1 = neg_indents_mask.trailing_ones() & 127;
-            let v1 = newline_mask.trailing_zeros() + 1;
-            newline_mask = newline_mask.overflowing_shr(v1).0;
-            neg_indents_mask = neg_indents_mask.overflowing_shr(v1).0 | 1 << 63;
-
-            let part2 = neg_indents_mask.trailing_ones() & 127;
-            let v2 = newline_mask.trailing_zeros() + 1;
-            newline_mask = newline_mask.overflowing_shr(v2).0;
-            neg_indents_mask = neg_indents_mask.overflowing_shr(v2).0 | 1 << 63;
-
-            let part3 = neg_indents_mask.trailing_ones() & 127;
-            let v3 = newline_mask.trailing_zeros() + 1;
-            newline_mask = newline_mask.overflowing_shr(v3).0;
-            neg_indents_mask = neg_indents_mask.overflowing_shr(v3).0 | 1 << 63;
-
-            let v = [
-                part0 as usize,
-                part1 as usize,
-                part2 as usize,
-                part3 as usize,
-            ];
-            unsafe {
-                write(indents.as_mut_ptr().add(i).cast::<[usize; 4]>(), v);
-            }
-            i += 4;
-        }
-        unsafe {
-            indents.set_len(count_cols as usize);
-        }
-        *is_indent_running = last_bit;
-    }
-
-    fn calculate_positions_vectorized(
-        state: &mut YamlParserState,
-        chunk_state: &YamlChunkState,
-        info: &mut YamlIndentInfo,
-    ) {
-        Self::calculate_indent_info_vectorized(state, chunk_state, info);
-        Self::calculate_indents_vectorized(state, chunk_state, info);
-    }
-
-    fn calculate_indent_info_vectorized(
+    fn calculate_col_rows(
         state: &mut YamlParserState,
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
@@ -479,7 +288,7 @@ pub unsafe trait Stage1Scanner {
         state.pos += 64;
     }
 
-    fn calculate_indents_vectorized(
+    fn calculate_indents(
         state: &mut YamlParserState,
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
