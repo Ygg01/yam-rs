@@ -372,8 +372,32 @@ const X2_CVW2_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X1_N782_INPUT: &str = r"
+[
+---
+]";
+const X1_N782_EVENTS: &str = r"
++DOC
++SEQ []
+ERR";
+
+const X2_N782_INPUT: &str = r"
+{
+---
+}";
+
+const X2_N782_EVENTS: &str = r"
++DOC
++MAP {}
+ERR";
+
+
+
 #[test]
 fn flow_seq_err() {
+    assert_eq_event(X1_N782_INPUT, X1_N782_EVENTS);
+    assert_eq_event(X2_N782_INPUT, X2_N782_EVENTS);
+
     assert_eq_event(X2_CVW2_INPUT, X2_CVW2_EVENTS);
     assert_eq_event(X1_CVW2_INPUT, X1_CVW2_EVENTS);
     assert_eq_event(X_CML9_INPUT, X_CML9_EVENTS);
