@@ -133,10 +133,10 @@ ERR
 
 #[test]
 pub fn block_seq_err() {
-    assert_eq_event(X_BD7L_INPUT, X_BD7L_EVENTS);
-    assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS);
     assert_eq_event(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS);
     assert_eq_event(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS);
+    assert_eq_event(X_BD7L_INPUT, X_BD7L_EVENTS);
+    assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS);
     assert_eq_event(X_9CWY_INPUT, X_9CWY_EVENTS);
 }
 
@@ -681,7 +681,7 @@ pub fn block_map() {
     assert_eq_event(MAP_SIMPLE2_INPUT, MAP_SIMPLE_EVENTS);
     assert_eq_event(MAP2_INPUT, MAP2_EVENTS);
     assert_eq_event(MAP_NESTED_INPUT, MAP_NESTED_EVENTS);
-    assert_eq_event(MAP_AND_COMMENT_INPUT, MAP_AND_COMMENT_EVENTS)
+    assert_eq_event(MAP_AND_COMMENT_INPUT, MAP_AND_COMMENT_EVENTS);
 }
 
 const DQUOTE_MAP_INPUT: &str = r#"
@@ -1902,4 +1902,66 @@ ERR
 fn block_map_err_indent() {
     assert_eq_event(X1_EW3V_INPUT, X1_EW3V_EVENTS);
     assert_eq_event(X1_DMG6_INPUT, X1_DMG6_EVENTS);
+}
+
+const X1_Y79Y_004_INPUT: &str = r"
+- -";
+
+const X1_Y79Y_004_EVENTS: &str = r"
++DOC
++SEQ
++SEQ
+=VAL :
+-SEQ
+-SEQ
+-DOC";
+
+const SEQ_EMPTY1_INPUT: &str = r"
+- 
+";
+
+const SEQ_EMPTY1_EVENTS: &str = r"
++DOC
++SEQ
+=VAL :
+-SEQ
+-DOC";
+
+const SEQ_EMPTY2_INPUT: &str = r"
+- 
+- ";
+
+const SEQ_EMPTY2_EVENTS: &str = r"
++DOC
++SEQ
+=VAL :
+=VAL :
+-SEQ
+-DOC";
+
+
+#[test]
+pub fn block_seq_empty() {
+    assert_eq_event(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS);
+    assert_eq_event(SEQ_EMPTY2_INPUT, SEQ_EMPTY2_EVENTS);
+    assert_eq_event(X1_Y79Y_004_INPUT, X1_Y79Y_004_EVENTS);
+}
+
+
+const X2_Y79Y_004_INPUT: &str = r"
+-	-";
+
+const X2_Y79Y_004_EVENTS: &str = r"
++DOC
++SEQ
++SEQ
+ERR
+=VAL :
+-SEQ
+-SEQ
+-DOC";
+
+#[test]
+fn block_tab_indents() {
+    assert_eq_event(X2_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
 }
