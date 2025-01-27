@@ -127,3 +127,18 @@ fn simple_doc() {
     assert_eq_event(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS);
 }
 
+const FOOTER_INPUT: &str = r##"
+"test"
+...
+"##;
+
+const FOOTER_EVENTS: &str = r#"
+ +DOC
+  =VAL "test
+ -DOC ..."#;
+
+#[test]
+fn doc_footer() {
+    assert_eq_event(FOOTER_INPUT, FOOTER_EVENTS);
+}
+

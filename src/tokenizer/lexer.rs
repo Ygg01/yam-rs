@@ -195,16 +195,18 @@ impl Lexer {
 
     fn fetch_after_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
         if reader.eof() {
-            self.tokens.push_back(DOC_END);
+            // self.tokens.push_back(DOC_END);
         } else if reader.try_read_slice_exact("...") {
             self.tokens.push_back(DOC_END_EXP);
+            self.set_curr_state(PreDocStart);
         } else {
             let chr = reader.peek_byte().unwrap_or(b'\0');
             reader.read_line();
             self.tokens.push_back(DOC_END);
             self.push_error(UnexpectedSymbol(chr as char));
+            self.set_curr_state(PreDocStart);
         }
-        self.set_curr_state(PreDocStart);
+        
     }
 
     fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
@@ -818,17 +820,17 @@ impl Lexer {
     }
 
     fn unwind_to_root_end<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let pos = reader.pos();
+        let col = reader.col();
         reader.consume_bytes(3);
         self.pop_block_states(self.stack.len().saturating_sub(1));
         self.tokens.push_back(DOC_END_EXP);
-        if pos != 0 {
+        if col != 0 {
             self.push_error(ErrorType::UnxpectedIndentDocEnd {
-                actual: pos,
+                actual: col,
                 expected: 0,
             });
         }
-        self.set_curr_state(AfterDocEnd);
+        self.set_curr_state(PreDocStart);
     }
 
     fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
