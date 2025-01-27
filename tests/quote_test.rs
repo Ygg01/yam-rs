@@ -183,7 +183,6 @@ ERR
 -MAP
 -DOC"#;
 
-
 const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
 ---
 "quote"# invalid comment

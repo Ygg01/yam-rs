@@ -623,11 +623,33 @@ const EXP_MAP_FOLD_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const EXP_MAP_COMP_INPUT: &str = r"
+---
+?
+- a
+- b
+:
+- c";
+
+const EXP_MAP_COMP_EVENTS: &str = r"
++DOC ---
++MAP
++SEQ
+=VAL :a
+=VAL :b
+-SEQ
++SEQ
+=VAL :c
+-SEQ
+-MAP
+-DOC";
+
 #[test]
 pub fn block_exp_map() {
     assert_eq_event(EXP_MAP_INPUT, EXP_MAP_EVENTS);
     assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_MIX_INPUT, EXP_BLOCK_MAP_MIX_EVENTS);
+    assert_eq_event(EXP_MAP_COMP_INPUT, EXP_MAP_COMP_EVENTS);
 }
 
 const EXP_MAP_EMPTY_INPUT: &str = r"
@@ -803,8 +825,8 @@ ERR
 
 #[test]
 pub fn block_map_err() {
-    assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
     assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
+    assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
     assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
     assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
 }
@@ -848,7 +870,7 @@ const COMPLEX_NESTED_EVENTS: &str = r"
 -DOC";
 
 #[test]
-pub fn test_complex_block() {
+pub fn block_map_complex() {
     assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
     assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
 }
@@ -972,7 +994,6 @@ const ALIAS_N_SEQ2_EVENTS: &str = r"
 +DOC
 ERR
 +SEQ &seq
-ERR
 =VAL :a
 -SEQ
 -DOC";
@@ -1279,4 +1300,3 @@ const TAG_SHORT_EVENTS: &str = "
 fn block_tag_short() {
     assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
 }
-
