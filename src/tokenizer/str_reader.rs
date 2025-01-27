@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::fmt::Formatter;
 
 use crate::tokenizer::SpanToken::*;
 use crate::tokenizer::StrReader;
@@ -57,14 +56,16 @@ impl<'a> Iterator for EventIterator<'a> {
                                 }
                             }
                         }
-                        NewLine => {
+                        NewLine(n) => {
                             if let Some(x) = self.lines.back_mut() {
-                                x.push_str("\n");
+                                for _ in 0..n {
+                                    x.push('\n');
+                                }
                             }
                         }
                         Space => {
                             if let Some(x) = self.lines.back_mut() {
-                                x.push_str(" ");
+                                x.push(' ');
                             }
                         }
                         Alias => {}

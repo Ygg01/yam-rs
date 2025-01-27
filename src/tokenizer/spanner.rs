@@ -1,13 +1,14 @@
+#![allow(clippy::match_like_matches_macro)]
+
 use std::collections::VecDeque;
-use std::ops::ControlFlow::{self, Break, Continue};
+use std::ops::ControlFlow::{Break, Continue};
 
 use ErrorType::NoDocStartAfterTag;
 use SpanToken::{DocumentStart, Separator, Space};
 
-use crate::tokenizer::reader::IndentType::{EndInstead, EqualIndent, LessOrEqualIndent};
 use crate::tokenizer::reader::{
-    is_flow_indicator, is_indicator, is_tab_space, is_white_tab, is_white_tab_or_break,
-    ns_plain_safe, Reader, StrReader,
+    is_flow_indicator, is_indicator, is_white_tab, is_white_tab_or_break,
+    ns_plain_safe, Reader,
 };
 use crate::tokenizer::spanner::ParserState::{
     BlockKey, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
@@ -16,7 +17,7 @@ use crate::tokenizer::spanner::SpanToken::{
     Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, NewLine,
     SequenceEnd, SequenceStart,
 };
-use crate::tokenizer::ErrorType::{ExpectedIndent, UnexpectedSymbol};
+use crate::tokenizer::ErrorType::{UnexpectedSymbol};
 use crate::tokenizer::{DirectiveType, ErrorType};
 
 use super::reader::is_newline;
@@ -39,6 +40,7 @@ impl Default for Spanner {
         }
     }
 }
+
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub(crate) enum ParserState {
@@ -75,29 +77,19 @@ impl ParserState {
     }
 
     #[inline]
-    pub fn is_flow(&self) -> bool {
-        match &self {
-            FlowMap(_) | FlowKey(_, _) => true,
-            _ => false,
-        }
-    }
-
-    #[inline]
     pub(crate) fn is_implicit(&self) -> bool {
         match &self {
             FlowKey(_, true) => true,
             _ => false,
         }
     }
+
 }
 
 impl Spanner {
     #[inline]
     pub fn peek_token(&self) -> Option<SpanToken> {
-        match self.tokens.front() {
-            Some(&x) => Some(x),
-            None => None,
-        }
+        self.tokens.front().copied()
     }
 
     #[inline(always)]
@@ -111,7 +103,7 @@ impl Spanner {
     }
 
     pub fn fetch_next_token<R: Reader>(&mut self, reader: &mut R) {
-        self.scan_to_next_token(reader, true);
+        self.skip_separation_spaces(reader, true);
         match self.curr_state {
             PreDocStart => {
                 if !reader.peek_byte_is(b'%') {
@@ -168,7 +160,7 @@ impl Spanner {
                 }
                 Some(x) => {
                     if x != b']' && x != b'}' && x != b'@' {
-                        self.fetch_plain_scalar(reader, FlowSeq(0));
+                        self.fetch_plain_scalar(reader);
                     } else {
                         reader.consume_bytes(1);
                         self.tokens
@@ -180,7 +172,7 @@ impl Spanner {
             BlockSeq(indent) => match reader.peek_byte() {
                 Some(b'-') => self.fetch_block_seq(reader, indent + 1),
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, FlowSeq(indent + 1));
+                    self.fetch_plain_scalar(reader);
                 }
                 _ => todo!(),
             },
@@ -213,7 +205,7 @@ impl Spanner {
                     reader.read_line();
                 }
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, self.curr_state);
+                    self.fetch_plain_scalar(reader);
                 }
                 None => self.stream_end = true,
             },
@@ -244,7 +236,7 @@ impl Spanner {
                     reader.read_line();
                 }
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, self.curr_state);
+                    self.fetch_plain_scalar(reader);
                 }
                 None => self.stream_end = true,
             },
@@ -253,24 +245,6 @@ impl Spanner {
 
         if reader.eof() {
             self.stream_end = true;
-            return;
-        }
-    }
-
-    fn scan_to_next_token<R: Reader>(&mut self, reader: &mut R, allow_tab: bool) {
-        loop {
-            reader.skip_space_tab(allow_tab);
-
-            // read comment line
-            if reader.peek_byte_is(b'#') {
-                reader.read_line();
-                continue;
-            }
-
-            // if not end of file read new line or space/tab in next loop
-            if reader.eof() || reader.read_break().is_none() {
-                break;
-            }
         }
     }
 
@@ -312,15 +286,15 @@ impl Spanner {
         }
     }
 
-    fn fetch_alias<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_alias<R: Reader>(&mut self, _reader: &mut R) {
         todo!()
     }
 
-    fn fetch_anchor<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_anchor<R: Reader>(&mut self, _reader: &mut R) {
         todo!()
     }
 
-    fn fetch_block_map<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_block_map<R: Reader>(&mut self, _reader: &mut R) {
         todo!()
     }
 
@@ -338,23 +312,23 @@ impl Spanner {
                 self.push_state(BlockSeq(new_indent));
             }
         } else {
-            self.fetch_plain_scalar(reader, FlowSeq(indent + 1));
+            self.fetch_plain_scalar(reader);
         }
     }
 
-    fn fetch_block_seq<R: Reader>(&self, reader: &mut R, indent: usize) {
+    fn fetch_block_seq<R: Reader>(&self, _reader: &mut R, _indent: usize) {
         todo!()
     }
 
-    fn fetch_block_map_key<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_block_map_key<R: Reader>(&mut self, _reader: &mut R) {
         todo!()
     }
 
-    fn fetch_tag<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_tag<R: Reader>(&mut self, _reader: &mut R) {
         todo!()
     }
 
-    fn fetch_block_scalar<R: Reader>(&mut self, reader: &mut R, literal: bool) {
+    fn fetch_block_scalar<R: Reader>(&mut self, _reader: &mut R, _literal: bool) {
         todo!()
     }
 
@@ -387,135 +361,112 @@ impl Spanner {
         }
     }
 
-    fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, context: ParserState) {
-        let mut is_multiline = !context.is_implicit();
-        let indent = context.indent();
+    fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R) {
+        let mut num_newlines = 0;
+        while !reader.eof() {
+            if let Some((start, offset)) = self.read_plain_one_line(reader) {
 
-        if let Some((st, off)) = self.read_plain_one_line(reader, &mut is_multiline) {
-            self.tokens.push_back(MarkStart(st));
-            self.tokens.push_back(MarkEnd(st + off));
-            reader.consume_bytes(off);
-        } else {
-            return;
-        }
+                match  num_newlines {
+                    x if x == 1 => self.tokens.push_back(Space),
+                    x if x > 1 => self.tokens.push_back(NewLine(num_newlines as u32)),
+                    _ => {}, 
+                }
 
-        // if multiline then we process next plain scalar
-        while {
-            is_multiline &= !reader.peek_byte_at_check(0, is_flow_indicator);
-            is_multiline && !reader.eof()
-        } {
-            // separate in line
-            if reader.col() != 0 {
-                reader.skip_space_tab(true);
+                self.tokens.push_back(MarkStart(start));
+                self.tokens.push_back(MarkEnd(start + offset));
+                reader.consume_bytes(offset);
+            } else {
+                return;
             }
-            // b-l-folded
-            let folded_str = self.try_read_folded(reader, &FlowMap(indent));
-            if folded_str.is_empty() {
+
+            let chr = reader.peek_byte().unwrap_or(b'\0');
+
+            if self.curr_state.in_flow_collection() && is_flow_indicator(chr) {
                 break;
             }
 
-            // s-flow-line-prefix
-            if reader.try_read_indent(EqualIndent(indent)).is_equal() {
-                if reader.col() != 0 {
-                    reader.skip_space_tab(true);
+            if is_white_tab(chr) {
+                reader.skip_space_tab(false);
+            } else if is_newline(chr) {
+                let folded_newline = self.skip_separation_spaces(reader, false);
+                if reader.col() >= self.curr_state.indent() {
+                    num_newlines = folded_newline;
                 }
-                if let Some((start, offset)) = self.read_plain_one_line(reader, &mut is_multiline) {
-                    self.tokens.extend(folded_str);
-                    self.tokens.push_back(MarkStart(start));
-                    self.tokens.push_back(MarkEnd(start + offset));
-                    reader.consume_bytes(offset);
-                }
-            } else {
-                self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
             }
         }
     }
 
-    fn try_read_folded<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        context: &ParserState,
-    ) -> Vec<SpanToken> {
-        let mut tokens = vec![];
+    fn skip_separation_spaces<R: Reader>(&mut self, reader: &mut R, allow_comments: bool) -> usize {
+        let mut num_breaks = 0;
+        let mut found_eol = true;
+        while !reader.eof() {
+            reader.skip_space_tab(true);
 
-        if reader.read_break().is_some() {
-            let mut break_as_space = true;
-            while reader.peek_byte_is(b' ') {
-                match reader.try_read_indent(LessOrEqualIndent(context.indent())) {
-                    EndInstead => break,
-                    EqualIndent(_) if context.is_flow() => {
-                        // separate in line
-                        if reader.col() != 0 {
-                            reader.skip_space_tab(true);
-                        }
-                    }
-                    _ => {}
-                }
-
-                break_as_space = false;
-
-                if let Some(_) = reader.read_break() {
-                    tokens.push(NewLine);
-                }
+            if allow_comments && reader.peek_byte_is(b'#') {
+                reader.read_line();
+                found_eol = true;
+                num_breaks += 1;
             }
 
-            if break_as_space {
-                tokens.push(Space);
+            if reader.read_break().is_some() {
+                num_breaks += 1;
+                found_eol = true;
             }
-        };
 
-        tokens
+            if !found_eol {
+                break;
+            } else {
+                reader.skip_space_tab(false);
+                found_eol = false;
+            }
+        }
+        num_breaks
     }
 
-    fn read_plain_one_line<R: Reader>(
-        &mut self,
-        reader: &mut R,
-        multi_line: &mut bool,
-    ) -> Option<(usize, usize)> {
+    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R) -> Option<(usize, usize)> {
         let start = reader.pos();
         let in_flow_collection = self.curr_state.in_flow_collection();
 
         let mut offset = 0;
-        let mut is_valid = !reader.is_eof(offset)
-            && (!reader.peek_byte_at_check(0, is_white_tab_or_break)
-                || !reader.peek_byte_at_check(0, is_indicator)
-                || (reader.peek_byte_is(b'-') && !reader.peek_byte_at_check(1, is_white_tab))
-                || ((reader.peek_byte_is(b'?') || reader.peek_byte_is(b':'))
-                    && !reader.peek_byte_at_check(1, is_white_tab_or_break)));
-        if is_valid {
-            offset += 1;
-            loop {
-                offset += reader.skip_space_tab(true);
-                offset += reader.position_until(offset, |pos, x0, x1| {
-                    // ns-plain-char  prevent ` #`
-                    if is_white_tab_or_break(x0) && x1 == b'#' {
-                        *multi_line = false;
-                        return Break(pos);
-                    }
-
-                    // ns-plain-char prevent `: `
-                    // or `:{`  in flow collections
-                    if x0 == b':' && !ns_plain_safe(x1, in_flow_collection) {
-                        *multi_line = false;
-                        return Break(pos);
-                    }
-
-                    if !ns_plain_safe(x0, in_flow_collection) {
-                        return Break(pos);
-                    } else if !ns_plain_safe(x1, in_flow_collection) {
-                        return Break(pos + 1);
-                    };
-
-                    Continue(pos + 1)
-                });
-                return if offset != 0 {
-                    Some((start, offset))
-                } else {
-                    None
-                };
-            }
+        if reader.eof()
+            || reader.peek_byte_at_check(0, is_white_tab_or_break)
+            || reader.peek_byte_at_check(0, is_indicator)
+            || (reader.peek_byte_is(b'-') && !reader.peek_byte_at_check(1, is_white_tab))
+            || ((reader.peek_byte_is(b'?') || reader.peek_byte_is(b':'))
+                && !reader.peek_byte_at_check(1, is_white_tab_or_break))
+        {
+            return None;
         }
-        return None;
+
+        offset += 1;
+        loop {
+            offset += reader.skip_space_tab(true);
+            offset += reader.position_until(offset, |pos, x0, x1| {
+                // ns-plain-char  prevent ` #`
+                if is_white_tab_or_break(x0) && x1 == b'#' {
+                    return Break(pos);
+                }
+
+                // ns-plain-char prevent `: `
+                // or `:{`  in flow collections
+                if x0 == b':' && !ns_plain_safe(x1, in_flow_collection) {
+                    return Break(pos);
+                }
+
+                if !ns_plain_safe(x0, in_flow_collection) {
+                    return Break(pos);
+                } else if !ns_plain_safe(x1, in_flow_collection) {
+                    return Break(pos + 1);
+                };
+
+                Continue(pos + 1)
+            });
+            return if offset != 0 {
+                Some((start, offset))
+            } else {
+                None
+            };
+        }
     }
 
     fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R) {
@@ -524,7 +475,7 @@ impl Spanner {
         }
 
         if !reader.peek_byte_at_check(1, is_white_tab_or_break) {
-            self.fetch_plain_scalar(reader, self.curr_state);
+            self.fetch_plain_scalar(reader);
             return;
         }
         reader.consume_bytes(1);
@@ -538,7 +489,7 @@ impl Spanner {
             self.curr_state = FlowMap(indent);
             self.tokens.push_back(KeyEnd);
         } else {
-            self.fetch_plain_scalar(reader, self.curr_state);
+            self.fetch_plain_scalar(reader);
         }
     }
 
@@ -572,7 +523,7 @@ pub enum SpanToken {
     ErrorToken(ErrorType),
     MarkStart(usize),
     MarkEnd(usize),
-    NewLine,
+    NewLine(u32),
     Space,
     Directive(DirectiveType),
     Alias,
