@@ -49,30 +49,48 @@ fn main() {
     // print3(0b1111101);
     // let x = 0b10111;
     // print3(x);
-    // print3(0b10111);
-    print3(0b1111);
-    print3(0b11101);
+    print3(0b10111);
+    // find_even_end(0b11011);
+    // print3(0b11101);
     // print3(0b1011010);
     // print3(0b1011101);
     // print3(0b110);
 }
 
-fn find_odd_start(bits: u8) -> u8 {
-    let end_edge = bits & !(bits >> 1);
+fn find_even_end(bits: u8) -> u8 {
+    println!("input   = {:#010b}", bits);
+    let start_edge = bits & !(bits << 1);
+    let end_edge = bits & !(bits << 1);
 
-    let end_edge_odd = end_edge & 0xAA;
-    let end_edge_even = end_edge & 0x55;
+    let even_start = start_edge & 0x55;
+    let even_carry = bits + even_start;
+    let even_carry_only = !bits & even_carry;
+    let mut odd1 = even_carry_only & 0x55;
 
-    let (max, min, part) = if end_edge_even < end_edge_odd {
-        (end_edge_odd, end_edge_even, 0xAA)
+    let odd_starts = start_edge & 0xAA;
+    let odd_carries = bits.overflowing_add(odd_starts).0;
+    let odd_carries_only = odd_carries & !bits;
+    let mut odd2 = odd_carries_only & 0xAA;
+
+    let (max, min, part) = if odd1 < odd2 {
+        (odd2, odd1, 0xAA)
     } else {
-        (end_edge_even, end_edge_odd, 0x55)
+        (odd1, odd2, 0x55)
     };
 
-    let edge_sub = (max << 1).saturating_sub(bits) + min;
-    let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
+    let edge_sub = max.saturating_sub(bits) + min;
+    println!("es      = {:#010b}", edge_sub);
+    let edge_other = end_edge.saturating_sub(bits) ^ edge_sub;
+    println!("eo      = {:#010b}", edge_other);
 
-    edge_sub & part | edge_other & !part
+    odd1 >>= 1;
+    odd2 >>= 1;
+
+    println!(
+        "odds    = {:#010b}",
+        odd1 | odd2 | edge_sub & part | edge_other & !part
+    );
+    0
 }
 
 fn find_odd_end(bits: u8) -> u8 {
@@ -95,11 +113,24 @@ fn print3(input: u8) {
 
     // let sa = input & !(input << 1);
     // let in_wos = input & !sa;
-    let odd_start = find_odd_start(input);
-    // println!("ods   = {:#010b}", odd_start);
+    let end_edge = input & !(input >> 1);
+
+    let end_edge_odd = end_edge & 0xAA;
+    let end_edge_even = end_edge & 0x55;
+
+    let (max, min, part) = if end_edge_even < end_edge_odd {
+        (end_edge_odd, end_edge_even, 0xAA)
+    } else {
+        (end_edge_even, end_edge_odd, 0x55)
+    };
+
+    let edge_sub = (max << 1).saturating_sub(input) + min;
+    let edge_other = (end_edge << 1).saturating_sub(input) ^ edge_sub;
+    let odd_start = edge_sub & part | edge_other & !part;
+    println!("ods   = {:#010b}", odd_start);
 
     let odd_end = find_odd_end(input);
-    // println!("evs   = {:#010b}", odd_end);
+    println!("evs   = {:#010b}", odd_end);
 
     // let left_pad = in_wos & (in_wos << 1);
     // let right_pad = in_wos & (in_wos >> 1);
