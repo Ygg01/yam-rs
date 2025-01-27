@@ -2,6 +2,16 @@ Yam-rs
 ------
 Yam-rs is set of tools for working with YAML files. 
 
+Building from sources
+---
+1. `git clone https://github.com/Ygg01/yam-rs`
+2. `cd yam-rs`
+3. `git submodule update --init`
+4. `cargo install cargo-nextest`
+5. `cargo install cargo-criterion`
+
+Plans
+---
 It's in development yet, but plans include:
 - Emitter
 - serde integration
