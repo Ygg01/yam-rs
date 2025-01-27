@@ -225,7 +225,9 @@ impl Spanner {
                     }
                 }
                 Some(b'?') => self.fetch_explicit_map(reader),
-                Some(b',') => {reader.consume_bytes(1);},
+                Some(b',') => {
+                    reader.consume_bytes(1);
+                }
                 Some(b'\'') => self.fetch_quoted_scalar(reader, b'\''),
                 Some(b'"') => self.fetch_quoted_scalar(reader, b'"'),
                 Some(b'#') => {
@@ -243,7 +245,7 @@ impl Spanner {
         if reader.eof() {
             self.stream_end = true;
             self.stack.push_back(self.curr_state);
-            for state in self.stack.iter().rev()  {
+            for state in self.stack.iter().rev() {
                 let x = match *state {
                     BlockMap(_) => MappingEnd,
                     BlockSeq(_) => SequenceEnd,
@@ -370,19 +372,21 @@ impl Spanner {
 
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R) {
         let mut num_newlines = 0;
+        let mut allow_minus = false;
         while !reader.eof() {
-            if let Some((start, end)) = self.read_plain_one_line(reader) {
-                match num_newlines {
-                    x if x == 1 => self.tokens.push_back(Space),
-                    x if x > 1 => self.tokens.push_back(NewLine(num_newlines)),
-                    _ => {}
-                }
+            let (start, end) = match self.read_plain_one_line(reader, allow_minus) {
+                None => return,
+                Some(x) => x,
+            };
 
-                self.tokens.push_back(MarkStart(start));
-                self.tokens.push_back(MarkEnd(end));
-            } else {
-                return;
+            match num_newlines {
+                x if x == 1 => self.tokens.push_back(Space),
+                x if x > 1 => self.tokens.push_back(NewLine(num_newlines)),
+                _ => {}
             }
+
+            self.tokens.push_back(MarkStart(start));
+            self.tokens.push_back(MarkEnd(end));
 
             let chr = reader.peek_byte().unwrap_or(b'\0');
 
@@ -401,12 +405,15 @@ impl Spanner {
 
             if reader.peek_byte_is(b'-') {
                 match self.curr_state {
-                    BlockSeq(x) if x == reader.col() => {
+                    BlockSeq(x) if reader.col() == x => {
                         self.tokens.push_back(Separator);
                         reader.consume_bytes(1);
                         return;
-                    },
-                    BlockSeq(x) if x > reader.col() => continue,
+                    }
+                    BlockSeq(x) if reader.col() > x => {
+                        allow_minus = true;
+                        continue;
+                    }
                     _ => {}
                 }
             }
@@ -440,16 +447,21 @@ impl Spanner {
         num_breaks
     }
 
-    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R) -> Option<(usize, usize)> {
+    fn read_plain_one_line<R: Reader>(
+        &mut self,
+        reader: &mut R,
+        allow_minus: bool,
+    ) -> Option<(usize, usize)> {
         let start = reader.pos();
         let in_flow_collection = self.curr_state.in_flow_collection();
 
-        if reader.eof()
-            || reader.peek_byte_at_check(0, is_white_tab_or_break)
-            || reader.peek_byte_at_check(0, is_indicator)
-            || (reader.peek_byte_is(b'-') && !reader.peek_byte_at_check(1, is_white_tab))
-            || ((reader.peek_byte_is(b'?') || reader.peek_byte_is(b':'))
-                && !reader.peek_byte_at_check(1, is_white_tab_or_break))
+        if !(allow_minus && reader.peek_byte_is(b'-'))
+            && (reader.eof()
+                || reader.peek_byte_at_check(0, is_white_tab_or_break)
+                || reader.peek_byte_at_check(0, is_indicator)
+                || (reader.peek_byte_is(b'-') && !reader.peek_byte_at_check(1, is_white_tab))
+                || ((reader.peek_byte_is(b'?') || reader.peek_byte_is(b':'))
+                    && !reader.peek_byte_at_check(1, is_white_tab_or_break)))
         {
             return None;
         }
