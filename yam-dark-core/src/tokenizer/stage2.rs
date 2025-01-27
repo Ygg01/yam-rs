@@ -256,7 +256,13 @@ impl YamlParserState {
     ) -> YamlResult<()> {
         S::calculate_cols_rows_indents(self, chunk_state);
         S::flatten_bits_yaml(self, chunk_state);
-        Ok(())
+
+        if chunk_state.error_mask == 0 {
+            Ok(())
+        } else {
+            // TODO: Deal with errors
+            Err(YamlError::UnexpectedEof)
+        }
     }
 
     pub(crate) fn next_state() -> YamlResult<()> {

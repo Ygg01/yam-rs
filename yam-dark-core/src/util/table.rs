@@ -1,3 +1,4 @@
+// TODO: make u8 for memory efficency
 pub const U8_BYTE_COL_TABLE: [[u32; 8]; 256] = [
     [0, 1, 2, 3, 4, 5, 6, 7],
     [0, 0, 1, 2, 3, 4, 5, 6],
@@ -257,6 +258,7 @@ pub const U8_BYTE_COL_TABLE: [[u32; 8]; 256] = [
     [0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
+// TODO: Make u8 to reduce memory
 pub const U8_ROW_TABLE: [[u32; 8]; 256] = [
     [0, 0, 0, 0, 0, 0, 0, 0],
     [1, 1, 1, 1, 1, 1, 1, 1],

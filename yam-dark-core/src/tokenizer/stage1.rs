@@ -187,27 +187,25 @@ pub unsafe trait Stage1Scanner {
     /// use yam_dark_core::{u8x64_eq, NativeScanner, Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
     ///
     /// let bin_str = b"                                                                ";
-    /// let mut chunk = YamlChunkState::default();
     /// let range1_to_64 = (0..=63).collect::<Vec<_>>();
     /// let scanner = NativeScanner::from_chunk(bin_str);
     ///
     /// // Needs to be called before calculate indent
-    /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
-    /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    /// let line_feeds = u8x64_eq(bin_str, b'\n');
+    /// let mut cols = vec![0; 64];
+    /// let mut rows = vec![0; 64];
     /// // Will calculate col/row/indent
-    /// NativeScanner::calculate_cols_rows(
-    ///     &mut chunk.cols,
-    ///     &mut chunk.rows,
-    ///     chunk.characters.line_feeds,
-    /// );
+    /// NativeScanner::calculate_cols_rows(&mut cols, &mut rows, line_feeds);
     /// assert_eq!(
-    ///     chunk.cols,
+    ///     cols,
     ///     range1_to_64
     /// );
-    /// assert_eq!(chunk.rows, vec![0; 64]);
-    /// // TODO indent check
+    /// assert_eq!(
+    ///     rows,
+    ///     vec![0; 64]
+    /// );
     /// ```
-    fn calculate_cols_rows(cols: &mut [u32], rows: &mut [u32], line_feeds: u64) {
+    fn calculate_cols_rows(cols: &mut [u32], rows: &mut [u32], idx: usize, line_feeds: u64) {
         let nl_ind = (line_feeds & 0xFF) as usize;
 
         let mut prev_col = 0;
@@ -344,6 +342,7 @@ pub unsafe trait Stage1Scanner {
         Self::calculate_cols_rows(
             &mut state.byte_cols,
             &mut state.byte_rows,
+            state.pos,
             chunk_state.characters.line_feeds,
         );
         Self::calculate_indents(
