@@ -3,7 +3,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use std::ops::RangeInclusive;
 use std::usize;
 
-use memchr::{memchr, memchr3_iter};
+use memchr::memchr;
 
 use reader::{is_flow_indicator, ns_plain_safe};
 use ErrorType::ExpectedIndent;
@@ -155,42 +155,6 @@ impl<'a> StrReader<'a> {
         );
         (start, start + n, start + n + newline)
     }
-
-    fn read_non_comment_line(&mut self) -> (usize, usize) {
-        let start = self.pos;
-        let content = &self.slice[start..];
-        let mut iter = memchr3_iter(b'\r', b'\n', b'#', content);
-        let mut end = self.pos;
-        let consume: usize;
-
-        if let Some((new_end, c)) = iter.next().map(|p| (p, content[p])) {
-            end = new_end;
-            consume = end + 1;
-
-            if c == b'\n' {
-                self.consume_bytes(consume);
-                self.col = 0;
-                self.line += 1;
-                return (start, end);
-            }
-        }
-        for pos in iter {
-            let ascii = content[pos];
-            if ascii == b'\r' && pos < content.len() - 1 && content[pos + 1] == b'\n' {
-                self.consume_bytes(pos + 2);
-                self.col = 0;
-                self.line += 1;
-                return (start, end);
-            } else if ascii == b'\r' || ascii == b'\n' {
-                self.consume_bytes(pos + 1);
-                self.col = 0;
-                self.line += 1;
-                return (start, end);
-            }
-        }
-
-        (start, end)
-    }
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
@@ -265,42 +229,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         self.pos = consume;
         self.col = 0;
         (start, end)
-    }
-
-    fn try_read_yaml_directive(&mut self, tokens: &mut VecDeque<usize>) -> bool {
-        fn find_next_whitespace(slice: &[u8]) -> Option<usize> {
-            slice.iter().position(|p| is_white_tab_or_break(*p))
-        }
-
-        if self.peek_byte_is(b'%') {
-            if self.try_read_slice_exact("%YAML") {
-                self.skip_space_tab();
-                if let Some(x) = find_next_whitespace(&self.slice[self.pos..]) {
-                    tokens.push_back(DirectiveYaml as usize);
-                    tokens.push_back(self.pos);
-                    tokens.push_back(self.pos + x);
-
-                    self.consume_bytes(x);
-                    self.read_line();
-                }
-            } else {
-                let tag = if self.try_read_slice_exact("%TAG") {
-                    DirectiveTag
-                } else {
-                    DirectiveReserved
-                };
-                self.skip_space_tab();
-                let x = self.read_non_comment_line();
-                if x.0 != x.1 {
-                    tokens.push_back(tag as usize);
-                    tokens.push_back(x.0);
-                    tokens.push_back(x.1);
-                }
-            }
-            true
-        } else {
-            false
-        }
     }
 
     fn read_plain_one_line(

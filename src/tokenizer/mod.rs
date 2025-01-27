@@ -35,6 +35,8 @@ pub enum ErrorType {
     DuplicateKey,
     ExpectedChompBetween1and9,
     TabsNotAllowedAsIndentation,
+    TwoDirectivesFound,
+    UnexpectedEndOfStream,
 }
 
 pub trait Slicer<'a> {
