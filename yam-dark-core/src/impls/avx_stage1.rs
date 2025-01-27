@@ -1,5 +1,5 @@
-use crate::stage1::{Stage1Scanner, YamlBlockState};
-use crate::stage2::{Buffer, YamlParserState};
+use crate::tokenizer::stage1::{Stage1Scanner, YamlBlockState};
+use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::ParseResult;
 use core::arch::x86_64::__m256i;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -13,6 +13,11 @@ impl Stage1Scanner for AvxScanner {
     fn validator() -> Self::Validator {
         unsafe { simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp::new() }
     }
+
+    fn from_chunk(values: &[u8; 64]) -> Self {
+        todo!()
+    }
+
 
     fn next<'i, T: Buffer>(
         _chunk: &[u8; 64],
