@@ -190,11 +190,42 @@ pub unsafe trait Stage1Scanner {
         state.pos += 64;
     }
 
-    fn calculate_indents(
+    fn calculate_relative_indents(
         state: &mut YamlParserState,
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
     ) {
+        let mut neg_indents_mask = select_right_bits_branch_less(
+            chunk_state.characters.spaces,
+            (chunk_state.characters.line_feeds << 1) ^ u64::from(state.is_indent_running),
+        );
+        neg_indents_mask &= !(neg_indents_mask >> 1);
+        let count = neg_indents_mask.count_ones();
+        let last_bit = (neg_indents_mask | chunk_state.characters.line_feeds) & (1 << 63) != 0;
+
+
+        let mut i = 0;
+        while neg_indents_mask != 0 {
+            let part0 = neg_indents_mask.trailing_zeros();
+            neg_indents_mask &= neg_indents_mask - 1;
+
+
+            let part1 = neg_indents_mask.trailing_zeros();
+            neg_indents_mask &= neg_indents_mask - 1;
+
+            let part2 = neg_indents_mask.trailing_zeros();
+            neg_indents_mask &= neg_indents_mask - 1;
+
+            let part3 = neg_indents_mask.trailing_zeros();
+            neg_indents_mask &= neg_indents_mask - 1;
+
+            let v = [part0, part1, part2,  part3];
+            unsafe {
+                core::ptr::write(info.indents.as_mut_ptr().add(i).cast::<[u32;4]>(), v);
+            };
+            i += 4;
+        }
+        state.is_indent_running = last_bit;
     }
 
     /// Computes a quote mask based on the given quote bit mask.

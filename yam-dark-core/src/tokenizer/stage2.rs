@@ -280,7 +280,7 @@ impl YamlParserState {
         S::calculate_col_rows(self, chunk_state, indent_info);
 
         // And based on rows/cols for structurals, we calculate indents
-        S::calculate_indents(self, chunk_state, indent_info);
+        S::calculate_relative_indents(self, chunk_state, indent_info);
 
         if chunk_state.error_mask == 0 {
             Ok(())
