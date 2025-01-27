@@ -598,6 +598,24 @@ pub fn block_empty_node_exp_map() {
     assert_eq_event(EXP_MAP_EMPTY_INPUT, EXP_MAP_EMPTY_INPUT_EVENTS);
     assert_eq_event(EXP_MAP_FAKE_EMPTY_INPUT, EXP_MAP_FAKE_EMPTY_EVENTS);
 }
+const EMPTY_KEY_MAP_INPUT: &str = r#"
+: a
+: b
+"#;
+
+const EMPTY_KEY_MAP_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :
+   =VAL :a
+   =VAL :
+   =VAL :b
+  -MAP
+ -DOC"#;
+#[test]
+pub fn block_empty_node_map() {
+  assert_eq_event(EMPTY_KEY_MAP_INPUT, EMPTY_KEY_MAP_EVENTS);
+}
 
 const EXP_BLOCK_MAP_ERR1: &str = r#"
    ? test

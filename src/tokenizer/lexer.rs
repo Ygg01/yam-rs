@@ -1086,7 +1086,7 @@ impl Lexer {
 
         let is_key = ends_with == b':'
             || matches!(reader.peek_chars(), [b':', x, ..] if is_white_tab_or_break(*x))
-                && !matches!(curr_state, BlockMapExp(_, _));
+                && matches!(curr_state, BlockMap(_, BeforeKey) | BlockSeq(_) | DocBlock);
 
         self.process_block_scalar(
             curr_state,
