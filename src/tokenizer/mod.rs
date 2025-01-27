@@ -47,6 +47,7 @@ pub enum ErrorType {
     SpacesFoundAfterIndent,
     UnfinishedTag,
     InvalidTagHandleCharacter { found: char },
+    SequenceOnSameLineAsKey,
 }
 
 pub trait Slicer<'a> {

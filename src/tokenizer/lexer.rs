@@ -35,7 +35,7 @@ pub struct Lexer {
     prev_anchor: Option<(usize, usize)>,
     continue_processing: bool,
     prev_scalar: Scalar,
-    last_map_line: usize,
+    last_map_line: Option<usize>,
     col_start: Option<usize>,
 }
 
@@ -911,7 +911,7 @@ impl Lexer {
             if self.prev_scalar.is_multiline {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
-            self.last_map_line = scalar_line;
+            self.last_map_line = Some(scalar_line);
             if is_map_start {
                 self.next_map_state();
                 self.continue_processing = true;
@@ -922,7 +922,7 @@ impl Lexer {
                 self.push_state(BlockMap(scalar_start as u32, BeforeColon), scalar_line);
             }
         } else {
-            if self.last_map_line != scalar_line && curr_state.is_incorrectly_indented(scalar_start)
+            if self.last_map_line != Some(scalar_line) && curr_state.is_incorrectly_indented(scalar_start)
             {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
@@ -1016,7 +1016,7 @@ impl Lexer {
             BlockMap(indent, _) | BlockMapExp(indent, _) => {
                 self.last_block_indent = indent as usize;
                 self.had_anchor = false;
-                self.last_map_line = read_line;
+                self.last_map_line = Some(read_line);
             }
             BlockSeq(indent) => {
                 self.last_block_indent = indent as usize;
@@ -1074,7 +1074,7 @@ impl Lexer {
 
     fn fetch_exp_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let indent = reader.col();
-        self.last_map_line = reader.line();
+        self.last_map_line = Some(reader.line());
         reader.consume_bytes(1);
         reader.skip_space_tab();
         self.emit_prev_anchor();
@@ -1223,6 +1223,10 @@ impl Lexer {
         let indent = reader.col();
         let expected_indent = self.last_block_indent;
         reader.consume_bytes(1);
+
+        if self.last_map_line == Some(reader.line()) {
+            self.push_error(ErrorType::SequenceOnSameLineAsKey);
+        }
 
         let new_seq = match curr_state {
             DocBlock => true,
