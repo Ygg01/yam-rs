@@ -1,9 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{black_box, Criterion, criterion_group, criterion_main, Throughput};
 
+use yam_dark_core::{ChunkyIterator, u8x64_eq};
 use yam_dark_core::util::{
-    count_table_small, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    count_table_small, mask_merge, U8_BYTE_COL_TABLE, U8_ROW_TABLE, U8X16, U8X8,
 };
-use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -131,18 +131,22 @@ fn col_count_small(c: &mut Criterion) {
     let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
     let chunk = chunk_iter.next().unwrap();
     let mask = u8x64_eq(chunk, b'\n');
+    let space_mask = u8x64_eq(chunk, b' ');
 
     group.bench_function("col_count_small", |b| {
         b.iter(|| {
             let mut prev_col = 0;
             let mut prev_row = 0;
+            let mut prev_indent = -1;
             let mut count_row = [0; 64];
             let mut count_col = [0; 64];
             let mut count_indent = [0; 64];
             count_table_small(
                 mask,
+                space_mask,
                 &mut prev_col,
                 &mut prev_row,
+                &mut prev_indent,
                 &mut count_col,
                 &mut count_row,
                 &mut count_indent,
@@ -172,9 +176,9 @@ fn col_count_u8x16(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    col_count_naive,
-    col_count_u8x8,
-    col_count_u8x16,
+    // col_count_naive,
+    // col_count_u8x8,
+    // col_count_u8x16,
     col_count_small
 );
 criterion_main!(benches);
