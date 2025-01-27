@@ -310,25 +310,22 @@ fn col_count_indent_naive(c: &mut Criterion) {
 fn count_naive(
     newline_bits: u64,
     space_bits: u64,
-    prev_col: &mut u32,
-    prev_row: &mut u32,
-    prev_indent: &mut u32,
-    is_indent_frozen: &mut bool,
-    byte_cols: &mut [u32; 64],
-    byte_rows: &mut [u32; 64],
-    byte_indent: &mut [u32; 64],
+    byte_cols: &mut [u8; 64],
+    byte_rows: &mut [u8; 64],
+    byte_indent: &mut [u8; 64],
 ) {
-    let mut curr_row = *prev_row;
-    let mut curr_col = *prev_col;
-    let mut curr_indent = *prev_indent;
+    let mut curr_row = 0;
+    let mut curr_col = 0;
+    let mut curr_indent = 0;
+    let mut is_indent_frozen = false;
     for pos in 0..64 {
         let is_newline = newline_bits & (1 << pos) != 0;
         let is_space = space_bits & (1 << pos) != 0;
 
-        if is_space && !*is_indent_frozen {
+        if is_space && !is_indent_frozen {
             curr_indent += 1;
-        } else if !is_space && *is_indent_frozen {
-            *is_indent_frozen = true;
+        } else if !is_space && is_indent_frozen {
+            is_indent_frozen = true;
         }
 
         if is_newline {
@@ -339,7 +336,7 @@ fn count_naive(
             curr_col = 0;
             curr_indent = 0;
             curr_row += 1;
-            *is_indent_frozen = false;
+            is_indent_frozen = false;
             continue;
         }
 
@@ -350,9 +347,6 @@ fn count_naive(
             *byte_indent.get_unchecked_mut(pos) = curr_indent;
         }
     }
-    *prev_indent = curr_indent;
-    *prev_col = curr_col;
-    *prev_row = curr_row;
 }
 
 #[doc(hidden)]
@@ -582,23 +576,14 @@ fn col_count_all_naive(c: &mut Criterion) {
     let space_mask2 = u8x64_eq(chunk2, b' ');
 
     let mut indents = [0; 64];
-    let mut prev_col = 0;
-    let mut prev_row = 0;
-    let mut is_indent_frozen = false;
     let mut byte_cols = [0; 64];
     let mut byte_rows = [0; 64];
 
     group.bench_function("col_naive", |b| {
         b.iter(|| {
-            let mut prev_indent = 0;
-
             count_naive(
                 newline_mask,
                 space_mask,
-                &mut prev_col,
-                &mut prev_row,
-                &mut prev_indent,
-                &mut is_indent_frozen,
                 &mut byte_cols,
                 &mut byte_rows,
                 &mut indents,
@@ -608,10 +593,6 @@ fn col_count_all_naive(c: &mut Criterion) {
             count_naive(
                 newline_mask2,
                 space_mask2,
-                &mut prev_col,
-                &mut prev_row,
-                &mut prev_indent,
-                &mut is_indent_frozen,
                 &mut byte_cols,
                 &mut byte_rows,
                 &mut indents,
