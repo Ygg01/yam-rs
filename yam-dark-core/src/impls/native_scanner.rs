@@ -182,6 +182,56 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
+        let cnt: usize = bits.count_ones() as usize;
+        let mut l = base.len();
+        let idx_minus_64 = idx.wrapping_sub(64);
+        let idx_64_v: [i32; 4] = [
+            core::mem::transmute::<u32, i32>(idx_minus_64),
+            core::mem::transmute::<u32, i32>(idx_minus_64),
+            core::mem::transmute::<u32, i32>(idx_minus_64),
+            core::mem::transmute::<u32, i32>(idx_minus_64),
+        ];
+
+        // We're doing some trickery here.
+        // We reserve 64 extra entries, because we've at most 64 bit to set
+        // then we truncate the base to the next base (that we calculated above)
+        // We later indiscriminatory write over the len we set but that's OK
+        // since we ensure we reserve the needed space
+        base.reserve(64);
+        let final_len = l + cnt;
+
+        let is_unaligned = l % 4 != 0;
+        let write_fn = if is_unaligned {
+            core::ptr::write_unaligned
+        } else {
+            core::ptr::write
+        };
+
+        while bits != 0 {
+            let v0 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v1 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v2 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v3 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+
+            let v: [i32; 4] = [
+                idx_64_v[0] + v0,
+                idx_64_v[1] + v1,
+                idx_64_v[2] + v2,
+                idx_64_v[3] + v3,
+            ];
+            write_fn(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v);
+            l += 4;
+        }
+        // We have written all the data
+        base.set_len(final_len);
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn compute_quote_mask(quote_bits: u64) -> u64 {
         let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
