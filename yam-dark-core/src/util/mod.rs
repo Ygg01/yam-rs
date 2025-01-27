@@ -1,7 +1,7 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
-pub use native::{mask_merge, U8X16, u8x16_swizzle, u8x64_eq, u8x64_lteq};
+pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
 pub use native::{mask_merge_u8x8, U8X8};
 pub use table::{U8_BYTE_COL_TABLE, U8_INDENT_TABLE, U8_ROW_TABLE};
 
@@ -281,12 +281,16 @@ pub fn count_indent_naive(
 
         match (is_space, is_newline) {
             (true, true) => unreachable!("Character can't be both space and newline at same time"),
-            (true, false) => { *prev_indent += *prev_iter_char; },
+            (true, false) => {
+                *prev_indent += *prev_iter_char;
+            }
             (false, true) => {
                 *prev_iter_char = 1;
                 *prev_indent = 0
-            },
-            (false, false) => { *prev_iter_char = 0; },
+            }
+            (false, false) => {
+                *prev_iter_char = 0;
+            }
         }
     }
 }
@@ -357,8 +361,8 @@ pub fn count_indent(
     let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
     byte_indent[48..56].copy_from_slice(&col_indent);
 
-    let part_newline = ((newline_mask & 0xFF_0000_0000_0000) >> 56) as usize;
-    let part_whitespace = ((newline_mask & 0xFF_0000_0000_0000) >> 56) as usize;
+    let part_newline = ((newline_mask & 0xFF00_0000_0000_0000) >> 56) as usize;
+    let part_whitespace = ((newline_mask & 0xFF00_0000_0000_0000) >> 56) as usize;
     let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
     byte_indent[56..64].copy_from_slice(&col_indent);
 
@@ -367,22 +371,49 @@ pub fn count_indent(
 
 #[test]
 fn test_quick_count() {
-    let mask = 0b10000010_00000000_00000000;
+    let str = r#"
+    ab: x
+
+
+    xz:  x
+    zz: aaaa
+    zx: >
+       x
+       y"#;
+    let chunk = ChunkyIterator::from_bytes(str.as_bytes()).next().unwrap();
+    let newline_mask = u8x64_eq(chunk, b'\n');
+    let space_mask = u8x64_eq(chunk, b' ');
     let expected_value = [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 0, 1, 2, 3, 4, 5,
+        0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     ];
-    let mut prev_value = 0;
-    let mut prev_rows = 0;
+    let mut prev_byte_col = 0;
+    let mut prev_byte_rows = 0;
 
     let mut actual_cols = [0; 64];
     let mut actual_rows = [0; 64];
     count_col_rows(
-        mask,
-        &mut prev_value,
-        &mut prev_rows,
+        newline_mask,
+        &mut prev_byte_col,
+        &mut prev_byte_rows,
         &mut actual_cols,
         &mut actual_rows,
     );
     assert_eq!(&actual_cols[0..24], &expected_value[0..24]);
-    assert_eq!(prev_value, 40);
+    assert_eq!(prev_byte_col, 8);
+    assert_eq!(prev_byte_rows, 8);
+
+    let mut prev_iter_char = 1;
+    let mut prev_indent = 0;
+    let mut actual_indents = [0; 64];
+    count_indent_naive(
+        newline_mask,
+        space_mask,
+        &mut prev_iter_char,
+        &mut prev_indent,
+        &mut actual_indents,
+    );
+    assert_eq!(
+        &actual_indents[0..25],
+        &[0, 0, 1, 2, 3, 4, 4, 4, 4, 4, 4, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 0]
+    );
 }
