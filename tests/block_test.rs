@@ -2058,9 +2058,20 @@ const SEQ_SAME_LINE_EVENTS: &str = r"
 =VAL :key
 ERR";
 
+const X1_S7BG_INPUT: &str = r"
+- :,";
+
+const X1_S7BG_EVENTS: &str = r"
++DOC
++SEQ
+=VAL ::,
+-SEQ
+-DOC";
+
 #[test]
 fn block_seq_and_map() {
-    assert_eq_event(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS);
+  assert_eq_event(X1_S7BG_INPUT, X1_S7BG_EVENTS);
+  assert_eq_event(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS);
 }
 
 const TAG_SHORT_INPUT: &str = "
