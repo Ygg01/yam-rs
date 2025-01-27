@@ -340,7 +340,10 @@ impl<'r> Reader for StrReader<'r> {
         let mut num_newlines = 0;
         let mut tokens = vec![];
         let mut curr_indent = self.col;
-        let init_indent = if matches!(curr_state, ParserState::BlockMap(_, _)) {
+        let init_indent = if matches!(
+            curr_state,
+            ParserState::BlockMap(_) | ParserState::BlockKeyExp(_)
+        ) {
             self.col
         } else {
             start_indent
@@ -354,7 +357,7 @@ impl<'r> Reader for StrReader<'r> {
             // a) Part of BlockMap
             // b) An error outside of block map
             if curr_indent < init_indent {
-                if matches!(curr_state, ParserState::BlockMap(_, false)) {
+                if matches!(curr_state, ParserState::BlockMap(_)) {
                     tokens.push(Separator);
                 } else if !curr_state.is_block_col() {
                     self.read_line();
@@ -382,7 +385,7 @@ impl<'r> Reader for StrReader<'r> {
 
             if first_line_block && chr == b':' {
                 if curr_state.is_new_block_col(curr_indent) {
-                    new_state = Some(BlockMap(curr_indent, false));
+                    new_state = Some(BlockMap(curr_indent));
                     tokens.push(MappingStart);
                 }
                 tokens.push(MarkStart(start));
