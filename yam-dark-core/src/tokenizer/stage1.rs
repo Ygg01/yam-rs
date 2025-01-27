@@ -195,7 +195,7 @@ pub unsafe trait Stage1Scanner {
     /// let mut cols = vec![0; 64];
     /// let mut rows = vec![0; 64];
     /// // Will calculate col/row/indent
-    /// NativeScanner::calculate_cols_rows(&mut cols, &mut rows, line_feeds);
+    /// NativeScanner::calculate_cols_rows(&mut cols, &mut rows, 0, line_feeds);
     /// assert_eq!(
     ///     cols,
     ///     range1_to_64
