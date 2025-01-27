@@ -27,6 +27,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
+use crate::util::{calculate_byte_rows, calculate_cols, U8_BYTE_COL_TABLE, U8_ROW_TABLE};
 use crate::{util, EvenOrOddBits, NativeScanner, ParseResult, SIMD_CHUNK_LENGTH};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
@@ -67,7 +68,6 @@ pub struct YamlChunkState {
     pub characters: YamlCharacterChunk,
     pub rows: Vec<u8>,
     pub cols: Vec<u8>,
-    pub indents: Vec<u8>,
     follows_non_quote_scalar: u64,
     error_mask: u64,
 }
@@ -82,7 +82,6 @@ impl Default for YamlChunkState {
             characters: YamlCharacterChunk::default(),
             rows: vec![0; 64],
             cols: vec![0; 64],
-            indents: vec![0; 64],
             follows_non_quote_scalar: 0,
             error_mask: 0,
         }
@@ -284,49 +283,6 @@ pub unsafe trait Stage1Scanner {
     /// ```
     fn cmp_ascii_to_input(&self, m: u8) -> u64;
 
-    /// Calculates the indents of the given chunk and updates the `chunk_state` accordingly.
-    ///
-    /// For a chunk represented by this scanner, will calculate indents for each 64-character and
-    /// will update `chunk_state`, taking into consideration previous indents in `prev_state`
-    ///
-    /// # Implementation
-    ///
-    /// It's important for implementation to first check where spaces `0x20` and line feed characters are located
-    /// Since newline on Windows is `\r\n` Unicode `0x0A` and `0x0D` respectively we can approximate a newline with `\n`.
-    /// Spaces are important because only `0x20` is a valid YAML indentation mechanism.
-    ///
-    /// # Arguments
-    ///
-    /// - `chunk_state`: A mutable reference to a [`YamlChunkState`] that represents the YAML
-    ///    chunk to calculate the indents for.
-    /// - `prev_state`: A mutable reference to a [`YamlParserState`] that represents the previous
-    ///    state of the YAML parser.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use yam_dark_core::{u8x64_eq, NativeScanner, Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
-    ///
-    /// let bin_str = b"                                                                ";
-    /// let mut chunk = YamlChunkState::default();
-    /// let mut prev_iter_state = YamlParserState::default();
-    /// let range1_to_64 = (1..=64).collect::<Vec<_>>();
-    /// let scanner = NativeScanner::from_chunk(bin_str);
-    /// // Needs to be called before calculate indent
-    /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
-    /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
-    /// scanner.calculate_indents(&mut chunk, &mut prev_iter_state);
-    /// assert_eq!(
-    ///     chunk.cols,
-    ///     range1_to_64
-    /// );
-    /// assert_eq!(chunk.rows, vec![0; 64]);
-    /// assert_eq!(
-    ///     chunk.indents,
-    ///     range1_to_64
-    /// );
-    /// ```
-    fn calculate_indents(&self, chunk_state: &mut YamlChunkState, prev_state: &mut YamlParserState);
-
     /// Checks if the value of `cmp` is less than or equal to the value of `self`.
     ///
     /// Returns the result as a `u64` value.
@@ -378,6 +334,115 @@ pub unsafe trait Stage1Scanner {
     fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
 
     fn flatten_bits_yaml(base: &mut YamlParserState, yaml_chunk_state: &YamlChunkState, bits: u64);
+
+    /// Calculates the indents of the given chunk and updates the `chunk_state` accordingly.
+    ///
+    /// For a chunk represented by this scanner, will calculate indents for each 64-character and
+    /// will update `chunk_state`, taking into consideration previous indents in `prev_state`
+    ///
+    /// # Implementation
+    ///
+    /// It's important for implementation to first check where spaces `0x20` and line feed characters are located
+    /// Since newline on Windows is `\r\n` Unicode `0x0A` and `0x0D` respectively we can approximate a newline with `\n`.
+    /// Spaces are important because only `0x20` is a valid YAML indentation mechanism.
+    ///
+    /// # Arguments
+    ///
+    /// - `chunk_state`: A mutable reference to a [`YamlChunkState`] that represents the YAML
+    ///    chunk to calculate the indents for.
+    /// - `prev_state`: A mutable reference to a [`YamlParserState`] that represents the previous
+    ///    state of the YAML parser.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use yam_dark_core::{u8x64_eq, NativeScanner, Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
+    ///
+    /// let bin_str = b"                                                                ";
+    /// let mut chunk = YamlChunkState::default();
+    /// let mut prev_iter_state = YamlParserState::default();
+    /// let range1_to_64 = (1..=64).collect::<Vec<_>>();
+    /// let scanner = NativeScanner::from_chunk(bin_str);
+    /// // Needs to be called before calculate indent
+    /// chunk.characters.spaces = u8x64_eq(bin_str, b' ');
+    /// chunk.characters.line_feeds = u8x64_eq(bin_str, b'\n');
+    /// scanner.calculate_indents(&mut chunk, &mut prev_iter_state);
+    /// assert_eq!(
+    ///     chunk.cols,
+    ///     range1_to_64
+    /// );
+    /// assert_eq!(chunk.rows, vec![0; 64]);
+    /// ```
+    fn calculate_indents(
+        &self,
+        chunk_state: &mut YamlChunkState,
+        prev_state: &mut YamlParserState,
+    ) {
+        let nl_ind0 = (chunk_state.characters.line_feeds & 0xFF) as usize;
+        let row0 = U8_ROW_TABLE[nl_ind0];
+        let col0 = U8_BYTE_COL_TABLE[nl_ind0];
+
+        chunk_state.rows[0..8].copy_from_slice(&row0);
+        chunk_state.cols[0..8].copy_from_slice(&col0);
+
+        let mut prev_col = col0[7];
+        let mut prev_row = row0[7];
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 8) & 0xFF) as usize;
+        chunk_state.rows[8..16].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        chunk_state.cols[8..16].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &mut prev_col,
+        ));
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 16) & 0xFF) as usize;
+        chunk_state.rows[16..24].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        chunk_state.cols[16..24].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &mut prev_col,
+        ));
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 24) & 0xFF) as usize;
+        chunk_state.rows[24..32].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        chunk_state.cols[24..32].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &mut prev_col,
+        ));
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 32) & 0xFF) as usize;
+        chunk_state.rows[32..40].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        chunk_state.cols[32..40].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &mut prev_col,
+        ));
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 40) & 0xFF) as usize;
+        chunk_state.rows[40..48].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        chunk_state.cols[40..48].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &mut prev_col,
+        ));
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 48) & 0xFF) as usize;
+        chunk_state.rows[48..56].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        chunk_state.cols[48..56].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &mut prev_col,
+        ));
+
+        let nl_ind = ((chunk_state.characters.line_feeds >> 56) & 0xFF) as usize;
+        chunk_state.rows[56..64].copy_from_slice(&calculate_byte_rows(nl_ind, &mut prev_row));
+        chunk_state.cols[56..64].copy_from_slice(&calculate_cols(
+            U8_BYTE_COL_TABLE[nl_ind],
+            U8_ROW_TABLE[nl_ind],
+            &mut prev_col,
+        ));
+    }
 
     /// Computes a quote mask based on the given quote bit mask.
     ///

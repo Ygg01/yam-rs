@@ -37,47 +37,6 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn calculate_indents(
-        &self,
-        chunk_state: &mut YamlChunkState,
-        prev_state: &mut YamlParserState,
-    ) {
-        let mut curr_col = 0;
-        let mut curr_row = 0;
-        let mut curr_indent = 0;
-        let mut is_indent_frozen = false;
-
-        for pos in 0..64 {
-            let is_newline = chunk_state.characters.line_feeds & (1 << pos) != 0;
-            let is_space = chunk_state.characters.spaces & (1 << pos) != 0;
-
-            unsafe {
-                *chunk_state.cols.get_unchecked_mut(pos) = curr_col;
-                *chunk_state.rows.get_unchecked_mut(pos) = curr_row;
-                *chunk_state.indents.get_unchecked_mut(pos) = curr_indent;
-            };
-
-            if is_newline {
-                curr_row += 1;
-                curr_indent = 0;
-                curr_col = 0;
-                is_indent_frozen = false;
-                continue;
-            }
-
-            if !is_space {
-                is_indent_frozen = true;
-            }
-            curr_col += 1;
-            curr_indent = if is_indent_frozen {
-                curr_indent
-            } else {
-                curr_indent + 1
-            };
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64 {
         u8x64_lteq(self.inner_chunk, cmp as u8)
     }
