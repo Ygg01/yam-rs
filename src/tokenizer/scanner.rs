@@ -5,7 +5,7 @@ use crate::tokenizer::{ErrorType, StrIterator};
 use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::event::YamlEvent::{Directive, DocEnd};
 use crate::tokenizer::reader::{Reader, StrReader};
-use crate::tokenizer::scanner::State::{DocStart, StreamEnd, StreamStart};
+use crate::tokenizer::scanner::State::{InDoc, StreamEnd, StreamStart};
 
 #[derive(Clone, Default)]
 pub struct Scanner {
@@ -16,7 +16,7 @@ pub struct Scanner {
 #[derive(Copy, Clone, PartialEq)]
 pub enum State {
     StreamStart,
-    DocStart,
+    InDoc,
     StreamEnd,
 }
 
@@ -33,16 +33,16 @@ pub enum Control {
 }
 
 impl Scanner {
-    pub fn from_str_reader(string: &str) -> StrIterator<'_> {
+    pub fn from_str_reader(slice: &str) -> StrIterator<'_> {
         StrIterator {
             state: Default::default(),
-            reader: StrReader::new(string),
+            reader: StrReader::new(slice),
         }
     }
 
     pub(crate) fn emit_end_of_stream(&mut self) {
         match self.state {
-            DocStart => self.tokens.push_back(SpanToken::DocEnd),
+            InDoc => self.tokens.push_back(SpanToken::DocEnd),
             _ => (),
         }
         self.tokens.push_back(SpanToken::StreamEnd);
@@ -56,8 +56,8 @@ impl Scanner {
     pub(crate) fn next_state<R: Reader>(&mut self, reader: &mut R) -> Control {
         match self.state {
             StreamStart => self.read_start_stream(reader),
-            DocStart => self.read_doc_start(reader),
-            _ => return Control::Eof,
+            InDoc => self.read_in_doc(reader),
+            StreamEnd => return Control::Eof,
         };
         if reader.eof() && self.state != StreamEnd {
             self.emit_end_of_stream();
@@ -97,12 +97,15 @@ impl Scanner {
                     .push_back(SpanToken::ErrorToken(ErrorType::ExpectedDocumentStart));
             }
         }
-        self.state = DocStart;
+        self.state = InDoc;
         self.tokens.push_back(SpanToken::DocStart);
     }
 
-    pub(crate) fn read_doc_start<R: Reader>(&mut self, reader: &mut R) {
-        self.tokens.push_back(SpanToken::DocEnd);
+    pub(crate) fn read_in_doc<R: Reader>(&mut self, reader: &mut R) {
+        reader.skip_whitespace();
+        match reader.peek_byte() {
+            _ => {}
+        };
     }
 
     fn try_skip_comments<T: Reader>(&self, reader: &mut T) {

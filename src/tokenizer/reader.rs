@@ -66,6 +66,7 @@ impl<'r> Reader for StrReader<'r> {
     #[inline(always)]
     fn consume_bytes(&mut self, amount: usize) {
         self.pos += amount;
+        self.col += amount;
     }
 
     fn slice_bytes(&self, start: usize, end: usize) -> &'r [u8] {
