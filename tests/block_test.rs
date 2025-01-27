@@ -987,10 +987,10 @@ const X_5WE3_EVENTS: &str = r"
 
 #[test]
 pub fn block_exp_map() {
+    assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
     assert_eq_event(X_5WE3_INPUT, X_5WE3_EVENTS);
 
     assert_eq_event(EXP_MAP_INPUT, EXP_MAP_EVENTS);
-    assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_MIX_INPUT, EXP_BLOCK_MAP_MIX_EVENTS);
     assert_eq_event(EXP_MAP_COMP_INPUT, EXP_MAP_COMP_EVENTS);
     assert_eq_event(X_7W2P_INPUT, X_7W2P_EVENTS)
@@ -2084,6 +2084,71 @@ const X3_Y79Y_006_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_Y79Y_007_INPUT: &str = r"
+? -
+:	-
+";
+
+const X1_Y79Y_007_EVENTS: &str = r"
++DOC
++MAP
++SEQ
+=VAL :
+-SEQ
+ERR
++SEQ
+=VAL :
+-SEQ
+-MAP
+-DOC";
+
+const X1_Y79Y_009_INPUT: &str = r"
+? key:
+:	foo:
+";
+
+const X1_Y79Y_009_EVENTS: &str = r"
++DOC
++MAP
++MAP
+=VAL :key
+=VAL :
+-MAP
+ERR
+=VAL :foo
+=VAL :
+-MAP
+-DOC";
+
+const X2_Y79Y_009_INPUT: &str = r"
+? key:
+";
+
+const X2_Y79Y_009_EVENTS: &str = r"
++DOC
++MAP
++MAP
+=VAL :key
+=VAL :
+-MAP
+=VAL :
+-MAP
+-DOC";
+
+const X3_Y79Y_009_INPUT: &str = r"
+? key:
+: ";
+
+const X3_Y79Y_009_EVENTS: &str = r"
++DOC
++MAP
++MAP
+=VAL :key
+=VAL :
+-MAP
+=VAL :
+-MAP
+-DOC";
 
 #[test]
 fn block_tab_indents() {
@@ -2096,4 +2161,11 @@ fn block_tab_indents() {
     assert_eq_event(X1_Y79Y_006_INPUT, X1_Y79Y_006_EVENTS);
     assert_eq_event(X2_Y79Y_006_INPUT, X2_Y79Y_006_EVENTS);
     assert_eq_event(X3_Y79Y_006_INPUT, X3_Y79Y_006_EVENTS);
+
+    assert_eq_event(X1_Y79Y_007_INPUT, X1_Y79Y_007_EVENTS);
+
+    assert_eq_event(X1_Y79Y_009_INPUT, X1_Y79Y_009_EVENTS);
+    assert_eq_event(X2_Y79Y_009_INPUT, X2_Y79Y_009_EVENTS);
+    assert_eq_event(X3_Y79Y_009_INPUT, X3_Y79Y_009_EVENTS);
+
 }
