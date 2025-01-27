@@ -15,7 +15,7 @@ use crate::tokenizer::lexer::LexerState;
 use crate::tokenizer::lexer::LexerState::{BlockMapExp, BlockSeq};
 use crate::tokenizer::ErrorType::{TagNotTerminated, UnexpectedComment};
 use crate::tokenizer::LexerToken::*;
-use crate::tokenizer::{reader, ErrorType, LexerToken, Reader, Slicer};
+use crate::tokenizer::{reader, ErrorType, Reader, Slicer};
 
 use super::reader::is_newline;
 
@@ -587,7 +587,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         num_breaks
     }
 
-    fn consume_anchor_alias(&mut self, token: LexerToken) -> Vec<usize> {
+    fn consume_anchor_alias(&mut self) -> (usize, usize) {
         let start = self.consume_bytes(1);
 
         let amount = self.slice[self.pos..]
@@ -595,7 +595,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p) || *p == b':')
             .unwrap_or(self.slice.len() - self.pos);
         self.consume_bytes(amount);
-        vec![token as usize, start, start + amount]
+        (start, start + amount)
     }
 
     fn read_tag(&self) -> Result<(usize, usize), ErrorType> {

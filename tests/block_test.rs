@@ -611,9 +611,11 @@ const NESTED_MAPS: &str = r#"
 "top1" : 
   "key1" : &alias1 scalar1
 'top2' :  &alias2    
-  'key2' :  scalar2
+  *alias1 :  scalar2
 top3: 
   &node3  key : scalar3
+top4 :
+  &anchor6 'key6' : scalar4
 "#;
 
 const NESTED_MAPS_EVENTS: &str = r#"
@@ -626,13 +628,18 @@ const NESTED_MAPS_EVENTS: &str = r#"
    -MAP
    =VAL 'top2
    +MAP &alias2
-    =VAL 'key2
-    =VAL &alias2 :scalar2
+    =ALI *alias1
+    =VAL :scalar2
    -MAP
    =VAL :top3
-   +MAP 
-    =VAL &node3 key
+   +MAP
+    =VAL &node3 :key
     =VAL :scalar3
+   -MAP
+   =VAL :top4
+   +MAP
+    =VAL &anchor6 'key6
+    =VAL :scalar4
    -MAP
   -MAP
  -DOC"#;
