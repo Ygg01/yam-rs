@@ -52,13 +52,14 @@ pub trait Reader<B> {
     fn line(&self) -> u32;
     fn pos(&self) -> usize;
     fn peek_chars(&self, buf: &mut B) -> &[u8];
-    fn peek_byte(&self) -> Option<u8> {
-        self.peek_byte_at(0)
-    }
-    fn peek_byte_at(&self, offset: usize) -> Option<u8>;
+    fn peek_byte_at(&self, buf: &mut B, offset: usize) -> Option<u8>;
     #[inline]
-    fn peek_byte_is(&self, needle: u8) -> bool {
-        match self.peek_byte() {
+    fn peek_byte(&self, buf: &mut B) -> Option<u8> {
+        self.peek_byte_at(buf, 0)
+    }
+    #[inline]
+    fn peek_byte_is(&self, buf: &mut B, needle: u8) -> bool {
+        match self.peek_byte_at(buf, 0) {
             Some(x) if x == needle => true,
             _ => false,
         }
@@ -83,8 +84,8 @@ pub trait Reader<B> {
     fn count_detect_space_tab(&mut self, has_tab: &mut bool) -> usize;
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
-    fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType>;
-    fn read_tag_uri(&mut self) -> Option<(usize, usize)>;
+    fn read_tag_handle(&mut self, buf: &mut B) -> Result<Vec<u8>, ErrorType>;
+    fn read_tag_uri(&mut self, buf: &mut B) -> Option<(usize, usize)>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
 }
 

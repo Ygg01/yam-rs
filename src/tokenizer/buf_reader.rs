@@ -31,7 +31,7 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn peek_byte_at(&self, _offset: usize) -> Option<u8> {
+    fn peek_byte_at(&self, _buf: &mut S, _offset: usize) -> Option<u8> {
         todo!()
     }
 
@@ -84,11 +84,11 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn read_tag_handle(&mut self) -> Result<Vec<u8>, super::ErrorType> {
+    fn read_tag_handle(&mut self, _buf: &mut S) -> Result<Vec<u8>, super::ErrorType> {
         todo!()
     }
 
-    fn read_tag_uri(&mut self) -> Option<(usize, usize)> {
+    fn read_tag_uri(&mut self, _buf: &mut S) -> Option<(usize, usize)> {
         todo!()
     }
 
