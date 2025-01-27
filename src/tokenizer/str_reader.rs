@@ -23,6 +23,7 @@ pub struct StrReader<'a> {
     pub slice: &'a [u8],
     pub(crate) pos: usize,
     pub(crate) col: usize,
+    pub(crate) line: usize,
 }
 
 enum Flow {
@@ -37,6 +38,7 @@ impl<'a> From<&'a str> for StrReader<'a> {
             slice: value.as_bytes(),
             pos: 0,
             col: 0,
+            line: 0,
         }
     }
 }
@@ -47,6 +49,7 @@ impl<'a> From<&'a [u8]> for StrReader<'a> {
             slice: value,
             pos: 0,
             col: 0,
+            line: 0,
         }
     }
 }
@@ -141,6 +144,7 @@ impl<'a> StrReader<'a> {
             if c == b'\n' {
                 self.consume_bytes(consume);
                 self.col = 0;
+                self.line += 1;
                 return (start, end);
             }
         }
@@ -149,10 +153,12 @@ impl<'a> StrReader<'a> {
             if ascii == b'\r' && pos < content.len() - 1 && content[pos + 1] == b'\n' {
                 self.consume_bytes(pos + 2);
                 self.col = 0;
+                self.line += 1;
                 return (start, end);
             } else if ascii == b'\r' || ascii == b'\n' {
                 self.consume_bytes(pos + 1);
                 self.col = 0;
+                self.line += 1;
                 return (start, end);
             }
         }
@@ -175,6 +181,11 @@ impl<'r> Reader<()> for StrReader<'r> {
     #[inline]
     fn pos(&self) -> usize {
         self.pos
+    }
+
+    #[inline]
+    fn line(&self) -> usize {
+        self.line    
     }
 
     #[inline]
@@ -618,6 +629,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         if self.peek_byte_is(b'\n') {
             self.pos += 1;
             self.col = 0;
+            self.line += 1;
             Some((start, start + 1))
         } else if self.peek_byte_is(b'\r') {
             let amount = match self.slice.get(start + 1) {
@@ -626,6 +638,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             };
             self.col = 0;
             self.pos += amount;
+            self.line += 1;
             Some((start, start + amount))
         } else {
             None
