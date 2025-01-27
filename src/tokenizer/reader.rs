@@ -111,6 +111,7 @@ pub trait Reader<B> {
     fn read_tag(&self) -> Option<(usize, usize)>;
 }
 
+
 #[inline]
 pub fn is_tab_space(pos: usize, chr: u8, allow_tab: bool) -> ControlFlow<usize, usize> {
     if chr == b' ' || (allow_tab && chr == b'\t') {

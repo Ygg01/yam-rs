@@ -15,7 +15,7 @@ pub struct EventIterator<'a> {
 impl<'a> EventIterator<'a> {
     pub fn new_from_string(input: &str) -> EventIterator {
         EventIterator {
-            reader: StrReader::new(input),
+            reader: StrReader::from(input),
             state: Lexer::default(),
             indent: 1,
         }

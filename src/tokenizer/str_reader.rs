@@ -31,14 +31,17 @@ enum Flow {
     Error(usize),
 }
 
-impl<'a> StrReader<'a> {
-    pub fn new(slice: &'a str) -> StrReader<'a> {
+impl<'a> From<&'a str> for StrReader<'a>{
+    fn from(value: &'a str) -> Self {
         Self {
-            slice: slice.as_bytes(),
+            slice: value.as_bytes(),
             pos: 0,
             col: 0,
         }
     }
+}
+
+impl<'a> StrReader<'a> {
 
     #[inline]
     fn eof_or_pos(&self, pos: usize) -> usize {
@@ -176,6 +179,7 @@ impl<'a> StrReader<'a> {
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
+
     #[inline]
     fn eof(&self) -> bool {
         self.pos >= self.slice.len()
