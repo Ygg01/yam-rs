@@ -473,6 +473,7 @@ const X4_Y79Y_000_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :foo
+=VAL |
 ERR";
 
 #[test]
@@ -2480,4 +2481,32 @@ fn block_tags_empty() {
     assert_eq_event(X3_FH7J_INPUT, X3_FH7J_EVENTS);
     assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
     assert_eq_event(X2_FH7J_INPUT, X2_FH7J_EVENTS);
+}
+
+const X1_K858_INPUT: &str = "
+strip: >-
+
+clip: >
+
+keep: |+
+
+";
+
+const X1_K858_EVENTS: &str = r"
++DOC
++MAP
+=VAL :strip
+=VAL >
+=VAL :clip
+=VAL >
+=VAL :keep
+=VAL |\n
+-MAP
+-DOC";
+
+
+
+#[test]
+fn block_chomp() {
+    assert_eq_event(X1_K858_INPUT, X1_K858_EVENTS);
 }

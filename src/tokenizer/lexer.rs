@@ -29,11 +29,11 @@ pub struct Lexer {
     pub(crate) tokens: VecDeque<usize>,
     pub(crate) errors: Vec<ErrorType>,
     pub(crate) tags: HashMap<Vec<u8>, (usize, usize)>,
-    continue_processing: bool,
     space_indent: Option<u32>,
     last_block_indent: Option<u32>,
     last_map_line: Option<u32>,
     prev_prop: PropSpans,
+    
     has_tab: bool,
     stack: Vec<LexerState>,
 }
@@ -441,8 +441,6 @@ macro_rules! impl_quote {
 
 impl Lexer {
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        self.continue_processing = true;
-
         let curr_state = self.curr_state();
 
         match curr_state {
@@ -2005,11 +2003,6 @@ impl Lexer {
             }
             if !newline_is_empty {
                 *prev_indent = newline_indent;
-                if *new_lines > 0 {
-                    tokens.push(NEWLINE);
-                    tokens.push(*new_lines as usize);
-                    *new_lines = 0;
-                }
                 return LiteralStringState::Indentation(newline_indent);
             }
             *new_lines += 1;
@@ -2094,15 +2087,6 @@ impl Lexer {
         if start == end {
             *new_lines += 1;
         } else {
-            if *new_lines > 0 {
-                if !lit_chomp.0 && *prev_indent == curr_indent && curr_indent == indent {
-                    tokens.push(NewLine as usize);
-                    tokens.push(new_lines.saturating_sub(1) as usize);
-                } else {
-                    tokens.push(NewLine as usize);
-                    tokens.push(*new_lines as usize);
-                }
-            }
             match self.last_block_indent {
                 Some(i) if i >= curr_indent => {
                     *new_lines = 0;
@@ -2110,18 +2094,23 @@ impl Lexer {
                         self.has_tab = true;
                         next_state = LiteralStringState::TabError;
                     } else {
-                        prepend_error(
-                            ErrorType::ExpectedIndent {
-                                actual: i,
-                                expected: curr_indent,
-                            },
-                            tokens,
-                            &mut self.errors,
-                        );
                         next_state = LiteralStringState::End;
                     }
                 }
                 _ => {
+                    if *new_lines > 0 {
+                        // First empty line after block literal is treated in a special way
+                        let is_first_non_empty_line = tokens.len() > 1;
+
+                        // That's on the same identation level as previously detected indentation
+                        if is_first_non_empty_line && !lit_chomp.0 && *prev_indent == curr_indent && curr_indent == indent  {
+                            tokens.push(NewLine as usize);
+                            tokens.push(new_lines.saturating_sub(1) as usize);
+                        } else {
+                            tokens.push(NewLine as usize);
+                            tokens.push(*new_lines as usize);
+                        }
+                    }
                     *prev_indent = curr_indent;
                     tokens.push(start);
                     tokens.push(end);
@@ -2306,7 +2295,6 @@ impl Lexer {
     }
 
     fn try_read_tag<B, R: Reader<B>>(&mut self, reader: &mut R) -> bool {
-        self.continue_processing = false;
         reader.try_read_slice_exact("%TAG");
         self.skip_space_tab(reader);
 
@@ -2532,6 +2520,7 @@ fn is_skip_colon_space(scalar_spans: &NodeSpans) -> bool {
     }
 }
 
+//TODO Enable inlining
 // #[inline]
 fn push_empty<T: Pusher>(tokens: &mut T, prop: &mut PropSpans) {
     tokens.push_all(take(prop).spans);
