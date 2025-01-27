@@ -18,6 +18,7 @@ pub enum ErrorType {
     NoDocStartAfterTag,
     UnexpectedEndOfFile,
     UnexpectedComment,
+    ExpectedMapBlock,
     UnexpectedSymbol(char),
     ExpectedDocumentStart,
     ExpectedNewline,
