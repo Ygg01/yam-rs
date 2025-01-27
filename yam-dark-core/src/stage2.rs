@@ -20,6 +20,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// MIT License
+//
+// Copyright (c) 2024 Ygg One
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
 use std::marker::PhantomData;
 use std::mem;
@@ -28,12 +50,12 @@ use std::ptr::NonNull;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
+use crate::{impls, SIMD_INPUT_LENGTH, SIMD_JSON_PADDING};
 use crate::error::{Error, ErrorType};
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::stage1::Stage1Parse;
-use crate::{impls, SIMD_INPUT_LENGTH, SIMD_JSON_PADDING};
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type ParseResult<T> = std::result::Result<T, Error>;
 
 pub struct Parser<'de> {
     idx: usize,
@@ -50,9 +72,9 @@ pub struct Buffers {
 }
 
 pub struct YamlIndexes {
-    structural_indexes: Vec<u64>,
-    indent: Vec<u32>,
-    rows: Vec<u32>,
+    pub(crate) structural_indexes: Vec<u64>,
+    pub(crate) indent: Vec<u32>,
+    pub(crate) rows: Vec<u32>,
 }
 
 impl YamlIndexes {
@@ -158,11 +180,11 @@ impl DerefMut for AlignedBuf {
 }
 
 impl<'de> Parser<'de> {
-    fn emit_events(
+    pub fn emit_events(
         input: &'de mut [u8],
         buffer: &mut Buffers,
         event_list: &mut String,
-    ) -> Result<()> {
+    ) -> ParseResult<()> {
         const LOTS_OF_ZEROES: [u8; 64] = [0u8; SIMD_INPUT_LENGTH];
         let len = input.len();
         let simd_safe_len = len + SIMD_INPUT_LENGTH;
@@ -190,10 +212,11 @@ impl<'de> Parser<'de> {
             // safety: all bytes are initialized
             input_buffer.set_len(simd_safe_len);
 
-            Self::find_structural_bits(input, &mut buffer.yaml_indexes).map_err(Error::generic)?;
+            Self::find_structural_bits(input, &mut buffer.yaml_indexes)
+                .map_err(Error::generic)?;
         };
 
-        Self::build_tape(
+        Self::build_events(
             input,
             input_buffer,
             &mut buffer.string_buffer,
@@ -210,7 +233,7 @@ impl<'de> Parser<'de> {
         yaml_indexes: &YamlIndexes,
         stack: &mut Vec<StackState>,
         res: &mut String,
-    ) -> Result<()> {
+    ) -> ParseResult<()> {
         todo!()
     }
 
@@ -248,7 +271,6 @@ impl<'de> Parser<'de> {
         input: &[u8],
         structural_indexes: &mut YamlIndexes,
     ) -> std::result::Result<(), ErrorType> {
-        let len = input.len();
         let len = input.len();
         // 8 is a heuristic number to estimate it turns out a rate of 1/8 structural characters
         // leads almost never to relocations.
@@ -392,5 +414,8 @@ impl<'de> Parser<'de> {
         } else {
             Ok(())
         }
+    }
+    fn build_events(p0: &mut [u8], p1: &mut AlignedBuf, p2: &mut Vec<u8>, p3: &YamlIndexes, p4: &mut Vec<StackState>, p5: &mut String) -> ParseResult<()> {
+        todo!()
     }
 }
