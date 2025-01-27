@@ -142,29 +142,22 @@ const FOLD_STRING_EVENTS: &str = r#"
   -SEQ
  -DOC"#;
 
-const BLOCK_QUOTE_INPUT: &str = r#"
-plain: 
-  spans
-  lines
-
-quoted: 
-  "text"
+const FOLD_ERR_INPUT: &str = r#"
+ >
+    
+ invalid
 "#;
 
-const BLOCK_QUOTE_EVENTS: &str = r#"
+const FOLD_ERR_EVENTS: &str = r#"
  +DOC
-  +MAP
-   =VAL :plain
-   =VAL :spans lines
-   =VAL :quoted
-   =VAL "text
-  -MAP
+  ERR
+  =VAL >\ninvalid\n
  -DOC"#;
 
 #[test]
 pub fn block_fold() {
-    assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
     assert_eq_event(FOLD_STRING_INPUT, FOLD_STRING_EVENTS);
+    assert_eq_event(FOLD_ERR_INPUT, FOLD_ERR_EVENTS);
 }
 
 const BLOCK_PLAIN_INPUT: &str = r#"
@@ -228,7 +221,7 @@ const SIMPLE_LITERAL_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn plain_literal() {
+pub fn block_fold_literal() {
     assert_eq_event(BLOCK_FOLD_INPUT, BLOCK_FOLD_EVENTS);
     assert_eq_event(SIMPLE_LITERAL1_INPUT, SIMPLE_LITERAL_EVENTS);
     assert_eq_event(SIMPLE_LITERAL2_INPUT, SIMPLE_LITERAL_EVENTS);
@@ -279,12 +272,32 @@ const MULTILINE_PLAIN_EVENTS: &str = r##"
   -MAP
  -DOC"##;
 
+const BLOCK_QUOTE_INPUT: &str = r#"
+ plain: 
+   spans
+   lines
+ 
+ quoted: 
+   "text"
+"#;
+
+const BLOCK_QUOTE_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :plain
+   =VAL :spans lines
+   =VAL :quoted
+   =VAL "text
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn block_literal() {
     assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
     assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
     assert_eq_event(LIT_STR2_INPUT, LIT_STR2_EVENTS);
     assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
+    assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
 }
 const LITERAL_ERR_INPUT: &str = r#"
 --- |0"#;
