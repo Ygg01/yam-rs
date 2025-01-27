@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{RangeFrom, RangeInclusive};
+use std::usize;
 
 use memchr::memchr3_iter;
 
@@ -314,7 +315,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let mut first_line_block = !curr_state.in_flow_collection();
 
         let mut num_newlines = 0;
-        let mut tokens = vec![];
+        let mut tokens = vec![ScalarPlain as usize];
         let mut new_state = match curr_state {
             BlockKeyExp(ind) => Some(BlockValExp(*ind)),
             BlockValExp(ind) => Some(BlockMap(*ind)),
@@ -368,7 +369,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             if chr == b':' && first_line_block {
                 if curr_state.is_new_block_col(curr_indent) {
                     new_state = Some(BlockMap(curr_indent as u32));
-                    tokens.push(MappingStart as usize);
+                    tokens.insert(0, MappingStart as usize);
                 }
                 tokens.push(start);
                 tokens.push(end);
@@ -376,14 +377,17 @@ impl<'r> Reader<()> for StrReader<'r> {
             } else if chr == b':'
                 && matches!(curr_state, BlockValExp(ind) if *ind as usize == curr_indent)
             {
-                tokens.push(ScalarEnd as usize);
+                tokens.push(ScalarPlain as usize);
                 tokens.push(start);
                 tokens.push(end);
                 break;
             }
 
             match num_newlines {
-                x if x == 1 => tokens.push(Space as usize),
+                x if x == 1 => {
+                    tokens.push(NewLine as usize);
+                    tokens.push(0);
+                }
                 x if x > 1 => {
                     tokens.push(NewLine as usize);
                     tokens.push(x as usize);
@@ -497,7 +501,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 None => {
                     tokens.push_back(line_start);
                     tokens.push_back(line_end);
-                    tokens.push_back(Space as usize);
+                    tokens.push_back(NewLine as usize);
+                    tokens.push_back(0);
                     self.read_line();
                     self.skip_space_tab(is_implicit);
                 }
@@ -532,7 +537,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 None => {
                     tokens.push_back(line_start);
                     tokens.push_back(line_end);
-                    tokens.push_back(Space as usize);
+                    tokens.push_back(NewLine as usize);
+                    tokens.push_back(0);
                     self.read_line();
                     self.skip_space_tab(is_implicit);
                 }
@@ -589,6 +595,12 @@ impl<'r> Reader<()> for StrReader<'r> {
         }
 
         let mut new_line_token = 0;
+        let token = if literal {
+            SpanToken::ScalarLit as usize
+        } else {
+            SpanToken::ScalarFold as usize
+        };
+        tokens.push_back(token);
         let mut trailing = vec![];
         let mut is_trailing_comment = false;
         let mut previous_indent = 0;
@@ -647,7 +659,8 @@ impl<'r> Reader<()> for StrReader<'r> {
             if start != end {
                 if new_line_token > 0 {
                     if new_line_token == 1 && !literal && previous_indent == newline_indent {
-                        tokens.push_back(Space as usize);
+                        tokens.push_back(NewLine as usize);
+                        tokens.push_back(0);
                     } else {
                         tokens.push_back(NewLine as usize);
                         tokens.push_back(new_line_token);
