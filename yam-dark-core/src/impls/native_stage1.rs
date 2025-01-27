@@ -12,7 +12,7 @@ pub struct NativeScanner {
 
 impl NativeScanner {}
 
-impl Stage1Scanner for NativeScanner {
+unsafe impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
 

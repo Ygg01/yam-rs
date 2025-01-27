@@ -85,7 +85,7 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
 ///
 /// This trait provides methods for validating and scanning chunks of data, and finding important
 /// parts like structural starts and so on.
-pub trait Stage1Scanner {
+pub unsafe trait Stage1Scanner {
     /// Type [`Stage1Scanner`] uses to perform it's SIMD-ifed actions.
     type SimdType;
 
