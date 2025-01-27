@@ -31,7 +31,7 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::error::Error;
 use crate::impls::{AvxScanner, NativeScanner};
-use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlBlockState};
+use crate::tokenizer::stage1::{NextFn, Stage1Scanner, YamlChunkState};
 use crate::util::{ChunkyIterator, NoopValidator};
 
 pub type ParseResult<T> = Result<T, Error>;
@@ -61,14 +61,14 @@ impl YamlParserState {
         &mut self,
         chunk: &[u8; 64],
         buffers: &mut T,
-        block_state: &mut YamlBlockState,
-    ) -> ParseResult<YamlBlockState> {
+        block_state: &mut YamlChunkState,
+    ) -> ParseResult<YamlChunkState> {
         todo!()
     }
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<B: Buffer>(&mut self, p0: &B, p1: YamlBlockState) {
+    pub(crate) fn process_chunk<B: Buffer>(&mut self, p0: &B, p1: YamlChunkState) {
         todo!()
     }
 }
@@ -159,7 +159,7 @@ impl<'de> Parser<'de> {
         for chunk in &mut iter {
             unsafe {
                 validator.update_from_chunks(chunk);
-                let res: Result<YamlBlockState, Error> = next_fn(chunk, buffer, &mut state);
+                let res: Result<YamlChunkState, Error> = next_fn(chunk, buffer, &mut state);
                 let block = match res {
                     Err(e) => {
                         event_visitor.visit_error(e);
