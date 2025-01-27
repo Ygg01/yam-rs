@@ -1,7 +1,8 @@
 use crate::tokenizer::stage1::{Stage1Scanner, YamlCharacterChunk};
 use crate::util::NoopValidator;
 
-pub(crate) struct NativeScanner {
+#[doc(hidden)]
+pub struct NativeScanner {
     v0: [u8; 64],
 }
 

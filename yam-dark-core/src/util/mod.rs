@@ -1,9 +1,11 @@
-mod chunked_iter;
-
-pub(crate) use chunked_iter::ChunkyIterator;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-pub(crate) struct NoopValidator();
+pub(crate) use chunked_iter::ChunkyIterator;
+
+mod chunked_iter;
+
+#[doc(hidden)]
+pub struct NoopValidator();
 
 impl ChunkedUtf8Validator for NoopValidator {
     unsafe fn new() -> Self

@@ -64,8 +64,6 @@ pub struct YamlCharacterChunk {
     pub(crate) op: u64,
 }
 
-impl YamlChunkState {}
-
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
     chunk: &'buffer [u8; 64],
     buffers: &'input mut B,
@@ -91,7 +89,47 @@ pub trait Stage1Scanner {
 
     fn unsigned_lteq_against_splat(&self, cmp: i8) -> u64;
 
-    /// Scans a chunk and returns a YamlBlockState
+    /// Counts the number of odd quotes in a given 64-bit quote_bits.
+    ///
+    /// # Arguments
+    ///
+    /// * `quote_bits` - A 64-bit unsigned integer representing the quote bits.
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of odd quotes in the quote_bits as a 32-bit unsigned integer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::yam_dark_core::NativeScanner;
+    /// use crate::yam_dark_core::Stage1Scanner;
+    ///
+    /// let quote_bits = 0b10101010;
+    /// let count = NativeScanner::count_odd_quotes(quote_bits);
+    /// assert_eq!(count, 4);
+    /// ```
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn count_odd_quotes(quote_bits: u64) -> u32 {
+        quote_bits.count_ones()
+    }
+
+    /// This function processes the next chunk of a YAML input.
+    ///
+    /// It takes a reference to a byte slice `chunk` containing the next 64 bytes of input data,
+    /// a mutable reference to a `buffers` object implementing the `Buffer` trait,
+    /// and a mutable reference to a `prev_state` object of type `YamlParserState`.
+    ///
+    /// # Arguments
+    ///
+    /// * `chunk` - A reference to a byte slice `chunk` containing the next 64 bytes of input data.
+    /// * `buffers` - A mutable reference to a `buffers` object implementing the `Buffer` trait.
+    /// * `prev_state` - A mutable reference to a [YamlParserState] object that stores previous iteration state information.
+    ///
+    /// # Returns
+    ///
+    /// Returns the Result that returns an error if it encounters a parse error or [YamlChunkState].
+    /// [YamlChunkState] stores current iteration information and is merged on each [Stage1Scanner::next]
     fn next<T: Buffer>(
         chunk: &[u8; 64],
         buffers: &mut T,
@@ -106,7 +144,7 @@ pub trait Stage1Scanner {
 
         simd.scan_whitespace_and_structurals(&mut block);
         simd.scan_double_quote_bitmask(&mut block, prev_state);
-        simd.scan_single_quote_bitmask(&mut block);
+        simd.scan_single_quote_bitmask(&mut block, prev_state);
 
         prev_state.merge_state(chunk, buffers, &mut block)
     }
@@ -149,15 +187,27 @@ pub trait Stage1Scanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState) {
-        block_state.characters.spaces = self.cmp_ascii_to_input(b' ');
-        block_state.characters.newline = self.cmp_ascii_to_input(b'\n');
-        todo!()
+    fn scan_single_quote_bitmask(
+        &self,
+        block_state: &mut YamlChunkState,
+        prev_iter_state: &mut YamlParserState,
+    ) {
+        let quote_bits = self.cmp_ascii_to_input(b'\'');
+
+        let even_start_mask = EVEN_BITS ^ (prev_iter_state.prev_iter_odd_quote as u64);
+        let odd_bit = quote_bits & !even_start_mask;
+        let even_bit = quote_bits & even_start_mask;
+
+        let shift_even = even_bit << 1;
+        let odd_starts = shift_even ^ odd_bit;
+        block_state.single_quote.quote = odd_starts;
+        prev_iter_state.prev_iter_odd_quote = Self::count_odd_quotes(odd_starts);
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn scan_single_quote_bitmask(&self, block_state: &mut YamlChunkState) {
-        let single_quote = self.cmp_ascii_to_input(b'\'');
+    fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState) {
+        block_state.characters.spaces = self.cmp_ascii_to_input(b' ');
+        block_state.characters.newline = self.cmp_ascii_to_input(b'\n');
         todo!()
     }
 
