@@ -50,13 +50,6 @@ pub(crate) enum ParserState {
 }
 
 impl ParserState {
-    #[inline]
-    pub fn in_implicit_key(&self) -> bool {
-        match self {
-            FlowKey(_) | BlockKey(_) => true,
-            _ => false,
-        }
-    }
 
     pub(crate) fn indent(&self) -> u32 {
         match self {
@@ -289,23 +282,6 @@ impl Scanner {
         match self.stack.pop_back() {
             Some(x) => self.curr_state = x,
             None => self.curr_state = ParserState::AfterDocEnd,
-        }
-    }
-
-    fn skip_separation_spaces<R: Reader>(&mut self, reader: &mut R, indent: u32) {
-        let not_in_key = !self.curr_state.in_implicit_key();
-        if not_in_key {
-            if reader.col() != 0 {
-                if reader.peek_byte_is(b'#') {
-                    reader.read_line();
-                }
-            }
-            if !reader.try_read_indent(EqualIndent(indent)).is_equal() {
-                self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
-            }
-        }
-        if reader.col() != 0 {
-            reader.skip_space_tab(true);
         }
     }
 
