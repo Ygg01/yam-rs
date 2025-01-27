@@ -26,7 +26,6 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::error::Error;
@@ -94,7 +93,11 @@ impl YamlParserState {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<B: Buffer>(&mut self, p0: &B, p1: YamlChunkState) {
+    pub(crate) fn process_chunk<B: Buffer>(
+        &mut self,
+        p0: &B,
+        p1: YamlChunkState,
+    ) -> ParseResult<YamlChunkState> {
         todo!()
     }
 }
@@ -163,18 +166,17 @@ impl<'de> Parser<'de> {
 
         // SIMD-ified part
         for chunk in &mut iter {
-            unsafe {
+            let res: Result<YamlChunkState, Error> = unsafe {
                 validator.update_from_chunks(chunk);
-                let res: Result<YamlChunkState, Error> = next_fn(chunk, buffer, &mut state);
-                let block = match res {
-                    Err(e) => {
-                        event_visitor.visit_error(e);
-                        return Err(());
-                    }
-                    Ok(x) => x,
-                };
-                state.process_chunk(buffer, block);
-            }
+                next_fn(chunk, buffer, &mut state)
+            };
+            match res {
+                Err(e) => {
+                    event_visitor.visit_error(e);
+                    return Err(());
+                }
+                Ok(chunk_state) => state.process_chunk(buffer, chunk_state),
+            };
         }
 
         // Remaining part
