@@ -631,13 +631,17 @@ pub fn block_exp_map() {
 }
 
 const EXP_MAP_EMPTY_INPUT: &str = r"
+  # Sets are represented as a
+# Mapping where each key is
+  # associated with a null value
+---
 ? a
 ? b 
 ? c
 ";
 
 const EXP_MAP_EMPTY_INPUT_EVENTS: &str = r"
-+DOC
++DOC ---
 +MAP
 =VAL :a
 =VAL :
