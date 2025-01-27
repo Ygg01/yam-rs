@@ -1,5 +1,5 @@
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use core::fmt;
+use core::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum ErrorType {
@@ -26,4 +26,4 @@ impl Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+

@@ -1,3 +1,6 @@
+#![no_std]
+extern crate alloc;
+
 use crate::error::Error;
 
 mod error;
@@ -39,5 +42,5 @@ pub type ParseResult<T> = Result<T, Error>;
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SillyWrapper<'de> {
     input: *mut u8,
-    _marker: std::marker::PhantomData<&'de ()>,
+    _marker: core::marker::PhantomData<&'de ()>,
 }
