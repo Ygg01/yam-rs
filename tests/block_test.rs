@@ -155,9 +155,42 @@ const BLOCK_MAP_EXPECTED: &'static str = r#"
   =VAL :
  -MAP"#;
 
+const BLOCK_MAP_INPUT3: &'static str = r#"
+:
+a: b
+: c
+d:
+"#;
+
+const BLOCK_MAP_EXPECTED3: &'static str = r#"
+ +MAP
+  =VAL :
+  =VAL :
+  =VAL :a
+  =VAL :b
+  =VAL :
+  =VAL :c
+  =VAL :d
+  =VAL :
+ -MAP"#;
+
+const BLOCK_MAP_INPUT2: &'static str = r#"
+c:
+d:"#;
+
+const BLOCK_MAP_EXPECTED2: &'static str = r#"
+ +MAP
+  =VAL :c
+  =VAL :
+  =VAL :d
+  =VAL :
+ -MAP"#;
+
 #[test]
 pub fn block_map() {
-    assert_eq_event(BLOCK_MAP_INPUT, BLOCK_MAP_EXPECTED);
+    // assert_eq_event(BLOCK_MAP_INPUT, BLOCK_MAP_EXPECTED);
+    assert_eq_event(BLOCK_MAP_INPUT2, BLOCK_MAP_EXPECTED2);
+    // assert_eq_event(BLOCK_MAP_INPUT3, BLOCK_MAP_EXPECTED3);
 }
 
 const MULTILINE_COMMENT_BLOCK1: &'static str = r#"

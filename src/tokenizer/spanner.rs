@@ -6,14 +6,14 @@ use ParserState::PreDocStart;
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
-    AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, BlockValExp, DirectiveSection, FlowKey,
-    FlowKeyExp, FlowMap, FlowSeq, RootBlock,
+    AfterDocEnd, BlockMap, BlockMapKeyExp, BlockMapVal, BlockMapValExp, BlockSeq, DirectiveSection,
+    FlowKey, FlowKeyExp, FlowMap, FlowSeq, RootBlock,
 };
 use crate::tokenizer::spanner::SpanToken::*;
 use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
-use super::iterator::{ScalarType, DirectiveType};
+use super::iterator::{DirectiveType, ScalarType};
 
 #[derive(Clone, Default)]
 pub struct Spanner {
@@ -39,8 +39,9 @@ pub enum ParserState {
     FlowKeyExp(u32),
     BlockSeq(u32),
     BlockMap(u32),
-    BlockKeyExp(u32),
-    BlockValExp(u32),
+    BlockMapVal(u32),
+    BlockMapKeyExp(u32),
+    BlockMapValExp(u32),
     AfterDocEnd,
 }
 
@@ -49,7 +50,7 @@ impl ParserState {
     pub(crate) fn indent(&self, default: usize) -> u32 {
         match self {
             FlowKey(ind) | FlowKeyExp(ind) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind)
-            | BlockMap(ind) | BlockKeyExp(ind) | BlockValExp(ind) => *ind,
+            | BlockMap(ind) | BlockMapVal(ind) | BlockMapKeyExp(ind) | BlockMapValExp(ind) => *ind,
             RootBlock => default as u32,
             PreDocStart | AfterDocEnd | DirectiveSection => 0,
         }
@@ -58,7 +59,7 @@ impl ParserState {
     #[inline]
     pub(crate) fn get_block_indent(&self, default: usize) -> usize {
         match self {
-            BlockKeyExp(ind) | BlockValExp(ind) => *ind as usize,
+            BlockMapKeyExp(ind) | BlockMapValExp(ind) => *ind as usize,
             _ => default,
         }
     }
@@ -66,7 +67,7 @@ impl ParserState {
     #[inline]
     pub(crate) fn wrong_exp_indent(&self, curr_indent: usize) -> bool {
         match self {
-            BlockKeyExp(ind) | BlockValExp(ind) => *ind as usize != curr_indent,
+            BlockMapKeyExp(ind) | BlockMapValExp(ind) => *ind as usize != curr_indent,
             _ => false,
         }
     }
@@ -91,7 +92,11 @@ impl ParserState {
     pub(crate) fn is_new_block_col(&self, curr_indent: usize) -> bool {
         match &self {
             FlowKey(_) | FlowKeyExp(_) | FlowMap(_) | FlowSeq(_) => false,
-            BlockMap(x) | BlockKeyExp(x) if *x as usize == curr_indent => false,
+            BlockMap(x) | BlockMapVal(x) | BlockMapKeyExp(x) | BlockMapVal(x)
+                if *x as usize == curr_indent =>
+            {
+                false
+            }
             _ => true,
         }
     }
@@ -117,7 +122,6 @@ impl Spanner {
     pub fn peek_token_next(&mut self) -> Option<usize> {
         self.tokens.get(1).copied()
     }
-
 
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
@@ -155,11 +159,12 @@ impl Spanner {
                     reader.read_line();
                 }
             }
-            RootBlock | BlockMap(_) | BlockKeyExp(_) | BlockValExp(_) | BlockSeq(_) => {
+            RootBlock | BlockMap(_) | BlockMapVal(_) | BlockMapKeyExp(_) | BlockMapValExp(_)
+            | BlockSeq(_) => {
                 let indent = self.curr_state.indent(reader.col());
                 let init_indent = match self.curr_state {
-                    BlockKeyExp(ind) | BlockValExp(ind) => ind,
-                    BlockMap(_) => reader.col() as u32,
+                    BlockMapKeyExp(ind) | BlockMapValExp(ind) => ind,
+                    BlockMap(_) | BlockMapVal(_) => reader.col() as u32,
                     _ => indent,
                 };
                 match reader.peek_byte() {
@@ -167,11 +172,24 @@ impl Spanner {
                     Some(b'[') => self.fetch_flow_col(reader, indent as usize),
                     Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, Anchor),
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
+                    Some(b':') if indent == 0 && reader.col() == 0 => {
+                        reader.consume_bytes(1);
+                        if self.curr_state == RootBlock {
+                            self.tokens.push_back(MappingStart as usize);
+                        }
+                        if self.curr_state == BlockMap(0) || self.curr_state == RootBlock {
+                            // Emit empty key if it's `:` on first colon of first element.
+                            self.tokens.push_back(ScalarPlain as usize);
+                            self.tokens.push_back(ScalarEnd as usize);
+                        }
+                        self.curr_state = BlockMapVal(0);
+                    }
                     Some(b':') => {
                         reader.consume_bytes(1);
-                        self.tokens.push_back(ScalarEnd as usize);
-                        if let BlockKeyExp(x) = self.curr_state {
-                            self.curr_state = BlockMap(x);
+                        if let BlockMapKeyExp(x1) = self.curr_state {
+                            self.curr_state = BlockMapValExp(x1);
+                        } else if let BlockMap(x2) = self.curr_state {
+                            self.curr_state = BlockMapVal(x2);
                         }
                     }
                     Some(b'-') => self.fetch_block_seq(reader, indent as usize),
@@ -296,7 +314,12 @@ impl Spanner {
             for state in self.stack.iter().rev() {
                 let x = match *state {
                     BlockSeq(_) => SequenceEnd,
-                    BlockMap(_) | BlockKeyExp(_) => MappingEnd,
+                    BlockMap(_) | BlockMapKeyExp(_) => MappingEnd,
+                    BlockMapVal(_) => {
+                        // Empty element in block map
+                        self.tokens.push_back(ScalarPlain as usize);
+                        MappingEnd
+                    }
                     DirectiveSection => {
                         self.errors.push(ErrorType::DirectiveEndMark);
                         Error
@@ -362,7 +385,7 @@ impl Spanner {
 
     fn fetch_block_map_key<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
-        self.push_state(BlockKeyExp(indent as u32));
+        self.push_state(BlockMapKeyExp(indent as u32));
         self.tokens.push_back(MappingStart as usize);
     }
 
@@ -393,7 +416,10 @@ impl Spanner {
         );
 
         match new_state {
-            Some(BlockValExp(x)) => self.curr_state = BlockValExp(x),
+            Some(BlockMapValExp(x)) => self.curr_state = BlockMapValExp(x),
+            Some(BlockMapVal(x)) | Some(BlockMap(x)) if x as usize == start_indent => {
+                self.curr_state = new_state.unwrap();
+            }
             Some(state) => self.push_state(state),
             None => {}
         }
@@ -455,20 +481,21 @@ const MAP_END: usize = usize::MAX - 2;
 const MAP_START: usize = usize::MAX - 3;
 const SEQ_END: usize = usize::MAX - 4;
 const SEQ_START: usize = usize::MAX - 5;
-const SCALAR_PLAIN: usize = usize::MAX - 6;
-const SCALAR_FOLD: usize = usize::MAX - 7;
-const SCALAR_LIT: usize = usize::MAX - 8;
-const SCALAR_QUOTE: usize = usize::MAX - 9;
-const SCALAR_DQUOTE: usize = usize::MAX - 10;
-const SCALAR_END: usize = usize::MAX - 11;
-const TAG_START: usize = usize::MAX - 12;
-const ANCHOR: usize = usize::MAX - 13;
-const ALIAS: usize = usize::MAX - 14;
-const DIR_RES: usize = usize::MAX - 15;
-const DIR_TAG: usize = usize::MAX - 16;
-const DIR_YAML: usize = usize::MAX - 17;
-const ERROR: usize = usize::MAX - 18;
-const NEWLINE: usize = usize::MAX - 19;
+const SCALAR_EMPTY: usize = usize::MAX - 6;
+const SCALAR_PLAIN: usize = usize::MAX - 7;
+const SCALAR_FOLD: usize = usize::MAX - 8;
+const SCALAR_LIT: usize = usize::MAX - 9;
+const SCALAR_QUOTE: usize = usize::MAX - 10;
+const SCALAR_DQUOTE: usize = usize::MAX - 11;
+const SCALAR_END: usize = usize::MAX - 12;
+const TAG_START: usize = usize::MAX - 13;
+const ANCHOR: usize = usize::MAX - 14;
+const ALIAS: usize = usize::MAX - 15;
+const DIR_RES: usize = usize::MAX - 16;
+const DIR_TAG: usize = usize::MAX - 17;
+const DIR_YAML: usize = usize::MAX - 18;
+const ERROR: usize = usize::MAX - 19;
+const NEWLINE: usize = usize::MAX - 20;
 
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -480,6 +507,7 @@ pub enum SpanToken {
     DirectiveTag = DIR_TAG,
     DirectiveReserved = DIR_RES,
     DirectiveYaml = DIR_YAML,
+    // ScalarEmpty = SCALAR_EMPTY,
     ScalarPlain = SCALAR_PLAIN,
     ScalarEnd = SCALAR_END,
     ScalarFold = SCALAR_FOLD,
@@ -501,7 +529,7 @@ pub enum SpanToken {
 
 impl SpanToken {
     #[inline(always)]
-    pub (crate) unsafe fn to_yaml_directive(&self) -> DirectiveType {
+    pub(crate) unsafe fn to_yaml_directive(&self) -> DirectiveType {
         match self {
             &DirectiveTag => DirectiveType::Tag,
             &DirectiveYaml => DirectiveType::Yaml,
@@ -511,7 +539,7 @@ impl SpanToken {
     }
 
     #[inline(always)]
-    pub (crate) unsafe fn to_scalar(&self) -> ScalarType {
+    pub(crate) unsafe fn to_scalar(&self) -> ScalarType {
         match self {
             &ScalarPlain | &Mark => ScalarType::Plain,
             &ScalarFold => ScalarType::Folded,

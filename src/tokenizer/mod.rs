@@ -26,4 +26,3 @@ pub enum ErrorType {
     StartedBlockInFlow,
     UnexpectedEndOfScalar,
 }
-
