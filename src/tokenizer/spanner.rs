@@ -22,7 +22,7 @@ pub struct Spanner {
     pub(crate) curr_state: ParserState,
     pub stream_end: bool,
     tokens: VecDeque<SpanToken>,
-    stack: VecDeque<ParserState>,
+    stack: Vec<ParserState>,
 }
 
 impl Default for Spanner {
@@ -31,7 +31,7 @@ impl Default for Spanner {
             stream_end: false,
             tokens: VecDeque::new(),
             curr_state: PreDocStart,
-            stack: VecDeque::new(),
+            stack: vec![],
         }
     }
 }
@@ -259,7 +259,7 @@ impl Spanner {
 
         if reader.eof() {
             self.stream_end = true;
-            self.stack.push_back(self.curr_state);
+            self.stack.push(self.curr_state);
             for state in self.stack.iter().rev() {
                 let x = match *state {
                     BlockSeq(_) => SequenceEnd,
@@ -297,13 +297,13 @@ impl Spanner {
 
     #[inline]
     fn push_state(&mut self, state: ParserState) {
-        self.stack.push_back(self.curr_state);
+        self.stack.push(self.curr_state);
         self.curr_state = state;
     }
 
     #[inline]
     fn pop_state(&mut self) {
-        match self.stack.pop_back() {
+        match self.stack.pop() {
             Some(x) => self.curr_state = x,
             None => self.curr_state = AfterDocEnd,
         }
@@ -377,7 +377,7 @@ impl Spanner {
 
     #[inline]
     fn is_prev_sequence(&self) -> bool {
-        match self.stack.back() {
+        match self.stack.last() {
             Some(FlowSeq(_)) => true,
             _ => false,
         }
