@@ -61,108 +61,108 @@ fn main() {
     let x = true;
     println!("{}", u64::from(x));
 }
-
-#[allow(dead_code)]
-fn find_even_end(bits: u8) -> u8 {
-    let start_edge = bits & !(bits << 1);
-    let end_edge = bits & !(bits >> 1);
-
-    let even_start = start_edge & 0x55;
-    let odd_start = start_edge & 0xAA;
-
-    let even_carry = bits + even_start;
-    let odd_carry = bits + odd_start;
-
-    let even_carry_only = !bits & even_carry;
-    let odd_carry_only = !bits & odd_carry;
-
-    let odd1 = even_carry_only & 0x55;
-    let odd2 = odd_carry_only & 0xAA;
-
-    let end_edge_even = end_edge & 0x55;
-    let end_edge_odd = end_edge & 0xAA;
-
-    let (max, min, part) = if end_edge_even < end_edge_odd {
-        (end_edge_odd, end_edge_even, 0x55)
-    } else {
-        (end_edge_even, end_edge_odd, 0xAA)
-    };
-
-    let edge_sub = (max << 1).saturating_sub(bits) + min;
-
-    let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
-
-    odd1 >> 1 | odd2 >> 1 | (edge_sub & part) | (edge_other & !part)
-}
-
-fn find_odd_end(bits: u8) -> u8 {
-    let start_edge = bits & !(bits << 1);
-    let even_start = start_edge & 0x55;
-    let even_carry = bits + even_start;
-    let even_carry_only = !bits & even_carry;
-
-    let odd1 = even_carry_only & 0xAA;
-    let odd_starts = start_edge & 0xAA;
-    let odd_carries = bits.overflowing_add(odd_starts).0;
-    let odd_carries_only = odd_carries & !bits;
-    let odd2 = odd_carries_only & 0x55;
-
-    (odd1 | odd2) >> 1
-}
-
-fn find_odd_start(bits: u8) -> u8 {
-    let end_edge = bits & !(bits >> 1);
-    // println!("eef     = {:#010b}", end_edge);
-
-    let even_end = end_edge & 0x55;
-    let odd_end = end_edge & 0xAA;
-
-    let (max, min, part) = if even_end < odd_end {
-        (odd_end, even_end, 0xAA)
-    } else {
-        (even_end, odd_end, 0x55)
-    };
-
-    let edge_sub = (max << 1).saturating_sub(bits) + min;
-    let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
-
-    let odd1 = edge_sub & part;
-    let odd2 = edge_other & !part;
-
-    odd1 | odd2
-}
-
-fn print3(input: u8) {
-    println!("\nin      = {:#010b}", input);
-
-    println!("fos     = {:#010b}", find_odd_start(input));
-    println!("foe     = {:#010b}", find_odd_end(input));
-    println!("fee     = {:#010b}", find_even_end(input));
-}
-
-#[allow(unused)]
-fn scale(xxx: u8) -> u8 {
-    let mut scale = xxx;
-    scale ^= scale << 1;
-    scale ^= scale << 2;
-    scale ^= scale << 4;
-    println!("^^^   = {:#010b}", scale);
-    scale
-}
-
-#[allow(unused)]
-fn calculate_indent(mask: u8) -> [u8; 8] {
-    let mut result = [0, 1, 2, 3, 4, 5, 6, 7];
-    let mut start_pos = None;
-    for (pos, item) in result.iter_mut().enumerate() {
-        if mask & (1 << pos) != 0 && start_pos.is_some() {
-            start_pos = None;
-        }
-        let old_val = *item;
-        *item = start_pos.unwrap_or(old_val);
-        if mask & (1 << pos) == 0 && start_pos.is_none() {
-            start_pos = Some(*item);
-        }
-    }
-    result
-}
+//
+// #[allow(dead_code)]
+// fn find_even_end(bits: u8) -> u8 {
+//     let start_edge = bits & !(bits << 1);
+//     let end_edge = bits & !(bits >> 1);
+//
+//     let even_start = start_edge & 0x55;
+//     let odd_start = start_edge & 0xAA;
+//
+//     let even_carry = bits + even_start;
+//     let odd_carry = bits + odd_start;
+//
+//     let even_carry_only = !bits & even_carry;
+//     let odd_carry_only = !bits & odd_carry;
+//
+//     let odd1 = even_carry_only & 0x55;
+//     let odd2 = odd_carry_only & 0xAA;
+//
+//     let end_edge_even = end_edge & 0x55;
+//     let end_edge_odd = end_edge & 0xAA;
+//
+//     let (max, min, part) = if end_edge_even < end_edge_odd {
+//         (end_edge_odd, end_edge_even, 0x55)
+//     } else {
+//         (end_edge_even, end_edge_odd, 0xAA)
+//     };
+//
+//     let edge_sub = (max << 1).saturating_sub(bits) + min;
+//
+//     let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
+//
+//     odd1 >> 1 | odd2 >> 1 | (edge_sub & part) | (edge_other & !part)
+// }
+//
+// fn find_odd_end(bits: u8) -> u8 {
+//     let start_edge = bits & !(bits << 1);
+//     let even_start = start_edge & 0x55;
+//     let even_carry = bits + even_start;
+//     let even_carry_only = !bits & even_carry;
+//
+//     let odd1 = even_carry_only & 0xAA;
+//     let odd_starts = start_edge & 0xAA;
+//     let odd_carries = bits.overflowing_add(odd_starts).0;
+//     let odd_carries_only = odd_carries & !bits;
+//     let odd2 = odd_carries_only & 0x55;
+//
+//     (odd1 | odd2) >> 1
+// }
+//
+// fn find_odd_start(bits: u8) -> u8 {
+//     let end_edge = bits & !(bits >> 1);
+//     // println!("eef     = {:#010b}", end_edge);
+//
+//     let even_end = end_edge & 0x55;
+//     let odd_end = end_edge & 0xAA;
+//
+//     let (max, min, part) = if even_end < odd_end {
+//         (odd_end, even_end, 0xAA)
+//     } else {
+//         (even_end, odd_end, 0x55)
+//     };
+//
+//     let edge_sub = (max << 1).saturating_sub(bits) + min;
+//     let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
+//
+//     let odd1 = edge_sub & part;
+//     let odd2 = edge_other & !part;
+//
+//     odd1 | odd2
+// }
+//
+// fn print3(input: u8) {
+//     println!("\nin      = {:#010b}", input);
+//
+//     println!("fos     = {:#010b}", find_odd_start(input));
+//     println!("foe     = {:#010b}", find_odd_end(input));
+//     println!("fee     = {:#010b}", find_even_end(input));
+// }
+//
+// #[allow(unused)]
+// fn scale(xxx: u8) -> u8 {
+//     let mut scale = xxx;
+//     scale ^= scale << 1;
+//     scale ^= scale << 2;
+//     scale ^= scale << 4;
+//     println!("^^^   = {:#010b}", scale);
+//     scale
+// }
+//
+// #[allow(unused)]
+// fn calculate_indent(mask: u8) -> [u8; 8] {
+//     let mut result = [0, 1, 2, 3, 4, 5, 6, 7];
+//     let mut start_pos = None;
+//     for (pos, item) in result.iter_mut().enumerate() {
+//         if mask & (1 << pos) != 0 && start_pos.is_some() {
+//             start_pos = None;
+//         }
+//         let old_val = *item;
+//         *item = start_pos.unwrap_or(old_val);
+//         if mask & (1 << pos) == 0 && start_pos.is_none() {
+//             start_pos = Some(*item);
+//         }
+//     }
+//     result
+// }
