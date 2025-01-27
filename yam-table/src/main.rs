@@ -15,11 +15,14 @@
 // }
 
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 enum Test {
     Value(i32),
     Nothing,
     Float(f64),
 }
+
+#[allow(dead_code)]
 fn print2(input: u8) {
     println!("\ninput = {:#010b}", input);
 
@@ -57,6 +60,7 @@ fn main() {
     // print3(0b110);
 }
 
+#[allow(dead_code)]
 fn find_even_end(bits: u8) -> u8 {
     let start_edge = bits & !(bits << 1);
     let end_edge = bits & !(bits >> 1);
@@ -123,7 +127,7 @@ fn find_odd_start(bits: u8) -> u8 {
     let odd1 = edge_sub & part;
     let odd2 = edge_other & !part;
 
-    (odd1 | odd2)
+    odd1 | odd2
 }
 
 fn print3(input: u8) {
@@ -134,6 +138,7 @@ fn print3(input: u8) {
     println!("fee     = {:#010b}", find_even_end(input));
 }
 
+#[allow(unused)]
 fn scale(xxx: u8) -> u8 {
     let mut scale = xxx;
     scale ^= scale << 1;
@@ -143,6 +148,7 @@ fn scale(xxx: u8) -> u8 {
     scale
 }
 
+#[allow(unused)]
 fn calculate_indent(mask: u8) -> [u8; 8] {
     let mut result = [0, 1, 2, 3, 4, 5, 6, 7];
     let mut start_pos = None;
