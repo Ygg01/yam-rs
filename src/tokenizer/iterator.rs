@@ -82,7 +82,7 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum ScalarType {
     Plain,
     Folded,
@@ -91,14 +91,14 @@ pub enum ScalarType {
     DoubleQuote,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum DirectiveType {
     Yaml,
     Tag,
     Reserved,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Event<'a> {
     DocStart {
         explicit: bool,

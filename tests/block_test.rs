@@ -47,6 +47,7 @@ pub fn block_plain_err() {
 const BLOCK_NESTED_SEQ_INPUT: &'static str = r#"
   - - a
     - b
+  - c
 "#;
 
 const BLOCK_NESTED_SEQ_EXPECTED: &'static str = r#"
@@ -56,6 +57,7 @@ const BLOCK_NESTED_SEQ_EXPECTED: &'static str = r#"
     =VAL :a
     =VAL :b
    -SEQ
+   =VAL :c
   -SEQ
  -DOC"#;
 
