@@ -136,12 +136,17 @@ fn flow_map() {
     assert_eq_event(MAP_X_Y3_INPUT, MAP_X_Y_EVENTS);
 }
 
-const FLOW_QUOTED_INPUT: &str = r#"
+const FLOW_QUOTED1_INPUT: &str = r#"
 {"ab"
 : "xy"}
 "#;
 
-const FLOW_QUOTED_EVENTS: &str = r#"
+const FLOW_QUOTED2_INPUT: &str = r#"
+{"ab"
+:xy}
+"#;
+
+const FLOW_QUOTED1_EVENTS: &str = r#"
  +DOC
   +MAP {}
    =VAL "ab
@@ -149,9 +154,18 @@ const FLOW_QUOTED_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const FLOW_QUOTED2_EVENTS: &str = r#"
+ +DOC
+  +MAP {}
+   =VAL "ab
+   =VAL :xy
+  -MAP
+ -DOC"#;
+
 #[test]
 fn flow_map_quoted() {
-    assert_eq_event(FLOW_QUOTED_INPUT, FLOW_QUOTED_EVENTS);
+    assert_eq_event(FLOW_QUOTED1_INPUT, FLOW_QUOTED1_EVENTS);
+    assert_eq_event(FLOW_QUOTED2_INPUT, FLOW_QUOTED2_EVENTS);
 }
 
 const EMPTY_MAP_INPUT: &str = r#"
