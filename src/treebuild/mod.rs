@@ -4,7 +4,6 @@ use std::fmt::Display;
 use crate::tokenizer::ErrorType;
 use crate::treebuild::YamlToken::Scalar;
 
-
 pub enum YamlToken<'a, TAG = ()> {
     // strings, booleans, numbers, nulls, all treated the same
     Scalar(Cow<'a, [u8]>, TAG),

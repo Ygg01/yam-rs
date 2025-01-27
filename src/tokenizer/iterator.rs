@@ -302,12 +302,10 @@ where
                             (self.state.pop_token(), self.state.pop_token())
                         {
                             let slice = Cow::Borrowed(self.buffer.slice(start, end));
-                            Some(
-                                Directive {
-                                    directive_type,
-                                    value: slice,
-                                },
-                        )
+                            Some(Directive {
+                                directive_type,
+                                value: slice,
+                            })
                         } else {
                             panic!("Error in processing YAML file");
                         };
@@ -351,22 +349,18 @@ where
                             ScalarType::DoubleQuote => escape_double_quotes(cow),
                             ScalarType::SingleQuote => escape_single_quotes(cow),
                         };
-                        return Some(
-                            Scalar {
-                                scalar_type,
-                                value: cow,
-                                tag,
-                                anchor,
-                            }
-                        );
+                        return Some(Scalar {
+                            scalar_type,
+                            value: cow,
+                            tag,
+                            anchor,
+                        });
                     }
                     AliasToken => {
                         if let (Some(start), Some(end)) =
                             (self.state.pop_token(), self.state.pop_token())
                         {
-                            return Some(
-                                Alias(Cow::Borrowed(self.buffer.slice(start, end))),
-                            );
+                            return Some(Alias(Cow::Borrowed(self.buffer.slice(start, end))));
                         }
                     }
                     AnchorToken => {

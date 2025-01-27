@@ -68,22 +68,6 @@ impl<'a> StrReader<'a> {
         }
     }
 
-    fn skip_detect_space_tab(&mut self, has_tab: &mut bool) {
-        let amount = match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
-            if !*has_tab && *chr == b'\t' {
-                *has_tab = true;
-            }
-            if *chr == b' ' || *chr == b'\t' {
-                Continue(pos + 1)
-            } else {
-                Break(pos)
-            }
-        }) {
-            Continue(x) | Break(x) => x,
-        };
-        self.consume_bytes(amount);
-    }
-
     pub(crate) fn get_line_offset(&self) -> (usize, usize, usize) {
         let slice = self.slice;
         let start = self.pos;
@@ -251,7 +235,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         (start, end_of_str, None)
     }
 
-
     fn get_double_quote(&self, _buf: &mut ()) -> Option<usize> {
         let (line_start, line_end) = self.get_quoteline_offset(b'"');
         memchr2(b'\\', b'"', &self.slice[line_start..line_end])
@@ -264,7 +247,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             .rposition(|chr| *chr != b' ' && *chr != b'\t')
             .map(|find| (start_str + find + 1, find + 1))
     }
-    fn get_single_quote(&self, _buf: &mut ()) -> Option<usize>{
+    fn get_single_quote(&self, _buf: &mut ()) -> Option<usize> {
         let (line_start, line_end) = self.get_quoteline_offset(b'\'');
         memchr(b'\'', &self.slice[line_start..line_end])
     }
@@ -276,32 +259,20 @@ impl<'r> Reader<()> for StrReader<'r> {
             .map(|find| (start_str + find + 1, find + 1))
     }
 
-    fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool) {
-        let mut num_breaks = 0;
-        let mut found_eol = true;
-        let mut has_tab = false;
-        while !self.eof() && self.peek_byte().map_or(false, is_white_tab_or_break) {
-            self.skip_detect_space_tab(&mut has_tab);
-
-            if allow_comments && self.peek_byte_is(b'#') {
-                self.read_line();
-                found_eol = true;
-                num_breaks += 1;
+    fn skip_detect_space_tab(&mut self, has_tab: &mut bool) {
+        let amount = match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+            if !*has_tab && *chr == b'\t' {
+                *has_tab = true;
             }
-
-            if self.read_break().is_some() {
-                num_breaks += 1;
-                found_eol = true;
-            }
-
-            if !found_eol {
-                break;
+            if *chr == b' ' || *chr == b'\t' {
+                Continue(pos + 1)
             } else {
-                self.skip_detect_space_tab(&mut has_tab);
-                found_eol = false;
+                Break(pos)
             }
-        }
-        (num_breaks, has_tab)
+        }) {
+            Continue(x) | Break(x) => x,
+        };
+        self.consume_bytes(amount);
     }
 
     fn consume_anchor_alias(&mut self) -> (usize, usize) {
@@ -445,19 +416,8 @@ impl<'r> Reader<()> for StrReader<'r> {
 }
 
 #[test]
-pub fn test_plain_scalar() {
-    let mut reader = StrReader::from("ab  \n xyz ");
-    let mut had_comment = true;
-    let (start, end, _) = reader.read_plain_one_line(None, &mut had_comment, false);
-    assert_eq!("ab".as_bytes(), &reader.slice[start..end]);
-    reader.skip_separation_spaces(false);
-    let (start, end, _) = reader.read_plain_one_line(None, &mut had_comment, false);
-    assert_eq!("xyz".as_bytes(), &reader.slice[start..end]);
-}
-
-#[test]
 pub fn test_offset() {
-    use crate::tokenizer::{Slicer};
+    use crate::tokenizer::Slicer;
 
     let input = "\n  rst\n".as_bytes();
     let mut reader = StrReader::from(input);

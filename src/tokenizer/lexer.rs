@@ -255,19 +255,22 @@ macro_rules! impl_quote {
                 tokens.insert(0, ErrorToken as usize);
             };
             if !matches!(self.curr_state(), DocBlock) && reader.col() <= self.last_block_indent {
-                self.push_error(ErrorType::InvalidQuoteIndent { actual: reader.col(), expected: self.last_block_indent});
+                self.push_error(ErrorType::InvalidQuoteIndent {
+                    actual: reader.col(),
+                    expected: self.last_block_indent,
+                });
             }
 
             if let Some((match_pos, len)) = reader.$trim_fn(&mut self.buf, *start_str) {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
                 reader.consume_bytes(len);
             } else {
-                update_newlines(reader, newspaces, start_str);
+                self.update_newlines(reader, newspaces, start_str);
             }
 
             match reader.peek_byte() {
-                Some(b'\n') | Some(b'\r')=> {
-                    update_newlines(reader, newspaces, start_str);
+                Some(b'\n') | Some(b'\r') => {
+                    self.update_newlines(reader, newspaces, start_str);
                     QuoteState::Start
                 }
                 Some($lit) => {
@@ -358,7 +361,7 @@ impl<B> Lexer<B> {
             }
             b"..." => {
                 reader.consume_bytes(3);
-                reader.skip_separation_spaces(true);
+                self.skip_separation_spaces(reader, true);
                 self.set_curr_state(InDocEnd, 0);
             }
             [b'#', ..] => {
@@ -1000,7 +1003,7 @@ impl<B> Lexer<B> {
             [b'\\', b'\r' | b'\n', ..] => {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
                 reader.consume_bytes(1);
-                update_newlines(reader, &mut None, start_str);
+                self.update_newlines(reader, &mut None, start_str);
             }
             [b'\\', b'"', ..] => {
                 emit_token_mut(start_str, match_pos, newspaces, tokens);
@@ -1032,6 +1035,17 @@ impl<B> Lexer<B> {
             _ => {}
         }
         QuoteState::Start
+    }
+
+    #[inline]
+    fn update_newlines<R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        newspaces: &mut Option<usize>,
+        start_str: &mut usize,
+    ) {
+        *newspaces = Some(self.skip_separation_spaces(reader, true).0.saturating_sub(1));
+        *start_str = reader.pos();
     }
 
     fn process_block_scalar(
@@ -1077,7 +1091,9 @@ impl<B> Lexer<B> {
             {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
-            if self.last_map_line == Some(scalar_line) && matches!(curr_state, BlockMap(_, BeforeKey)) {
+            if self.last_map_line == Some(scalar_line)
+                && matches!(curr_state, BlockMap(_, BeforeKey))
+            {
                 self.push_error(ErrorType::UnexpectedScalarAtMapEnd);
             } else {
                 self.next_map_state();
@@ -1106,7 +1122,34 @@ impl<B> Lexer<B> {
         reader: &mut R,
         allow_comments: bool,
     ) -> (usize, bool) {
-        let (lines, has_tab) = reader.skip_separation_spaces(allow_comments);
+        let (lines, has_tab) = {
+            let mut num_breaks = 0;
+            let mut found_eol = true;
+            let mut has_tab = false;
+
+            while !reader.eof() && reader.peek_byte().map_or(false, is_white_tab_or_break) {
+                reader.skip_detect_space_tab(&mut has_tab);
+
+                if allow_comments && reader.peek_byte_is(b'#') {
+                    reader.read_line();
+                    found_eol = true;
+                    num_breaks += 1;
+                }
+
+                if reader.read_break().is_some() {
+                    num_breaks += 1;
+                    found_eol = true;
+                }
+
+                if !found_eol {
+                    break;
+                } else {
+                    reader.skip_detect_space_tab(&mut has_tab);
+                    found_eol = false;
+                }
+            }
+            (num_breaks, has_tab)
+        };
         if lines > 0 {
             self.reset_col();
         }
@@ -1942,15 +1985,7 @@ fn emit_token_mut(
     }
 }
 
-#[inline]
-fn update_newlines<B, R: Reader<B>>(
-    reader: &mut R,
-    newspaces: &mut Option<usize>,
-    start_str: &mut usize,
-) {
-    *newspaces = Some(reader.skip_separation_spaces(true).0.saturating_sub(1) as usize);
-    *start_str = reader.pos();
-}
+
 
 const DOC_END: usize = usize::MAX;
 const DOC_END_EXP: usize = usize::MAX - 1;

@@ -50,7 +50,7 @@ pub enum ErrorType {
     InvalidTagHandleCharacter { found: char },
     SequenceOnSameLineAsKey,
     UnexpectedScalarAtMapEnd,
-    InvalidQuoteIndent { actual: u32, expected: u32},
+    InvalidQuoteIndent { actual: u32, expected: u32 },
 }
 
 pub trait Slicer<'a> {
