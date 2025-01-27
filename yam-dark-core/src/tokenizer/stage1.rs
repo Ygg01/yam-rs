@@ -379,6 +379,12 @@ pub unsafe trait Stage1Scanner {
 
     unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64);
 
+    unsafe fn flatten_bits_yaml(
+        base: &mut YamlParserState,
+        yaml_chunk_state: &YamlChunkState,
+        bits: u64,
+    );
+
     /// Computes a quote mask based on the given quote bit mask.
     ///
     /// The `compute_quote_mask` function takes an input `quote_bits` of type `u64` and calculates
