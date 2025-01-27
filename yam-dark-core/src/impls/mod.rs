@@ -1,5 +1,32 @@
+pub(crate) use avx_stage1::AvxScanner;
+pub(crate) use native_stage1::NativeScanner;
+
 mod avx_stage1;
 mod native_stage1;
 
-pub(crate) use avx_stage1::AvxScanner;
-pub(crate) use native_stage1::NativeScanner;
+pub fn u8x16_bit(a: [u8; 16]) -> u16 {
+    (a[0] & 0b1000_0000 != 0) as u16
+        | (((a[1] & 0b1000_0000 != 0) as u16) << 1)
+        | (((a[2] & 0b1000_0000 != 0) as u16) << 2)
+        | (((a[3] & 0b1000_0000 != 0) as u16) << 3)
+        | (((a[4] & 0b1000_0000 != 0) as u16) << 4)
+        | (((a[5] & 0b1000_0000 != 0) as u16) << 5)
+        | (((a[6] & 0b1000_0000 != 0) as u16) << 6)
+        | (((a[7] & 0b1000_0000 != 0) as u16) << 7)
+        | (((a[8] & 0b1000_0000 != 0) as u16) << 8)
+        | (((a[9] & 0b1000_0000 != 0) as u16) << 9)
+        | (((a[10] & 0b1000_0000 != 0) as u16) << 10)
+        | (((a[11] & 0b1000_0000 != 0) as u16) << 11)
+        | (((a[12] & 0b1000_0000 != 0) as u16) << 12)
+        | (((a[13] & 0b1000_0000 != 0) as u16) << 13)
+        | (((a[14] & 0b1000_0000 != 0) as u16) << 14)
+        | (((a[15] & 0b1000_0000 != 0) as u16) << 15)
+}
+
+pub fn u8x16_bit_iter(a: [u8; 16], c: u8) -> u16 {
+    a.iter().fold(0u16, move |b, x| {
+        let m = b << 1;
+        let z = if *x == c { 1 } else { 0 };
+        m | z
+    })
+}

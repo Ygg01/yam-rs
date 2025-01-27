@@ -1,8 +1,10 @@
+use core::arch::x86_64::__m256i;
+
+use simdutf8::basic::imp::ChunkedUtf8Validator;
+
 use crate::tokenizer::stage1::{Stage1Scanner, YamlBlockState};
 use crate::tokenizer::stage2::{Buffer, YamlParserState};
 use crate::ParseResult;
-use core::arch::x86_64::__m256i;
-use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) struct AvxScanner {}
 
@@ -18,6 +20,9 @@ impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
+    fn cmp_ascii_to_input(&self, m: u8) -> u64 {
+        todo!()
+    }
 
     fn next<'i, T: Buffer>(
         _chunk: &[u8; 64],

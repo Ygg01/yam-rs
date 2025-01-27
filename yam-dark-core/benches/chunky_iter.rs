@@ -48,7 +48,7 @@ const BYTE: [u8; 1024] = [
 ];
 
 fn chunky_iter(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-yaml");
+    let mut group = c.benchmark_group("bench-iter");
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(BYTE.len() as u64));
     group.bench_function("bench_chunky", |b| {
@@ -58,7 +58,7 @@ fn chunky_iter(c: &mut Criterion) {
 }
 
 fn bytes_iter(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-yaml");
+    let mut group = c.benchmark_group("bench-iter");
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(BYTE.len() as u64));
     group.bench_function("bytes_iter", |b| {

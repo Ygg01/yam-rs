@@ -26,3 +26,7 @@ runtime-detection = []
 [[bench]]
 name = "chunky_iter"
 harness = false
+
+[[bench]]
+name = "eq_bench"
+harness = false
