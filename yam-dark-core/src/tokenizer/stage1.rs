@@ -350,17 +350,17 @@ pub trait Stage1Scanner {
     /// # Example
     ///
     /// ```rust
-    /// use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
-    /// let mut block_state = YamlChunkState::default();
-    /// let mut prev_iter_state = YamlParserState::default();
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    ///  let mut block_state = YamlChunkState::default();
+    ///  let mut prev_iter_state = YamlParserState::default();
     ///
     ///  let chunk = b" ' ''               '                                           ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  let result = scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
-    ///  let expected = 0b000000000000000000000000000000000000001000000000000000000010;
+    ///  scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    ///  let expected = 0b000000000000000000000000000000000000001000000000000000001010;
     ///  assert_eq!(block_state.single_quote.quote, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
     /// ```
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    // #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
         &self,
         chunk_state: &mut YamlChunkState,
@@ -392,12 +392,12 @@ pub trait Stage1Scanner {
     ///
     /// # Example
     /// ```rust
-    /// use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
-    /// let mut block_state = YamlChunkState::default();
-    /// let mut prev_iter_state = YamlParserState::default();
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    ///  let mut block_state = YamlChunkState::default();
+    ///  let mut prev_iter_state = YamlParserState::default();
     ///  let chunk = b" -                                                              ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  let result = scanner.scan_whitespace_and_structurals(&mut block_state);
+    ///  scanner.scan_whitespace_and_structurals(&mut block_state);
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     ///  assert_eq!(block_state.characters.structurals, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote);
     /// ```
@@ -452,6 +452,22 @@ pub trait Stage1Scanner {
         };
         chunk_state.double_quote.quote_bits = quote_mask;
     }
+}
+
+#[test]
+fn test_single_quotes() {
+    let mut block_state = YamlChunkState::default();
+    let mut prev_iter_state = YamlParserState::default();
+
+    let chunk = b" ' ''  '                                                        ";
+    let scanner = NativeScanner::from_chunk(chunk);
+    scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    let expected = 0b000000000000000000000000000000000000000000000000000010000010;
+    assert_eq!(
+        block_state.characters.structurals, expected,
+        "Expected:    {:#066b} \nGot instead: {:#066b} ",
+        expected, block_state.single_quote.quote
+    );
 }
 
 #[test]
