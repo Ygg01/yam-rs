@@ -289,7 +289,7 @@ where
                             curr_indent,
                         ));
                     }
-                    MappingStartImplict => {
+                    MappingStartImplicit => {
                         self.indent += 1;
                         return Some((
                             MapStart {
