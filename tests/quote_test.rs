@@ -37,26 +37,26 @@ fn dquote_escape() {
     assert_eq_event(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS);
 }
 
-const SQUOTE_STR1_INPUT: &str = r#"
+const SQUOTE_STR1_INPUT: &str = r"
   'single quote'
-    "#;
+    ";
 
-const SQUOTE_STR2_INPUT: &str = r#"
+const SQUOTE_STR2_INPUT: &str = r"
   'single
-  quote'"#;
+  quote'";
 
-const SQUOTE_STR_EVENTS: &str = r#"
+const SQUOTE_STR_EVENTS: &str = r"
 +DOC
 =VAL 'single quote
--DOC"#;
+-DOC";
 
-const SQUOTE_ESCAPE_INPUT: &str = r#"'for single quote, use '' two of them'"#;
-const SQUOTE_ESCAPE2_INPUT: &str = r#"'for single quote, use
-'' two of them'"#;
-const SQUOTE_ESCAPE_EVENTS: &str = r#"
+const SQUOTE_ESCAPE_INPUT: &str = r"'for single quote, use '' two of them'";
+const SQUOTE_ESCAPE2_INPUT: &str = r"'for single quote, use
+'' two of them'";
+const SQUOTE_ESCAPE_EVENTS: &str = r"
 +DOC
 =VAL 'for single quote, use ' two of them
--DOC"#;
+-DOC";
 
 #[test]
 fn quote_single() {
@@ -97,12 +97,12 @@ fn dquote_solo() {
     assert_eq_event(DQUOTE_MULTI_INPUT, DQUOTE_MULTI_EVENTS);
 }
 
-const DQUOTE_MULTI1_INPUT: &str = r##"
+const DQUOTE_MULTI1_INPUT: &str = r#"
   gen: "\
       foo\
       bar   
       baz "
-"##;
+"#;
 
 const DQUOTE_MULTI1_EVENTS: &str = r#"
 +DOC
@@ -130,10 +130,10 @@ fn dquote_multiline() {
     assert_eq_event(DQUOTE_MULTI2_INPUT, DQUOTE_MULTI2_EVENTS);
 }
 
-const DQUOTE_END_INPUT: &str = r##"
+const DQUOTE_END_INPUT: &str = r#"
 "
 ---
-""##;
+""#;
 
 const DQUOTE_END_EVENTS: &str = r#"
 +DOC
@@ -141,9 +141,9 @@ ERR
 =VAL " ---
 -DOC"#;
 
-const DQUOTE_ERR2_INPUT: &str = r##"
+const DQUOTE_ERR2_INPUT: &str = r#"
 "\c"
-"##;
+"#;
 
 const DQUOTE_ERR2_EVENTS: &str = r#"
 +DOC
@@ -151,11 +151,11 @@ ERR
 =VAL "\c
 -DOC"#;
 
-const DQUOTE_MISS_EOF_INPUT: &str = r##"
+const DQUOTE_MISS_EOF_INPUT: &str = r#"
 ---
 key: "missing
 
-"##;
+"#;
 
 const DQUOTE_MISS_EOF_EVENTS: &str = r#"
 +DOC ---
@@ -166,13 +166,13 @@ ERR
 -MAP
 -DOC"#;
 
-const DQUOTE_INDENT_ERR_INPUT: &str = r##"
+const DQUOTE_INDENT_ERR_INPUT: &str = r#"
 ---
 quoted: "a
 b
 c"
 
-"##;
+"#;
 
 const DQUOTE_INDENT_ERR_EVENTS: &str = r#"
 +DOC ---
@@ -191,24 +191,24 @@ fn dquote_err() {
     assert_eq_event(DQUOTE_INDENT_ERR_INPUT, DQUOTE_INDENT_ERR_EVENTS);
 }
 
-const DQUOTE_LEADING_TAB1_INPUT: &str = r##" "1 test
-    \	tab" "##;
+const DQUOTE_LEADING_TAB1_INPUT: &str = r#" "1 test
+    \	tab" "#;
 
-const DQUOTE_LEADING_TAB2_INPUT: &str = r##"
+const DQUOTE_LEADING_TAB2_INPUT: &str = r#"
     "1 test
-      \ttab" "##;
+      \ttab" "#;
 
-const DQUOTE_LEADING_TAB3_INPUT: &str = r##"
+const DQUOTE_LEADING_TAB3_INPUT: &str = r#"
 "1 test\t
-    tab" "##;
+    tab" "#;
 
-const DQUOTE_LEADING_TAB4_INPUT: &str = r##"
+const DQUOTE_LEADING_TAB4_INPUT: &str = r#"
     "1 test\t   
-        tab" "##;
+        tab" "#;
 
-const DQUOTE_LEADING_TAB5_INPUT: &str = r##"
+const DQUOTE_LEADING_TAB5_INPUT: &str = r#"
     "1 test\	
-        tab"   "##;
+        tab"   "#;
 
 const DQUOTE_LEADING_TAB_EVENTS: &str = r#"
 +DOC

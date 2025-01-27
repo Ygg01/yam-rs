@@ -2,31 +2,31 @@ mod common;
 
 use crate::common::assert_eq_event;
 
-const NULL_YAML_INPUT: &str = r#"
+const NULL_YAML_INPUT: &str = r"
 null
-"#;
+";
 
 const NULL_YAML2_INPUT: &str = "\r\nnull\r\n";
-const NULL_YAML_EVENTS: &str = r#"
+const NULL_YAML_EVENTS: &str = r"
 +DOC
 =VAL :null
--DOC"#;
+-DOC";
 
-const MULTI_WORD_INPUT: &str = r#"
-  null test xy"#;
-const MULTI_WORD_EVENTS: &str = r#"
+const MULTI_WORD_INPUT: &str = r"
+  null test xy";
+const MULTI_WORD_EVENTS: &str = r"
 +DOC
 =VAL :null test xy
--DOC"#;
+-DOC";
 
-const MULTILINE_INPUT: &str = r#"
+const MULTILINE_INPUT: &str = r"
 test
 xt
-"#;
-const MULTILINE_EVENTS: &str = r#"
+";
+const MULTILINE_EVENTS: &str = r"
 +DOC
 =VAL :test xt
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_scalars() {
@@ -36,19 +36,19 @@ fn flow_scalars() {
     assert_eq_event(MULTILINE_INPUT, MULTILINE_EVENTS);
 }
 
-const SEQ_FLOW_INPUT: &str = r#"
+const SEQ_FLOW_INPUT: &str = r"
 [x, y]
-"#;
-const SEQ_FLOW2_INPUT: &str = r#"
+";
+const SEQ_FLOW2_INPUT: &str = r"
 [x ,y]
-"#;
-const SEQ_FLOW_EVENTS: &str = r#"
+";
+const SEQ_FLOW_EVENTS: &str = r"
 +DOC
 +SEQ []
 =VAL :x
 =VAL :y
 -SEQ
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_flow_seq() {
@@ -56,14 +56,14 @@ fn flow_flow_seq() {
     assert_eq_event(SEQ_FLOW2_INPUT, SEQ_FLOW_EVENTS);
 }
 
-const NEST_COL1_INPUT: &str = r#"
+const NEST_COL1_INPUT: &str = r"
 [:]
-"#;
-const NEST_COL2_INPUT: &str = r#"
+";
+const NEST_COL2_INPUT: &str = r"
 [{:}]
-"#;
+";
 
-const NESTED_COL_EVENTS: &str = r#"
+const NESTED_COL_EVENTS: &str = r"
 +DOC
 +SEQ []
 +MAP {}
@@ -71,7 +71,7 @@ const NESTED_COL_EVENTS: &str = r#"
 =VAL :
 -MAP
 -SEQ
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_nested_col() {
@@ -79,40 +79,40 @@ fn flow_nested_col() {
     assert_eq_event(NEST_COL2_INPUT, NESTED_COL_EVENTS);
 }
 
-const MAP_XY_INPUT: &str = r#"
+const MAP_XY_INPUT: &str = r"
 {x:y}
-"#;
-const MAP_XY_EVENTS: &str = r#"
+";
+const MAP_XY_EVENTS: &str = r"
 +DOC
 +MAP {}
 =VAL :x:y
 =VAL :
 -MAP
--DOC"#;
+-DOC";
 
-const MAP_X_Y_INPUT: &str = r#"
+const MAP_X_Y_INPUT: &str = r"
 {x: y}
-"#;
-const MAP_X_Y2_INPUT: &str = r#"
+";
+const MAP_X_Y2_INPUT: &str = r"
 {? x: y}
-"#;
-const MAP_X_Y3_INPUT: &str = r#"
+";
+const MAP_X_Y3_INPUT: &str = r"
 {x: #comment
  y}
-"#;
-const MAP_X_Y_EVENTS: &str = r#"
+";
+const MAP_X_Y_EVENTS: &str = r"
 +DOC
 +MAP {}
 =VAL :x
 =VAL :y
 -MAP
--DOC"#;
+-DOC";
 
-const COMPLEX_MAP_INPUT: &str = r#"
+const COMPLEX_MAP_INPUT: &str = r"
 {[x,y]:a}
-"#;
+";
 
-const COMPLEX_MAP_EVENTS: &str = r#"
+const COMPLEX_MAP_EVENTS: &str = r"
 +DOC
 +MAP {}
 +SEQ []
@@ -121,7 +121,7 @@ const COMPLEX_MAP_EVENTS: &str = r#"
 -SEQ
 =VAL :a
 -MAP
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_complex_map() {
@@ -168,16 +168,16 @@ fn flow_map_quoted() {
     assert_eq_event(FLOW_QUOTED2_INPUT, FLOW_QUOTED2_EVENTS);
 }
 
-const EMPTY_MAP_INPUT: &str = r#"
+const EMPTY_MAP_INPUT: &str = r"
 {:}
-"#;
-const EMPTY_MAP_EVENTS: &str = r#"
+";
+const EMPTY_MAP_EVENTS: &str = r"
 +DOC
 +MAP {}
 =VAL :
 =VAL :
 -MAP
--DOC"#;
+-DOC";
 
 const EMPTY_NODES_INPUT: &str = r#"
 {
@@ -205,44 +205,44 @@ fn flow_empty_nodes() {
     assert_eq_event(EMPTY_NODES_INPUT, EMPTY_NODES_EVENTS);
 }
 
-const ERR_PLAIN_SCALAR_INPUT: &str = r#"
+const ERR_PLAIN_SCALAR_INPUT: &str = r"
   a
   b
- c"#;
+ c";
 
-const ERR_PLAIN_SCALAR_EVENTS: &str = r#"
+const ERR_PLAIN_SCALAR_EVENTS: &str = r"
 +DOC
 =VAL :a b
 ERR
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_err_plain_scalar() {
     assert_eq_event(ERR_PLAIN_SCALAR_INPUT, ERR_PLAIN_SCALAR_EVENTS);
 }
 
-const DOC_END_ERR_INPUT: &str = r#"
+const DOC_END_ERR_INPUT: &str = r"
 ---
-[a, b] ]"#;
+[a, b] ]";
 
-const DOC_END_ERR_EVENTS: &str = r#"
+const DOC_END_ERR_EVENTS: &str = r"
 +DOC ---
 +SEQ []
 =VAL :a
 =VAL :b
 -SEQ
 -DOC
-ERR"#;
+ERR";
 
 #[test]
 fn doc_end_err() {
     assert_eq_event(DOC_END_ERR_INPUT, DOC_END_ERR_EVENTS);
 }
 
-const SEQ_KEY1_INPUT: &str = r#"
-[a, b]: 3 "#;
+const SEQ_KEY1_INPUT: &str = r"
+[a, b]: 3 ";
 
-const SEQ_KEY1_EVENTS: &str = r#"
+const SEQ_KEY1_EVENTS: &str = r"
 +DOC
 +MAP
 +SEQ []
@@ -251,12 +251,12 @@ const SEQ_KEY1_EVENTS: &str = r#"
 -SEQ
 =VAL :3
 -MAP
--DOC"#;
+-DOC";
 
-const SEQ_KEY2_INPUT: &str = r#"
-[a, [b,c]]: 3 "#;
+const SEQ_KEY2_INPUT: &str = r"
+[a, [b,c]]: 3 ";
 
-const SEQ_KEY2_EVENTS: &str = r#"
+const SEQ_KEY2_EVENTS: &str = r"
 +DOC
 +MAP
 +SEQ []
@@ -268,12 +268,12 @@ const SEQ_KEY2_EVENTS: &str = r#"
 -SEQ
 =VAL :3
 -MAP
--DOC"#;
+-DOC";
 
-const SEQ_KEY3_INPUT: &str = r#"
- [[a]: 3]"#;
+const SEQ_KEY3_INPUT: &str = r"
+ [[a]: 3]";
 
-const SEQ_KEY3_EVENTS: &str = r#"
+const SEQ_KEY3_EVENTS: &str = r"
 +DOC
 +SEQ []
 +MAP {}
@@ -283,12 +283,12 @@ const SEQ_KEY3_EVENTS: &str = r#"
 =VAL :3
 -MAP
 -SEQ
--DOC"#;
+-DOC";
 
-const SEQ_KEY4_INPUT: &str = r#"
- [ [a]: d, e]: 3"#;
+const SEQ_KEY4_INPUT: &str = r"
+ [ [a]: d, e]: 3";
 
-const SEQ_KEY4_EVENTS: &str = r#"
+const SEQ_KEY4_EVENTS: &str = r"
 +DOC
 +MAP
 +SEQ []
@@ -302,7 +302,7 @@ const SEQ_KEY4_EVENTS: &str = r#"
 -SEQ
 =VAL :3
 -MAP
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_seq_as_key() {
@@ -312,57 +312,57 @@ fn flow_seq_as_key() {
     assert_eq_event(SEQ_KEY4_INPUT, SEQ_KEY4_EVENTS);
 }
 
-const SEQ_ERR_INPUT: &str = r#"
- [-]"#;
+const SEQ_ERR_INPUT: &str = r"
+ [-]";
 
-const SEQ_ERR_EVENTS: &str = r#"
+const SEQ_ERR_EVENTS: &str = r"
 +DOC
 +SEQ []
 ERR
 -SEQ
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_seq_err() {
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
 }
 
-const SEQ_EDGE_INPUT: &str = r#"
- [:x]"#;
+const SEQ_EDGE_INPUT: &str = r"
+ [:x]";
 
-const SEQ_EDGE_EVENTS: &str = r#"
+const SEQ_EDGE_EVENTS: &str = r"
 +DOC
 +SEQ []
 =VAL ::x
 -SEQ
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_seq_edge() {
     assert_eq_event(SEQ_EDGE_INPUT, SEQ_EDGE_EVENTS);
 }
 
-const MAP_EDGE1_INPUT: &str = r#"
- {x: :x}"#;
+const MAP_EDGE1_INPUT: &str = r"
+ {x: :x}";
 
-const MAP_EDGE1_EVENTS: &str = r#"
+const MAP_EDGE1_EVENTS: &str = r"
 +DOC
 +MAP {}
 =VAL :x
 =VAL ::x
 -MAP
--DOC"#;
+-DOC";
 
-const MAP_EDGE2_INPUT: &str = r#"
- {:x}"#;
+const MAP_EDGE2_INPUT: &str = r"
+ {:x}";
 
-const MAP_EDGE2_EVENTS: &str = r#"
+const MAP_EDGE2_EVENTS: &str = r"
 +DOC
 +MAP {}
 =VAL ::x
 =VAL :
 -MAP
--DOC"#;
+-DOC";
 
 #[test]
 fn flow_map_edge() {
@@ -370,16 +370,16 @@ fn flow_map_edge() {
     assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);
 }
 
-const CUSTOM_TAG_INPUT: &str = r#"
+const CUSTOM_TAG_INPUT: &str = r"
 %TAG !m! !my-
 --- # Bulb here
 !m!light fluorescent
-..."#;
+...";
 
-const CUSTOM_TAG_EVENTS: &str = r#"
+const CUSTOM_TAG_EVENTS: &str = r"
 +DOC ---
 =VAL <!my-light> :fluorescent
--DOC ..."#;
+-DOC ...";
 
 #[test]
 fn flow_custom_tag() {
