@@ -100,7 +100,7 @@ impl<'a> Iterator for EventIterator<'a> {
                                 });
                                 i += 2;
                             }
-                            (Some(KeyEnd), _) | (Some(Separator), _) => {
+                            (Some(ScalarEnd), _) => {
                                 i += 1;
                                 break;
                             }

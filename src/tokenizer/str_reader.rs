@@ -303,39 +303,6 @@ impl<'r> Reader<()> for StrReader<'r> {
         None
     }
 
-    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
-        self.consume_bytes(1);
-
-        while !self.eof() {
-            let (line_start, line_end, _) = self.get_line_offset();
-            let pos = memchr::memchr(b'\'', &self.slice[line_start..line_end]);
-            match pos {
-                Some(len) => {
-                    // Converts double '' to ' hence why we consume one extra char
-                    let offset = len + 1;
-                    if self.slice.get(self.pos + offset).copied() == Some(b'\'') {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len + 1);
-                        self.consume_bytes(len + 2);
-                        continue;
-                    } else {
-                        tokens.push_back(line_start);
-                        tokens.push_back(line_start + len);
-                        self.consume_bytes(len + 1);
-                        break;
-                    }
-                }
-                None => {
-                    tokens.push_back(line_start);
-                    tokens.push_back(line_end);
-                    tokens.push_back(Space as usize);
-                    self.read_line();
-                    self.skip_space_tab(is_implicit);
-                }
-            }
-        }
-    }
-
     fn read_plain_scalar(
         &mut self,
         start_indent: usize,
@@ -371,7 +338,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 // a) Part of BlockMap
                 // b) An error outside of block map
                 if matches!(curr_state, BlockMap(_) | BlockKeyExp(_) | BlockValExp(_)) {
-                    tokens.push(Separator as usize);
+                    tokens.push(ScalarEnd as usize);
                 } else {
                     self.read_line();
                     tokens.push(Error as usize);
@@ -409,7 +376,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             } else if chr == b':'
                 && matches!(curr_state, BlockValExp(ind) if *ind as usize == curr_indent)
             {
-                tokens.push(Separator as usize);
+                tokens.push(ScalarEnd as usize);
                 tokens.push(start);
                 tokens.push(end);
                 break;
@@ -443,7 +410,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             match (self.peek_byte_unwrap(0), curr_state) {
                 (b'-', BlockSeq(ind)) if self.col == *ind as usize => {
                     self.consume_bytes(1);
-                    tokens.push(Separator as usize);
+                    tokens.push(ScalarEnd as usize);
                     break;
                 }
                 (b'-', BlockSeq(ind)) if self.col < *ind as usize => {
@@ -497,6 +464,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_double_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
         self.consume_bytes(1);
+        tokens.push_back(ScalarDoubleQuote as usize);
 
         while !self.eof() {
             let (line_start, line_end, _) = self.get_line_offset();
@@ -535,6 +503,42 @@ impl<'r> Reader<()> for StrReader<'r> {
                 }
             }
         }
+        tokens.push_back(ScalarEnd as usize);
+    }
+
+    fn read_single_quote(&mut self, is_implicit: bool, tokens: &mut VecDeque<usize>) {
+        self.consume_bytes(1);
+        tokens.push_back(ScalarSingleQuote as usize);
+
+        while !self.eof() {
+            let (line_start, line_end, _) = self.get_line_offset();
+            let pos = memchr::memchr(b'\'', &self.slice[line_start..line_end]);
+            match pos {
+                Some(len) => {
+                    // Converts double '' to ' hence why we consume one extra char
+                    let offset = len + 1;
+                    if self.slice.get(self.pos + offset).copied() == Some(b'\'') {
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len + 1);
+                        self.consume_bytes(len + 2);
+                        continue;
+                    } else {
+                        tokens.push_back(line_start);
+                        tokens.push_back(line_start + len);
+                        self.consume_bytes(len + 1);
+                        break;
+                    }
+                }
+                None => {
+                    tokens.push_back(line_start);
+                    tokens.push_back(line_end);
+                    tokens.push_back(Space as usize);
+                    self.read_line();
+                    self.skip_space_tab(is_implicit);
+                }
+            }
+        }
+        tokens.push_back(ScalarEnd as usize);
     }
 
     fn read_block_scalar(
@@ -595,7 +599,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             {
                 if self.col + curr_indent as usize == *ind as usize {
                     self.consume_bytes((1 + curr_indent) as usize);
-                    trailing.push(Separator as usize);
+                    trailing.push(ScalarEnd as usize);
                     break;
                 }
             }

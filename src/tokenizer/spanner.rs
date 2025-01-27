@@ -161,7 +161,7 @@ impl Spanner {
                     Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, Alias),
                     Some(b':') => {
                         reader.consume_bytes(1);
-                        self.tokens.push_back(KeyEnd as usize);
+                        self.tokens.push_back(ScalarEnd as usize);
                         if let BlockKeyExp(x) = self.curr_state {
                             self.curr_state = BlockMap(x);
                         }
@@ -216,7 +216,7 @@ impl Spanner {
                 }
                 Some(b',') => {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(Separator as usize);
+                    self.tokens.push_back(ScalarEnd as usize);
                 }
                 Some(b'\'') => {
                     reader.read_single_quote(self.curr_state.is_implicit(), &mut self.tokens)
@@ -410,7 +410,7 @@ impl Spanner {
 
         if self.is_key() {
             self.curr_state = FlowMap(indent as u32);
-            self.tokens.push_back(KeyEnd as usize);
+            self.tokens.push_back(ScalarEnd as usize);
         } else {
             self.fetch_plain_scalar(reader, indent, indent);
         }
@@ -447,22 +447,22 @@ const MAP_END: usize = usize::MAX - 2;
 const MAP_START: usize = usize::MAX - 3;
 const SEQ_END: usize = usize::MAX - 4;
 const SEQ_START: usize = usize::MAX - 5;
-const KEY_END: usize = usize::MAX - 6;
-const TAG_START: usize = usize::MAX - 7;
-const SEPARATOR: usize = usize::MAX - 8;
-const ANCHOR: usize = usize::MAX - 9;
-const ALIAS: usize = usize::MAX - 10;
-const SCALAR_PLAIN: usize = usize::MAX - 11;
-const SCALAR_FOLD: usize = usize::MAX - 12;
-const SCALAR_LIT: usize = usize::MAX - 13;
-const SCALAR_QUOTE: usize = usize::MAX - 14;
-const SCALAR_DQUOTE: usize = usize::MAX - 15;
-const DIR_RES: usize = usize::MAX - 16;
-const DIR_TAG: usize = usize::MAX - 17;
-const DIR_YAML: usize = usize::MAX - 18;
-const ERROR: usize = usize::MAX - 19;
-const SPACE: usize = usize::MAX - 20;
-const NEWLINE: usize = usize::MAX - 21;
+const SCALAR_PLAIN: usize = usize::MAX - 6;
+const SCALAR_FOLD: usize = usize::MAX - 7;
+const SCALAR_LIT: usize = usize::MAX - 8;
+const SCALAR_QUOTE: usize = usize::MAX - 9;
+const SCALAR_DQUOTE: usize = usize::MAX - 10;
+const SCALAR_END: usize = usize::MAX - 11;
+const TAG_START: usize = usize::MAX - 12;
+const ANCHOR: usize = usize::MAX - 13;
+const ALIAS: usize = usize::MAX - 14;
+const DIR_RES: usize = usize::MAX - 15;
+const DIR_TAG: usize = usize::MAX - 16;
+const DIR_YAML: usize = usize::MAX - 17;
+const ERROR: usize = usize::MAX - 18;
+const SPACE: usize = usize::MAX - 19;
+const NEWLINE: usize = usize::MAX - 20;
+
 
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -476,17 +476,16 @@ pub enum SpanToken {
     DirectiveReserved = DIR_RES,
     DirectiveYaml = DIR_YAML,
     ScalarPlain = SCALAR_PLAIN,
+    ScalarEnd = SCALAR_END,
     ScalarFold = SCALAR_FOLD,
-    ScalarEnd = SCALAR_LIT,
+    ScalarLit = SCALAR_LIT,
     ScalarSingleQuote = SCALAR_QUOTE,
     ScalarDoubleQuote = SCALAR_DQUOTE,
     /// Element with alternative name e.g. `&foo [x,y]`
     Alias = ALIAS,
     /// Reference to an element with alternative name e.g. `*foo`
     Anchor = ANCHOR,
-    Separator = SEPARATOR,
     TagStart = TAG_START,
-    KeyEnd = KEY_END,
     SequenceStart = SEQ_START,
     SequenceEnd = SEQ_END,
     MappingStart = MAP_START,
@@ -494,6 +493,7 @@ pub enum SpanToken {
     DocumentStart = DOC_START,
     DocumentEnd = DOC_END,
 }
+
 
 impl Display for SpanToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -523,22 +523,18 @@ impl From<usize> for SpanToken {
             MAP_START => MappingStart,
             SEQ_END => SequenceEnd,
             SEQ_START => SequenceStart,
-            KEY_END => KeyEnd,
+            SCALAR_PLAIN => ScalarPlain,
+            SCALAR_END => ScalarEnd,
+            SCALAR_FOLD => ScalarFold,
+            SCALAR_LIT => ScalarLit ,
+            SCALAR_QUOTE => ScalarSingleQuote,
+            SCALAR_DQUOTE => ScalarDoubleQuote,
             TAG_START => TagStart,
-            SEPARATOR => Separator,
             ANCHOR => Anchor,
             ALIAS => Alias,
-            // DIR_FLOAT => DirectiveFailsafeFloat,
-            // DIR_INT => DirectiveFailsafeInt,
-            // DIR_BOOL => DirectiveFailsafeBool,
-            // DIR_NULL => DirectiveFailsafeNull,
-            // DIR_STR => DirectiveFailsafeStr,
-            // DIR_SEQ => DirectiveFailsafeSeq,
-            // DIR_MAP => DirectiveFailsafeMap,
             DIR_RES => DirectiveReserved,
             DIR_TAG => DirectiveTag,
             DIR_YAML => DirectiveYaml,
-            // DIR_YAML_11 => DirectiveYaml1_1,
             SPACE => Space,
             NEWLINE => NewLine,
             ERROR => Error,
