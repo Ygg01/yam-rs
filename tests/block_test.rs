@@ -421,14 +421,14 @@ const EMPTY_MAP_EXPECTED2: &str = r#"
 "#;
 
 const EMPTY_MAP_ELEMS_EVENTS: &str = r#"
-+DOC
- +MAP
-  =VAL :a
-  =VAL :x u
-  =VAL :c
-  =VAL :
- -MAP
--DOC"#;
+ +DOC
+  +MAP
+   =VAL :a
+   =VAL :x u
+   =VAL :c
+   =VAL :
+  -MAP
+ -DOC"#;
 
 #[test]
 pub fn empty_map() {
@@ -436,7 +436,6 @@ pub fn empty_map() {
     assert_eq_event(EMPTY_MAP_INPUT2, EMPTY_MAP_EXPECTED2);
     assert_eq_event(EMPTY_MAP_INPUT2_1, EMPTY_MAP_EXPECTED2);
     assert_eq_event(EMPTY_MAP_ELEMS, EMPTY_MAP_ELEMS_EVENTS);
-
 }
 
 const MULTILINE_COMMENT_BLOCK1: &str = r#"
@@ -543,6 +542,30 @@ pub fn explicit_block_map() {
     assert_eq_event(EXP_BLOCK_MAP, EXP_BLOCK_MAP_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_FOLD, EXP_BLOCK_MAP_FOLD_EVENTS);
     assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EVENTS);
+}
+
+const EXP_MAP_WITH_EMPTY: &str = r#"
+? a
+? b 
+? c
+"#;
+
+
+const EXP_MAP_WITH_EMPTY_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :a
+   =VAL :
+   =VAL :b
+   =VAL :
+   =VAL :c
+   =VAL :
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn explicit_block_empty_node_map() {
+    assert_eq_event(EXP_MAP_WITH_EMPTY, EXP_MAP_WITH_EMPTY_EVENTS);
 }
 
 const EXPLICIT_BLOCK_MAP_ERR1: &str = r#"
