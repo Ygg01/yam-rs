@@ -7,7 +7,7 @@ use YamlEvent::Error;
 use crate::tokenizer::event::YamlEvent::{
     Directive, DocEnd, DocStart, ScalarValue, SeqEnd, SeqStart, StreamEnd, StreamStart,
 };
-use crate::tokenizer::ErrorType;
+use crate::tokenizer::iter::ErrorType;
 
 pub enum YamlEvent<'a> {
     StreamStart,

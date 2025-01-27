@@ -1,10 +1,11 @@
 use std::collections::VecDeque;
 
 use crate::error::YamlError;
-use crate::tokenizer::{ErrorType, StrIterator};
 use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::event::YamlEvent::{Directive, DocEnd};
+use crate::tokenizer::iter::{ErrorType, StrIterator};
 use crate::tokenizer::reader::{Reader, StrReader};
+use crate::tokenizer::scanner::FlowStyle::Block;
 use crate::tokenizer::scanner::State::{InDoc, StreamEnd, StreamStart};
 
 #[derive(Clone, Default)]
@@ -18,11 +19,24 @@ pub enum State {
     StreamStart,
     InDoc,
     StreamEnd,
+    Sequence(FlowStyle),
 }
 
 impl Default for State {
     fn default() -> Self {
         StreamStart
+    }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum FlowStyle {
+    Block,
+    Flow,
+}
+
+impl Default for FlowStyle {
+    fn default() -> Self {
+        Block
     }
 }
 
@@ -58,6 +72,7 @@ impl Scanner {
             StreamStart => self.read_start_stream(reader),
             InDoc => self.read_in_doc(reader),
             StreamEnd => return Control::Eof,
+            _ => {},
         };
         if reader.eof() && self.state != StreamEnd {
             self.emit_end_of_stream();
@@ -103,7 +118,8 @@ impl Scanner {
 
     pub(crate) fn read_in_doc<R: Reader>(&mut self, reader: &mut R) {
         reader.skip_whitespace();
-        match reader.peek_byte() {
+        match reader.peek_byte().unwrap_or(b'\0') {
+            // b'[' => self.state = Collection(S)
             _ => {}
         };
     }
