@@ -1264,7 +1264,7 @@ impl<B> Lexer<B> {
                 BlockSeq(ind, _) if scal == ind   => {
                     let is_prev_map = matches!(self.curr_state(), BlockMap(indent, _) if indent == ind);
                     if !is_prev_map {
-                        self.push_error(ErrorType::UnexpectedScalarAtSeqEnd);
+                        self.push_error(ErrorType::UnexpectedScalarAtNodeEnd);
                         true
                     } else {
                         false
@@ -1317,14 +1317,14 @@ impl<B> Lexer<B> {
             }
             match curr_state {
                 BlockMap(ind, BeforeKey) if ind == scalar.scalar_start => {
-                    self.push_error(ErrorType::UnexpectedScalarAtMapEnd)
+                    self.push_error(ErrorType::UnexpectedScalarAtNodeEnd)
                 }
                 BlockMap(_, BeforeKey) if self.last_map_line == Some(scalar_line) => {
-                    self.push_error(ErrorType::UnexpectedScalarAtMapEnd)
+                    self.push_error(ErrorType::UnexpectedScalarAtNodeEnd)
                 }
                 BlockMapExp(_, _) | BlockMap(_, _) => self.next_map_state(),
                 BlockSeq(_, BlockSeqState::BeforeMinus) => {
-                    self.push_error(ErrorType::UnexpectedScalarAtSeqEnd)
+                    self.push_error(ErrorType::UnexpectedScalarAtNodeEnd)
                 }
                 BlockSeq(_, _) => self.set_block_seq_state(BlockSeqState::BeforeMinus),
                 _ => {}
@@ -1764,7 +1764,7 @@ impl<B> Lexer<B> {
             _ => reader.col(),
         };
         let start_line = reader.line();
-        let mut end_line;
+        let mut end_line = reader.line();
         let mut tokens = vec![ScalarPlain as usize];
         let mut offset_start = None;
         let in_flow_collection = curr_state.in_flow_collection();
@@ -1782,10 +1782,20 @@ impl<B> Lexer<B> {
             let (start, end, _) =
                 reader.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
 
-
             if had_comm {
-                tokens.push(ERROR_TOKEN);
-                self.errors.push(ErrorType::UnexpectedCommentInScalar);
+                if curr_state == DocBlock {
+                    tokens.push(DOC_END);
+                    tokens.push(ERROR_TOKEN);
+                    tokens.push(SCALAR_PLAIN);
+                    tokens.push(start);
+                    tokens.push(end);
+                    self.errors.push(ErrorType::UnexpectedScalarAtNodeEnd);
+                    self.set_curr_state(AfterDocBlock, reader.line());
+                    break;
+                } else {
+                    tokens.push(ERROR_TOKEN);
+                    self.errors.push(ErrorType::UnexpectedCommentInScalar);
+                }
             }
 
             match num_newlines {

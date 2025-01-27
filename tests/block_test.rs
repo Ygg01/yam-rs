@@ -1645,11 +1645,24 @@ ERR
 -MAP
 -DOC";
 
+const X_BS4K_INPUT: &str = r"
+line1 # comment
+line2";
+
+const X_BS4K_EVENTS: &str = r"
++DOC
+=VAL :line1
+-DOC
+ERR
+=VAL :line2
+-DOC";
+
 #[test]
 fn block_multi_line() {
     assert_eq_event(MULTI_LINE_INPUT, MULTI_LINE_EVENTS);
     assert_eq_event(MULTI_LINE_SEQ_INPUT, MULTI_LINE_SEQ_EVENTS);
     assert_eq_event(X_BF9H_INPUT, X_BF9H_EVENTS);
+    assert_eq_event(X_BS4K_INPUT, X_BS4K_EVENTS);
 }
 
 const INDENT_TAB_INPUT: &str = r"
