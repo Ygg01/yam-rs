@@ -30,6 +30,30 @@ impl ChunkedUtf8Validator for NoopValidator {
     }
 }
 
+/// Selects bits from the input according to the specified mask, using a branch-less approach.
+///
+/// This function takes two `u64` values as input: `input` and `mask`. It selects bits from
+/// `input` where the corresponding bit in `mask` is set to 1. The selection is done using
+/// a branch-less technique, aiming for a potentially more efficient operation compared
+/// to traditional conditional branches.
+///
+/// # Parameters
+///
+/// - `input`: The input `u64` value from which bits will be selected.
+/// - `mask`:  The mask `u64` value that determines which bits in the `input` will be selected.
+///
+/// # Returns
+///
+/// A `u64` value with the selected bits from the input as specified by the mask.
+///
+/// # Example
+///
+/// ```rust
+/// let input = 0b1100_1100;
+/// let mask  = 0b1010_1010;
+/// let result = yam_dark_core::util::select_right_bits_branch_less(input, mask);
+/// assert_eq!(result, 0b1000_1000);
+/// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
