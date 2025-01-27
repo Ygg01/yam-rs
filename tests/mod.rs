@@ -54,6 +54,34 @@ xt
 -MAP
 -SEQ"#;
 
+    const SEQ_EMPTY_MAP: &'static str = r#"
+{:}
+"#;
+    const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
++MAP
+-MAP"#;
+
+    const SEQ_XY_MAP1: &'static str = r#"
+{x:y}
+"#;
+    const SEQ_XY_MAP1_EXPECTED: &'static str = r#"
++MAP
+=VAL x:y
+-MAP"#;
+
+    const SEQ_X_Y_MAP1: &'static str = r#"
+{x: y}
+"#;
+    const SEQ_X_Y_MAP2: &'static str = r#"
+{? x: y}
+"#;
+    const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
++MAP
+=VAL x
+=VAL y
+-MAP"#;
+
+
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
         let scan = Scanner::from_str_reader(input_yaml);
@@ -82,5 +110,13 @@ xt
     fn parse_nested_col() {
         assert_eq_event(SEQ_NESTED_COL1, SEQ_NESTED_COL1_EXPECTED);
         assert_eq_event(SEQ_NESTED_COL2, SEQ_NESTED_COL1_EXPECTED);
+    }
+
+    #[test]
+    fn parse_map() {
+        assert_eq_event(SEQ_EMPTY_MAP, SEQ_EMPTY_MAP_EXPECTED);
+        assert_eq_event(SEQ_XY_MAP1, SEQ_XY_MAP1_EXPECTED);
+        assert_eq_event(SEQ_X_Y_MAP1, SEQ_X_Y_MAP_EXPECTED);
+        assert_eq_event(SEQ_X_Y_MAP2, SEQ_X_Y_MAP_EXPECTED);
     }
 }

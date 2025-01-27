@@ -163,7 +163,7 @@ impl Scanner {
                 }
                 Some(x) => {
                     if x != b']' && x != b'}' && x != b'@' {
-                        self.fetch_plain_scalar(reader, self.curr_state);
+                        self.fetch_plain_scalar(reader, self.curr_state, false);
                     } else {
                         reader.consume_bytes(1);
                         self.tokens
@@ -193,7 +193,7 @@ impl Scanner {
                 Some(b':') => self.fetch_empty_map(reader, indent),
                 Some(b'?') => self.fetch_explicit_map(reader),
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, self.curr_state);
+                    self.fetch_plain_scalar(reader, self.curr_state, false);
                 }
                 None => self.stream_end = true,
             },
@@ -215,11 +215,12 @@ impl Scanner {
                         self.tokens.push_back(ErrorToken(UnexpectedSymbol(']')));
                     }
                 }
+                Some(b'?') => self.fetch_explicit_map(reader),
                 Some(b',') => reader.consume_bytes(1),
                 Some(b'\'') => self.fetch_quoted_scalar(reader),
                 Some(b'"') => self.fetch_quoted_scalar(reader),
                 Some(_) => {
-                    self.fetch_plain_scalar(reader, self.curr_state);
+                    self.fetch_plain_scalar(reader, self.curr_state, true);
                 }
                 None => self.stream_end = true,
             },
@@ -327,10 +328,9 @@ impl Scanner {
         todo!()
     }
     fn fetch_quoted_scalar<R: Reader>(&mut self, reader: &mut R) {
-        todo!()
     }
-    fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, context: ParserState) {
-        let mut is_multiline = !context.in_implicit_key();
+    fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, context: ParserState, is_implicit: bool) {
+        let mut is_multiline = !is_implicit;
         let indent = context.indent();
 
         // assume first char will be correct and consume it
@@ -435,13 +435,18 @@ impl Scanner {
     }
 
     fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R) {
+        if !self.is_map() {
+            self.tokens.push_back(MappingStart);         
+        }        
+        
+        self.tokens.push_back(Key);    
         if !reader.peek_byte_at_check(1, is_whitespace) {
-            self.fetch_plain_scalar(reader, self.curr_state);
+            self.fetch_plain_scalar(reader, self.curr_state, false);
             return;
         }
-        self.tokens.push_back(MappingStart);
-        self.tokens.push_back(Key);
-        return;
+        reader.consume_bytes(1);
+        reader.skip_space_tab(true);
+        
     }
 
     fn fetch_empty_map<R: Reader>(&mut self, reader: &mut R, indent: u32) {
@@ -476,14 +481,10 @@ fn is_invalid_plain_scalar(
     x1: u8,
     in_flow_collection: bool,
 ) -> ControlFlow<usize, usize> {
-    if is_whitespace(x0) {
-        return Break(pos);
-    } else if is_whitespace(x1) {
-        return Break(pos + 1);
-    };
-
     if in_flow_collection {
         if is_flow_indicator(x0) {
+            return Break(pos);
+        } else if is_flow_indicator(x1) && is_whitespace(x0) {
             return Break(pos);
         } else if is_flow_indicator(x1) {
             return Break(pos + 1);
@@ -500,6 +501,12 @@ fn is_invalid_plain_scalar(
     if x0 == b':' && (is_whitespace(x1) || (in_flow_collection && is_flow_indicator(x1))) {
         return Break(pos);
     }
+
+    if is_whitespace(x0) {
+        return Break(pos);
+    } else if is_whitespace(x1) {
+        return Break(pos + 1);
+    };
 
     Continue(pos + 1)
 }
