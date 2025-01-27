@@ -167,123 +167,25 @@ pub unsafe trait Stage1Scanner {
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
     ) {
-        let nl_ind = (chunk_state.characters.line_feeds & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(&mut state.byte_rows, nl_ind, &mut state.last_row, state.pos);
-            add_cols_unchecked(&mut state.byte_cols, nl_ind, &mut state.last_col, state.pos);
+        // Avoid copy/paste with this handy macro
+        macro_rules! add_cols_rows_unchecked {
+            ($e:expr) => {
+                let nl_ind = ((chunk_state.characters.line_feeds >> $e) & 0xFF) as usize;
+                unsafe {
+                    add_rows_unchecked(&mut state.byte_rows, nl_ind, &mut state.last_row, state.pos + $e);
+                    add_cols_unchecked(&mut state.byte_cols, nl_ind, &mut state.last_col, state.pos + $e);
+                };
+            };
         }
 
-        let nl_ind = ((chunk_state.characters.line_feeds >> 8) & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(
-                &mut state.byte_rows,
-                nl_ind,
-                &mut state.last_row,
-                state.pos + 8,
-            );
-            add_cols_unchecked(
-                &mut state.byte_cols,
-                nl_ind,
-                &mut state.last_col,
-                state.pos + 8,
-            );
-        }
-
-        let nl_ind = ((chunk_state.characters.line_feeds >> 16) & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(
-                &mut state.byte_rows,
-                nl_ind,
-                &mut state.last_row,
-                state.pos + 16,
-            );
-            add_cols_unchecked(
-                &mut state.byte_cols,
-                nl_ind,
-                &mut state.last_col,
-                state.pos + 16,
-            );
-        }
-
-        let nl_ind = ((chunk_state.characters.line_feeds >> 24) & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(
-                &mut state.byte_rows,
-                nl_ind,
-                &mut state.last_row,
-                state.pos + 24,
-            );
-            add_cols_unchecked(
-                &mut state.byte_cols,
-                nl_ind,
-                &mut state.last_col,
-                state.pos + 24,
-            );
-        }
-
-        let nl_ind = ((chunk_state.characters.line_feeds >> 32) & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(
-                &mut state.byte_rows,
-                nl_ind,
-                &mut state.last_row,
-                state.pos + 32,
-            );
-            add_cols_unchecked(
-                &mut state.byte_cols,
-                nl_ind,
-                &mut state.last_col,
-                state.pos + 32,
-            );
-        }
-
-        let nl_ind = ((chunk_state.characters.line_feeds >> 40) & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(
-                &mut state.byte_rows,
-                nl_ind,
-                &mut state.last_row,
-                state.pos + 40,
-            );
-            add_cols_unchecked(
-                &mut state.byte_cols,
-                nl_ind,
-                &mut state.last_col,
-                state.pos + 40,
-            );
-        }
-
-        let nl_ind = ((chunk_state.characters.line_feeds >> 48) & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(
-                &mut state.byte_rows,
-                nl_ind,
-                &mut state.last_row,
-                state.pos + 48,
-            );
-            add_cols_unchecked(
-                &mut state.byte_cols,
-                nl_ind,
-                &mut state.last_col,
-                state.pos + 48,
-            );
-        }
-
-        let nl_ind = ((chunk_state.characters.line_feeds >> 56) & 0xFF) as usize;
-        unsafe {
-            add_rows_unchecked(
-                &mut state.byte_rows,
-                nl_ind,
-                &mut state.last_row,
-                state.pos + 56,
-            );
-            add_cols_unchecked(
-                &mut state.byte_cols,
-                nl_ind,
-                &mut state.last_col,
-                state.pos + 56,
-            );
-        }
+        add_cols_rows_unchecked!(0);
+        add_cols_rows_unchecked!(8);
+        add_cols_rows_unchecked!(16);
+        add_cols_rows_unchecked!(24);
+        add_cols_rows_unchecked!(32);
+        add_cols_rows_unchecked!(40);
+        add_cols_rows_unchecked!(48);
+        add_cols_rows_unchecked!(56);
 
         state.pos += 64;
     }
