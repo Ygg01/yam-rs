@@ -6,9 +6,10 @@ use SpanToken::DocStart;
 use State::*;
 
 use crate::tokenizer::event::DirectiveType;
-use crate::tokenizer::iter::ErrorType::UnexpectedSymbol;
+use crate::tokenizer::is_empty;
 use crate::tokenizer::iter::{ErrorType, StrIterator};
-use crate::tokenizer::reader::{is_flow_indicator, is_tab_space, is_whitespace, Reader, StrReader};
+use crate::tokenizer::iter::ErrorType::UnexpectedSymbol;
+use crate::tokenizer::reader::{IndentType, is_flow_indicator, is_tab_space, is_whitespace, Reader, StrReader};
 use crate::tokenizer::scanner::QuoteType::{Double, Single};
 use crate::tokenizer::scanner::SpanToken::{ErrorToken, Scalar};
 use crate::tokenizer::scanner::State::{RootBlock, StreamStart};
@@ -251,16 +252,49 @@ impl Scanner {
         todo!()
     }
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R) {
-        // let is_multiline = !self.curr_state.in_key();
+        let mut is_multiline = self.curr_state.in_key();
         let start = reader.pos();
 
         let in_flow_collection = self.curr_state.in_flow_collection();
 
         // assume first char will be correct and consume it
         let mut end = reader.pos();
+        self.read_plain_one_line(reader, in_flow_collection, &mut end);
 
+        // if multiline then we process next plain scalar
+        while is_multiline {
+            // separate in line
+            if reader.col() != 0 {
+                reader.skip_space_tab(true);
+            }
+            // b-l-folded
+            self.read_folded(reader, self.get_indent(), true);
+        }
+
+        self.tokens.push_back(Scalar(start, end));
+    }
+
+
+
+    #[inline]
+    fn read_folded<R: Reader>(&mut self, reader: &mut R, indent: u32, in_flow: bool) {
+        // try read break
+        if is_empty(reader.read_line()) {
+            self.tokens.push_back(ErrorToken(ErrorType::ExpectedNewlineInFolded));
+            return;
+        }
+       // l-empty
+
+        while reader.try_read_indent(indent, IndentType::LessOrEqual) {
+
+        }
+
+    }
+
+    #[inline]
+    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R, in_flow_collection: bool, end: &mut usize) {
         while !reader.eof() {
-            end += reader.skip_space_tab(true);
+            *end += reader.skip_space_tab(true);
             let read = reader.position_until(|pos, x0, x1| {
                 if is_whitespace(x0) {
                     return Break(pos);
@@ -268,12 +302,13 @@ impl Scanner {
                     return Break(pos + 1);
                 };
 
-                // ns-plain-char ` #`
+                // ns-plain-char  prevent ` #`
                 if is_whitespace(x0) && x1 == b'#' {
                     return Break(pos);
                 }
 
-                // ns-plain-char `: `
+                // ns-plain-char prevent `: `
+                // or `:{`  in flow collections
                 if x0 == b':'
                     && (is_whitespace(x1) || (in_flow_collection && is_flow_indicator(x1)))
                 {
@@ -290,14 +325,22 @@ impl Scanner {
             });
             reader.read_line();
             if read == 0 {
-                break;
+                return;
             } else {
-                end += read;
+                *end += read;
             }
         }
-        self.tokens.push_back(Scalar(start, end));
     }
 
+    #[inline]
+    fn get_indent(&self) -> u32 {
+        match self.curr_state {
+            OutsideFlow(x) => x,
+            _ => 0,
+        }
+    }
+
+    #[inline]
     fn incr_block(&mut self) {
         match self.curr_state {
             RootBlock => self.curr_state = Block(0),

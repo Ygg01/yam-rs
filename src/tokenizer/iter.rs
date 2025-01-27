@@ -57,6 +57,7 @@ pub enum ErrorType {
     UnexpectedSymbol,
     ExpectedDocumentStart,
     ExpectedNewline,
+    ExpectedNewlineInFolded,
     ExpectedIndent(usize),
     StartedBlockInFlow,
 }

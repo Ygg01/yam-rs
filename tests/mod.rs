@@ -39,4 +39,19 @@ null  #comment
 -STR"#;
         assert_eq_event(null_yaml, expected)
     }
+
+    #[test]
+    fn parse_flow_scalars_multiline() {
+        let null_yaml = r#"
+test
+
+xt
+"#;
+        let expected = r#"
++STR
++VAL test
+xt
+-STR"#;
+        assert_eq_event(null_yaml, expected)
+    }
 }
