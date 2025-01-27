@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
+use crate::Scanner;
 use crate::tokenizer::event::YamlEvent;
 use crate::tokenizer::reader::StrReader;
-use crate::tokenizer::scanner::{Control, SpanToken};
-use crate::Scanner;
+use crate::tokenizer::scanner::{SpanToken};
 
 pub struct StrIterator<'a> {
     pub(crate) state: Scanner,
@@ -38,10 +38,12 @@ impl<'a> Iterator for StrIterator<'a> {
             if let Some(token) = self.state.pop_token() {
                 break token;
             } else {
-                match self.state.next_state(&mut self.reader) {
-                    Control::Continue => continue,
-                    _ => return None,
-                };
+                if self.state.is_empty() && !self.state.stream_end {
+                    self.state.fetch_next_token(&mut self.reader);
+                }
+                if self.state.is_empty() {
+                    return None
+                }
             }
         };
         Some(self.to_token(span))
@@ -51,5 +53,7 @@ impl<'a> Iterator for StrIterator<'a> {
 #[derive(Copy, Clone)]
 pub enum ErrorType {
     ExpectedDocumentStart,
+    ExpectedNewline,
+    ExpectedIndent(usize),
     StartedBlockInFlow,
 }
