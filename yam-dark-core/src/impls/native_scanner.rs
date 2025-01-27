@@ -3,7 +3,7 @@ use util::u8x16_swizzle;
 use crate::tokenizer::stage1::{Stage1Scanner, YamlChunkState};
 use crate::util::NoopValidator;
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
-use crate::{util, YamlParserState, HIGH_NIBBLE_MASK, LOW_NIBBLE_MASK, SIMD_CHUNK_LENGTH};
+use crate::{util, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE, SIMD_CHUNK_LENGTH};
 
 #[doc(hidden)]
 pub struct NativeScanner {
@@ -111,14 +111,14 @@ unsafe impl Stage1Scanner for NativeScanner {
         let v2 = unsafe { U8X16::from_slice(&self.v0[32..48]) };
         let v3 = unsafe { U8X16::from_slice(&self.v0[48..64]) };
 
-        let v_v0 = u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
-            & u8x16_swizzle(HIGH_NIBBLE_MASK, (v0 >> 4) & high_nib_and_mask);
-        let v_v1 = u8x16_swizzle(LOW_NIBBLE_MASK, v1 & low_nib_and_mask)
-            & u8x16_swizzle(HIGH_NIBBLE_MASK, (v1 >> 4) & high_nib_and_mask);
-        let v_v2 = u8x16_swizzle(LOW_NIBBLE_MASK, v2 & low_nib_and_mask)
-            & u8x16_swizzle(HIGH_NIBBLE_MASK, (v2 >> 4) & high_nib_and_mask);
-        let v_v3 = u8x16_swizzle(LOW_NIBBLE_MASK, v3 & low_nib_and_mask)
-            & u8x16_swizzle(HIGH_NIBBLE_MASK, (v3 >> 4) & high_nib_and_mask);
+        let v_v0 = u8x16_swizzle(LOW_NIBBLE, v0 & low_nib_and_mask)
+            & u8x16_swizzle(HIGH_NIBBLE, (v0 >> 4) & high_nib_and_mask);
+        let v_v1 = u8x16_swizzle(LOW_NIBBLE, v1 & low_nib_and_mask)
+            & u8x16_swizzle(HIGH_NIBBLE, (v1 >> 4) & high_nib_and_mask);
+        let v_v2 = u8x16_swizzle(LOW_NIBBLE, v2 & low_nib_and_mask)
+            & u8x16_swizzle(HIGH_NIBBLE, (v2 >> 4) & high_nib_and_mask);
+        let v_v3 = u8x16_swizzle(LOW_NIBBLE, v3 & low_nib_and_mask)
+            & u8x16_swizzle(HIGH_NIBBLE, (v3 >> 4) & high_nib_and_mask);
 
         let tmp_v0 = (v_v0 & 0x7).comp_all(0);
         let tmp_v1 = (v_v1 & 0x7).comp_all(0);
