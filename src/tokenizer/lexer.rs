@@ -1018,7 +1018,7 @@ impl<B> Lexer<B> {
             }
             [b'}', ..] => {
                 reader.consume_bytes(1);
-                if matches!(self.curr_state(), FlowMap(_, BeforeColon)) {
+                if matches!(self.curr_state(), FlowMap(_, BeforeColon | AfterColon)) {
                     self.push_empty_token();
                 }
                 self.tokens.push_back(MAP_END);
@@ -1030,6 +1030,7 @@ impl<B> Lexer<B> {
             }
             [b':', chr, ..] if matches!(curr_state, FlowMap(_, | BeforeColon)) && !ns_plain_safe(*chr) => {
                 reader.consume_bytes(1);
+                self.next_map_state();
             }
             [b']', ..] => {
                 if self.is_prev_sequence() {

@@ -3,8 +3,8 @@ use crate::common::assert_eq_event;
 mod common;
 
 const BLOCK1_INPUT: &str = r"
- - x
- - y
+    - x
+    - y
 ";
 
 const BLOCK2_INPUT: &str = r"
@@ -551,7 +551,7 @@ const PLAIN_MULTI_INPUT: &str = r"
 1st line
 
  2nd non
-	3rd non
+    3rd non
 ";
 
 const PLAIN_MULTI_EVENTS: &str = r"
@@ -1667,7 +1667,7 @@ fn block_multi_line() {
 
 const INDENT_TAB_INPUT: &str = r"
 a: 
-	b: c
+    b: c
 ";
 
 const INDENT_TAB_EVENTS: &str = r"
