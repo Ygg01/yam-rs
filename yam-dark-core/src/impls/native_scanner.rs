@@ -5,10 +5,10 @@ use alloc::vec::Vec;
 use core::ptr::write;
 use util::u8x16_swizzle;
 
-use crate::tokenizer::stage1::{Stage1Scanner, YamlChunkState};
+use crate::tokenizer::stage1::Stage1Scanner;
 use crate::util::NoopValidator;
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
-use crate::{util, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
+use crate::{util, YamlChunkState, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
 
 #[doc(hidden)]
 pub struct NativeScanner {
