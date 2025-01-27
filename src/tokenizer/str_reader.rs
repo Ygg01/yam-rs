@@ -197,13 +197,18 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     #[inline]
-    fn peek_byte_at(&self, offset: usize) -> Option<u8> {
-        self.slice.get(self.pos + offset).copied()
+    fn peek_byte(&self) -> Option<u8> {
+        self.slice.get(self.pos).copied()
     }
 
     #[inline]
-    fn peek_byte(&self) -> Option<u8> {
-        self.slice.get(self.pos).copied()
+    fn peek_byte2(&self) -> Option<u8> {
+        self.slice.get(self.pos + 1).copied()
+    }
+
+    #[inline]
+    fn peek_byte_at(&self, offset: usize) -> Option<u8> {
+        self.slice.get(self.pos + offset).copied()
     }
 
     #[inline]
@@ -315,7 +320,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
 
             // // if current character is a flow indicator, break
-            if in_flow_collection && is_flow_indicator(curr)  {
+            if in_flow_collection && is_flow_indicator(curr) {
                 pos_end = end_of_str;
                 break;
             }
@@ -416,7 +421,9 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token = 1;
             };
 
-            let newline_is_empty = self.peek_byte_at_check(newline_indent, reader::is_newline)
+            let newline_is_empty = self
+                .peek_byte_at(newline_indent)
+                .map_or(false, reader::is_newline)
                 || (is_trailing_comment && self.peek_byte_unwrap(newline_indent) == b'#');
 
             if indentation == 0 && newline_indent > 0 && !newline_is_empty {
@@ -559,9 +566,9 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 
     fn read_block_seq(&mut self, indent: usize) -> Option<LexerState> {
-        if self.peek_byte_at_check(1, is_white_tab_or_break) {
+        if self.peek_byte2().map_or(false, is_white_tab_or_break) {
             let new_indent: usize = self.col;
-            if self.peek_byte_at_check(1, reader::is_newline) {
+            if self.peek_byte2().map_or(false, reader::is_newline) {
                 self.consume_bytes(1);
                 self.read_break();
             } else {

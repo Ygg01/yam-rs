@@ -62,7 +62,7 @@ const BLOCK_NESTED_SEQ_EXPECTED: &str = r#"
  -DOC"#;
 
 #[test]
-pub fn block_nested() {
+pub fn seq_block_nested() {
     assert_eq_event(BLOCK_NESTED_SEQ_INPUT, BLOCK_NESTED_SEQ_EXPECTED);
 }
 
@@ -213,14 +213,22 @@ const BLOCK_MAP_EXPECTED3: &str = r#"
  -DOC"#;
 
 const BLOCK_MAP_INPUT2: &str = r#"
-c:
+a:
+ b:
+  c:
 d:"#;
 
 const BLOCK_MAP_EXPECTED2: &str = r#"
  +DOC
   +MAP
-   =VAL :c
-   =VAL :
+   =VAL :a
+   +MAP
+    =VAL :b
+    +MAP
+     =VAL :c
+     =VAL :
+    -MAP
+   -MAP
    =VAL :d
    =VAL :
   -MAP
