@@ -150,6 +150,7 @@ impl<'de> Deserializer<'de> {
                 State::PreDocStart => {
                     chr = update_char!();
                     match chr {
+                        b"-" => {}
                         _ => {}
                     }
                 }
@@ -186,6 +187,10 @@ impl<'de> Deserializer<'de> {
 /// - `indents`: For each structurals byte this its corresponding indentation.
 /// - `pos`: The current  position in the structural array.
 ///
+/// ## Sparse fields:
+/// - `open_close_tag`: A list of all structurals that start or end YAML
+/// - `potential_block`: A list of structurals that are potentially valid block tokens.
+///
 /// ## Previous chunk fields
 /// - `last_indent`: The indentation level of the last chunk processed.
 /// - `last_col`: The column position of the last chunk processed.
@@ -217,6 +222,10 @@ pub struct YamlParserState {
     pub(crate) byte_rows: Vec<u32>,
     pub(crate) indents: Vec<u32>,
     pub(crate) pos: usize,
+
+    // Sparse fields
+    pub(crate) open_close_tag: Vec<usize>,
+    pub(crate) potential_block: Vec<usize>,
 
     // Previous chunk fields
     pub(crate) last_indent: u32,
