@@ -3,7 +3,9 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 pub(crate) use chunked_iter::ChunkyIterator;
 pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
 pub use native::{mask_merge_u8x8, U8X8};
-pub use table::{U8_BYTE_COL_TABLE, U8_ROW_TABLE};
+pub use table::{U8_BYTE_COL_TABLE, U8_INDENT_TABLE, U8_ROW_TABLE};
+
+use crate::util::table::U8_INDEX_TABLE;
 
 mod chunked_iter;
 mod native;
@@ -180,6 +182,126 @@ pub fn count_col_rows(
 
     let col_rows = calculate_byte_rows(mask, prev_byte_row);
     byte_rows[56..64].copy_from_slice(&col_rows);
+}
+
+#[doc(hidden)]
+pub fn count_col_rows_immut(
+    newline_mask: u64,
+    prev_byte_col: &mut u32,
+    prev_byte_row: &mut u32,
+) -> ([u32; 64], [u32; 64]) {
+    let mut byte_cols = [0; 64];
+    let mut byte_rows = [0; 64];
+
+    // First 8 bits
+    let mask = (newline_mask & 0xFF) as usize;
+    let col_result = calculate_byte_col(mask, newline_mask & 0x80 == 0, prev_byte_col);
+    byte_cols[0..8].copy_from_slice(&col_result);
+
+    let rows_result = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[0..8].copy_from_slice(&rows_result);
+
+    // Second 8 bits
+    let mask = ((newline_mask & 0xFF00) >> 8) as usize;
+    let col_result = calculate_byte_col(mask, newline_mask & 0x8000 == 0, prev_byte_col);
+    byte_cols[8..16].copy_from_slice(&col_result);
+
+    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[8..16].copy_from_slice(&col_rows);
+
+    // Third 8 bits
+    let mask = ((newline_mask & 0xFF_0000) >> 16) as usize;
+    let col_result = calculate_byte_col(mask, newline_mask & 0x80_0000 == 0, prev_byte_col);
+    byte_cols[16..24].copy_from_slice(&col_result);
+
+    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[16..24].copy_from_slice(&col_rows);
+
+    // Fourth 8 bits
+    let mask = ((newline_mask & 0xFF00_0000) >> 24) as usize;
+    let col_result = calculate_byte_col(mask, newline_mask & 0x8000_0000 == 0, prev_byte_col);
+    byte_cols[24..32].copy_from_slice(&col_result);
+
+    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[24..32].copy_from_slice(&col_rows);
+
+    // Fifth 8 bits
+    let mask = ((newline_mask & 0xFF_0000_0000) >> 32) as usize;
+    let col_result = calculate_byte_col(mask, newline_mask & 0x80_0000_0000 == 0, prev_byte_col);
+    byte_cols[32..40].copy_from_slice(&col_result);
+
+    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[32..40].copy_from_slice(&col_rows);
+
+    // Sixth 8 bits
+    let mask = ((newline_mask & 0xFF00_0000_0000) >> 40) as usize;
+    let col_result = calculate_byte_col(mask, newline_mask & 0x8000_0000_0000 == 0, prev_byte_col);
+    byte_cols[40..48].copy_from_slice(&col_result);
+
+    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[40..48].copy_from_slice(&col_rows);
+
+    // Seventh 8 bits
+    let mask = ((newline_mask & 0xFF_0000_0000_0000) >> 48) as usize;
+    let col_result =
+        calculate_byte_col(mask, newline_mask & 0x80_0000_0000_0000 == 0, prev_byte_col);
+    byte_cols[48..56].copy_from_slice(&col_result);
+
+    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[48..56].copy_from_slice(&col_rows);
+
+    // Eight 8 bits
+    let mask = ((newline_mask & 0xFF00_0000_0000_0000) >> 56) as usize;
+    let col_result = calculate_byte_col(
+        mask,
+        newline_mask & 0x8000_0000_0000_0000 == 0,
+        prev_byte_col,
+    );
+    byte_cols[56..64].copy_from_slice(&col_result);
+
+    let col_rows = calculate_byte_rows(mask, prev_byte_row);
+    byte_rows[56..64].copy_from_slice(&col_rows);
+
+    (byte_cols, byte_rows)
+}
+
+#[doc(hidden)]
+pub fn count_indent(
+    newline_mask: u64,
+    whitespace_mask: u64,
+    prev_iter_char: &mut u8,
+    prev_indent: &mut u32,
+) -> [u32; 64] {
+    let mut byte_indent = [0; 64];
+
+    #[inline]
+    fn calculate_byte_indent(
+        part_newline: usize,
+        part_whitespace: usize,
+        prev_indent: &mut u32,
+    ) -> [u32; 8] {
+        let byte_indent = U8_INDENT_TABLE[part_whitespace];
+        let indent_index = U8_INDEX_TABLE[part_newline];
+
+        let indent_cols = [
+            byte_indent[indent_index[0] as usize],
+            byte_indent[indent_index[1] as usize],
+            byte_indent[indent_index[2] as usize],
+            byte_indent[indent_index[3] as usize],
+            byte_indent[indent_index[4] as usize],
+            byte_indent[indent_index[5] as usize],
+            byte_indent[indent_index[6] as usize],
+            byte_indent[indent_index[7] as usize],
+        ];
+        calculate_cols(indent_cols, indent_index, prev_indent)
+    }
+
+    let part_newline = (newline_mask & 0xFF) as usize;
+    let part_whitespace = (whitespace_mask & 0xFF) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[0..8].copy_from_slice(&col_indent);
+
+    byte_indent
 }
 
 #[test]

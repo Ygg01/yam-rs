@@ -1,7 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_dark_core::util::{
-    count_col_rows, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    count_col_rows, count_col_rows_immut, count_indent, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE,
+    U8_ROW_TABLE,
 };
 use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
@@ -126,12 +127,11 @@ fn col_count_u8x8(c: &mut Criterion) {
 fn col_count_small(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-col");
     group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64));
+    group.throughput(Throughput::Bytes(64 * 2));
 
     let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
     let chunk = chunk_iter.next().unwrap();
     let mask = u8x64_eq(chunk, b'\n');
-    let space_mask = u8x64_eq(chunk, b' ');
 
     group.bench_function("col_count_small", |b| {
         b.iter(|| {
@@ -146,7 +146,34 @@ fn col_count_small(c: &mut Criterion) {
                 &mut count_col,
                 &mut count_row,
             );
-            black_box(count_col[0] > 0 && count_row[3] == 0);
+            count_col_rows(
+                mask,
+                &mut prev_col,
+                &mut prev_row,
+                &mut count_col,
+                &mut count_row,
+            );
+        })
+    });
+    group.finish();
+}
+
+fn col_count_immut(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bench-col");
+    group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(64 * 2));
+
+    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
+    let chunk = chunk_iter.next().unwrap();
+    let mask = u8x64_eq(chunk, b'\n');
+
+    group.bench_function("col_count_immut", |b| {
+        b.iter(|| {
+            let mut prev_col = 0;
+            let mut prev_row = 0;
+            count_col_rows_immut(mask, &mut prev_col, &mut prev_row);
+            let (row, col) = count_col_rows_immut(mask, &mut prev_col, &mut prev_row);
+            black_box(row[2] == 0 && col[3] == 1)
         })
     });
     group.finish();
@@ -169,11 +196,33 @@ fn col_count_u8x16(c: &mut Criterion) {
     group.finish();
 }
 
+fn col_count_indent(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bench-col");
+    group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(64));
+
+    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
+    let chunk = chunk_iter.next().unwrap();
+    let newline_mask = u8x64_eq(chunk, b'\n');
+    let space_mask = u8x64_eq(chunk, b' ');
+
+    group.bench_function("col_count_indent", |b| {
+        b.iter(|| {
+            let mut prev_indent = 0;
+            let indent = count_indent(newline_mask, space_mask, &mut 1, &mut prev_indent);
+            black_box(indent[3] == 0);
+        })
+    });
+    group.finish();
+}
+
 criterion_group!(
     benches,
     // col_count_naive,
     // col_count_u8x8,
     // col_count_u8x16,
-    col_count_small
+    // col_count_small,
+    // col_count_immut,
+    col_count_indent,
 );
 criterion_main!(benches);
