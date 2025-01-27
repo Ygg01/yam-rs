@@ -1,9 +1,9 @@
-use criterion::{black_box, Criterion, criterion_group, criterion_main, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
-use yam_dark_core::{ChunkyIterator, u8x64_eq};
 use yam_dark_core::util::{
-    mask_merge, U8_BYTE_COL_TABLE, U8_ROW_TABLE, U8X16, U8X8,
+    count_table_small, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
+use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -17,29 +17,6 @@ a  st
   "#
 .as_bytes();
 
-fn count_subslice(sublice: &mut U8X16) {
-    let mut shift_mask = sublice.comp_all(b'\n').to_bitmask();
-    shift_mask = !(shift_mask << 1);
-
-    let shift = sublice.shift_right(1);
-    *sublice = shift.mask_value(shift_mask);
-
-    let shift1 = sublice.shift_right(1).mask_value(shift_mask);
-    *sublice += shift1;
-
-    shift_mask &= shift_mask << 1;
-    let shift2 = sublice.shift_right(2).mask_value(shift_mask);
-    *sublice += shift2;
-
-    shift_mask &= shift_mask << 2;
-    let shift4 = sublice.shift_right(4).mask_value(shift_mask);
-    *sublice += shift4;
-
-    shift_mask &= shift_mask << 4;
-    let shift8 = sublice.shift_right(8).mask_value(shift_mask);
-    *sublice += shift8;
-}
-
 pub fn count_cols(newline_mask: u64, prev_indent: &mut u32) -> [u32; 64] {
     let mut res = [0; 64];
 
@@ -51,113 +28,6 @@ pub fn count_cols(newline_mask: u64, prev_indent: &mut u32) -> [u32; 64] {
             *prev_indent + 1
         };
     }
-
-    res
-}
-
-pub fn add_offset_and_mask(x: [u8; 8], mask: [u8; 8], offset: u32) -> [u32; 8] {
-    [
-        if mask[0] == 0 {
-            x[0] as u32 + offset
-        } else {
-            x[0] as u32
-        },
-        if mask[1] == 0 {
-            x[1] as u32 + offset
-        } else {
-            x[1] as u32
-        },
-        if mask[2] == 0 {
-            x[2] as u32 + offset
-        } else {
-            x[2] as u32
-        },
-        if mask[3] == 0 {
-            x[3] as u32 + offset
-        } else {
-            x[3] as u32
-        },
-        if mask[4] == 0 {
-            x[4] as u32 + offset
-        } else {
-            x[4] as u32
-        },
-        if mask[5] == 0 {
-            x[5] as u32 + offset
-        } else {
-            x[5] as u32
-        },
-        if mask[6] == 0 {
-            x[6] as u32 + offset
-        } else {
-            x[6] as u32
-        },
-        if mask[7] == 0 {
-            x[7] as u32 + offset
-        } else {
-            x[7] as u32
-        },
-    ]
-}
-
-pub fn count_table_small(newline_mask: u64, prev_indent: &mut u32) -> [u32; 64] {
-    let mut res = [0; 64];
-
-    let mask1 = (newline_mask & 0xFF) as usize;
-    let byte_col1 = U8_BYTE_COL_TABLE[mask1];
-    let rows1 = U8_ROW_TABLE[mask1];
-    let row_calc = add_offset_and_mask(byte_col1, rows1, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[0..8].copy_from_slice(&row_calc);
-
-    let mask2 = ((newline_mask & 0xFF00) >> 8) as usize;
-    let byte_col2 = U8_BYTE_COL_TABLE[mask2];
-    let rows2 = U8_ROW_TABLE[mask2];
-    let row_calc = add_offset_and_mask(byte_col2, rows2, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[8..16].copy_from_slice(&row_calc);
-
-    let mask3 = ((newline_mask & 0xFF0000) >> 16) as usize;
-    let byte_col3 = U8_BYTE_COL_TABLE[mask3];
-    let rows3 = U8_ROW_TABLE[mask3];
-    let row_calc = add_offset_and_mask(byte_col3, rows3, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[16..24].copy_from_slice(&row_calc);
-
-    let mask4 = ((newline_mask & 0xFF00_0000) >> 24) as usize;
-    let byte_col4 = U8_BYTE_COL_TABLE[mask4];
-    let rows4 = U8_ROW_TABLE[mask4];
-    let row_calc = add_offset_and_mask(byte_col4, rows4, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[24..32].copy_from_slice(&row_calc);
-
-    let mask5 = ((newline_mask & 0xFF_0000_0000) >> 32) as usize;
-    let byte_col5 = U8_BYTE_COL_TABLE[mask5];
-    let rows5 = U8_ROW_TABLE[mask5];
-    let row_calc = add_offset_and_mask(byte_col5, rows5, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[32..40].copy_from_slice(&row_calc);
-
-    let mask6 = ((newline_mask & 0xFF00_0000_0000) >> 40) as usize;
-    let byte_col6 = U8_BYTE_COL_TABLE[mask6];
-    let rows6 = U8_ROW_TABLE[mask6];
-    let row_calc = add_offset_and_mask(byte_col6, rows6, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[40..48].copy_from_slice(&row_calc);
-
-    let mask7 = ((newline_mask & 0xFF_0000_0000_0000) >> 48) as usize;
-    let byte_col7 = U8_BYTE_COL_TABLE[mask7];
-    let rows7 = U8_ROW_TABLE[mask7];
-    let row_calc = add_offset_and_mask(byte_col7, rows7, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[48..56].copy_from_slice(&row_calc);
-
-    let mask8 = ((newline_mask & 0xFF00_0000_0000_0000) >> 56) as usize;
-    let byte_col8 = U8_BYTE_COL_TABLE[mask8];
-    let rows8 = U8_ROW_TABLE[mask8];
-    let row_calc = add_offset_and_mask(byte_col8, rows8, *prev_indent);
-    *prev_indent = row_calc[7];
-    res[56..64].copy_from_slice(&row_calc);
 
     res
 }
@@ -198,7 +68,7 @@ pub fn count_table_u8x16(chunk: [u8; 64]) -> [u32; 64] {
 }
 
 #[inline]
-fn count_u8x16(vec: U8X16, prev_col: &mut u8, prev_row: &mut u8) -> U8X16 {
+fn count_u8x16(vec: U8X16, _prev_col: &mut u8, prev_row: &mut u8) -> U8X16 {
     let bitmask = vec.comp_all(b'\n').to_bitmask();
     let high_ind = ((bitmask & 0xFF00) >> 8) as usize;
     let low_ind = (bitmask & 0xFF) as usize;
@@ -258,7 +128,6 @@ fn col_count_small(c: &mut Criterion) {
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(64));
 
-
     let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
     let chunk = chunk_iter.next().unwrap();
     let mask = u8x64_eq(chunk, b'\n');
@@ -290,5 +159,11 @@ fn col_count_u8x16(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, col_count_naive, col_count_u8x8, col_count_u8x16, col_count_small);
+criterion_group!(
+    benches,
+    col_count_naive,
+    col_count_u8x8,
+    col_count_u8x16,
+    col_count_small
+);
 criterion_main!(benches);
