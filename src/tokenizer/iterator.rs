@@ -377,7 +377,9 @@ where
                             self.state.pop_token(),
                         ) {
                             let namespace = self.buffer.slice(start, mid);
-                            let extension = if end != 0 { self.buffer.slice(mid, end) } else {
+                            let extension = if end != 0 {
+                                self.buffer.slice(mid, end)
+                            } else {
                                 b""
                             };
                             self.tag = if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
