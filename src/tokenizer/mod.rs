@@ -1,33 +1,39 @@
-use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 
+pub use reader::Reader;
+pub use reader::StrReader;
 pub use scanner::Scanner;
+pub use scanner::SpanToken;
 
 mod event;
-mod iter;
 mod reader;
 mod scanner;
 
-pub enum YamlToken<'a> {
-    // strings, booleans, numbers, nulls, all treated the same
-    Scalar(Cow<'a, [u8]>),
-
-    // flow style like `[x, x, x]`
-    // or block style like:
-    //     - x
-    //     - x
-    Sequence(Vec<YamlToken<'a>>),
-
-    // flow style like `{x: Y, a: B}`
-    // or block style like:
-    //     x: Y
-    //     a: B
-    Mapping(Vec<Entry<'a>>),
-
-    // Error during parsing
-    Error,
+#[derive(Copy, Clone, Debug)]
+pub enum ErrorType {
+    NoDocStartAfterTag,
+    UnexpectedEndOfFile,
+    UnexpectedSymbol(char),
+    ExpectedDocumentStart,
+    ExpectedNewline,
+    ExpectedNewlineInFolded,
+    ExpectedIndent(u32),
+    StartedBlockInFlow,
 }
 
-pub struct Entry<'a> {
-    key: YamlToken<'a>,
-    value: YamlToken<'a>,
+#[derive(Copy, Clone)]
+pub enum DirectiveType {
+    Yaml,
+    Tag,
+    Reserved,
+}
+
+impl Display for DirectiveType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DirectiveType::Yaml => write!(f, "YAML"),
+            DirectiveType::Tag => write!(f, "TAG"),
+            DirectiveType::Reserved => write!(f, "RESERVED"),
+        }
+    }
 }
