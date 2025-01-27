@@ -1096,6 +1096,7 @@ impl<B> Lexer<B> {
                     };
                     spans.push(map_start);
                     spans.extend(node.spans);
+                    seq_state.next_state();
                     self.push_state(FlowMap);
                     spans.extend(self.get_flow_map(reader, AfterColon).spans);
                 } else if !node.spans.is_empty() {
