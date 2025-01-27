@@ -1153,13 +1153,29 @@ const X_8KB6_EVENTS: &str = r"
 -SEQ
 -DOC";
 
+const X_8UDB_INPUT: &str = r"
+[
+single: pair,
+]";
+
+const X_8UDB_EVENT: &str = r#"
++DOC
++SEQ []
++MAP {}
+=VAL :single
+=VAL :pair
+-MAP
+-SEQ
+-DOC"#;
 
 #[test]
 pub fn block_flow_mix() {
   assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
   assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
   assert_eq_event(X2_87E4_INPUT, X_87E4_EVENTS);
-  assert_eq_event(X_8KB6_INPUT, X_8KB6_EVENTS)
+  assert_eq_event(X_8KB6_INPUT, X_8KB6_EVENTS);
+  assert_eq_event(X_8UDB_INPUT, X_8UDB_EVENT)
+
 }
 
 const MAPS_WITH_QUOTES_INPUT: &str = r#"
