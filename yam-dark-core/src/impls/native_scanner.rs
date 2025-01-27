@@ -37,7 +37,6 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_sign_loss)]
     fn unsigned_lteq_against_splat(&self, cmp: u8) -> u64 {
         u8x64_lteq(self.inner_chunk, cmp)
     }
