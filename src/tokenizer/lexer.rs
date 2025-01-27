@@ -804,7 +804,7 @@ impl Lexer {
         let scalar_start = reader.col();
 
         let block_indent = self.indent();
-        let tokens = self.read_block_scalar(reader, literal, self.curr_state(), block_indent);
+        let tokens = self.read_block_scalar(reader, literal, block_indent);
         let is_multiline = reader.line() != scalar_line;
         reader.skip_space_tab();
 
@@ -1778,6 +1778,7 @@ impl Lexer {
         let colon_pos = reader.col();
         let col = self.col_start.unwrap_or(colon_pos);
         reader.consume_bytes(1);
+        let is_scalar_or_empty = !self.prev_scalar.is_empty() || self.prev_tag.is_some();
 
         if colon_pos == 0 && curr_state == DocBlock {
             let state = BlockMap(0, AfterColon);
@@ -1788,9 +1789,8 @@ impl Lexer {
             self.push_empty_token();
             self.set_map_state(AfterColon);
         } else if matches!(curr_state, BlockMap(ind, AfterColon) if colon_pos == ind )
-            && !self.prev_scalar.is_empty()
+            && is_scalar_or_empty
         {
-
             self.emit_meta_nodes();
             self.set_map_state(AfterColon);
             self.tokens.extend(take(&mut self.prev_scalar.spans));
@@ -1801,7 +1801,7 @@ impl Lexer {
                 expected: indent,
             });
             self.next_substate();
-        } else if !self.prev_scalar.is_empty()
+        } else if is_scalar_or_empty
             && matches!(curr_state, BlockMap(ind, AfterColon) if ind == self.prev_scalar.col_start)
         {
             self.push_empty_token();
@@ -1817,6 +1817,12 @@ impl Lexer {
                 self.pop_block_states(unwind);
                 self.next_substate();
             } else {
+                self.next_substate();
+                self.tokens.push_back(MAP_START);
+                if self.prev_tag.is_some() && self.prev_scalar.is_empty() {
+                    self.emit_meta_nodes();
+                    self.push_empty_token();
+                }
                 self.push_block_state(BlockMap(col, AfterColon), reader.line());
             }
 
@@ -1900,10 +1906,7 @@ impl Lexer {
         curr_state: LexerState,
         ends_with: &mut ScalarEnd,
     ) -> NodeSpans {
-        let mut curr_indent = match curr_state {
-            // BlockMapExp(ind, _) => ind,
-            _ => reader.col(),
-        };
+        let mut curr_indent = reader.col();
         let start_line = reader.line();
         let mut end_line = reader.line();
         let mut tokens = Vec::with_capacity(10);
@@ -2203,8 +2206,6 @@ impl Lexer {
         &mut self,
         reader: &mut R,
         literal: bool,
-        //TODO remove  _curr_state
-        _curr_state: LexerState,
         block_indent: u32,
     ) -> Vec<usize> {
         let mut chomp = ChompIndicator::Clip;

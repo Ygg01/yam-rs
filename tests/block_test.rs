@@ -1538,7 +1538,7 @@ const TAG_DEF_INPUT: &str = r"
  ! test
 ";
 
-const TAG_DEF_EVENT: &str = r"
+const TAG_DEF_EVENTS: &str = r"
 +DOC
 =VAL <!> :test
 -DOC";
@@ -1558,7 +1558,7 @@ const EXP_TAG_EVENTS: &str = r"
 #[test]
 pub fn block_col_tags() {
     assert_eq_event(SEQ_AND_TAG_INPUT, SEQ_AND_TAG_EVENTS);
-    assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENT);
+    assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENTS);
     assert_eq_event(EXP_TAG_INPUT, EXP_TAG_EVENTS);
 }
 
@@ -2169,3 +2169,24 @@ fn block_tab_indents() {
     assert_eq_event(X3_Y79Y_009_INPUT, X3_Y79Y_009_EVENTS);
 
 }
+
+
+const X1_FH7J_INPUT: &str = r"
+- !!null : a";
+
+const X1_FH7J_EVENTS: &str = r"
++DOC
++SEQ
++MAP
+=VAL <tag:yaml.org,2002:null> :
+=VAL :a
+-MAP
+-SEQ
+-DOC";
+
+
+#[test]
+pub fn block_tags_empty() {
+  assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
+}
+
