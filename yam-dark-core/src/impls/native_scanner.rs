@@ -238,8 +238,8 @@ unsafe impl Stage1Scanner for NativeScanner {
 }
 
 impl NativeScanner {
-    #[inline]
-    unsafe fn write_u32x4(field: &mut Vec<u32>, pos: usize, data: [u32; 4]) {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub(crate) unsafe fn write_u32x4(field: &mut Vec<u32>, pos: usize, data: [u32; 4]) {
         write(field.as_mut_ptr().add(pos).cast::<[u32; 4]>(), data);
     }
 }
