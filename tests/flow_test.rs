@@ -710,6 +710,6 @@ ERR
 -DOC";
 
 #[test]
-fn flow_in_seq_alias() {
+fn flow_in_seq_indents() {
     assert_eq_event(X1_Y79Y_003_INPUT, X1_Y79Y_003_EVENTS);
 }

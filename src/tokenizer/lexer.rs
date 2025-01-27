@@ -931,24 +931,17 @@ impl Lexer {
         } else {
             let start = reader.line();
             let mut scalar = self.get_scalar_node(reader, chr);
-            self.check_flow_indent(scalar.col_start, &mut scalar.spans);
+            // self.check_flow_indent(scalar.col_start, &mut scalar.spans);
             let post_end = reader.line();
             scalar.is_multiline = start != post_end;
             scalar
         }
     }
 
-    fn check_flow_indent(&mut self, actual: u32, spans: &mut Vec<usize>) {
-        let expected = self.indent();
-        if actual < expected {
-            self.prepend_error_token(ExpectedIndent { actual, expected }, spans);
-        }
-    }
-
     fn get_scalar_node<B, R: Reader<B>>(&mut self, reader: &mut R, chr: u8) -> NodeSpans {
         let mut scal_spans: Vec<usize> = Vec::with_capacity(10);
         if is_white_tab_or_break(chr) {
-            self.skip_separation_spaces(reader);
+            self.flow_skip_spaces(reader, &mut scal_spans);
             NodeSpans::default()
         } else if chr == b'&' {
             self.prev_anchor = self.try_parse_anchor(reader);
@@ -1025,7 +1018,7 @@ impl Lexer {
             let peek_next = reader.peek_byte_at(1).unwrap_or(b'\0');
 
             if is_white_tab_or_break(chr) {
-                self.skip_separation_spaces(reader);
+                self.flow_skip_spaces(reader, &mut spans);
             } else if chr == b']' {
                 reader.consume_bytes(1);
                 end_found = true;
@@ -1126,6 +1119,21 @@ impl Lexer {
         }
     }
 
+    #[inline]
+    fn flow_skip_spaces<B, R: Reader<B>>(&mut self, reader: &mut R, spans: &mut Vec<usize>) {
+        let sep_inf = self.skip_separation_spaces(reader);
+        let expected = self.indent();
+        if sep_inf.num_indent < expected {
+            self.push_error_token(
+                ExpectedIndent {
+                    actual: sep_inf.num_indent,
+                    expected,
+                },
+                spans,
+            );
+        }
+    }
+
     fn get_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, init_state: MapState) -> NodeSpans {
         let mut map_state = init_state;
         let mut spans = self.prepend_tags_n_anchor();
@@ -1159,7 +1167,7 @@ impl Lexer {
             let peek_next = reader.peek_byte_at(1);
 
             if is_white_tab_or_break(chr) {
-                self.skip_separation_spaces(reader);
+                self.flow_skip_spaces(reader, &mut spans);
             } else if chr == b'}' {
                 reader.consume_bytes(1);
                 is_end_emitted = true;
