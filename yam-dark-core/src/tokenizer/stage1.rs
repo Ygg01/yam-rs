@@ -65,7 +65,7 @@ pub struct YamlCharacterChunk {
     /// Newline bitmask
     pub newline: u64,
     /// Operators
-    pub op: u64,
+    pub structurals: u64,
 }
 
 pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(

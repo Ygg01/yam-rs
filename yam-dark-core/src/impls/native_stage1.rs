@@ -52,6 +52,7 @@ impl Stage1Scanner for NativeScanner {
         u8x64_lteq(self.v0, cmp as u8)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_whitespace_and_structurals(&self, block_state: &mut YamlChunkState) {
         let low_nib_and_mask = U8X16::splat(0xF);
         let high_nib_and_mask = U8X16::splat(0x7F);
@@ -70,9 +71,32 @@ impl Stage1Scanner for NativeScanner {
         let v_v3 = u8x16_swizzle(LOW_NIBBLE_MASK, v0 & low_nib_and_mask)
             & u8x16_swizzle(HIGH_NIBBLE_MASK, (v3 >> 4) & high_nib_and_mask);
 
-        let structurals = U8X16::merge(v_v0 & 7, v_v1 & 7, v_v2 & 7, v_v3 & 7);
-        block_state.characters.op = !u8x64_eq(structurals, 0);
-        let ws = U8X16::merge(v_v0 & 18, v_v1 & 18, v_v2 & 18, v_v3 & 18);
-        block_state.characters.spaces = !u8x64_eq(ws, 0);
+        let tmp_v0 = (v_v0 & 0x7).comp_all(0);
+        let tmp_v1 = (v_v1 & 0x7).comp_all(0);
+        let tmp_v2 = (v_v2 & 0x7).comp_all(0);
+        let tmp_v3 = (v_v3 & 0x7).comp_all(0);
+
+        let structural_res_0 = tmp_v0.to_bitmask() as u64;
+        let structural_res_1 = tmp_v1.to_bitmask() as u64;
+        let structural_res_2 = tmp_v2.to_bitmask() as u64;
+        let structural_res_3 = tmp_v3.to_bitmask() as u64;
+
+        block_state.characters.structurals = !(structural_res_0
+            | (structural_res_1 << 16)
+            | (structural_res_2 << 32)
+            | (structural_res_3 << 48));
+
+        let tmp_ws0 = (v_v0 & 0x18).comp_all(0);
+        let tmp_ws1 = (v_v1 & 0x18).comp_all(0);
+        let tmp_ws2 = (v_v2 & 0x18).comp_all(0);
+        let tmp_ws3 = (v_v3 & 0x18).comp_all(0);
+
+        let ws_res_0 = tmp_ws0.to_bitmask() as u64;
+        let ws_res_1 = tmp_ws1.to_bitmask() as u64;
+        let ws_res_2 = tmp_ws2.to_bitmask() as u64;
+        let ws_res_3 = tmp_ws3.to_bitmask() as u64;
+
+        block_state.characters.spaces =
+            !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48))
     }
 }

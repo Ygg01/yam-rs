@@ -1,34 +1,5 @@
 use core::ops::{BitAnd, Shr};
 
-#[doc(hidden)]
-pub fn u8x16_bit(a: [u8; 16]) -> u16 {
-    (a[0] & 0b1000_0000 != 0) as u16
-        | (((a[1] & 0b1000_0000 != 0) as u16) << 1)
-        | (((a[2] & 0b1000_0000 != 0) as u16) << 2)
-        | (((a[3] & 0b1000_0000 != 0) as u16) << 3)
-        | (((a[4] & 0b1000_0000 != 0) as u16) << 4)
-        | (((a[5] & 0b1000_0000 != 0) as u16) << 5)
-        | (((a[6] & 0b1000_0000 != 0) as u16) << 6)
-        | (((a[7] & 0b1000_0000 != 0) as u16) << 7)
-        | (((a[8] & 0b1000_0000 != 0) as u16) << 8)
-        | (((a[9] & 0b1000_0000 != 0) as u16) << 9)
-        | (((a[10] & 0b1000_0000 != 0) as u16) << 10)
-        | (((a[11] & 0b1000_0000 != 0) as u16) << 11)
-        | (((a[12] & 0b1000_0000 != 0) as u16) << 12)
-        | (((a[13] & 0b1000_0000 != 0) as u16) << 13)
-        | (((a[14] & 0b1000_0000 != 0) as u16) << 14)
-        | (((a[15] & 0b1000_0000 != 0) as u16) << 15)
-}
-
-#[doc(hidden)]
-pub fn u8x16_bit_iter(a: [u8; 16], c: u8) -> u16 {
-    a.iter().fold(0u16, move |b, x| {
-        let m = b << 1;
-        let z = if *x == c { 1 } else { 0 };
-        m | z
-    })
-}
-
 /// Returns an `u64` value representing the bitmask of each element in the given u8 that is equal to [cmp]
 ///
 /// # Arguments
@@ -43,7 +14,7 @@ pub fn u8x16_bit_iter(a: [u8; 16], c: u8) -> u16 {
 /// # Examples
 ///
 /// ```
-/// use yam_dark_core::util::ux;
+/// use yam_dark_core::util::u8x64_eq;
 ///
 /// let mut array = [1u8; 64];
 /// // Set three values to 2
@@ -228,8 +199,20 @@ impl U8X16 {
         ])
     }
 
+    /// Converts [U8x16] into a 16-bit unsigned integer bitmask.
+    /// The most significant bit of each byte is used to form the 16-bit bitmask.
+    /// The resulting bitmask will have its bits set according to the most significant bit
+    /// of each byte in the byte array, starting from the least significant bit.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The [U8x16] structure to convert to bitmask.
+    ///
+    /// # Returns
+    ///
+    /// The converted 16-bit bitmask integer.
     #[inline]
-    pub fn to_u16(&self) -> u16 {
+    pub fn to_bitmask(&self) -> u16 {
         (self.0[0] & 0b1000_0000 != 0) as u16
             | (((self.0[1] & 0b1000_0000 != 0) as u16) << 1)
             | (((self.0[2] & 0b1000_0000 != 0) as u16) << 2)
@@ -248,7 +231,29 @@ impl U8X16 {
             | (((self.0[15] & 0b1000_0000 != 0) as u16) << 15)
     }
 
-    /// Creates a new instance of `Self` by converting a slice of `u8` into the desired type.
+    /// Creates a new `U8X16` instance from a slice of `u8` values.
+    ///
+    /// # Safety
+    ///
+    /// This function is marked as `unsafe` because it dereferences raw pointers and
+    /// may result in undefined behavior if the input slice is not **exactly** 16.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - A slice of `u8` values from which to create the `U8X16` instance. Input must be exactly 16 bytes long.
+    ///
+    /// # Returns
+    ///
+    /// A new `U8X16` instance created from the input slice.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use yam_dark_core::util::U8X16;
+    ///
+    /// let input = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    /// let result = unsafe { U8X16::from_slice(input) };
+    /// ```
     #[inline]
     pub unsafe fn from_slice(input: &[u8]) -> Self {
         U8X16([
@@ -269,75 +274,6 @@ impl U8X16 {
             *input.get_unchecked(14),
             *input.get_unchecked(15),
         ])
-    }
-
-    pub fn merge(input0: U8X16, input1: U8X16, input2: U8X16, input3: U8X16) -> [u8; 64] {
-        [
-            input0.0[0],
-            input0.0[1],
-            input0.0[2],
-            input0.0[3],
-            input0.0[4],
-            input0.0[5],
-            input0.0[6],
-            input0.0[7],
-            input0.0[8],
-            input0.0[9],
-            input0.0[10],
-            input0.0[11],
-            input0.0[12],
-            input0.0[13],
-            input0.0[14],
-            input0.0[15],
-            input1.0[0],
-            input1.0[1],
-            input1.0[2],
-            input1.0[3],
-            input1.0[4],
-            input1.0[5],
-            input1.0[6],
-            input1.0[7],
-            input1.0[8],
-            input1.0[9],
-            input1.0[10],
-            input1.0[11],
-            input1.0[12],
-            input1.0[13],
-            input1.0[14],
-            input1.0[15],
-            input2.0[0],
-            input2.0[1],
-            input2.0[2],
-            input2.0[3],
-            input2.0[4],
-            input2.0[5],
-            input2.0[6],
-            input2.0[7],
-            input2.0[8],
-            input2.0[9],
-            input2.0[10],
-            input2.0[11],
-            input2.0[12],
-            input2.0[13],
-            input2.0[14],
-            input2.0[15],
-            input3.0[0],
-            input3.0[1],
-            input3.0[2],
-            input3.0[3],
-            input3.0[4],
-            input3.0[5],
-            input3.0[6],
-            input3.0[7],
-            input3.0[8],
-            input3.0[9],
-            input3.0[10],
-            input3.0[11],
-            input3.0[12],
-            input3.0[13],
-            input3.0[14],
-            input3.0[15],
-        ]
     }
 }
 
