@@ -23,9 +23,54 @@ impl<'a> Iterator for StrIterator<'a> {
     type Item = YamlEvent<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let span = loop {
+        loop {
             if let Some(token) = self.state.pop_token() {
-                break token;
+                match token {
+                    Directive(tag) => {
+                        if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
+                            (self.state.pop_token(), self.state.pop_token())
+                        {
+                            return Some(YamlEvent::Directive(tag, self.to_cow(start, end)));
+                        }
+                    }
+                    MarkStart(start) => {
+                        let mut borrow = Cow::default();
+
+                        if let Some(MarkEnd(end)) = self.state.pop_token() {
+                            borrow = self.to_cow(start, end);
+                        }
+                        loop {
+                            match self.state.peek_token() {
+                                Some(MarkStart(x0)) => {
+                                    self.state.pop_token();
+                                    if let Some(MarkEnd(x1)) = self.state.pop_token() {
+                                        borrow.to_mut().extend(self.to_cow(x0, x1).to_vec());
+                                    }
+                                }
+                                Some(LineFeed) => {
+                                    self.state.pop_token();
+                                    borrow.to_mut().push(b'\n');
+                                }
+                                Some(Space) => {
+                                    self.state.pop_token();
+                                    borrow.to_mut().push(b' ');
+                                }
+                                _ => break,
+                            };
+                        }
+                        return Some(YamlEvent::ScalarValue(borrow));
+                    }
+
+                    MarkEnd(_) => panic!("Unexpected Mark end"),
+                    DocumentStart => return Some(YamlEvent::DocStart),
+                    DocumentEnd => return Some(YamlEvent::DocEnd),
+                    SequenceStart => return Some(YamlEvent::SeqStart),
+                    SequenceEnd => return Some(YamlEvent::SeqEnd),
+                    MappingStart => return Some(YamlEvent::MapStart),
+                    MappingEnd => return Some(YamlEvent::MapEnd),
+                    ErrorToken(err) => return Some(YamlEvent::Error(err)),
+                    _ => {}
+                };
             } else {
                 if self.state.is_empty() && !self.state.stream_end {
                     self.state.fetch_next_token(&mut self.reader);
@@ -34,34 +79,7 @@ impl<'a> Iterator for StrIterator<'a> {
                     return None;
                 }
             }
-        };
-        let event = match span {
-            Directive(tag) => {
-                if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
-                    (self.state.pop_token(), self.state.pop_token())
-                {
-                    YamlEvent::Directive(tag, self.to_cow(start, end))
-                } else {
-                    YamlEvent::Error(ErrorType::UnexpectedEndOfFile)
-                }
-            }
-            MarkStart(start) => {
-                if let Some(MarkEnd(end)) = self.state.pop_token() {
-                    YamlEvent::ScalarValue(self.to_cow(start, end))
-                } else {
-                    YamlEvent::Error(ErrorType::UnexpectedEndOfFile)
-                }
-            }
-            MarkEnd(_) => panic!("Unexpected Mark end"),
-            DocumentStart => YamlEvent::DocStart,
-            DocumentEnd => YamlEvent::DocEnd,
-            SequenceStart => YamlEvent::SeqStart,
-            SequenceEnd => YamlEvent::SeqEnd,
-            MappingStart => YamlEvent::MapStart,
-            MappingEnd => YamlEvent::MapEnd,
-            ErrorToken(err) => YamlEvent::Error(err),
-        };
-        Some(event)
+        }
     }
 }
 

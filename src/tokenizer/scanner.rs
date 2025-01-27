@@ -2,17 +2,18 @@ use std::collections::VecDeque;
 use std::ops::ControlFlow::{self, Break, Continue};
 
 use ErrorType::NoDocStartAfterTag;
-use SpanToken::DocumentStart;
+use SpanToken::{DocumentStart, Space};
 
 use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::iter::ErrorType::{ExpectedIndent, UnexpectedSymbol};
 use crate::tokenizer::iter::{ErrorType, StrIterator};
-use crate::tokenizer::reader::IndentType::{EqualIndent, LessOrEqualIndent};
-use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, Reader, StrReader};
+use crate::tokenizer::reader::IndentType::{EndInstead, EqualIndent, LessOrEqualIndent};
+use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, IndentType, Reader, StrReader};
 use crate::tokenizer::scanner::NodeContext::{BlockIn, BlockKey, FlowIn, FlowKey, FlowOut};
 use crate::tokenizer::scanner::ParserState::{FlowMap, FlowSeq, PreDocStart, RootBlock};
 use crate::tokenizer::scanner::SpanToken::{
-    Directive, ErrorToken, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd, SequenceStart,
+    Directive, ErrorToken, LineFeed, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd,
+    SequenceStart,
 };
 
 #[derive(Clone)]
@@ -89,6 +90,14 @@ impl NodeContext {
 }
 
 impl Scanner {
+    #[inline]
+    pub(crate) fn peek_token(&self) -> Option<SpanToken> {
+        match self.tokens.front() {
+            Some(&x) => Some(x),
+            None => None,
+        }
+    }
+
     pub fn from_str_reader(slice: &str) -> StrIterator<'_> {
         StrIterator {
             state: Default::default(),
@@ -286,7 +295,7 @@ impl Scanner {
                     reader.read_line();
                 }
             }
-            if !reader.try_read_indent(EqualIndent(indent)).is_ok() {
+            if !reader.try_read_indent(EqualIndent(indent)).is_equal() {
                 self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
             }
         }
@@ -326,69 +335,84 @@ impl Scanner {
         todo!()
     }
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
-        let is_multiline = !context.in_implicit_key();
+        let mut is_multiline = !context.in_implicit_key();
 
         // assume first char will be correct and consume it
         self.read_plain_one_line(reader, context);
 
         // if multiline then we process next plain scalar
-        if !reader.peek_byte_at_check(0, is_flow_indicator) {
-            while is_multiline && !reader.eof() {
-                // separate in line
+        while {
+            is_multiline &= !reader.peek_byte_at_check(0, is_flow_indicator);
+            is_multiline && !reader.eof()
+        } {
+            // separate in line
+            if reader.col() != 0 {
+                reader.skip_space_tab(true);
+            }
+            // b-l-folded
+            let folded_str = self.try_read_folded(reader, FlowIn, indent);
+            if folded_str.is_empty() {
+                break;
+            }
+
+            //s-flow-line-prefix
+            if reader.try_read_indent(EqualIndent(indent)).is_equal() {
                 if reader.col() != 0 {
                     reader.skip_space_tab(true);
                 }
-                // b-l-folded
-                self.read_folded(reader, FlowIn, indent);
-
-                //s-flow-line-prefix
-                if reader.try_read_indent(EqualIndent(indent)).is_ok() {
-                    if reader.col() != 0 {
-                        reader.skip_space_tab(true);
-                    }
-                    self.read_plain_one_line(reader, context);
-                } else {
-                    self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
+                if self.read_plain_one_line(reader, context) {
+                    self.tokens.extend(folded_str);
                 }
+            } else {
+                self.tokens.push_back(ErrorToken(ExpectedIndent(indent)));
             }
         }
     }
 
-    #[inline]
-    fn read_folded<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
-        // try read break
+    fn try_read_folded<R: Reader>(
+        &mut self,
+        reader: &mut R,
+        context: NodeContext,
+        indent: u32,
+    ) -> Vec<SpanToken> {
+        let mut tokens = vec![];
+
+        if !reader.eof() {
+            return tokens;
+        }
+
         if reader.read_break().is_none() {
-            self.tokens
-                .push_back(ErrorToken(ErrorType::ExpectedNewlineInFolded));
-            return;
-        }
-        // l-empty
-        while let Ok(x) = reader.try_read_indent(LessOrEqualIndent(indent)) {
-            // must be block/line prefix
-            match x {
-                EqualIndent(_) if context.is_flow() => {
-                    // separate in line
-                    if reader.col() != 0 {
-                        reader.skip_space_tab(true);
+            tokens.push(ErrorToken(ErrorType::ExpectedNewlineInFolded));
+        } else {
+            let mut break_as_space = true;
+            loop {
+                match reader.try_read_indent(LessOrEqualIndent(indent)) {
+                    EndInstead => break,
+                    EqualIndent(_) if context.is_flow() => {
+                        // separate in line
+                        if reader.col() != 0 {
+                            reader.skip_space_tab(true);
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
+                break_as_space = false;
+
+                if let Some(x) = reader.read_break() {
+                    self.tokens.push_back(LineFeed);
+                }
             }
-            // b-as-line-feed expected
-            if let Some(x) = reader.read_break() {
-                self.tokens.push_back(MarkStart(x.0));
-                self.tokens.push_back(MarkEnd(x.1));
-                continue;
-            } else if indent > 0 {
-                self.tokens
-                    .push_back(ErrorToken(ErrorType::ExpectedNewlineInFolded));
+
+            if break_as_space {
+                self.tokens.push_back(Space);
             }
-            return;
-        }
+        };
+
+        tokens
     }
 
     #[inline]
-    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R, context: NodeContext) {
+    fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R, context: NodeContext) -> bool {
         let start = reader.pos();
         let in_flow_collection = context.in_flow_collection();
         let mut offset = 0;
@@ -413,6 +437,7 @@ impl Scanner {
             self.tokens.push_back(MarkEnd(start + offset));
             reader.consume_bytes(offset as usize);
         }
+        return offset > 0;
     }
     fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
         todo!()
@@ -472,6 +497,8 @@ pub enum SpanToken {
     ErrorToken(ErrorType),
     MarkStart(usize),
     MarkEnd(usize),
+    LineFeed,
+    Space,
     Directive(DirectiveType),
     SequenceStart,
     SequenceEnd,

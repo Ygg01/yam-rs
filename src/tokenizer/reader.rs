@@ -3,7 +3,7 @@ use std::{ops::ControlFlow, slice::Windows};
 
 use memchr::memchr2;
 
-use IndentType::{LessIndent, LessOrEqualIndent};
+use IndentType::{EndInstead, LessIndent, LessOrEqualIndent};
 
 use crate::tokenizer::reader::IndentType::EqualIndent;
 
@@ -52,26 +52,33 @@ impl<'a> QueryUntil for Windows<'a, u8> {
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum IndentType {
+    EndInstead,
     LessIndent(u32),
     EqualIndent(u32),
     LessOrEqualIndent(u32),
 }
 
+impl IndentType {}
+
 impl IndentType {
     #[inline]
-    pub(crate) fn compare(&self, value: u32) -> Result<IndentType, ()> {
+    pub(crate) fn compare(&self, value: u32) -> IndentType {
         match self {
-            LessOrEqualIndent(limit) | LessIndent(limit) if value < *limit => Ok(LessIndent(value)),
-            LessOrEqualIndent(limit) | EqualIndent(limit) if value == *limit => {
-                Ok(EqualIndent(value))
-            }
-            _ => Err(()),
+            LessOrEqualIndent(limit) | LessIndent(limit) if value < *limit => LessIndent(value),
+            LessOrEqualIndent(limit) | EqualIndent(limit) if value == *limit => EqualIndent(value),
+            _ => EndInstead,
         }
+    }
+
+    #[inline]
+    pub(crate) fn is_equal(&self) -> bool {
+        matches!(self, EqualIndent(_))
     }
 
     #[inline]
     pub(crate) fn is_valid(&self, lhs: u32) -> bool {
         match self {
+            EndInstead => false,
             LessIndent(rhs) => lhs + 1 < *rhs,
             EqualIndent(rhs) => lhs + 1 <= *rhs,
             LessOrEqualIndent(rhs) => lhs + 1 <= *rhs,
@@ -113,7 +120,7 @@ pub(crate) trait Reader {
     fn find_next_whitespace(&self) -> Option<usize>;
     fn find_fast2_offset(&self, needle1: u8, needle2: u8) -> Option<(usize, usize)>;
     fn skip_space_tab(&mut self, allow_tab: bool) -> usize;
-    fn try_read_indent(&mut self, indent_type: IndentType) -> Result<IndentType, ()>;
+    fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType;
     fn read_break(&mut self) -> Option<(usize, usize)>;
     fn skip_whitespace(&mut self) -> usize;
     fn read_line(&mut self) -> (usize, usize);
@@ -213,7 +220,10 @@ impl<'r> Reader for StrReader<'r> {
         n
     }
 
-    fn try_read_indent(&mut self, indent_type: IndentType) -> Result<IndentType, ()> {
+    fn try_read_indent(&mut self, indent_type: IndentType) -> IndentType {
+        if self.eof() {
+            return EndInstead;
+        }
         let consume = match self.slice.as_bytes()[self.pos..]
             .iter()
             .try_fold(0u32, |prev, &x| {
@@ -226,7 +236,7 @@ impl<'r> Reader for StrReader<'r> {
             Continue(value) | Break(value) => indent_type.compare(value),
         };
         match consume {
-            Ok(LessIndent(amount)) | Ok(EqualIndent(amount)) | Ok(LessOrEqualIndent(amount)) => {
+            LessIndent(amount) | EqualIndent(amount) | LessOrEqualIndent(amount) => {
                 self.consume_bytes(amount as usize)
             }
             _ => {}
@@ -447,7 +457,7 @@ pub fn test_try_read_indent() {
     fn try_read(
         input: &str,
         indent_type: IndentType,
-        expected_res: Result<IndentType, ()>,
+        expected_res: IndentType,
         expected_pos: usize,
     ) {
         let mut reader = StrReader::new(input);
@@ -457,14 +467,14 @@ pub fn test_try_read_indent() {
         assert_eq!(expected_pos, reader.pos);
     }
 
-    try_read("     #", EqualIndent(3), Ok(EqualIndent(3)), 3);
-    try_read("     #", EqualIndent(6), Err(()), 0);
+    try_read("     #", EqualIndent(3), EqualIndent(3), 3);
+    try_read("     #", EqualIndent(6), EndInstead, 0);
 
-    try_read("     #", LessIndent(4), Ok(LessIndent(3)), 3);
-    try_read("     #", LessIndent(0), Err(()), 0);
+    try_read("     #", LessIndent(4), LessIndent(3), 3);
+    try_read("     #", LessIndent(0), EndInstead, 0);
 
-    try_read("     #", LessOrEqualIndent(4), Ok(EqualIndent(4)), 4);
-    try_read("     #", LessOrEqualIndent(7), Ok(LessIndent(5)), 5);
+    try_read("     #", LessOrEqualIndent(4), EqualIndent(4), 4);
+    try_read("     #", LessOrEqualIndent(7), LessIndent(5), 5);
 }
 
 #[inline]
