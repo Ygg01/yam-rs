@@ -908,9 +908,15 @@ impl Lexer {
                 is_multiline,
                 tokens,
             };
-            if self.prev_scalar.is_multiline {
-                self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
-            }
+            if !matches!(curr_state, BlockMapExp(_, _)) {
+                if self.last_map_line == Some(scalar_line)  {
+                    self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
+                }
+                if self.prev_scalar.is_multiline {
+                    self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
+                }
+            } 
+
             self.last_map_line = Some(scalar_line);
             if is_map_start {
                 self.next_map_state();
@@ -922,8 +928,7 @@ impl Lexer {
                 self.push_state(BlockMap(scalar_start as u32, BeforeColon), scalar_line);
             }
         } else {
-            if self.last_map_line != Some(scalar_line) && curr_state.is_incorrectly_indented(scalar_start)
-            {
+            if self.last_map_line != Some(scalar_line) && curr_state.is_incorrectly_indented(scalar_start) {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
             self.next_map_state();
@@ -1224,7 +1229,7 @@ impl Lexer {
         let expected_indent = self.last_block_indent;
         reader.consume_bytes(1);
 
-        if self.last_map_line == Some(reader.line()) && !matches!(curr_state, BlockMapExp(_, _)) {
+        if !matches!(curr_state, BlockMapExp(_, _)) && self.last_map_line == Some(reader.line()) {
             self.push_error(ErrorType::SequenceOnSameLineAsKey);
         }
 

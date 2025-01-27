@@ -685,10 +685,31 @@ const EXP_BLOCK_MAP_ERR2_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+
+
 #[test]
 pub fn block_exp_map_err() {
     assert_eq_event(EXP_BLOCK_MAP_ERR1, EXP_BLOCK_MAP_ERR1_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_ERR2, EXP_BLOCK_MAP_ERR2_EVENTS);
+}
+
+const INLINE_ERR_INPUT: &str = r#"
+ a: b:
+"#;
+const INLINE_ERR_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :a
+   ERR
+   =VAL :
+   =VAL :b
+   =VAL :
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn block_map_inline_err() {
+    assert_eq_event(INLINE_ERR_INPUT, INLINE_ERR_EVENTS);
 }
 
 const ERR_MULTILINE_KEY_INPUT: &str = "
