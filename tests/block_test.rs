@@ -317,8 +317,28 @@ const SIMPLE_FOLD_EVENTS: &str = r"
 =VAL >
 -DOC";
 
+const X1_X4QW_INPUT: &str = r"
+test: |#comment";
+
+const X1_X4QW_EVENTS: &str = r"
++DOC
++MAP
+=VAL :test
+ERR";
+
+const X2_X4QW_INPUT: &str = r"
+test: |b";
+
+const X2_X4QW_EVENTS: &str = r"
++DOC
++MAP
+=VAL :test
+ERR";
+
 #[test]
 fn block_fold_literal() {
+    assert_eq_event(X1_X4QW_INPUT, X1_X4QW_EVENTS);
+    assert_eq_event(X2_X4QW_INPUT, X2_X4QW_EVENTS);
     assert_eq_event(BLOCK_FOLD_INPUT, BLOCK_FOLD_EVENTS);
     assert_eq_event(SIMPLE_FOLD1_INPUT, SIMPLE_FOLD_EVENTS);
     assert_eq_event(SIMPLE_FOLD2_INPUT, SIMPLE_FOLD_EVENTS);

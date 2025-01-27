@@ -2018,6 +2018,15 @@ impl Lexer {
                 1,
                 LiteralStringState::from_indentation(block_indent + u32::from(len - b'0')),
             ),
+            [b'#', ..] => {
+                push_error(
+                    UnexpectedComment,
+                    &mut self.tokens,
+                    &mut self.errors,
+                );
+                reader.consume_bytes(1);
+                return LiteralStringState::End;
+            }
             _ => (0, LiteralStringState::AutoIndentation),
         };
         reader.consume_bytes(amount);
