@@ -242,6 +242,15 @@ impl Spanner {
 
         if reader.eof() {
             self.stream_end = true;
+            self.stack.push_back(self.curr_state);
+            for state in self.stack.iter().rev()  {
+                let x = match *state {
+                    BlockMap(_) => MappingEnd,
+                    BlockSeq(_) => SequenceEnd,
+                    _ => continue,
+                };
+                self.tokens.push_back(x);
+            }
         }
     }
 
@@ -305,7 +314,8 @@ impl Spanner {
                 reader.consume_bytes(2);
             }
 
-            if new_indent > indent {
+            if new_indent >= indent {
+                self.tokens.push_back(SequenceStart);
                 self.push_state(BlockSeq(new_indent));
             }
         } else {
@@ -391,7 +401,11 @@ impl Spanner {
 
             if reader.peek_byte_is(b'-') {
                 match self.curr_state {
-                    BlockSeq(x) if x == reader.col() => return,
+                    BlockSeq(x) if x == reader.col() => {
+                        self.tokens.push_back(Separator);
+                        reader.consume_bytes(1);
+                        return;
+                    },
                     BlockSeq(x) if x > reader.col() => continue,
                     _ => {}
                 }

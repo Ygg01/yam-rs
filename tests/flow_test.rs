@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 
 const EMPTY_DOC_INPUT: &'static str = r#"
 # test"
