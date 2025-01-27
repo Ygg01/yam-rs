@@ -135,7 +135,7 @@ pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
 
 #[doc(hidden)]
 #[inline]
-pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u8) -> [u8; 8] {
+pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
     let pre_calc_row = U8_ROW_TABLE[index_mask];
     let rows = [
         *prev_row,
@@ -154,7 +154,7 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u8) -> [u8; 8] {
 #[doc(hidden)]
 #[inline]
 #[must_use]
-pub fn calculate_cols(cols: [u8; 8], rows_data: [u8; 8], prev_col: &u8) -> [u8; 8] {
+pub fn calculate_cols(cols: [u32; 8], rows_data: [u32; 8], prev_col: &u32) -> [u32; 8] {
     [
         cols[0] + *prev_col,
         if rows_data[0] == 0 {
