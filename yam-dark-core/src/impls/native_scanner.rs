@@ -262,20 +262,20 @@ unsafe impl Stage1Scanner for NativeScanner {
         };
 
         while bits != 0 {
-            let v0 = bits.trailing_zeros() as isize;
+            let v0 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
-            let v1 = bits.trailing_zeros() as isize;
+            let v1 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
-            let v2 = bits.trailing_zeros() as isize;
+            let v2 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
-            let v3 = bits.trailing_zeros() as isize;
+            let v3 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
 
             let v: [isize; 4] = [
-                idx_64_v[0] + v0,
-                idx_64_v[1] + v1,
-                idx_64_v[2] + v2,
-                idx_64_v[3] + v3,
+                idx_64_v[0] + v0 as isize,
+                idx_64_v[1] + v1 as isize,
+                idx_64_v[2] + v2 as isize,
+                idx_64_v[3] + v3 as isize,
             ];
             write_fn(
                 base.structurals
