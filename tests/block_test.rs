@@ -1052,8 +1052,30 @@ const X1_2XXW_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X1_V9D5_INPUT: &str = r"
+- ? earth: blue
+  : moon: white
+";
+
+const X1_V9D5_EVENTS: &str = r"
++DOC
++SEQ
++MAP
++MAP
+=VAL :earth
+=VAL :blue
+-MAP
++MAP
+=VAL :moon
+=VAL :white
+-MAP
+-MAP
+-SEQ
+-DOC";
+
 #[test]
 fn block_exp_map() {
+    assert_eq_event(X1_V9D5_INPUT, X1_V9D5_EVENTS);
     assert_eq_event(X1_2XXW_INPUT, X1_2XXW_EVENTS);
     assert_eq_event(X1_A2M4_INPUT, X1_A2M4_EVENTS);
     assert_eq_event(X_7W2P_INPUT, X_7W2P_EVENTS);
