@@ -50,7 +50,6 @@ pub enum ParserState {
     AfterDocEnd,
 }
 
-
 impl ParserState {
     #[inline]
     pub(crate) fn indent(&self, default: usize) -> usize {
@@ -119,20 +118,21 @@ impl Spanner {
         reader.skip_separation_spaces(true);
         match self.curr_state {
             PreDocStart => {
-                if !reader.peek_byte_is(b'%') {
-                    self.curr_state = RootBlock;
-                    return;
+                if reader.peek_byte_is(b'%') {
+                    reader.try_read_tag(&mut self.tokens);
+                    if reader.try_read_slice_exact("---") {
+                        self.tokens.push_back(DocumentStart)
+                    } else {
+                        self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
+                    }
+                } else if reader.try_read_slice_exact("---") {
                 }
-                reader.try_read_tag(&mut self.tokens);
-                if reader.try_read_slice_exact("---") {
-                    self.tokens.push_back(DocumentStart)
-                } else {
-                    self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
-                }
+                self.curr_state = RootBlock;
+                return;
             }
             RootBlock | BlockMap(_) | BlockKeyExp(_) | BlockValExp(_) | BlockSeq(_) => {
                 let indent = self.curr_state.indent(reader.col());
-                let init_indent = match self.curr_state  {
+                let init_indent = match self.curr_state {
                     BlockKeyExp(ind) | BlockValExp(ind) => ind,
                     BlockMap(_) => reader.col(),
                     _ => indent,
@@ -158,12 +158,8 @@ impl Spanner {
                     Some(b'>') => {
                         reader.read_block_scalar(false, &self.curr_state, &mut self.tokens)
                     }
-                    Some(b'\'') => {
-                        reader.read_single_quote(false, &mut self.tokens)
-                    }
-                    Some(b'"') => {
-                        reader.read_double_quote(false, &mut self.tokens)
-                    }
+                    Some(b'\'') => reader.read_single_quote(false, &mut self.tokens),
+                    Some(b'"') => reader.read_double_quote(false, &mut self.tokens),
                     Some(b'#') => {
                         // comment
                         reader.read_line();
@@ -336,8 +332,14 @@ impl Spanner {
         todo!()
     }
 
-    fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, start_indent: usize, init_indent: usize) {
-        let (tokens, new_state) = reader.read_plain_scalar(start_indent, init_indent, &self.curr_state);
+    fn fetch_plain_scalar<R: Reader>(
+        &mut self,
+        reader: &mut R,
+        start_indent: usize,
+        init_indent: usize,
+    ) {
+        let (tokens, new_state) =
+            reader.read_plain_scalar(start_indent, init_indent, &self.curr_state);
 
         match new_state {
             Some(BlockValExp(x)) => self.curr_state = BlockValExp(x),
