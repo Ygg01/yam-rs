@@ -28,6 +28,7 @@ pub enum ErrorType {
     DirectiveEndMark,
     ImplicitKeysNeedToBeInline,
     AliasAndAnchor,
+    NodeWithTwoAnchors,
     ExpectedIndentDocStart { actual: usize, expected: usize },
     UnxpectedIndentDocEnd { actual: usize, expected: usize },
     ExpectedIndent { actual: usize, expected: usize },
