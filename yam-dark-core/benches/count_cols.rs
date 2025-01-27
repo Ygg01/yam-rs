@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_dark_core::util::{
-    count_col_rows, count_col_rows_immut, count_indent, count_indent_naive, mask_merge, U8X16,
-    U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    count_col_rows, count_col_rows_immut, count_indent_dependent, count_indent_naive, mask_merge,
+    U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
 use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
@@ -209,25 +209,50 @@ fn col_count_indent(c: &mut Criterion) {
     let chunk2 = chunk_iter.next().unwrap();
     let newline_mask2 = u8x64_eq(chunk2, b'\n');
     let space_mask2 = u8x64_eq(chunk2, b' ');
+    let mut indents = [0; 64];
+    let mut byte_cols = [0; 64];
+    let mut byte_rows = [0; 64];
 
-    group.bench_function("col_count_indent", |b| {
+    group.bench_function("col_count_indent_dependent", |b| {
         b.iter(|| {
             let mut prev_indent = 0;
             let mut prev_iter_char = 1;
-            let indent = count_indent(
+            let mut prev_row = 0;
+            let mut prev_col = 0;
+
+            count_col_rows(
+                newline_mask,
+                &mut prev_col,
+                &mut prev_row,
+                &mut byte_cols,
+                &mut byte_rows,
+            );
+            count_indent_dependent(
                 newline_mask,
                 space_mask,
                 &mut prev_iter_char,
                 &mut prev_indent,
+                &byte_cols,
+                &mut indents,
             );
-            black_box(indent[3] == 0);
-            let indent = count_indent(
+            black_box(indents[3] == 0);
+
+            count_col_rows(
+                newline_mask2,
+                &mut prev_col,
+                &mut prev_row,
+                &mut byte_cols,
+                &mut byte_rows,
+            );
+            count_indent_dependent(
                 newline_mask2,
                 space_mask2,
                 &mut prev_iter_char,
                 &mut prev_indent,
+                &byte_cols,
+                &mut indents,
             );
-            black_box(indent[30] == 0);
+            black_box(indents[30] == 0);
         })
     });
     group.finish();
@@ -246,12 +271,24 @@ fn col_count_indent_naive(c: &mut Criterion) {
     let chunk2 = chunk_iter.next().unwrap();
     let newline_mask2 = u8x64_eq(chunk2, b'\n');
     let space_mask2 = u8x64_eq(chunk2, b' ');
+    let mut indents = [0; 64];
+    let mut prev_col = 0;
+    let mut prev_row = 0;
+    let mut byte_cols = [0; 64];
+    let mut byte_rows = [0; 64];
 
     group.bench_function("col_count_indent_naive", |b| {
         b.iter(|| {
             let mut prev_indent = 0;
             let mut prev_iter_char = 1;
-            let mut indents = [0; 64];
+
+            count_col_rows(
+                newline_mask,
+                &mut prev_col,
+                &mut prev_row,
+                &mut byte_cols,
+                &mut byte_rows,
+            );
             count_indent_naive(
                 newline_mask,
                 space_mask,
@@ -260,6 +297,14 @@ fn col_count_indent_naive(c: &mut Criterion) {
                 &mut indents,
             );
             black_box(indents[56] == 0);
+
+            count_col_rows(
+                newline_mask2,
+                &mut prev_col,
+                &mut prev_row,
+                &mut byte_cols,
+                &mut byte_rows,
+            );
             count_indent_naive(
                 newline_mask2,
                 space_mask2,

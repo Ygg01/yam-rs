@@ -296,12 +296,14 @@ pub fn count_indent_naive(
 }
 
 #[doc(hidden)]
-pub fn count_indent(
+pub fn count_indent_dependent(
     newline_mask: u64,
     whitespace_mask: u64,
     prev_iter_char: &mut u8,
     prev_indent: &mut u32,
-) -> [u32; 64] {
+    prev_byte_col: &[u32; 64],
+    indents: &mut [u32; 64],
+) {
     let mut byte_indent = [0; 64];
 
     #[inline]
@@ -365,8 +367,6 @@ pub fn count_indent(
     let part_whitespace = ((newline_mask & 0xFF00_0000_0000_0000) >> 56) as usize;
     let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
     byte_indent[56..64].copy_from_slice(&col_indent);
-
-    byte_indent
 }
 
 #[test]
