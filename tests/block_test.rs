@@ -858,6 +858,7 @@ const ALIAS_N_SEQ2_EVENTS: &str = r#"
  +DOC
   ERR
   +SEQ &seq
+   ERR
    =VAL :a
   -SEQ
  -DOC"#;
@@ -878,6 +879,38 @@ pub fn block_seq_anchor_alias() {
     assert_eq_event(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS);
     assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
     assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
+}
+
+const SEQ_AND_TAG_INPUT: &str = r#"
+  sequence: !!seq
+  - a
+  - !!str
+    - b
+  mapping: !!map
+    foo: bar
+"#;
+
+const SEQ_AND_TAG_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :sequence
+   +SEQ <tag:yaml.org,2002:seq>
+    =VAL :a
+    +SEQ <tag:yaml.org,2002:str>
+     =VAL :b
+    -SEQ
+   -SEQ
+   =VAL :mapping
+   +MAP <tag:yaml.org,2002:map>
+    =VAL :foo
+    =VAL :bar
+   -MAP
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn block_col_tags() {
+    assert_eq_event(SEQ_AND_TAG_INPUT, SEQ_AND_TAG_EVENTS);
 }
 
 const ANCHOR_COLON_INPUT: &str = r#"
@@ -953,9 +986,32 @@ const MIX_BLOCK_EVENTS: &str = r##"
   -SEQ
  -DOC"##;
 
+const MIX2_BLOCK_INPUT: &str = r##"
+  sequence:
+  - a
+  mapping:
+   foo: bar
+ "##;
+
+const MIX2_BLOCK_EVENTS: &str = r##"
+ +DOC
+  +MAP
+   =VAL :sequence
+   +SEQ
+    =VAL :a
+   -SEQ
+   =VAL :mapping
+   +MAP
+    =VAL :foo
+    =VAL :bar
+   -MAP
+  -MAP
+ -DOC"##;
+
 #[test]
 pub fn block_mix_seq() {
     assert_eq_event(MIX_BLOCK_INPUT, MIX_BLOCK_EVENTS);
+    assert_eq_event(MIX2_BLOCK_INPUT, MIX2_BLOCK_EVENTS);
 }
 
 const TAG1_INPUT: &str = r#"
@@ -1002,9 +1058,24 @@ const MULTI_LINE_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const MULTI_LINE_SEQ_INPUT: &str = r#"
+- a 
+ b
+
+ c"#;
+
+const MULTI_LINE_SEQ_EVENTS: &str = r#"
+ +DOC
+  +SEQ
+   =VAL :a b\nc
+  -SEQ
+ -DOC"#;
+ 
+
 #[test]
 fn multi_line_value() {
     assert_eq_event(MULTI_LINE_INPUT, MULTI_LINE_EVENTS);
+    assert_eq_event(MULTI_LINE_SEQ_INPUT, MULTI_LINE_SEQ_EVENTS);
 }
 
 const INDENT_TAB_INPUT: &str = r#"
