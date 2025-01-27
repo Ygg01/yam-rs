@@ -15,12 +15,6 @@ pub struct NativeScanner {
     inner_chunk: [u8; 64],
 }
 
-impl NativeScanner {
-    fn get_initial_structurals(yaml_chunk_state: &YamlChunkState) -> u64 {
-        yaml_chunk_state.characters.block_structurals | yaml_chunk_state.characters.flow_structurals
-    }
-}
-
 unsafe impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
