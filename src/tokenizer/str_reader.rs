@@ -447,18 +447,15 @@ impl<'r> Reader<()> for StrReader<'r> {
                 new_line_token += 1;
                 self.read_line();
                 continue;
-            } else {
-                match self.skip_n_spaces(indentation, curr_state.indent() as usize) {
-                    Flow::Error(actual) => {
-                        tokens.push_back(ErrorToken as usize);
-                        errors.push(ExpectedIndent {
-                            actual,
-                            expected: indentation,
-                        });
-                        break;
-                    }
-                    _ => {}
-                }
+            } else if let Flow::Error(actual) =
+                self.skip_n_spaces(indentation, curr_state.indent() as usize)
+            {
+                tokens.push_back(ErrorToken as usize);
+                errors.push(ExpectedIndent {
+                    actual,
+                    expected: indentation,
+                });
+                break;
             }
 
             let (start, end) = self.read_line();
@@ -498,17 +495,16 @@ impl<'r> Reader<()> for StrReader<'r> {
 
     fn read_double_quote(
         &mut self,
-        prev_indent: usize,
-        is_implicit: bool,
+        _prev_indent: usize,
+        _is_implicit: bool,
         is_multiline: &mut bool,
-        errors: &mut Vec<ErrorType>,
+        _errors: &mut Vec<ErrorType>,
     ) -> Vec<usize> {
         let start_str = self.consume_bytes(1);
         let mut quote_token = (start_str, start_str);
         let mut tokens = vec![ScalarDoubleQuote as usize];
         let mut last_non_space = 0;
         let mut newspaces = None;
-
 
         while !self.eof() {
             let (line_start, line_end, _) = self.get_line_offset();
@@ -518,7 +514,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 } else {
                     quote_token.1 = last_non_space;
                 }
-                
+
                 *is_multiline = true;
 
                 emit_token(&mut quote_token, &mut newspaces, &mut tokens);
@@ -530,7 +526,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             if let Some(find_pos) = memchr::memchr3(b'"', b' ', b'\t', haystack) {
                 self.consume_bytes(find_pos.saturating_sub(1));
                 match self.peek_chars() {
-                    [b'\\', b'"', ..]  => {
+                    [b'\\', b'"', ..] => {
                         quote_token.1 = self.pos;
                         emit_token(&mut quote_token, &mut newspaces, &mut tokens);
                         quote_token.0 = self.pos + 1;
@@ -542,7 +538,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                         self.consume_bytes(2);
                         break;
                     }
-                    [_, b' ' | b'\t', ..] | [b' ' | b'\t']=> {
+                    [_, b' ' | b'\t', ..] | [b' ' | b'\t'] => {
                         if *is_multiline {
                             last_non_space = self.pos;
                             self.consume_bytes(1);
@@ -551,8 +547,6 @@ impl<'r> Reader<()> for StrReader<'r> {
                             last_non_space = self.consume_bytes(1);
                             self.skip_space_tab(true);
                         }
-                        
-                        
                     }
                     _ => {}
                 }
@@ -675,7 +669,11 @@ impl<'r> Reader<()> for StrReader<'r> {
     }
 }
 
-fn emit_token(quote_token: &mut (usize, usize), newspaces: &mut Option<usize>, tokens: &mut Vec<usize>) {
+fn emit_token(
+    quote_token: &mut (usize, usize),
+    newspaces: &mut Option<usize>,
+    tokens: &mut Vec<usize>,
+) {
     if quote_token.0 != quote_token.1 {
         if let Some(newspace) = newspaces.take() {
             tokens.push(NewLine as usize);
