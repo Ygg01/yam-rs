@@ -57,6 +57,17 @@ trait YamlIndex {}
 pub(crate) struct YamlParserState {}
 
 impl YamlParserState {
+    pub(crate) fn merge_state<T: Buffer>(
+        &mut self,
+        chunk: &[u8; 64],
+        buffers: &mut T,
+        block_state: &mut YamlBlockState,
+    ) -> ParseResult<YamlBlockState> {
+        todo!()
+    }
+}
+
+impl YamlParserState {
     pub(crate) fn process_chunk<B: Buffer>(&mut self, p0: &B, p1: YamlBlockState) {
         todo!()
     }
@@ -122,7 +133,7 @@ impl<'de> Parser<'de> {
     pub fn build_events(input: &'de [u8], hint: Option<usize>) -> String {
         let mut event_visitor = EventStringVisitor::new_with_hint(hint);
         let mut buffer = Buffers::default();
-        
+
         let mut validator = get_validator(true);
 
         Self::run_to_end::<Buffers, EventStringVisitor>(
