@@ -8,8 +8,8 @@ const EMPTY_DOC_INPUT: &'static str = r#"
 %YAML 1.3 #arst
 "#;
 const EMPTY_DOC_EXPECTED: &'static str = r#"
-  %YAML 1.3
-  ERR"#;
+ %YAML 1.3
+ ERR"#;
 
 #[test]
 fn parse_empty_document() {
@@ -22,19 +22,19 @@ null
 
 const NULL_YAML_INPUT2: &'static str = "\r\nnull\r\n";
 const NULL_YAML_EXPECTED: &'static str = r#"
-  =VAL null"#;
+ =VAL null"#;
 
 const MULTI_WORD_INPUT: &'static str = r#"
   null test xy"#;
 const MULTI_WORD_EXPECTED: &'static str = r#"
-  =VAL null test xy"#;
+ =VAL null test xy"#;
 
 const MULTILINE_INPUT: &'static str = r#"
 test
 xt
 "#;
 const MULTILINE_EXPECTED: &'static str = r#"
-  =VAL test xt"#;
+ =VAL test xt"#;
 
 #[test]
 fn parse_flow_scalars() {
@@ -51,11 +51,10 @@ const SEQ_FLOW_INPUT2: &'static str = r#"
 [x ,y]
 "#;
 const SEQ_FLOW_EXPECTED: &'static str = r#"
-  +SEQ
-    =VAL x
-    -SEP-
-    =VAL y
-  -SEQ"#;
+ +SEQ
+  =VAL x
+  =VAL y
+ -SEQ"#;
 
 #[test]
 fn parse_flow_seq() {
@@ -71,17 +70,16 @@ const SEQ_NESTED_COL2: &'static str = r#"
 "#;
 
 const SEQ_NESTED_COL1_EXPECTED: &'static str = r#"
-  +SEQ
-    +MAP
-    -MAP
-  -SEQ"#;
+ +SEQ
+  +MAP
+  -MAP
+ -SEQ"#;
 
 const SEQ_NESTED_COL2_EXPECTED: &'static str = r#"
-  +SEQ
-    +MAP
-      -KEY-
-    -MAP
-  -SEQ"#;
+ +SEQ
+  +MAP
+  -MAP
+ -SEQ"#;
 
 #[test]
 fn parse_nested_col() {
@@ -93,17 +91,16 @@ const SEQ_EMPTY_MAP: &'static str = r#"
 {:}
 "#;
 const SEQ_EMPTY_MAP_EXPECTED: &'static str = r#"
-  +MAP
-    -KEY-
-  -MAP"#;
+ +MAP
+ -MAP"#;
 
 const SEQ_XY_MAP1: &'static str = r#"
 {x:y}
 "#;
 const SEQ_XY_MAP1_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL x:y
-  -MAP"#;
+ +MAP
+  =VAL x:y
+ -MAP"#;
 
 const SEQ_X_Y_MAP1: &'static str = r#"
 {x: y}
@@ -116,26 +113,23 @@ const SEQ_X_Y_MAP3: &'static str = r#"
  y}
 "#;
 const SEQ_X_Y_MAP_EXPECTED: &'static str = r#"
-  +MAP
-    =VAL x
-    -KEY-
-    =VAL y
-  -MAP"#;
+ +MAP
+  =VAL x
+  =VAL y
+ -MAP"#;
 
 const SEQ_COMPLEX_MAP: &'static str = r#"
 {[x,y]:a}
 "#;
 
 const SEQ_COMPLEX_MAP_EXPECTED: &'static str = r#"
-  +MAP
-    +SEQ
-      =VAL x
-      -SEP-
-      =VAL y
-    -SEQ
-    -KEY-
-    =VAL a
-  -MAP"#;
+ +MAP
+  +SEQ
+   =VAL x
+   =VAL y
+  -SEQ
+  =VAL a
+ -MAP"#;
 
 #[test]
 fn parse_flow_map() {
@@ -160,13 +154,13 @@ const SQUOTE_STR2: &'static str = r#"
   quote'"#;
 
 const SQUOTE_STR_EXPECTED: &'static str = r#"
-  =VAL single quote"#;
+ =VAL single quote"#;
 
 const SQUOTE_ESCAPE: &'static str = r#"'for single quote, use '' two of them'"#;
 const SQUOTE_ESCAPE2: &'static str = r#"'for single quote, use
 '' two of them'"#;
 const SQUOTE_ESCAPE_EXPECTED: &'static str = r#"
-  =VAL for single quote, use ' two of them"#;
+ =VAL for single quote, use ' two of them"#;
 
 #[test]
 fn flow_single_quote() {
@@ -186,13 +180,13 @@ const DQUOTE_STR2: &'static str = r#"
 "#;
 
 const DQUOTE_STR_EXPECTED: &'static str = r#"
-  =VAL double quote"#;
+ =VAL double quote"#;
 
 const DQUOTE_STR_ESCAPE1: &'static str = r#"
-  "double quote (\")""#;
+ "double quote (\")""#;
 
 const DQUOTE_STR_ESCAPE_EXPECTED: &'static str = r#"
-  =VAL double quote (")"#;
+ =VAL double quote (")"#;
 
 #[test]
 fn flow_double_quote() {
@@ -207,8 +201,8 @@ const ERR_PLAIN_SCALAR: &'static str = r#"
  c"#;
 
 const ERR_PLAIN_SCALAR_EXPECTED: &'static str = r#"
-  =VAL a b
-  ERR"#;
+ =VAL a b
+ ERR"#;
 
 #[test]
 fn err_plain_scalar() {
@@ -219,8 +213,8 @@ const SIMPLE_DOC: &'static str = r#"
 ---[]"#;
 
 const SIMPLE_DOC_EXPECTED: &'static str = r#"
-  +SEQ
-  -SEQ"#;
+ +SEQ
+ -SEQ"#;
 
 #[test]
 fn simple_doc() {

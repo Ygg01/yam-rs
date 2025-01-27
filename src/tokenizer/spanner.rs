@@ -1,17 +1,18 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use std::collections::VecDeque;
+use std::fmt::Display;
 
 use ErrorType::NoDocStartAfterTag;
 
+use crate::tokenizer::ErrorType;
+use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
     AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, BlockValExp, FlowKey, FlowKeyExp, FlowMap,
     FlowSeq, PreDocStart, RootBlock,
 };
 use crate::tokenizer::spanner::SpanToken::{KeyEnd, MappingStart, SequenceStart};
-use crate::tokenizer::ErrorType;
-use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
 #[derive(Clone)]
 pub struct Spanner {
@@ -21,7 +22,6 @@ pub struct Spanner {
     errors: Vec<ErrorType>,
     stack: Vec<ParserState>,
 }
-
 impl Default for Spanner {
     fn default() -> Self {
         Self {
@@ -132,8 +132,7 @@ impl Spanner {
                         self.tokens.push_back(Error as usize);
                         self.errors.push(NoDocStartAfterTag)
                     }
-                } else if reader.try_read_slice_exact("---") {
-                }
+                } else if reader.try_read_slice_exact("---") {}
                 self.curr_state = RootBlock;
                 return;
             }
@@ -424,34 +423,35 @@ impl Spanner {
     }
 }
 
- const DOC_END: usize = usize::MAX;
- const DOC_START: usize = usize::MAX - 1;
- const MAP_END: usize = usize::MAX - 2;
- const MAP_START: usize = usize::MAX - 3;
- const SEQ_END: usize = usize::MAX - 4;
- const SEQ_START: usize = usize::MAX - 5;
- const KEY_END: usize = usize::MAX - 6;
- const TAG_START: usize = usize::MAX - 7;
- const SEPARATOR: usize = usize::MAX - 8;
- const ANCHOR: usize = usize::MAX - 9;
- const ALIAS: usize = usize::MAX - 10;
- const DIR_FLOAT: usize = usize::MAX - 11;
- const DIR_INT: usize = usize::MAX - 12;
- const DIR_BOOL: usize = usize::MAX - 13;
- const DIR_NULL: usize = usize::MAX - 14;
- const DIR_STR: usize = usize::MAX - 15;
- const DIR_SEQ: usize = usize::MAX - 16;
- const DIR_MAP: usize = usize::MAX - 17;
- const DIR_RES: usize = usize::MAX - 18;
- const DIR_TAG: usize = usize::MAX - 19;
- const DIR_YAML: usize = usize::MAX - 20;
- const DIR_YAML_11: usize = usize::MAX - 21;
- const ERROR: usize = usize::MAX - 22;
- const SPACE: usize = usize::MAX - 23;
- const NEWLINE: usize = usize::MAX - 24;
- 
+const DOC_END: usize = usize::MAX;
+const DOC_START: usize = usize::MAX - 1;
+const MAP_END: usize = usize::MAX - 2;
+const MAP_START: usize = usize::MAX - 3;
+const SEQ_END: usize = usize::MAX - 4;
+const SEQ_START: usize = usize::MAX - 5;
+const KEY_END: usize = usize::MAX - 6;
+const TAG_START: usize = usize::MAX - 7;
+const SEPARATOR: usize = usize::MAX - 8;
+const ANCHOR: usize = usize::MAX - 9;
+const ALIAS: usize = usize::MAX - 10;
+//  const DIR_FLOAT: usize = usize::MAX - 11;
+//  const DIR_INT: usize = usize::MAX - 12;
+//  const DIR_BOOL: usize = usize::MAX - 13;
+//  const DIR_NULL: usize = usize::MAX - 14;
+//  const DIR_STR: usize = usize::MAX - 15;
+//  const DIR_SEQ: usize = usize::MAX - 16;
+//  const DIR_MAP: usize = usize::MAX - 17;
+const DIR_RES: usize = usize::MAX - 18;
+const DIR_TAG: usize = usize::MAX - 19;
+const DIR_YAML: usize = usize::MAX - 20;
+//  const DIR_YAML_11: usize = usize::MAX - 21;
+const ERROR: usize = usize::MAX - 22;
+const SPACE: usize = usize::MAX - 23;
+const NEWLINE: usize = usize::MAX - 24;
+
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[allow(clippy::enum_clike_unportable_variant)] //false positive see https://github.com/rust-lang/rust-clippy/issues/8043
 pub enum SpanToken {
     Mark,
     NewLine = NEWLINE,
@@ -481,6 +481,23 @@ pub enum SpanToken {
     MappingEnd = MAP_END,
     DocumentStart = DOC_START,
     DocumentEnd = DOC_END,
+}
+
+impl Display for SpanToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use crate::tokenizer::spanner::SpanToken::*;
+
+        match *self {
+            DocumentStart => write!(f, "+DOC"),
+            DocumentEnd => write!(f, "-DOC"),
+            SequenceStart => write!(f, "+SEQ"),
+            SequenceEnd => write!(f, "-SEQ"),
+            MappingStart => write!(f, "+MAP"),
+            MappingEnd => write!(f, "-MAP"),
+            Error => write!(f, "ERR"),
+            _ => write!(f, ""),
+        }
+    }
 }
 
 impl From<usize> for SpanToken {
@@ -517,6 +534,7 @@ impl From<usize> for SpanToken {
         }
     }
 }
+
 impl From<&usize> for SpanToken {
     fn from(value: &usize) -> Self {
         SpanToken::from(*value)

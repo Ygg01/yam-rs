@@ -9,11 +9,10 @@ const IN1: &'static str = r#"
 "#;
 
 const IN1_EXPECTED: &'static str = r#"
-  +SEQ
-    +MAP
-      -KEY-
-    -MAP
-  -SEQ"#;
+ +SEQ
+  +MAP
+  -MAP
+ -SEQ"#;
 
 fn bench_yaml(input_yaml: &str, expect: &str) {
     let mut event = String::new();

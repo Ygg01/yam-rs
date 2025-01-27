@@ -8,8 +8,6 @@ edition = "2021"
 [dependencies]
 memchr = "2.5.0"
 
-[rust]
-debuginfo-level = 1
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -19,5 +17,4 @@ name = "event_processing"
 harness = false
 
 [profile.release]
-opt-level=1
-debug = true
+opt-level=2
