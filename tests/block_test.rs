@@ -388,11 +388,11 @@ pub fn block_map() {
     assert_eq_event(MAP_NESTED_INPUT, MAP_NESTED_EVENTS);
 }
 
-const DQUOTE_ESC_INPUT: &str = r##"
+const DQUOTE_MAP_INPUT: &str = r##"
 quote: "a\/b"
 "##;
 
-const DQUOTE_ESC_EVENTS: &str = r#"
+const DQUOTE_MAP_EVENTS: &str = r#"
  +DOC
   +MAP
    =VAL :quote
@@ -400,9 +400,23 @@ const DQUOTE_ESC_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const DQUOTE_MUL_INPUT: &str = r##"
+quoted: "multi
+  line"
+ "##;
+
+const DQUOTE_MUL_EVENTS: &str = r##"
+ +DOC
+  +MAP
+   =VAL :quoted
+   =VAL "multi line
+  -MAP
+ -DOC"##;
+
 #[test]
 pub fn block_quote_map() {
-  assert_eq_event(DQUOTE_ESC_INPUT, DQUOTE_ESC_EVENTS);
+    assert_eq_event(DQUOTE_MAP_INPUT, DQUOTE_MAP_EVENTS);
+    assert_eq_event(DQUOTE_MUL_INPUT, DQUOTE_MUL_EVENTS);
 }
 
 const EMPTY_MAP_INPUT: &str = r#"
@@ -614,7 +628,7 @@ const EMPTY_KEY_MAP_EVENTS: &str = r#"
  -DOC"#;
 #[test]
 pub fn block_empty_node_map() {
-  assert_eq_event(EMPTY_KEY_MAP_INPUT, EMPTY_KEY_MAP_EVENTS);
+    assert_eq_event(EMPTY_KEY_MAP_INPUT, EMPTY_KEY_MAP_EVENTS);
 }
 
 const EXP_BLOCK_MAP_ERR1: &str = r#"
@@ -664,12 +678,12 @@ const ERR_MULTILINE_KEY_EVENTS: &str = "
   -MAP
  -DOC";
 
-const ERR_INVALID_KEY_INPUT: &str = "
+const ERR_INVALID_KEY1_INPUT: &str = "
 a:
   b
 c";
 
-const ERR_INVALID_KEY_EVENTS: &str = "
+const ERR_INVALID_KEY1_EVENTS: &str = "
  +DOC
   +MAP
    =VAL :a
@@ -679,10 +693,27 @@ const ERR_INVALID_KEY_EVENTS: &str = "
   -MAP
  -DOC";
 
+const ERR_INVALID_KEY2_INPUT: &str = r#"
+ a:
+   b
+ "c
+  x""#;
+
+const ERR_INVALID_KEY2_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :a
+   =VAL :b
+   ERR
+   =VAL "c x
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn block_map_err() {
     assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
-    assert_eq_event(ERR_INVALID_KEY_INPUT, ERR_INVALID_KEY_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
+    assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
 }
 
 const COMPLEX_KEYS_INPUT: &str = r##"

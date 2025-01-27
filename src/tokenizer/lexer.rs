@@ -143,8 +143,8 @@ impl LexerState {
 
     fn is_incorrectly_indented(&self, scalar_start: usize) -> bool {
         match &self {
-            BlockMap(0, _) | BlockSeq(0) => scalar_start == 0,
-            BlockMap(ind, _) | BlockSeq(ind) | BlockMapExp(ind, _) => scalar_start < *ind as usize,
+            BlockMapExp(ind, _) => scalar_start < *ind as usize,
+            BlockMap(ind, _) | BlockSeq(ind)  => scalar_start <= *ind as usize,
             _ => false,
         }
     }
@@ -815,12 +815,12 @@ impl Lexer {
         curr_state: LexerState,
     ) {
         let had_tab = self.has_tab;
+        let scalar_line = reader.line();
         let Scalar {
             scalar_start,
             is_multiline,
             tokens,
         } = self.process_double_quote(reader);
-        let scalar_line = reader.line();
         reader.skip_space_tab();
 
         let is_key = reader.peek_byte().map_or(false, |chr| chr == b':');
@@ -868,7 +868,8 @@ impl Lexer {
                 self.push_state(BlockMap(scalar_start as u32, BeforeColon), scalar_line);
             }
         } else {
-            if self.last_map_line != scalar_line && curr_state.is_incorrectly_indented(scalar_start)
+            if self.last_map_line != scalar_line
+                && curr_state.is_incorrectly_indented(scalar_start)
             {
                 self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
             }
@@ -1471,12 +1472,12 @@ impl Lexer {
         curr_state: LexerState,
     ) {
         let has_tab = self.has_tab;
+        let scalar_line = reader.line();
         let Scalar {
             scalar_start,
             is_multiline,
             tokens,
         } = self.process_single_quote(reader);
-        let scalar_line = reader.line();
         reader.skip_space_tab();
 
         let ends_with = reader.peek_byte().map_or(false, |chr| chr == b':');
