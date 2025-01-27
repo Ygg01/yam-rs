@@ -505,6 +505,7 @@ impl Spanner {
         } else {
             start_indent
         };
+        let mut had_comment = false;
 
         while !reader.eof() {
             // if plain scalar is less indentend than previous
@@ -524,10 +525,11 @@ impl Spanner {
                 break;
             }
 
-            let (start, end) = match self.read_plain_one_line(reader, allow_minus) {
+            let (start, end) = match self.read_plain_one_line(reader, allow_minus, &mut had_comment) {
                 Some(x) => x,
                 None => break,
             };
+            
 
             reader.skip_space_tab(true);
 
@@ -620,6 +622,7 @@ impl Spanner {
         &mut self,
         reader: &mut R,
         allow_minus: bool,
+        had_comment: &mut bool,
     ) -> Option<(usize, usize)> {
         let start = reader.pos();
         let in_flow_collection = self.curr_state.in_flow_collection();
@@ -643,25 +646,35 @@ impl Spanner {
         for (prev, curr, next, pos) in reader.get_lookahead_iterator(end..=line_end) {
             // ns-plain-char  prevent ` #`
             if curr == b'#' && is_white_tab_or_break(prev) {
+                // if we encounter two or more comment print error and try to recover
+                if *had_comment {
+                    self.tokens.push_back(ErrorToken(ErrorType::UnexpectedComment))
+                } else {
+                    *had_comment = true;
+                    reader.set_pos(line_end);
+                    return Some((start, end_of_str));
+                }
                 break;
             }
+
             // ns-plain-char prevent `: `
             // or `:{`  in flow collections
             if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
-                // commit any uncommited character, but ignore first character
+                // commit any uncommitted character, but ignore first character
                 if !is_white_tab(prev) && pos != end {
                     end_of_str += 1;
                 }
                 break;
             }
 
+            // if current character is a flow indicator, break
             if is_flow_indicator(curr) {
                 break;
             }
 
-            if is_white_tab(curr) {
-                // commit any uncommited character, but ignore first character
-                if !is_white_tab(prev) && pos != end {
+            if is_white_tab_or_break(curr) {
+                // commit any uncommitted character, but ignore first character
+                if !is_white_tab_or_break(prev) && pos != end {
                     end_of_str += 1;
                 }
                 continue;

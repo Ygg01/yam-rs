@@ -184,24 +184,37 @@ const MULTILINE_COMMENT_BLOCK1_EXPECTED: &'static str = r#"
     =VAL abc
   -MAP"#;
 
-// const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
-//   multi:
-//     ab  # a comment
-//     xyz  # a commeent
-// "#;
+const MULTILINE_COMMENT_BLOCK3: &'static str = r#"
+  multi:
+    ab  # a comment
+    xyz  # a commeent
+"#;
 
-// const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
-//   +MAP
-//     =VAL multi
-//     -KEY-
-//     =VAL ab
+const MULTILINE_COMMENT_BLOCK3_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL multi
+    -KEY-
+    ERR(UnexpectedComment)
+    =VAL ab xyz
+  -MAP"#;
 
-//   -MAP
-// "#;
+const MULTILINE_COMMENT_BLOCK4: &'static str = r#"
+  multi:
+    ab  
+    xyz  # a commeent
+"#;  
+
+const MULTILINE_COMMENT_BLOCK4_EXPECTED: &'static str = r#"
+  +MAP
+    =VAL multi
+    -KEY-
+    =VAL ab xyz
+  -MAP"#;
 
 #[test]
 pub fn multiline_block_comment() {
     assert_eq_event(MULTILINE_COMMENT_BLOCK1, MULTILINE_COMMENT_BLOCK1_EXPECTED);
-    // assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK1_EXPECTED);
-    // assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK2_EXPECTED);
+    assert_eq_event(MULTILINE_COMMENT_BLOCK2, MULTILINE_COMMENT_BLOCK1_EXPECTED);
+    assert_eq_event(MULTILINE_COMMENT_BLOCK3, MULTILINE_COMMENT_BLOCK3_EXPECTED);
+    assert_eq_event(MULTILINE_COMMENT_BLOCK4, MULTILINE_COMMENT_BLOCK4_EXPECTED);
 }
