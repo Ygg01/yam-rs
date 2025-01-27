@@ -5,9 +5,9 @@ pub use scanner::Scanner;
 use crate::tokenizer::scanner::{Control, SpanToken};
 
 mod event;
+mod iter;
 mod reader;
 mod scanner;
-mod iter;
 
 pub enum YamlToken<'a> {
     // strings, booleans, numbers, nulls, all treated the same

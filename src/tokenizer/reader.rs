@@ -111,7 +111,7 @@ impl<'r> Reader for StrReader<'r> {
         let n = self.slice.as_bytes()[self.pos..]
             .iter()
             .position(|b| !is_whitespace(*b))
-            .unwrap_or(0) ;
+            .unwrap_or(0);
         self.consume_bytes(n);
         n
     }
