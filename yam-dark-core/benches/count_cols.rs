@@ -1,9 +1,9 @@
-use criterion::{black_box, Criterion, criterion_group, criterion_main, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
-use yam_dark_core::{ChunkyIterator, u8x64_eq};
 use yam_dark_core::util::{
-    count_table_small, mask_merge, U8_BYTE_COL_TABLE, U8_ROW_TABLE, U8X16, U8X8,
+    count_table_small, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
+use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -151,7 +151,7 @@ fn col_count_small(c: &mut Criterion) {
                 &mut count_row,
                 &mut count_indent,
             );
-            black_box(count_col[0] > 0 && count_row[3] == 0);
+            black_box(count_col[0] > 0 && count_row[3] == 0 && count_indent[2] == 4);
         })
     });
     group.finish();
