@@ -1,13 +1,14 @@
-use std::{fmt::Write, io, str::from_utf8_unchecked};
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::marker::PhantomData;
 use std::path::Path;
+use std::{fmt::Write, io, str::from_utf8_unchecked};
 
-use crate::{Lexer, tokenizer::LexerToken};
+use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
+use crate::{tokenizer::LexerToken, Lexer};
 
 use super::StrReader;
 
@@ -43,26 +44,34 @@ impl<'a, R, B, S> EventIterator<'a, R, B, S> {
     }
 }
 
-impl<'a, R, B> From<&'a str> for EventIterator<'a, R, B> where R: Reader<B> + From<&'a str> {
+impl<'a, R, B> From<&'a str> for EventIterator<'a, R, B>
+where
+    R: Reader<B> + From<&'a str>,
+{
     fn from(value: &'a str) -> Self {
         EventIterator::new(From::from(value))
     }
 }
 
-impl<'a, R, B, S: BufRead> EventIterator<'a, R, B, S> where R: Reader<B> + From<S> {
+impl<'a, R, B, S: BufRead> EventIterator<'a, R, B, S>
+where
+    R: Reader<B> + From<S>,
+{
     pub fn from_buf(value: S) -> Self {
         EventIterator::new(From::from(value))
     }
 }
 
-impl<'a, R, B> EventIterator<'a, R, B, BufReader<File>> where R: Reader<B> + From<BufReader<File>> {
+impl<'a, R, B> EventIterator<'a, R, B, BufReader<File>>
+where
+    R: Reader<B> + From<BufReader<File>>,
+{
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         Ok(EventIterator::new(From::from(reader)))
     }
 }
-
 
 #[derive(Copy, Clone)]
 pub enum ScalarType {
@@ -105,7 +114,7 @@ pub enum Event<'a> {
     Tag(Cow<'a, [u8]>),
     Alias(Cow<'a, [u8]>),
     Anchor(Cow<'a, [u8]>),
-    Error,
+    ErrorEvent,
 }
 
 impl<'a> Display for Event<'a> {
@@ -154,7 +163,7 @@ impl<'a> Display for Event<'a> {
                 }?;
                 write!(f, "{}", val_str)
             }
-            Event::Error => {
+            ErrorEvent => {
                 write!(f, "ERR")
             }
             _ => Ok(()),
@@ -165,7 +174,10 @@ impl<'a> Display for Event<'a> {
     }
 }
 
-impl<'a, R, B> Iterator for EventIterator<'a, R, B> where R: Slicer<'a> + Reader<B> {
+impl<'a, R, B> Iterator for EventIterator<'a, R, B>
+where
+    R: Slicer<'a> + Reader<B>,
+{
     type Item = (Event<'a>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -215,7 +227,7 @@ impl<'a, R, B> Iterator for EventIterator<'a, R, B> where R: Slicer<'a> + Reader
                         self.indent -= 1;
                         return Some((DocEnd, self.indent));
                     }
-                    LexerToken::Error => return Some((Event::Error, curr_indent)),
+                    ErrorToken => return Some((ErrorEvent, curr_indent)),
                     DirectiveReserved | DirectiveTag | DirectiveYaml => {
                         let directive_type = unsafe { token.to_yaml_directive() };
                         return if let (Some(start), Some(end)) =
@@ -241,16 +253,16 @@ impl<'a, R, B> Iterator for EventIterator<'a, R, B> where R: Slicer<'a> + Reader
                         loop {
                             match (self.state.peek_token(), self.state.peek_token_next()) {
                                 (Some(start), Some(end))
-                                if start < NewLine as usize && end < NewLine as usize =>
-                                    {
-                                        if cow.is_empty() {
-                                            cow = Cow::Borrowed(self.reader.slice(start, end));
-                                        } else {
-                                            cow.to_mut().extend(self.reader.slice(start, end))
-                                        }
-                                        self.state.pop_token();
-                                        self.state.pop_token();
+                                    if start < NewLine as usize && end < NewLine as usize =>
+                                {
+                                    if cow.is_empty() {
+                                        cow = Cow::Borrowed(self.reader.slice(start, end));
+                                    } else {
+                                        cow.to_mut().extend(self.reader.slice(start, end))
                                     }
+                                    self.state.pop_token();
+                                    self.state.pop_token();
+                                }
                                 (Some(newline), Some(line)) if newline == NewLine as usize => {
                                     if line == 0 {
                                         cow.to_mut().extend(" ".as_bytes());

@@ -14,8 +14,8 @@ use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
 use super::iterator::{DirectiveType, ScalarType};
+use super::reader::{is_flow_indicator, is_newline};
 use ErrorType::ExpectedIndent;
-use super::reader::{is_newline, is_flow_indicator};
 
 #[derive(Clone, Default)]
 pub struct Lexer {
@@ -25,6 +25,12 @@ pub struct Lexer {
     pub(crate) tokens: VecDeque<usize>,
     pub(crate) errors: Vec<ErrorType>,
     stack: Vec<LexerState>,
+}
+
+impl Lexer {
+    pub(crate) fn extract(self) -> (VecDeque<usize>, Vec<ErrorType>) {
+        (self.tokens, self.errors)
+    }
 }
 
 pub trait StateSpanner<T> {}
@@ -220,7 +226,7 @@ impl Lexer {
                             self.fetch_plain_scalar(reader, indent as usize, init_indent as usize);
                         } else {
                             reader.consume_bytes(1);
-                            self.tokens.push_back(Error as usize);
+                            self.tokens.push_back(ErrorToken as usize);
                             self.errors.push(UnexpectedSymbol(x as char))
                         }
                     }
@@ -239,7 +245,7 @@ impl Lexer {
                 }
                 Some(b'}') => {
                     reader.consume_bytes(1);
-                    self.tokens.push_back(Error as usize);
+                    self.tokens.push_back(ErrorToken as usize);
                     self.errors.push(UnexpectedSymbol('}'));
                 }
                 Some(b',') => {
@@ -284,7 +290,7 @@ impl Lexer {
                         self.pop_state();
                     } else {
                         reader.consume_bytes(1);
-                        self.tokens.push_back(Error as usize);
+                        self.tokens.push_back(ErrorToken as usize);
                         self.errors.push(UnexpectedSymbol(']'));
                     }
                 }
@@ -324,7 +330,7 @@ impl Lexer {
                     }
                     DirectiveSection => {
                         self.errors.push(ErrorType::DirectiveEndMark);
-                        Error
+                        ErrorToken
                     }
                     _ => continue,
                 };
@@ -410,8 +416,6 @@ impl Lexer {
         start_indent: usize,
         init_indent: usize,
     ) {
-        
-
         let mut allow_minus = false;
         let mut first_line_block = !self.curr_state.in_flow_collection();
 
@@ -430,7 +434,7 @@ impl Lexer {
         while !reader.eof() {
             // In explicit key mapping change in indentation is always an error
             if self.curr_state.wrong_exp_indent(curr_indent) && curr_indent != init_indent {
-                tokens.push(Error as usize);
+                tokens.push(ErrorToken as usize);
                 self.errors.push(ErrorType::MappingExpectedIndent {
                     actual: curr_indent,
                     expected: init_indent,
@@ -446,7 +450,7 @@ impl Lexer {
                     BlockMap(_) | BlockMapKeyExp(_) | BlockMapValExp(_) | BlockMapVal(_)
                 ) {
                     reader.read_line();
-                    tokens.push(Error as usize);
+                    tokens.push(ErrorToken as usize);
                     self.errors.push(ExpectedIndent {
                         actual: curr_indent,
                         expected: start_indent,
@@ -471,7 +475,6 @@ impl Lexer {
             let chr = reader.peek_byte_at(0).unwrap_or(b'\0');
 
             if chr == b':' && first_line_block {
-                
                 if curr_indent == init_indent
                     && matches!(self.curr_state, BlockMapVal(x) if init_indent == x as usize)
                 {
@@ -535,7 +538,7 @@ impl Lexer {
                         expected: ind as usize,
                         actual: curr_indent,
                     };
-                    tokens.push(Error as usize);
+                    tokens.push(ErrorToken as usize);
                     self.errors.push(err_type);
                     break;
                 }
@@ -548,7 +551,6 @@ impl Lexer {
                 _ => {}
             }
         }
-
 
         match new_state {
             Some(BlockMapValExp(x)) => self.curr_state = BlockMapValExp(x),
@@ -637,7 +639,7 @@ const NEWLINE: usize = usize::MAX - 20;
 pub enum LexerToken {
     Mark,
     NewLine = NEWLINE,
-    Error = ERROR,
+    ErrorToken = ERROR,
     DirectiveTag = DIR_TAG,
     DirectiveReserved = DIR_RES,
     DirectiveYaml = DIR_YAML,
@@ -710,7 +712,7 @@ impl From<usize> for LexerToken {
             DIR_TAG => DirectiveTag,
             DIR_YAML => DirectiveYaml,
             NEWLINE => NewLine,
-            ERROR => Error,
+            ERROR => ErrorToken,
             _ => Mark,
         }
     }

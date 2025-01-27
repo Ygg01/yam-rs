@@ -1,21 +1,21 @@
 use std::collections::VecDeque;
-use std::ops::{RangeFrom, RangeInclusive};
 use std::ops::ControlFlow::{Break, Continue};
+use std::ops::{RangeFrom, RangeInclusive};
 use std::usize;
 
 use memchr::memchr3_iter;
 
-use ErrorType::ExpectedIndent;
 use reader::{is_flow_indicator, ns_plain_safe};
+use ErrorType::ExpectedIndent;
 
-use crate::tokenizer::{ErrorType, LexerToken, reader, Reader, Slicer};
-use crate::tokenizer::ErrorType::UnexpectedComment;
-use crate::tokenizer::LexerToken::*;
 use crate::tokenizer::reader::{
-    ChompIndicator, is_indicator, is_white_tab, is_white_tab_or_break, LookAroundBytes,
+    is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
 use crate::tokenizer::spanner::LexerState;
 use crate::tokenizer::spanner::LexerState::BlockSeq;
+use crate::tokenizer::ErrorType::UnexpectedComment;
+use crate::tokenizer::LexerToken::*;
+use crate::tokenizer::{reader, ErrorType, LexerToken, Reader, Slicer};
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -167,7 +167,6 @@ impl<'a> StrReader<'a> {
         }
     }
 
-
     #[inline]
     fn not_safe_char(&self) -> bool {
         match self.slice[self.pos..] {
@@ -289,7 +288,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
                 if *had_comment {
-                    tokens.push(Error as usize);
+                    tokens.push(ErrorToken as usize);
                     errors.push(UnexpectedComment);
                 } else {
                     *had_comment = true;
@@ -370,7 +369,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         if self.peek_byte_is(b'#') {
             self.read_line();
         } else if self.read_break().is_none() {
-            tokens.push_back(Error as usize);
+            tokens.push_back(ErrorToken as usize);
             errors.push(ErrorType::ExpectedNewline);
             return;
         }
@@ -425,7 +424,7 @@ impl<'r> Reader<()> for StrReader<'r> {
                 match self.skip_n_spaces(indentation, curr_state.indent(0) as usize) {
                     Flow::Break => break,
                     Flow::Error(actual) => {
-                        tokens.push_back(Error as usize);
+                        tokens.push_back(ErrorToken as usize);
                         errors.push(ExpectedIndent {
                             actual,
                             expected: indentation,
