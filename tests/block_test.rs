@@ -1695,3 +1695,38 @@ const TAG_SHORT_EVENTS: &str = "
 fn block_tag_short() {
     assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
 }
+
+const X1_9KAX_INPUT: &str = r"
+&a1
+!!str
+scalar1";
+
+const X2_9KAX_INPUT: &str = r"
+!!str
+&a1
+scalar1";
+
+const X1_9KAX_EVENTS: &str = r"
++DOC
+=VAL &a1 <tag:yaml.org,2002:str> :scalar1
+-DOC";
+
+const X3_9KAX_INPUT: &str = r"
+&a4 !!map
+&a5 !!str key5: value4
+";
+
+const X3_9KAX_EVENTS: &str = r"
++DOC
++MAP &a4 <tag:yaml.org,2002:map>
+=VAL &a5 <tag:yaml.org,2002:str> :key5
+=VAL :value4
+-MAP
+-DOC";
+
+#[test]
+fn block_tag_anchor() {
+    assert_eq_event(X1_9KAX_INPUT, X1_9KAX_EVENTS);
+    assert_eq_event(X2_9KAX_INPUT, X1_9KAX_EVENTS);
+    assert_eq_event(X3_9KAX_INPUT, X3_9KAX_EVENTS);
+}

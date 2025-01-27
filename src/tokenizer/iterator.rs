@@ -246,35 +246,33 @@ where
 
             if let Some(x) = self.state.pop_token() {
                 let token = x.into();
-                let tag = self.tag.take();
-                let anchor = self.anchor.take();
                 match token {
                     SequenceStart => {
                         return Some(SeqStart {
                             flow: true,
-                            tag,
-                            anchor,
+                            tag: self.tag.take(),
+                            anchor: self.anchor.take(),
                         });
                     }
                     SequenceStartImplicit => {
                         return Some(SeqStart {
                             flow: false,
-                            tag,
-                            anchor,
+                            tag: self.tag.take(),
+                            anchor: self.anchor.take(),
                         });
                     }
                     MappingStart => {
                         return Some(MapStart {
                             flow: true,
-                            tag,
-                            anchor,
+                            tag: self.tag.take(),
+                            anchor: self.anchor.take(),
                         });
                     }
                     MappingStartImplicit => {
                         return Some(MapStart {
                             flow: false,
-                            tag,
-                            anchor,
+                            tag: self.tag.take(),
+                            anchor: self.anchor.take(),
                         });
                     }
                     DocumentStart => {
@@ -352,8 +350,8 @@ where
                         return Some(Scalar {
                             scalar_type,
                             value: cow,
-                            tag,
-                            anchor,
+                            tag: self.tag.take(),
+                            anchor: self.anchor.take(),
                         });
                     }
                     AliasToken => {
