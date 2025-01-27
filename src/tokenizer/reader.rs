@@ -1,5 +1,5 @@
-use std::{ops::ControlFlow, slice::Windows};
 use std::ops::ControlFlow::{Break, Continue};
+use std::{ops::ControlFlow, slice::Windows};
 
 use memchr::memchr2;
 

@@ -2,7 +2,7 @@ extern crate steel_yaml;
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::{Debug, format, Write};
+    use std::fmt::{format, Debug, Write};
 
     use steel_yaml::Scanner;
 
@@ -80,7 +80,6 @@ xt
 =VAL x
 =VAL y
 -MAP"#;
-
 
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
