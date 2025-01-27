@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use yam_dark_core::util::{
-    count_col_rows, count_col_rows_immut, count_indent_dependent, count_indent_naive, mask_merge,
-    U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    count_col_rows, count_indent_dependent, count_indent_naive, mask_merge, U8X16, U8X8,
+    U8_BYTE_COL_TABLE, U8_ROW_TABLE,
 };
 use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
@@ -82,122 +82,8 @@ fn count_u8x16(vec: U8X16, _prev_col: &mut u8, prev_row: &mut u8) -> U8X16 {
     let y = U8X16::from_merge_rows(low_row, high_row, bitmask, *prev_row);
     *prev_row = y.0[15];
     let col_bitmask = y.comp_all(y.0[7]).to_bitmask();
-    let x = U8X16::from_merge_cols(low_byte_col, high_byte_col, col_bitmask);
 
-    x
-}
-
-fn col_count_naive(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-col");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64));
-
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let chunk = chunk_iter.next().unwrap();
-    let mask = u8x64_eq(chunk, b'\n');
-
-    group.bench_function("col_count_naive", |b| {
-        b.iter(|| {
-            let mut prev_indent = 0;
-            let count = count_cols(mask, &mut prev_indent);
-            black_box(count[0] == 0);
-        })
-    });
-    group.finish();
-}
-
-fn col_count_u8x8(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-col");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64));
-
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let chunk = chunk_iter.next().unwrap();
-
-    group.bench_function("col_count_u8x8", |b| {
-        b.iter(|| {
-            let mut prev_indent = 0;
-            let count = count_table_u8x8(*chunk, &mut prev_indent);
-            black_box(count[0] > 0);
-        })
-    });
-    group.finish();
-}
-
-fn col_count_small(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-col");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64 * 2));
-
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let mask = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
-    let mask2 = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
-
-    group.bench_function("col_count_small", |b| {
-        b.iter(|| {
-            let mut prev_col = 0;
-            let mut prev_row = 0;
-            let mut count_row = [0; 64];
-            let mut count_col = [0; 64];
-            count_col_rows(
-                mask,
-                &mut prev_col,
-                &mut prev_row,
-                &mut count_col,
-                &mut count_row,
-            );
-            count_col_rows(
-                mask2,
-                &mut prev_col,
-                &mut prev_row,
-                &mut count_col,
-                &mut count_row,
-            );
-        })
-    });
-    group.finish();
-}
-
-fn col_count_immut(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-col");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64 * 2));
-
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let mask = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
-    let mask2 = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
-
-    group.bench_function("col_count_immut", |b| {
-        b.iter(|| {
-            let mut prev_col = 0;
-            let mut prev_row = 0;
-            let (row, col) = count_col_rows_immut(mask, &mut prev_col, &mut prev_row);
-            black_box(row[2] == 0 && col[3] == 1);
-            let (row, col) = count_col_rows_immut(mask2, &mut prev_col, &mut prev_row);
-            black_box(row[1] == 3 && col[4] > 10);
-        })
-    });
-    group.finish();
-}
-
-fn col_count_u8x16(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-col");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64 * 2));
-
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let chunk = chunk_iter.next().unwrap();
-    let chunk2 = chunk_iter.next().unwrap();
-
-    group.bench_function("col_count_u8x16", |b| {
-        b.iter(|| {
-            let count = count_table_u8x16(*chunk);
-            black_box(count[0] > 0);
-            let count = count_table_u8x16(*chunk2);
-            black_box(count[1] > 0);
-        })
-    });
-    group.finish();
+    U8X16::from_merge_cols(low_byte_col, high_byte_col, col_bitmask)
 }
 
 fn col_count_indent(c: &mut Criterion) {
@@ -322,14 +208,5 @@ fn col_count_indent_naive(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    // col_count_naive,
-    // col_count_u8x8,
-    // col_count_u8x16,
-    // col_count_small,
-    // col_count_immut,
-    col_count_indent,
-    col_count_indent_naive,
-);
+criterion_group!(benches, col_count_indent, col_count_indent_naive,);
 criterion_main!(benches);
