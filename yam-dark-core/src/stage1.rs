@@ -1,4 +1,5 @@
 use crate::ParseResult;
+use crate::stage2::{Buffer, Buffers, YamlParserState};
 
 #[derive(Default)]
 pub struct YamlBlockState {
@@ -44,20 +45,17 @@ impl Utf8Validator for NoopValidator {}
 
 pub trait Stage1Scanner {
     type SimdType;
+    fn with_validator<T: Utf8Validator>(validator: T) -> Self;
 
-    /// Scans a slice and returns a YamlBlockState
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next<V: Utf8Validator>(
-        &mut self,
-        input: Self::SimdType,
-        unicode_validator: V,
-    ) -> YamlBlockState;
+    fn get_validator<T: Utf8Validator>(&self) -> T;
 
-    /// Finishes the scan
+    /// Scans a chunk and returns a YamlBlockState
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn finish<V: Utf8Validator>(
-        &mut self,
-    ) -> ParseResult<()>;
+    fn next<T: Buffer>(
+        chunk: &[u8; 64],
+        buffers: &mut T,
+        state: &mut YamlParserState,
+    ) -> ParseResult<YamlSingleQuoteBlock>;
 }
 
 struct NativeScanner {}
