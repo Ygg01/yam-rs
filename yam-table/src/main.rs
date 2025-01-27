@@ -50,53 +50,39 @@ fn main() {
     // let x = 0b10111;
     // print3(x);
     // print3(0b10111);
-    print3(0b11);
-    // print3(0b11101);
-    // print3(0b101101);
+    print3(0b1111);
+    print3(0b11101);
+    // print3(0b1011010);
+    // print3(0b1011101);
     // print3(0b110);
 }
 
 fn find_odd_start(bits: u8) -> u8 {
     let end_edge = bits & !(bits >> 1);
+    println!("ee    = {:#010b}", end_edge);
     let start_edge = bits & !(bits << 1);
 
-    // println!("edg   = {:#010b}", end_edge);
 
-    let min_edge = (end_edge << 1).wrapping_sub(bits);
-    // println!("min   = {:#010b}", min_edge);
+    let end_edge_odd = (end_edge & 0xAA);
+    // println!("eeo   = {:#010b}", end_edge_odd);
+    let end_edge_even = (end_edge & 0x55);
+    // println!("eee   = {:#010b}", end_edge_even);
 
-    // let oe = end_edge & 0xAA;
-    let edge_odd = ((end_edge & 0xAA) << 1).saturating_sub(bits) & bits;
-    // println!("eod   = {:#010b}", edge_odd);
+    let (max, min, part) = if end_edge_even < end_edge_odd {
+        (end_edge_odd, end_edge_even, 0xAA)
+    } else {
+        (end_edge_even, end_edge_odd, 0x55)
+    };
 
-    // println!("eoo   = {:#010b}", edge_odd);
+    let edge_sub = (max << 1).saturating_sub(bits) + min;
+    println!("es    = {:#010b}", edge_sub);
 
-    let edge_even = ((end_edge & 0x55) << 1).saturating_sub(bits) & bits;
-    // println!("ede   = {:#010b}", edge_even);
+    let edge_other = (end_edge << 1).saturating_sub(bits) ^ edge_sub;
+    println!("eo    = {:#010b}", edge_other);
 
-    let mut fin = edge_even | edge_odd;
-
-    // let even_edge = end_edge & 0x55;
-    // println!("eve   = {:#010b}", even_edge);
-    //
-    // let odd_edge = end_edge & 0xAA;
-    // println!("ode   = {:#010b}", odd_edge);
-    //
-    //
-    // let even_edge_sub = (even_edge << 1).wrapping_sub(bits);
-    // println!("ees   = {:#010b}", even_edge_sub);
-    //
-    // let odd_edge_sub = (odd_edge << 1).wrapping_sub(bits);
-    // println!("oes   = {:#010b}", odd_edge_sub);
-    //
-    // let eeo = even_edge_sub & 0xAA;
-    // println!("eeo   = {:#010b}", eeo);
-    //
-    // let oee = odd_edge_sub & 0x55;
-    // println!("oee   = {:#010b}", oee);
-    //
-    // let fin = (oee & start_edge) | (eeo & start_edge);
-    // println!("fin   = {:#010b}", fin);
+    // let fin = 0;
+    let mut fin = edge_sub & part | edge_other & !part;
+    println!("fin   = {:#010b}", fin);
 
     fin
 }
@@ -122,10 +108,10 @@ fn print3(input: u8) {
     // let sa = input & !(input << 1);
     // let in_wos = input & !sa;
     let odd_start = find_odd_start(input);
-    println!("ods   = {:#010b}", odd_start);
+    // println!("ods   = {:#010b}", odd_start);
 
     let odd_end = find_odd_end(input);
-    println!("evs   = {:#010b}", odd_end);
+    // println!("evs   = {:#010b}", odd_end);
 
     // let left_pad = in_wos & (in_wos << 1);
     // let right_pad = in_wos & (in_wos >> 1);
