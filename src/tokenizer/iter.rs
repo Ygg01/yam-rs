@@ -58,6 +58,6 @@ pub enum ErrorType {
     ExpectedDocumentStart,
     ExpectedNewline,
     ExpectedNewlineInFolded,
-    ExpectedIndent(usize),
+    ExpectedIndent(u32),
     StartedBlockInFlow,
 }

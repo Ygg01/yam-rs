@@ -6,6 +6,46 @@ mod tests {
 
     use steel_yaml::Scanner;
 
+    const EMPTY_DOC_INPUT: &'static str = r#"
+# test"
+  # test
+%YAML 1.3 #arst
+"#;
+    const EMPTY_DOC_EXPECTED: &'static str = r#"
++STR
+#YAML 1.3
+ERR
+-STR"#;
+
+    const NULL_YAML_INPUT: &'static str = r#"
+null
+"#;
+    const NULL_YAML_EXPECTED: &'static str = r#"
++STR
++VAL null
+-STR"#;
+
+    const MULTILINE_INPUT: &'static str = r#"
+test
+xt
+"#;
+    const MULTILINE_EXPECTED: &'static str = r#"
++STR
++VAL test
++VAL xt
+-STR"#;
+
+    const SEQ_FLOW_INPUT: &'static str = r#"
+[x, y]
+"#;
+    const SEQ_FLOW_EXPECTED: &'static str = r#"
++STR
++SEQ
++VAL x
++VAL y
+-SEQ
+-STR"#;
+
     fn assert_eq_event(input_yaml: &str, expect: &str) {
         let mut event = String::new();
         let scan = Scanner::from_str_reader(input_yaml);
@@ -15,54 +55,17 @@ mod tests {
 
     #[test]
     fn parse_empty_document() {
-        let input_yaml = r#"
-# test"
-  # test
-%YAML 1.3 #arst
-"#;
-        let expect = r#"
-+STR
-#YAML 1.3
-ERR
--STR"#;
-        assert_eq_event(input_yaml, expect);
+        assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EXPECTED);
     }
 
     #[test]
     fn parse_flow_scalars() {
-        let null_yaml = r#"
-null
-"#;
-        let expected = r#"
-+STR
-+VAL null
--STR"#;
-        assert_eq_event(null_yaml, expected)
+        assert_eq_event(NULL_YAML_INPUT, NULL_YAML_EXPECTED);
+        assert_eq_event(MULTILINE_INPUT, MULTILINE_EXPECTED);
     }
 
     #[test]
-    fn parse_flow_scalars_multiline() {
-        let multiline = r#"
-test
-xt
-"#;
-        let expected = r#"
-+STR
-+VAL test
-+VAL xt
--STR"#;
-        assert_eq_event(multiline, expected);
-
-        let multi_newline = r#"
-test
-
-xt
-"#;
-        let expected_multi = r#"
-+STR
-+VAL test
-+VAL
-+VAL xt
--STR"#;
+    fn parse_flow_seq() {
+        assert_eq_event(SEQ_FLOW_INPUT, SEQ_FLOW_EXPECTED);
     }
 }
