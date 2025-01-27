@@ -769,7 +769,7 @@ impl<B> Lexer<B> {
         );
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
         self.errors.push(error);
@@ -1173,6 +1173,19 @@ impl<B> Lexer<B> {
                     BlockMap(self.prev_scalar.scalar_start, BeforeColon),
                     scalar_line,
                 );
+            } else if matches!(curr_state, BlockMapExp(ind, _) if ind == self.prev_scalar.scalar_start)
+            {
+                if had_tab {
+                    self.push_error(ErrorType::TabsNotAllowedAsIndentation);
+                }
+
+                match curr_state {
+                    BlockMapExp(indent, BeforeColon) => {
+                        self.push_empty_token();
+                        self.set_curr_state(BlockMap(indent, BeforeColon), scalar_line);
+                    }
+                    _ => {}
+                }
             }
         } else {
             if self.last_map_line != Some(scalar_line)

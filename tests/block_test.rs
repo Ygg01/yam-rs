@@ -807,12 +807,31 @@ const EXP_MAP_COMP_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const X_7W2P_INPUT: &str = r"
+? a
+? b
+c:
+";
+
+const X_7W2P_EVENTS: &str = r"
++DOC
++MAP
+=VAL :a
+=VAL :
+=VAL :b
+=VAL :
+=VAL :c
+=VAL :
+-MAP
+-DOC";
+
 #[test]
 pub fn block_exp_map() {
     assert_eq_event(EXP_MAP_INPUT, EXP_MAP_EVENTS);
     assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
     assert_eq_event(EXP_BLOCK_MAP_MIX_INPUT, EXP_BLOCK_MAP_MIX_EVENTS);
     assert_eq_event(EXP_MAP_COMP_INPUT, EXP_MAP_COMP_EVENTS);
+    assert_eq_event(X_7W2P_INPUT, X_7W2P_EVENTS)
 }
 
 const EXP_MAP_EMPTY_INPUT: &str = r"
