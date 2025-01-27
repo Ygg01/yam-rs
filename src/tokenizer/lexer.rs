@@ -217,7 +217,7 @@ impl LexerState {
     #[inline]
     fn map_state(&self) -> usize {
         match &self {
-            FlowKeyExp(_, _) | FlowMap(_, _) | FlowSeq(_,_) => MAP_START_EXP,
+            FlowKeyExp(_, _) | FlowMap(_, _) | FlowSeq(_, _) => MAP_START_EXP,
             _ => MAP_START,
         }
     }
@@ -1205,12 +1205,9 @@ impl<B> Lexer<B> {
                     self.push_error(ErrorType::TabsNotAllowedAsIndentation);
                 }
 
-                match curr_state {
-                    BlockMapExp(indent, BeforeColon) => {
-                        self.push_empty_token();
-                        self.set_curr_state(BlockMap(indent, BeforeColon), scalar_line);
-                    }
-                    _ => {}
+                if let BlockMapExp(indent, BeforeColon) = curr_state {
+                    self.push_empty_token();
+                    self.set_curr_state(BlockMap(indent, BeforeColon), scalar_line);
                 }
             }
         } else {
@@ -1745,6 +1742,9 @@ impl<B> Lexer<B> {
                             actual: curr_indent,
                             expected: ind,
                         });
+                    }
+                    FlowMap(_, _) | FlowSeq(_, _) | FlowKeyExp(_, _) if self.last_block_indent + 1 < reader.col() => {
+                        continue;
                     }
                     _ => {}
                 }
