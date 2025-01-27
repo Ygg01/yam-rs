@@ -249,6 +249,12 @@ const EXPLICIT_BLOCK_MAP_MIX_EXPECTED: &'static str = r#"
     =VAL x
   -MAP"#;
 
+#[test]
+pub fn explicit_block_map() {
+    assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
+    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
+}
+
 const EXPLICIT_BLOCK_MAP_ERR1: &'static str = r#"
    ? test
   : value
@@ -276,9 +282,7 @@ const EXPLICIT_BLOCK_MAP_ERR2_EXPECTED: &'static str = r#"
   -MAP"#;
 
 #[test]
-pub fn explicit_block_map() {
-    assert_eq_event(EXPLICIT_BLOCK_MAP1, EXPLICIT_BLOCK_MAP1_EXPECTED);
-    assert_eq_event(EXPLICIT_BLOCK_MAP_MIX, EXPLICIT_BLOCK_MAP_MIX_EXPECTED);
+pub fn explicit_block_map_err() {
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR1, EXPLICIT_BLOCK_MAP_ERR1_EXPECTED);
     assert_eq_event(EXPLICIT_BLOCK_MAP_ERR2, EXPLICIT_BLOCK_MAP_ERR2_EXPECTED);
 }

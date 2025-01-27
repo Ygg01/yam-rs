@@ -7,8 +7,8 @@ use SpanToken::{DocumentStart, Separator};
 
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
-    AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, FlowKey, FlowKeyExp, FlowMap, FlowSeq,
-    PreDocStart, RootBlock,
+    AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, BlockValExp, FlowKey, FlowKeyExp, FlowMap,
+    FlowSeq, PreDocStart, RootBlock,
 };
 use crate::tokenizer::spanner::SpanToken::{
     ErrorToken, KeyEnd, MappingEnd, MappingStart, SequenceEnd, SequenceStart,
@@ -48,6 +48,7 @@ pub enum ParserState {
     BlockSeq(usize),
     BlockMap(usize),
     BlockKeyExp(usize),
+    BlockValExp(usize),
     AfterDocEnd,
 }
 
@@ -56,9 +57,17 @@ impl ParserState {
     pub(crate) fn indent(&self, default: usize) -> usize {
         match self {
             FlowKey(ind) | FlowKeyExp(ind) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind)
-            | BlockMap(ind) | BlockKeyExp(ind) => *ind,
+            | BlockMap(ind) | BlockKeyExp(ind) | BlockValExp(ind) => *ind,
             RootBlock => default,
             PreDocStart | AfterDocEnd => 0,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn wrong_exp_indent(&self, curr_indent: usize) -> bool {
+        match self {
+            BlockKeyExp(ind) | BlockValExp(ind) => *ind != curr_indent,
+            _ => false,
         }
     }
 
@@ -76,11 +85,6 @@ impl ParserState {
             FlowKeyExp(_) => true,
             _ => false,
         }
-    }
-
-    #[inline]
-    pub(crate) fn is_block_col(&self) -> bool {
-        matches!(self, BlockMap(_) | BlockSeq(_) | BlockKeyExp(_))
     }
 
     #[inline]
@@ -119,7 +123,7 @@ impl Spanner {
                     self.tokens.push_back(ErrorToken(NoDocStartAfterTag))
                 }
             }
-            RootBlock | BlockMap(_) | BlockKeyExp(_) | BlockSeq(_) => {
+            RootBlock | BlockMap(_) | BlockKeyExp(_) | BlockValExp(_) | BlockSeq(_) => {
                 let indent = self.curr_state.indent(reader.col());
                 match reader.peek_byte() {
                     Some(b'{') => self.fetch_flow_col(reader, indent),
@@ -323,10 +327,12 @@ impl Spanner {
     }
 
     fn fetch_plain_scalar<R: Reader>(&mut self, reader: &mut R, start_indent: usize) {
-        let (tokens, new_state) =
-            reader.read_plain_scalar(start_indent, &self.curr_state, &mut self.offset_indent);
-        if let Some(new_state) = new_state {
-            self.push_state(new_state);
+        let (tokens, new_state) = reader.read_plain_scalar(start_indent, &self.curr_state);
+
+        match new_state {
+            Some(BlockValExp(x)) => self.curr_state = BlockValExp(x),
+            Some(state) => self.push_state(state),
+            None => {}
         }
         self.tokens.extend(tokens);
     }

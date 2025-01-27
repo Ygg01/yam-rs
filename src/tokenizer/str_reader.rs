@@ -10,10 +10,10 @@ use crate::tokenizer::reader::{
     is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
 };
 use crate::tokenizer::spanner::ParserState;
-use crate::tokenizer::spanner::ParserState::{BlockMap, BlockSeq};
+use crate::tokenizer::spanner::ParserState::{BlockKeyExp, BlockMap, BlockSeq, BlockValExp};
 use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::SpanToken::{
-    Directive, ErrorToken, KeyEnd, MappingStart, MarkEnd, MarkStart, NewLine, Separator, Space,
+    Directive, ErrorToken, MappingStart, MarkEnd, MarkStart, NewLine, Separator, Space,
 };
 use crate::tokenizer::{reader, DirectiveType, ErrorType, Reader, SpanToken};
 
@@ -334,37 +334,47 @@ impl<'r> Reader for StrReader<'r> {
         &mut self,
         start_indent: usize,
         curr_state: &ParserState,
-        offset_indent: &mut Option<usize>,
     ) -> (Vec<SpanToken>, Option<ParserState>) {
         let mut allow_minus = false;
         let mut first_line_block = !curr_state.in_flow_collection();
 
         let mut num_newlines = 0;
         let mut tokens = vec![];
-        let mut curr_indent = offset_indent.unwrap_or(self.col);
-        let init_indent = if matches!(curr_state, ParserState::BlockMap(_)) {
-            curr_indent
-        } else {
-            start_indent
+        let mut new_state = None;
+        let mut curr_indent = match curr_state {
+            BlockKeyExp(indent) | BlockValExp(indent) => *indent,
+            _ => self.col,
+        };
+        let init_indent = match curr_state {
+            BlockMap(_) => curr_indent,
+            BlockKeyExp(ind) => {
+                new_state = Some(BlockValExp(*ind));
+                curr_indent
+            }
+            BlockValExp(ind) => {
+                new_state = Some(BlockMap(*ind));
+                curr_indent
+            }
+            _ => start_indent,
         };
         let mut had_comment = false;
-        let mut new_state = None;
 
         while !self.eof() {
-            // if plain scalar is less indented than previous
-            // It can be
-            // a) Part of BlockMap
-            // b) An error outside of block map
-            if offset_indent.is_some() && curr_indent != init_indent {
+            // In explicit key mapping change in indentation is always an error
+            if curr_state.wrong_exp_indent(curr_indent) && curr_indent != init_indent {
                 tokens.push(ErrorToken(ErrorType::MappingExpectedIndent {
                     actual: curr_indent,
                     expected: init_indent,
                 }));
                 break;
             } else if curr_indent < init_indent {
-                if matches!(curr_state, BlockMap(_)) && offset_indent.is_none() {
+                // if plain scalar is less indented than previous
+                // It can be
+                // a) Part of BlockMap
+                // b) An error outside of block map
+                if matches!(curr_state, BlockMap(_) | BlockKeyExp(_) | BlockValExp(_)) {
                     tokens.push(Separator);
-                } else if !curr_state.is_block_col() {
+                } else {
                     self.read_line();
                     tokens.push(ErrorToken(ExpectedIndent {
                         actual: curr_indent,
@@ -388,21 +398,19 @@ impl<'r> Reader for StrReader<'r> {
 
             let chr = self.peek_byte_unwrap(0);
 
-            if chr == b':' {
-                if first_line_block {
-                    if curr_state.is_new_block_col(curr_indent) {
-                        new_state = Some(BlockMap(curr_indent));
-                        tokens.push(MappingStart);
-                    }
-                    tokens.push(MarkStart(start));
-                    tokens.push(MarkEnd(end));
-                    break;
-                } else if matches!(curr_state, BlockMap(ind) if curr_indent == *ind) {
-                    tokens.push(Separator);
-                    tokens.push(MarkStart(start));
-                    tokens.push(MarkEnd(end));
-                    break;
+            if chr == b':' && first_line_block {
+                if curr_state.is_new_block_col(curr_indent) {
+                    new_state = Some(BlockMap(curr_indent));
+                    tokens.push(MappingStart);
                 }
+                tokens.push(MarkStart(start));
+                tokens.push(MarkEnd(end));
+                break;
+            } else if chr == b':' && matches!(curr_state, BlockValExp(ind) if *ind == curr_indent) {
+                tokens.push(Separator);
+                tokens.push(MarkStart(start));
+                tokens.push(MarkEnd(end));
+                break;
             }
 
             match num_newlines {
@@ -445,10 +453,12 @@ impl<'r> Reader for StrReader<'r> {
                 (b'-', BlockSeq(ind)) if self.col > *ind => {
                     allow_minus = true;
                 }
+                (b':', BlockValExp(ind)) if self.col == *ind => {
+                    break;
+                }
                 _ => {}
             }
         }
-        *offset_indent = None;
         (tokens, new_state)
     }
 
