@@ -259,11 +259,24 @@ ERR
 -SEQ
 -DOC";
 
+const X_9JBA_INPUT: &str = r"
+ [a, b]#invalid";
+
+const X_9JBA_EVENTS: &str = r"
++DOC
++SEQ []
+=VAL :a
+=VAL :b
+-SEQ
+ERR
+-DOC";
+
 #[test]
 fn flow_seq_err() {
     assert_eq_event(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS);
     assert_eq_event(FLOW_ERR2_INPUT, FLOW_ERR2_EVENTS);
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
+    assert_eq_event(X_9JBA_INPUT, X_9JBA_EVENTS);
 }
 
 const SEQ_KEY1_INPUT: &str = r"
