@@ -715,6 +715,14 @@ impl Lexer {
                 tokens.push(MAP_START);
                 true
             }
+            BlockMap(map_indent, _) if indent > map_indent => {
+                self.next_substate();
+                let state = BlockMap(indent, BeforeBlockComplexKey);
+                self.push_block_state(state, reader.line());
+                tokens.extend(take(&mut self.prev_prop).spans);
+                tokens.push(MAP_START);
+                true
+            }
             BlockMap(prev_indent, ExpectComplexValue) if prev_indent == indent => {
                 push_empty(tokens, &mut self.prev_prop);
                 self.set_map_state(BeforeBlockComplexKey);
@@ -740,11 +748,15 @@ impl Lexer {
 
         let mut is_empty = curr_node.is_empty();
         let is_inline_key = curr_node.line_start == reader.line();
+        let matches_exp_map = self.find_matching_state(|x| matches!(x, BlockMap(ind , ExpectComplexValue) if ind == col_pos));
         if is_empty
             && curr_node.col_start == col_pos
-            && matches!(self.curr_state(), BlockMap(ind, ExpectComplexValue) if ind == col_pos)
+            && matches_exp_map.is_some()
         {
             reader.consume_bytes(1);
+            if let Some(unwind) = matches_exp_map {
+                self.pop_block_states(unwind, &mut curr_node.spans);
+            }
             return false;
         } else if curr_node.line_start < col_line && !curr_node.is_multiline {
             self.next_substate();
