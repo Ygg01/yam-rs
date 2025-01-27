@@ -1,23 +1,21 @@
 use std::collections::VecDeque;
-use std::ops::ControlFlow::{Break, Continue};
 use std::ops::{RangeFrom, RangeInclusive};
+use std::ops::ControlFlow::{Break, Continue};
 use std::usize;
 
 use memchr::memchr3_iter;
 
-use reader::{is_flow_indicator, ns_plain_safe};
 use ErrorType::ExpectedIndent;
+use reader::{is_flow_indicator, ns_plain_safe};
 
-use crate::tokenizer::reader::{
-    is_indicator, is_white_tab, is_white_tab_or_break, ChompIndicator, LookAroundBytes,
-};
-use crate::tokenizer::spanner::LexerState;
-use crate::tokenizer::spanner::LexerState::{
-    BlockSeq,
-};
+use crate::tokenizer::{ErrorType, LexerToken, reader, Reader, Slicer};
 use crate::tokenizer::ErrorType::UnexpectedComment;
 use crate::tokenizer::LexerToken::*;
-use crate::tokenizer::{reader, ErrorType, Reader, LexerToken};
+use crate::tokenizer::reader::{
+    ChompIndicator, is_indicator, is_white_tab, is_white_tab_or_break, LookAroundBytes,
+};
+use crate::tokenizer::spanner::LexerState;
+use crate::tokenizer::spanner::LexerState::BlockSeq;
 
 pub struct StrReader<'a> {
     pub slice: &'a [u8],
@@ -31,7 +29,7 @@ enum Flow {
     Error(usize),
 }
 
-impl<'a> From<&'a str> for StrReader<'a>{
+impl<'a> From<&'a str> for StrReader<'a> {
     fn from(value: &'a str) -> Self {
         Self {
             slice: value.as_bytes(),
@@ -41,8 +39,13 @@ impl<'a> From<&'a str> for StrReader<'a>{
     }
 }
 
-impl<'a> StrReader<'a> {
+impl<'a> Slicer<'a> for StrReader<'a> {
+    fn slice(&self, start: usize, end: usize) -> &'a [u8] {
+        unsafe { self.slice.get_unchecked(start..end) }
+    }
+}
 
+impl<'a> StrReader<'a> {
     #[inline]
     fn eof_or_pos(&self, pos: usize) -> usize {
         pos.min(self.slice.len() - 1)
@@ -165,7 +168,6 @@ impl<'a> StrReader<'a> {
     }
 
 
-
     #[inline]
     fn not_safe_char(&self) -> bool {
         match self.slice[self.pos..] {
@@ -179,7 +181,6 @@ impl<'a> StrReader<'a> {
 }
 
 impl<'r> Reader<()> for StrReader<'r> {
-
     #[inline]
     fn eof(&self) -> bool {
         self.pos >= self.slice.len()

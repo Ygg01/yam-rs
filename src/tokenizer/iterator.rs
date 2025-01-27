@@ -1,26 +1,68 @@
+use std::{fmt::Write, io, str::from_utf8_unchecked};
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::{fmt::Write, str::from_utf8_unchecked};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::marker::PhantomData;
+use std::path::Path;
 
-use crate::{tokenizer::LexerToken, Lexer};
+use crate::{Lexer, tokenizer::LexerToken};
+use crate::tokenizer::{Reader, Slicer};
 
 use super::StrReader;
 
-pub struct EventIterator<'a> {
-    pub(crate) reader: StrReader<'a>,
+///
+/// Iterator over events
+///
+/// It returns borrowed events that correspond to the
+/// It's generic over:
+/// `'a` - lifetime
+/// [R] - Reader
+/// [B] - Buffer Type
+/// [S] - Input source
+pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
+    /// Reader type that usually implements a [Reader] trait which takes a Buffer type [B]
+    pub(crate) reader: R,
+    /// Lexer which controls current state of parsing
     pub(crate) state: Lexer,
+    /// Current event indentation level
     pub indent: usize,
+    /// Helper to store the unconstrained types
+    phantom: PhantomData<(&'a B, S)>,
 }
 
-impl<'a> EventIterator<'a> {
-    pub fn new_from_string(input: &str) -> EventIterator {
+impl<'a, R, B, S> EventIterator<'a, R, B, S> {
+    #[inline]
+    pub fn new(reader: R) -> EventIterator<'a, R, B, S> {
         EventIterator {
-            reader: StrReader::from(input),
+            reader,
             state: Lexer::default(),
             indent: 1,
+            phantom: PhantomData::default(),
         }
     }
 }
+
+impl<'a, R, B> From<&'a str> for EventIterator<'a, R, B> where R: Reader<B> + From<&'a str> {
+    fn from(value: &'a str) -> Self {
+        EventIterator::new(From::from(value))
+    }
+}
+
+impl<'a, R, B, S: BufRead> EventIterator<'a, R, B, S> where R: Reader<B> + From<S> {
+    pub fn from_buf(value: S) -> Self {
+        EventIterator::new(From::from(value))
+    }
+}
+
+impl<'a, R, B> EventIterator<'a, R, B, BufReader<File>> where R: Reader<B> + From<BufReader<File>> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Ok(EventIterator::new(From::from(reader)))
+    }
+}
+
 
 #[derive(Copy, Clone)]
 pub enum ScalarType {
@@ -123,7 +165,7 @@ impl<'a> Display for Event<'a> {
     }
 }
 
-impl<'a> Iterator for EventIterator<'a> {
+impl<'a, R, B> Iterator for EventIterator<'a, R, B> where R: Slicer<'a> + Reader<B> {
     type Item = (Event<'a>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -179,7 +221,7 @@ impl<'a> Iterator for EventIterator<'a> {
                         return if let (Some(start), Some(end)) =
                             (self.state.pop_token(), self.state.pop_token())
                         {
-                            let slice = Cow::Borrowed(&self.reader.slice[start..end]);
+                            let slice = Cow::Borrowed(self.reader.slice(start, end));
                             Some((
                                 Directive {
                                     directive_type,
@@ -193,22 +235,22 @@ impl<'a> Iterator for EventIterator<'a> {
                     }
                     ScalarPlain | ScalarLit | ScalarFold | ScalarDoubleQuote
                     | ScalarSingleQuote | Mark => {
-                        // Safe if only one of these five
+                        // Safe if only one of these six
                         let scalar_type = unsafe { token.to_scalar() };
                         let mut cow: Cow<'a, [u8]> = Cow::default();
                         loop {
                             match (self.state.peek_token(), self.state.peek_token_next()) {
                                 (Some(start), Some(end))
-                                    if start < NewLine as usize && end < NewLine as usize =>
-                                {
-                                    if cow.is_empty() {
-                                        cow = Cow::Borrowed(&self.reader.slice[start..end]);
-                                    } else {
-                                        cow.to_mut().extend(&self.reader.slice[start..end])
+                                if start < NewLine as usize && end < NewLine as usize =>
+                                    {
+                                        if cow.is_empty() {
+                                            cow = Cow::Borrowed(self.reader.slice(start, end));
+                                        } else {
+                                            cow.to_mut().extend(self.reader.slice(start, end))
+                                        }
+                                        self.state.pop_token();
+                                        self.state.pop_token();
                                     }
-                                    self.state.pop_token();
-                                    self.state.pop_token();
-                                }
                                 (Some(newline), Some(line)) if newline == NewLine as usize => {
                                     if line == 0 {
                                         cow.to_mut().extend(" ".as_bytes());
@@ -231,8 +273,8 @@ impl<'a> Iterator for EventIterator<'a> {
                             curr_indent,
                         ));
                     }
-                    LexerToken::Alias => todo!(),
-                    LexerToken::Anchor => todo!(),
+                    AliasToken => todo!(),
+                    AnchorToken => todo!(),
                     TagStart => todo!(),
                     NewLine | ScalarEnd => {}
                 }
@@ -246,7 +288,7 @@ impl<'a> Iterator for EventIterator<'a> {
 
 pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     let mut line = String::new();
-    let scan = EventIterator::new_from_string(input_yaml);
+    let scan: EventIterator<'_, StrReader> = EventIterator::from(input_yaml);
     scan.for_each(|(ev, indent)| {
         line.push('\n');
         line.push_str(&" ".repeat(indent));

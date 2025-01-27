@@ -1,3 +1,4 @@
+use std::str::from_utf8;
 pub use iterator::EventIterator;
 pub use reader::Reader;
 pub use spanner::LexerToken;
@@ -25,4 +26,12 @@ pub enum ErrorType {
     MappingExpectedIndent { actual: usize, expected: usize },
     StartedBlockInFlow,
     UnexpectedEndOfScalar,
+}
+
+
+pub trait Slicer<'a> {
+    fn slice(&self, start: usize, end: usize) -> &'a [u8];
+    fn slice_str(&self, start: usize, end: usize) -> &'a str {
+        from_utf8(self.slice(start, end)).unwrap_or("")
+    }
 }

@@ -1,12 +1,13 @@
+extern crate steel_yaml;
+
 use std::fmt::Write;
 
-use steel_yaml::tokenizer::EventIterator;
+use steel_yaml::tokenizer::{EventIterator, StrReader};
 
-extern crate steel_yaml;
 
 pub fn assert_eq_event(input_yaml: &str, expect: &str) {
     let mut line = String::new();
-    let scan = EventIterator::new_from_string(input_yaml);
+    let scan: EventIterator<StrReader> = EventIterator::from(input_yaml);
     scan.for_each(|(ev, indent)| {
         line.push_str("\n");
         line.push_str(&" ".repeat(indent));
