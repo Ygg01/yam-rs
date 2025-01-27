@@ -1,7 +1,7 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
-pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
+pub use native::{mask_merge, U8X16, u8x16_swizzle, u8x64_eq, u8x64_lteq};
 pub use native::{mask_merge_u8x8, U8X8};
 pub use table::{U8_BYTE_COL_TABLE, U8_INDENT_TABLE, U8_ROW_TABLE};
 
@@ -266,6 +266,32 @@ pub fn count_col_rows_immut(
 }
 
 #[doc(hidden)]
+pub fn count_indent_naive(
+    newline_mask: u64,
+    space_mask: u64,
+    prev_iter_char: &mut u32,
+    prev_indent: &mut u32,
+    indents: &mut [u32; 64],
+) {
+    for pos in 0..64 {
+        let is_space = (space_mask & (1 << pos)) != 0;
+        let is_newline = (newline_mask & (1 << pos)) != 0;
+
+        indents[pos] = *prev_indent;
+
+        match (is_space, is_newline) {
+            (true, true) => unreachable!("Character can't be both space and newline at same time"),
+            (true, false) => { *prev_indent += *prev_iter_char; },
+            (false, true) => {
+                *prev_iter_char = 1;
+                *prev_indent = 0
+            },
+            (false, false) => { *prev_iter_char = 0; },
+        }
+    }
+}
+
+#[doc(hidden)]
 pub fn count_indent(
     newline_mask: u64,
     whitespace_mask: u64,
@@ -300,6 +326,41 @@ pub fn count_indent(
     let part_whitespace = (whitespace_mask & 0xFF) as usize;
     let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
     byte_indent[0..8].copy_from_slice(&col_indent);
+
+    let part_newline = ((newline_mask & 0xFF00) >> 8) as usize;
+    let part_whitespace = ((newline_mask & 0xFF00) >> 8) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[8..16].copy_from_slice(&col_indent);
+
+    let part_newline = ((newline_mask & 0xFF_0000) >> 16) as usize;
+    let part_whitespace = ((newline_mask & 0xFF_0000) >> 16) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[16..24].copy_from_slice(&col_indent);
+
+    let part_newline = ((newline_mask & 0xFF00_0000) >> 24) as usize;
+    let part_whitespace = ((newline_mask & 0xFF00_0000) >> 24) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[24..32].copy_from_slice(&col_indent);
+
+    let part_newline = ((newline_mask & 0xFF_0000_0000) >> 32) as usize;
+    let part_whitespace = ((newline_mask & 0xFF_0000_0000) >> 32) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[32..40].copy_from_slice(&col_indent);
+
+    let part_newline = ((newline_mask & 0xFF00_0000_0000) >> 40) as usize;
+    let part_whitespace = ((newline_mask & 0xFF00_0000_0000) >> 40) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[40..48].copy_from_slice(&col_indent);
+
+    let part_newline = ((newline_mask & 0xFF_0000_0000_0000) >> 48) as usize;
+    let part_whitespace = ((newline_mask & 0xFF_0000_0000_0000) >> 48) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[48..56].copy_from_slice(&col_indent);
+
+    let part_newline = ((newline_mask & 0xFF_0000_0000_0000) >> 56) as usize;
+    let part_whitespace = ((newline_mask & 0xFF_0000_0000_0000) >> 56) as usize;
+    let col_indent = calculate_byte_indent(part_newline, part_whitespace, prev_indent);
+    byte_indent[56..64].copy_from_slice(&col_indent);
 
     byte_indent
 }

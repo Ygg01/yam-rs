@@ -1,10 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{black_box, Criterion, criterion_group, criterion_main, Throughput};
 
-use yam_dark_core::util::{
-    count_col_rows, count_col_rows_immut, count_indent, mask_merge, U8X16, U8X8, U8_BYTE_COL_TABLE,
-    U8_ROW_TABLE,
-};
-use yam_dark_core::{u8x64_eq, ChunkyIterator};
+use yam_dark_core::{ChunkyIterator, u8x64_eq};
+use yam_dark_core::util::{count_col_rows, count_col_rows_immut, count_indent, count_indent_naive, mask_merge, U8_BYTE_COL_TABLE, U8_ROW_TABLE, U8X16, U8X8};
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -15,7 +12,7 @@ a  st
                   
                   
                   
-  "#
+    a: a"#
 .as_bytes();
 
 pub fn count_cols(newline_mask: u64, prev_indent: &mut u32) -> [u32; 64] {
@@ -199,18 +196,55 @@ fn col_count_u8x16(c: &mut Criterion) {
 fn col_count_indent(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-col");
     group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64));
+    group.throughput(Throughput::Bytes(64 * 2));
 
     let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
     let chunk = chunk_iter.next().unwrap();
     let newline_mask = u8x64_eq(chunk, b'\n');
     let space_mask = u8x64_eq(chunk, b' ');
 
+    let chunk2 = chunk_iter.next().unwrap();
+    let newline_mask2 = u8x64_eq(chunk2, b'\n');
+    let space_mask2 = u8x64_eq(chunk2, b' ');
+
     group.bench_function("col_count_indent", |b| {
         b.iter(|| {
             let mut prev_indent = 0;
-            let indent = count_indent(newline_mask, space_mask, &mut 1, &mut prev_indent);
+            let mut prev_iter_char = 1;
+            let indent = count_indent(newline_mask, space_mask, &mut prev_iter_char, &mut prev_indent);
             black_box(indent[3] == 0);
+            let indent = count_indent(newline_mask2, space_mask2, &mut prev_iter_char, &mut prev_indent);
+            black_box(indent[30] == 0);
+        })
+    });
+    group.finish();
+}
+
+
+fn col_count_indent_naive(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bench-col");
+    group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(64 * 2));
+
+    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
+    let chunk = chunk_iter.next().unwrap();
+    let newline_mask = u8x64_eq(chunk, b'\n');
+    let space_mask = u8x64_eq(chunk, b' ');
+
+    let chunk2 = chunk_iter.next().unwrap();
+    let newline_mask2 = u8x64_eq(chunk2, b'\n');
+    let space_mask2 = u8x64_eq(chunk2, b' ');
+
+    group.bench_function("col_count_indent_naive", |b| {
+        b.iter(|| {
+            let mut prev_indent = 0;
+            let mut prev_iter_char = 1;
+            let mut indents = [0; 64];
+            count_indent_naive(newline_mask, space_mask, &mut prev_iter_char, &mut prev_indent, &mut indents);
+            black_box(indents[56] == 0);
+            count_indent_naive(newline_mask2, space_mask2, &mut prev_iter_char, &mut prev_indent, &mut indents);
+            black_box(indents[60] == 0);
+
         })
     });
     group.finish();
@@ -224,5 +258,7 @@ criterion_group!(
     // col_count_small,
     // col_count_immut,
     col_count_indent,
+    col_count_indent_naive,
+
 );
 criterion_main!(benches);
