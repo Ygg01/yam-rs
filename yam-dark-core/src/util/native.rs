@@ -381,7 +381,7 @@ impl U8X16 {
     ///
     /// # Returns
     ///
-    /// The converted 16-bit bitmask integer.
+    /// The converted 64-bit bitmask integer.
     #[inline]
     pub fn to_bitmask64(&self) -> u64 {
         (self.0[0] & 0b1000_0000 != 0) as u64
