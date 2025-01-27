@@ -1,7 +1,7 @@
 use std::ops::ControlFlow::{Break, Continue};
 use std::{ops::ControlFlow, slice::Windows};
 
-use memchr::memchr2;
+use memchr::{memchr, memchr2};
 
 use IndentType::{EndInstead, LessIndent, LessOrEqualIndent};
 
@@ -212,10 +212,12 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn skip_space_tab(&mut self, allow_tab: bool) -> usize {
-        let n = self.slice.as_bytes()[self.pos..]
-            .iter()
-            .position(|b| *b != b' ' && !(allow_tab && *b == b'\t'))
-            .unwrap_or(0);
+        let n = if allow_tab {
+            memchr2(b' ', b'\t', &self.slice.as_bytes()[self.pos..])
+        } else {
+            memchr(b' ', &self.slice.as_bytes()[self.pos..])
+        }
+        .unwrap_or(0);
         self.consume_bytes(n);
         n
     }

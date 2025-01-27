@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::ops::ControlFlow::{self, Break, Continue};
 
 use ErrorType::NoDocStartAfterTag;
-use SpanToken::{DocumentStart, Space};
+use SpanToken::{DocumentStart, Separator, Space};
 
 use crate::tokenizer::event::DirectiveType;
 use crate::tokenizer::iter::ErrorType::{ExpectedIndent, UnexpectedSymbol};
@@ -11,10 +11,7 @@ use crate::tokenizer::reader::IndentType::{EndInstead, EqualIndent, LessOrEqualI
 use crate::tokenizer::reader::{is_flow_indicator, is_whitespace, IndentType, Reader, StrReader};
 use crate::tokenizer::scanner::NodeContext::{BlockIn, BlockKey, FlowIn, FlowKey, FlowOut};
 use crate::tokenizer::scanner::ParserState::{FlowMap, FlowSeq, PreDocStart, RootBlock};
-use crate::tokenizer::scanner::SpanToken::{
-    Directive, ErrorToken, LineFeed, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd,
-    SequenceStart,
-};
+use crate::tokenizer::scanner::SpanToken::{Directive, ErrorToken, NewLine, MappingEnd, MappingStart, MarkEnd, MarkStart, SequenceEnd, SequenceStart, Key};
 
 #[derive(Clone)]
 pub struct Scanner {
@@ -157,7 +154,7 @@ impl Scanner {
             RootBlock => match reader.peek_byte() {
                 Some(b'{') => self.fetch_flow_col(reader, FlowOut, 0),
                 Some(b'[') => self.fetch_flow_col(reader, FlowOut, 0),
-                Some(b'&') => self.fetch_flow_alias(reader),
+                Some(b'&') => self.fetch_alias(reader),
                 Some(b'*') => self.fetch_anchor(reader),
                 Some(b':') => self.fetch_block_map(reader),
                 Some(b'-') => self.fetch_block_seq(reader, BlockIn, 0, true),
@@ -194,7 +191,10 @@ impl Scanner {
                     reader.consume_bytes(1);
                     self.tokens.push_back(ErrorToken(UnexpectedSymbol('}')));
                 }
-                Some(b',') => reader.consume_bytes(1),
+                Some(b',') => {
+                    reader.consume_bytes(1);
+                    self.tokens.push_back(Separator);
+                }
                 Some(b'\'') => self.fetch_quoted_scalar(reader),
                 Some(b'"') => self.fetch_quoted_scalar(reader),
                 Some(b':') => self.fetch_empty_map(reader, context, indent),
@@ -212,6 +212,7 @@ impl Scanner {
                     self.tokens.push_back(MappingEnd);
                     self.pop_state();
                 }
+                Some(b':') => self.fetch_empty_map(reader, context, indent),
                 Some(b']') => {
                     if self.is_prev_sequence() {
                         self.tokens.push_back(MappingEnd);
@@ -259,7 +260,10 @@ impl Scanner {
     fn fetch_flow_col<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
         let peek = reader.peek_byte().unwrap_or(b'\0');
         reader.consume_bytes(1);
-        self.skip_separation_spaces(reader, context, indent);
+
+        if reader.col() != 0 {
+            reader.skip_space_tab(true);
+        }
 
         if peek == b'[' {
             self.tokens.push_back(SequenceStart);
@@ -304,7 +308,7 @@ impl Scanner {
         }
     }
 
-    fn fetch_flow_alias<R: Reader>(&mut self, reader: &mut R) {
+    fn fetch_alias<R: Reader>(&mut self, reader: &mut R) {
         todo!()
     }
     fn fetch_anchor<R: Reader>(&mut self, reader: &mut R) {
@@ -398,8 +402,8 @@ impl Scanner {
                 }
                 break_as_space = false;
 
-                if let Some(x) = reader.read_break() {
-                    self.tokens.push_back(LineFeed);
+                if let Some(_) = reader.read_break() {
+                    self.tokens.push_back(NewLine);
                 }
             }
 
@@ -411,7 +415,6 @@ impl Scanner {
         tokens
     }
 
-    #[inline]
     fn read_plain_one_line<R: Reader>(&mut self, reader: &mut R, context: NodeContext) -> bool {
         let start = reader.pos();
         let in_flow_collection = context.in_flow_collection();
@@ -439,13 +442,24 @@ impl Scanner {
         }
         return offset > 0;
     }
+
     fn fetch_explicit_map<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
-        todo!()
-    }
-    fn fetch_empty_map<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
+        if !reader.peek_byte_at_check(1, is_whitespace) {
+            self.fetch_plain_scalar(reader, context, indent);
+            return;
+        }
         self.tokens.push_back(MappingStart);
+        self.tokens.push_back(Key);
+        return;
+    }
+
+    fn fetch_empty_map<R: Reader>(&mut self, reader: &mut R, context: NodeContext, indent: u32) {
         reader.consume_bytes(1);
-        self.push_state(FlowMap(context, indent));
+
+        if !self.is_map() {
+            self.tokens.push_back(MappingStart);
+            self.push_state(FlowMap(context, indent));
+        }
     }
 
     #[inline]
@@ -455,6 +469,13 @@ impl Scanner {
             _ => false,
         }
     }
+
+    #[inline]
+    fn is_map(&self) -> bool {
+        match self.curr_state {
+            FlowMap(_, _) => true,
+            _ => false,
+        }    }
 }
 
 #[inline]
@@ -497,9 +518,12 @@ pub enum SpanToken {
     ErrorToken(ErrorType),
     MarkStart(usize),
     MarkEnd(usize),
-    LineFeed,
+    NewLine,
     Space,
     Directive(DirectiveType),
+    Alias,
+    Separator,
+    Key,
     SequenceStart,
     SequenceEnd,
     MappingStart,
