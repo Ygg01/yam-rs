@@ -10,7 +10,7 @@ use crate::tokenizer::reader::{
     is_flow_indicator, is_indicator, is_white_tab, is_white_tab_or_break, ns_plain_safe, Reader,
 };
 use crate::tokenizer::spanner::ParserState::{
-    BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
+    AfterDocEnd, BlockMap, BlockSeq, FlowKey, FlowMap, FlowSeq, PreDocStart, RootBlock,
 };
 use crate::tokenizer::spanner::SpanToken::{
     Directive, ErrorToken, KeyEnd, MappingEnd, MappingStart, MarkEnd, MarkStart, NewLine,
@@ -56,9 +56,9 @@ pub(crate) enum ParserState {
 impl ParserState {
     pub(crate) fn indent(&self, default: usize) -> usize {
         match self {
-            FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) | BlockMap(ind)=> *ind,
-            RootBlock => default,
-            _ => default,
+            FlowKey(ind, _) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind) => *ind,
+            RootBlock | BlockMap(_) => default,
+            PreDocStart | AfterDocEnd => 0,
         }
     }
 
@@ -85,15 +85,6 @@ impl ParserState {
                 *ind + 1
             }
             _ => 0,
-        }
-    }
-
-    #[inline]
-    fn start_new_block(&self, col: usize) -> bool {
-        match &self {
-            RootBlock => true,
-            BlockMap(i) | BlockSeq(i) if col > *i => true,
-            _ => false,
         }
     }
 }
@@ -399,15 +390,12 @@ impl Spanner {
         while !reader.eof() {
             let curr_indent = self.curr_state.indent(0);
 
-            match (reader.peek_byte_unwrap(curr_indent), self.curr_state) {
-                (b'-', BlockSeq(ind)) => {
-                    if reader.col() + curr_indent == ind {
-                        reader.consume_bytes(1 + curr_indent);
-                        trailing.push(Separator);
-                        break;
-                    }
+            if let (b'-', BlockSeq(ind)) = (reader.peek_byte_unwrap(curr_indent), self.curr_state) {
+                if reader.col() + curr_indent == ind {
+                    reader.consume_bytes(1 + curr_indent);
+                    trailing.push(Separator);
+                    break;
                 }
-                _ => {}
             }
 
             // count indents important for folded scalars
@@ -506,16 +494,23 @@ impl Spanner {
         let mut allow_minus = false;
         let mut num_newlines = 0;
         let mut tokens = vec![];
+        let mut curr_indent = reader.col();
         while !reader.eof() {
-            let curr_indent = reader.col();
-
-            // if plain scalar is less indentend than
+            // if plain scalar is less indentend than previous
+            // It can be
+            // a) Part of BlockMap
+            // b) An error outside of block map
             if curr_indent < start_indent {
-                reader.read_line();
-                tokens.push(ErrorToken(ErrorType::ExpectedIndent {
-                    actual: curr_indent,
-                    expected: start_indent,
-                }));
+                if matches!(self.curr_state, BlockMap(_)) {
+                    tokens.push(Separator);
+                    self.pop_state();
+                } else {
+                    reader.read_line();
+                    tokens.push(ErrorToken(ErrorType::ExpectedIndent {
+                        actual: curr_indent,
+                        expected: start_indent,
+                    }));
+                }
                 break;
             }
 
@@ -530,20 +525,29 @@ impl Spanner {
                 _ => {}
             }
 
-            tokens.push(MarkStart(start));
-            tokens.push(MarkEnd(end));
-
             reader.skip_space_tab(true);
 
             let chr = reader.peek_byte_unwrap(0);
 
-            if is_white_tab(chr) {
-                reader.skip_space_tab(false);
-            } else if is_newline(chr) {
+            if chr == b':' && !self.curr_state.in_flow_collection() {
+                reader.consume_bytes(1);
+                self.tokens.push_back(MappingStart);
+                self.tokens.push_back(MarkStart(start));
+                self.tokens.push_back(MarkEnd(end));
+                self.tokens.push_back(KeyEnd);
+                self.push_state(BlockMap(curr_indent));
+                return;
+            }
+
+            tokens.push(MarkStart(start));
+            tokens.push(MarkEnd(end));
+
+            if is_newline(chr) {
                 let folded_newline = self.skip_separation_spaces(reader, false);
                 if reader.col() >= self.curr_state.indent(0) {
                     num_newlines = folded_newline as u32;
                 }
+                curr_indent = reader.col();
             }
 
             if self.curr_state.in_flow_collection() && is_flow_indicator(chr) {
