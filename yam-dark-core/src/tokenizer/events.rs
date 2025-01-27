@@ -107,4 +107,10 @@ pub(crate) enum Stage1TapeEvent {
     DocumentEndExplicit = DOC_END_EXP,
     /// Null/empty value
     Null = NULL,
+    /// Double value
+    Double = DOUBLE,
+    /// Long value
+    Long = LONG,
+    /// Unsigned long value
+    UnsignedLong = UNSIGNED_LONG,
 }
