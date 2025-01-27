@@ -59,7 +59,7 @@ impl<'a> Iterator for EventIterator<'a> {
                         NewLine(n) => {
                             if let Some(x) = self.lines.back_mut() {
                                 for _ in 0..n {
-                                    x.push('\n');
+                                    x.push_str("\\n");
                                 }
                             }
                         }

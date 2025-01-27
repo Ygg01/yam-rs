@@ -5,6 +5,8 @@ use std::{ops::ControlFlow, slice::Windows};
 
 use memchr::memchr3_iter;
 
+use super::ErrorType;
+
 pub struct StrReader<'a> {
     pub slice: &'a str,
     pub(crate) pos: usize,
@@ -58,6 +60,7 @@ pub trait Reader {
     fn col(&self) -> usize;
     fn peek_byte_at(&self, offset: usize) -> Option<u8>;
     fn peek_byte(&self) -> Option<u8>;
+    fn peek_byte_unwrap(&self, offset: usize) -> u8;
     fn peek_byte_is(&self, needle: u8) -> bool {
         match self.peek_byte() {
             Some(x) if x == needle => true,
@@ -79,6 +82,7 @@ pub trait Reader {
         x
     }
     fn count_space_tab(&mut self, allow_tab: bool) -> usize;
+    fn skip_n_spaces(&mut self, skip: usize) -> Result<(), ErrorType>;
     fn consume_bytes(&mut self, amount: usize) -> usize;
     fn slice_bytes(&self, start: usize, end: usize) -> &[u8];
     fn try_read_slice_exact(&mut self, needle: &str) -> bool;
@@ -112,6 +116,13 @@ impl<'r> Reader for StrReader<'r> {
         self.slice.as_bytes().get(self.pos).copied()
     }
 
+    fn peek_byte_unwrap(&self, offset: usize) -> u8 {
+        match self.slice.as_bytes().get(self.pos + offset) {
+            Some(x) => *x,
+            _ => b'\0',
+        }
+    }
+
     fn position_until<P>(&self, offset: usize, predicate: P) -> usize
     where
         P: FnMut(usize, u8, u8) -> ControlFlow<usize, usize>,
@@ -129,6 +140,24 @@ impl<'r> Reader for StrReader<'r> {
         {
             Continue(x) | Break(x) => x,
         }
+    }
+
+    fn skip_n_spaces(&mut self, num_spaces: usize) -> Result<(), ErrorType> {
+        let count = self.slice.as_bytes()[self.pos..]
+            .iter()
+            .enumerate()
+            .take_while(|&(count, &x)| x == b' ' && count < num_spaces)
+            .count();
+
+        if count != num_spaces {
+            return Err(ErrorType::ExpectedIndent {
+                actual: count,
+                expected: num_spaces,
+            });
+        }
+        self.pos += count;
+
+        Ok(())
     }
 
     #[inline(always)]
@@ -189,17 +218,20 @@ impl<'r> Reader for StrReader<'r> {
     }
 
     fn read_line(&mut self) -> (usize, usize) {
+        let slice = self.slice.as_bytes();
         let start = self.pos;
-        let content = &self.slice.as_bytes()[start..];
-        let (n, consume) = memchr::memchr2_iter(b'\r', b'\n', content)
-            .next()
-            .map_or((0, 0), |p| {
+        let remaining = slice.len() - start;
+        let content = &slice[start..];
+        let (n, consume) = memchr::memchr2_iter(b'\r', b'\n', content).next().map_or(
+            (remaining, remaining),
+            |p| {
                 if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
                     (p, p + 2)
                 } else {
                     (p, p + 1)
                 }
-            });
+            },
+        );
         self.consume_bytes(consume);
         self.col = 0;
         (start, start + n)

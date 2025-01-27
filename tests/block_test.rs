@@ -25,7 +25,7 @@ const BLOCK_ERR_INPUT: &'static str = r#"
 const BLOCK_ERR_EXPECTED: &'static str = r#"
   +SEQ
     =VAL x
-    ERR(ExpectedIndent(2, 1))
+    ERR(ExpectedIndent { actual: 1, expected: 2 })
   -SEQ"#;
 
 const BLOCK_AS_PLAIN: &'static str = r#"
@@ -56,6 +56,31 @@ const BLOCK_NESTED_EXPECTED: &'static str = r#"
     -SEQ
   -SEQ"#;
 
+const BLOCK_STRINGS_INPUT: &'static str = r#"
+  - | # Empty header↓
+   literal
+   next line
+  - > # Indentation indicator↓
+    folded
+    are continued
+  - |+ # Keep indicator↓
+    # keep
+   
+   # Trail 
+    # comment
+"#;
+// - >1- # Both indicators↓
+//  ·strip
+// "#;
+
+const BLOCK_STRINGS_EXPECTED: &'static str = r#"
+  +SEQ
+    =VAL literal\nnext line\n
+    -SEP-
+    =VAL folded are continued\n
+    -SEP-
+    =VAL # keep\n\n
+  -SEQ"#;
 
 mod common;
 
@@ -76,8 +101,12 @@ pub fn block_plain_err() {
     assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EXPECTED);
 }
 
-
 #[test]
 pub fn block_nested() {
     assert_eq_event(BLOCK_NESTED_INPUT, BLOCK_NESTED_EXPECTED);
+}
+
+#[test]
+pub fn literal_block() {
+    assert_eq_event(BLOCK_STRINGS_INPUT, BLOCK_STRINGS_EXPECTED);
 }
