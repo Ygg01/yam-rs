@@ -13,7 +13,7 @@ use super::YamlToken;
 
 pub struct YamlParser<'a, R, B = (), TAG = ()> {
     pub(crate) reader: R,
-    pub(crate) map: HashMap<String, &'a YamlToken<'a, TAG>>,
+    pub(crate) _map: HashMap<String, &'a YamlToken<'a, TAG>>,
     buf: PhantomData<B>,
 }
 
@@ -209,7 +209,7 @@ where
     fn from(value: &'a str) -> Self {
         YamlParser {
             reader: From::from(value),
-            map: HashMap::default(),
+            _map: HashMap::default(),
             buf: PhantomData::default(),
         }
     }
@@ -222,7 +222,7 @@ where
     fn from(value: R) -> Self {
         YamlParser {
             reader: value,
-            map: HashMap::default(),
+            _map: HashMap::default(),
             buf: PhantomData::default(),
         }
     }

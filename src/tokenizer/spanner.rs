@@ -474,7 +474,7 @@ impl Lexer {
             self.set_map_state(AfterColon);
         } else if matches!(curr_state, BlockMapExp(_, _) if col != indent as usize) {
             self.tokens.push_back(ErrorToken as usize);
-            self.errors.push(ErrorType::ExpectedIndent {
+            self.errors.push(ExpectedIndent {
                 actual: col,
                 expected: curr_state.indent() as usize,
             });
@@ -661,7 +661,7 @@ impl Lexer {
             }
         } else {
             self.tokens.push_back(ErrorToken as usize);
-            self.errors.push(ErrorType::ExpectedIndent {
+            self.errors.push(ExpectedIndent {
                 actual: init_indent,
                 expected: expected_indent,
             });
