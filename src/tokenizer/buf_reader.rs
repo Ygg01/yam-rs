@@ -72,7 +72,7 @@ impl<'a, S: BufRead> Reader<S> for BufReader<'a, S> {
         todo!()
     }
 
-    fn skip_detect_space_tab(&mut self, _has_tab: &mut bool) {
+    fn count_detect_space_tab(&mut self, _has_tab: &mut bool) -> usize {
         todo!()
     }
 

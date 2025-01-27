@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
+use std::fs::read;
 use std::hint::unreachable_unchecked;
 use std::mem::take;
 use std::num::NonZeroU32;
@@ -21,7 +22,8 @@ use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{
-    is_flow_indicator, is_newline, is_not_whitespace, is_valid_escape, ns_plain_safe,
+    is_flow_indicator, is_newline, is_not_whitespace, is_valid_escape, is_valid_skip_char,
+    is_white_tab, ns_plain_safe,
 };
 use crate::tokenizer::ErrorType;
 
@@ -326,9 +328,6 @@ impl<B> Lexer<B> {
 
         while self.continue_processing && !reader.eof() {
             let curr_state = self.curr_state();
-            if self.skip_separation_spaces(reader, true).1 && !self.has_tab {
-                self.has_tab = true;
-            }
 
             match curr_state {
                 PreDocStart => self.fetch_pre_doc(reader),
@@ -394,11 +393,14 @@ impl<B> Lexer<B> {
             }
             b"..." => {
                 reader.consume_bytes(3);
-                self.skip_separation_spaces(reader, true);
+                self.skip_separation_spaces(reader);
                 self.set_curr_state(InDocEnd, 0);
             }
             [b'#', ..] => {
                 reader.read_line();
+            }
+            [peek, ..] if is_white_tab_or_break(*peek) => {
+                self.skip_separation_spaces(reader);
             }
             [_, ..] => {
                 self.tokens.push_back(DOC_START);
@@ -448,7 +450,11 @@ impl<B> Lexer<B> {
                 self.set_curr_state(EndOfDirective, 0);
                 self.continue_processing = true;
             }
-            [x, ..] if !is_white_tab_or_break(*x) => {
+            [peek, ..] if is_white_tab_or_break(*peek) => {
+                self.skip_separation_spaces(reader);
+                self.continue_processing = true;
+            }
+            [peek, ..] if !is_white_tab_or_break(*peek) => {
                 self.prepend_error(ErrorType::YamlMustHaveOnePart);
                 reader.read_line();
             }
@@ -459,6 +465,7 @@ impl<B> Lexer<B> {
     }
 
     fn try_read_yaml_directive<R: Reader<B>>(&mut self, reader: &mut R) -> bool {
+        self.skip_separation_spaces(reader);
         if reader.try_read_slice_exact("%YAML") {
             reader.skip_space_tab();
             return match reader.peek_chars(&mut self.buf) {
@@ -508,8 +515,10 @@ impl<B> Lexer<B> {
         reader: &mut R,
         _directive_state: &mut DirectiveState,
     ) {
-        let col = reader.col();
         self.continue_processing = false;
+        self.skip_separation_spaces(reader);
+        let col = reader.col();
+
         match reader.peek_chars(&mut self.buf) {
             b"---" => {
                 reader.consume_bytes(3);
@@ -553,6 +562,8 @@ impl<B> Lexer<B> {
 
     fn fetch_after_doc<R: Reader<B>>(&mut self, reader: &mut R) {
         let mut consume_line = false;
+        self.skip_separation_spaces(reader);
+
         match reader.peek_chars(&mut self.buf) {
             b"..." => {
                 let col = reader.col();
@@ -643,9 +654,9 @@ impl<B> Lexer<B> {
             [b'>', ..] => self.process_block_literal(reader, curr_state, false),
             [b'\'', ..] => self.process_single_quote_block(reader, curr_state),
             [b'"', ..] => self.process_double_quote_block(reader, curr_state),
-            [b'#', ..] => {
-                // comment
-                reader.read_line();
+            [peek, ..] if is_white_tab_or_break(*peek) => {
+                self.has_tab = self.skip_separation_spaces(reader).1;
+                self.continue_processing = true;
             }
             [peek_chr, ..] => {
                 self.fetch_plain_scalar_block(reader, curr_state, *peek_chr);
@@ -692,9 +703,18 @@ impl<B> Lexer<B> {
             [b'"', ..] => {
                 self.process_double_quote_block(reader, curr_state);
             }
-            [b'#', ..] => {
+            [peek, b'#', ..] if is_white_tab(*peek) => {
                 // comment
                 reader.read_line();
+            }
+            [b'#', ..] if reader.col() > 0 => {
+                // comment that doesnt
+                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                reader.read_line();
+            }
+            [peek, ..] if is_white_tab_or_break(*peek) => {
+                self.has_tab = self.skip_separation_spaces(reader).1;
+                self.continue_processing = true;
             }
             [peek, ..] => {
                 self.fetch_plain_scalar_block(reader, curr_state, *peek);
@@ -731,7 +751,8 @@ impl<B> Lexer<B> {
         );
     }
 
-    #[inline(always)]
+    //TODO
+    // #[inline(always)]
     fn push_error(&mut self, error: ErrorType) {
         self.tokens.push_back(ERROR_TOKEN);
         self.errors.push(error);
@@ -747,7 +768,7 @@ impl<B> Lexer<B> {
         self.update_col(reader);
         let anchor = reader.consume_anchor_alias();
 
-        let line = self.skip_separation_spaces(reader, true);
+        let line = self.skip_separation_spaces(reader);
         match line.0 {
             0 => {
                 self.prev_anchor = Some(anchor);
@@ -765,7 +786,7 @@ impl<B> Lexer<B> {
         let alias_start = reader.col();
         let had_tab = self.has_tab;
         let alias = reader.consume_anchor_alias();
-        self.skip_separation_spaces(reader, true);
+        self.skip_separation_spaces(reader);
 
         let next_is_colon = reader.peek_byte_is(b':');
 
@@ -846,6 +867,9 @@ impl<B> Lexer<B> {
                 // comment
                 reader.read_line();
             }
+            [peek, ..] if is_white_tab_or_break(*peek) => {
+                self.has_tab = self.skip_separation_spaces(reader).1;
+            }
             [_, ..] => {
                 self.fetch_plain_scalar_flow(reader, self.curr_state());
             }
@@ -925,6 +949,9 @@ impl<B> Lexer<B> {
                 // comment
                 reader.read_line();
             }
+            [peek, ..] if is_white_tab_or_break(*peek) => {
+                self.has_tab = self.skip_separation_spaces(reader).1;
+            }
             [_, ..] => {
                 self.next_map_state();
                 self.fetch_plain_scalar_flow(reader, curr_state);
@@ -963,7 +990,7 @@ impl<B> Lexer<B> {
         let scalar_start = self.update_col(reader);
         let Scalar { tokens, .. } = self.process_single_quote(reader);
 
-        self.skip_separation_spaces(reader, true);
+        self.skip_separation_spaces(reader);
         if reader.peek_byte_is(b':') {
             self.unwind_map(curr_state, scalar_start, reader.line());
             self.set_map_state(BeforeColon);
@@ -1101,9 +1128,9 @@ impl<B> Lexer<B> {
         start_str: &mut usize,
     ) {
         *newspaces = Some(
-            self.skip_separation_spaces(reader, true)
+            self.skip_separation_spaces(reader)
                 .0
-                .saturating_sub(1),
+                .saturating_sub(1) as usize,
         );
         *start_str = reader.pos();
     }
@@ -1181,7 +1208,7 @@ impl<B> Lexer<B> {
             self.tokens.push_back(anchor.0);
             self.tokens.push_back(anchor.1);
         };
-        if let Some(tag)  = take(&mut self.prev_tag) {
+        if let Some(tag) = take(&mut self.prev_tag) {
             self.tokens.push_back(TAG_START);
             self.tokens.push_back(tag.0);
             self.tokens.push_back(tag.1);
@@ -1193,27 +1220,31 @@ impl<B> Lexer<B> {
     fn skip_separation_spaces<R: Reader<B>>(
         &mut self,
         reader: &mut R,
-        allow_comments: bool,
-    ) -> (usize, bool) {
-        let (lines, has_tab) = {
-            let mut num_breaks = 0;
+    ) -> (u32, bool) {
+        let lines = {
+            let mut num_breaks = 0u32;
             let mut found_eol = true;
             let mut has_tab = false;
 
-            if reader.col() > 0 && reader.peek_byte_is(b'#') {
-                self.push_error(ErrorType::MissingWhitespaceBeforeComment);
-            }
             loop {
-                if !reader.peek_byte().map_or(false, is_white_tab_or_break) || reader.eof() {
+                if !reader.peek_byte().map_or(false, is_valid_skip_char) || reader.eof() {
                     break;
                 }
-                reader.skip_detect_space_tab(&mut has_tab);
+                let amount = reader.count_detect_space_tab(&mut has_tab);
+                let is_comment = reader.peek_byte_at(amount).map_or(false, |c| c == b'#');
 
-                if allow_comments && reader.peek_byte_is(b'#') {
+                if is_comment {
+                    if amount > 0 && !reader
+                        .peek_byte_at(amount.saturating_sub(1))
+                        .map_or(false, |c| c == b' ' || c == b'\t' || c == b'\n')
+                    {
+                        self.push_error(ErrorType::MissingWhitespaceBeforeComment);
+                    }
                     reader.read_line();
                     found_eol = true;
                     num_breaks += 1;
-                }
+                    continue;
+                } 
 
                 if reader.read_break().is_some() {
                     num_breaks += 1;
@@ -1223,16 +1254,17 @@ impl<B> Lexer<B> {
                 if !found_eol {
                     break;
                 } else {
-                    reader.skip_detect_space_tab(&mut has_tab);
+                    let amount = reader.count_detect_space_tab(&mut has_tab);
+                    reader.consume_bytes(amount);
                     found_eol = false;
                 }
             }
             (num_breaks, has_tab)
         };
-        if lines > 0 {
+        if lines.0 > 0 {
             self.reset_col();
         }
-        (lines as usize, has_tab)
+        lines
     }
 
     fn process_flow_seq_start<R: Reader<B>>(&mut self, reader: &mut R) {
@@ -1380,8 +1412,8 @@ impl<B> Lexer<B> {
         if let Some(err) = err {
             self.push_error(err);
         } else {
-            let lines  = self.skip_separation_spaces(reader, true).0;
-            if lines == 0 {
+            let lines = self.skip_separation_spaces(reader);
+            if lines.0 == 0 {
                 self.prev_tag = Some((start, mid, end));
             } else {
                 self.tokens.push_back(TAG_START);
@@ -1633,9 +1665,9 @@ impl<B> Lexer<B> {
             reader.skip_space_tab();
 
             if reader.peek_byte().map_or(false, is_newline) {
-                let folded_newline = self.skip_separation_spaces(reader, false);
+                let folded_newline = self.skip_separation_spaces(reader);
                 if reader.col() >= self.last_block_indent {
-                    num_newlines = folded_newline.0;
+                    num_newlines = folded_newline.0 as usize;
                 }
                 curr_indent = reader.col();
             }
@@ -1817,7 +1849,6 @@ impl<B> Lexer<B> {
     #[inline]
     fn reset_col(&mut self) {
         self.col_start = None;
-        self.has_tab = false;
     }
 
     #[inline]

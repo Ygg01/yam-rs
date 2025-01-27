@@ -259,8 +259,8 @@ impl<'r> Reader<()> for StrReader<'r> {
             .map(|find| (start_str + find + 1, find + 1))
     }
 
-    fn skip_detect_space_tab(&mut self, has_tab: &mut bool) {
-        let amount = match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
+    fn count_detect_space_tab(&mut self, has_tab: &mut bool) -> usize {
+        match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
             if !*has_tab && *chr == b'\t' {
                 *has_tab = true;
             }
@@ -271,8 +271,7 @@ impl<'r> Reader<()> for StrReader<'r> {
             }
         }) {
             Continue(x) | Break(x) => x,
-        };
-        self.consume_bytes(amount);
+        }
     }
 
     fn consume_anchor_alias(&mut self) -> (usize, usize) {
