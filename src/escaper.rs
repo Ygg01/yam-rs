@@ -1,4 +1,5 @@
-use std::borrow::Cow;
+use alloc::borrow::Cow;
+use alloc::vec::Vec;
 
 struct Escape<'a, F, M> {
     find_fn: F,
