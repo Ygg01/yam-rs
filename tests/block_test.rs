@@ -812,3 +812,22 @@ const TAG1_EXPECTED: &str = r#"
 fn parse_tag() {
     assert_eq_event(TAG1, TAG1_EXPECTED);
 }
+
+const MULTI_LINE_VAL: &str = r#"
+x: a
+ b
+
+ c"#;
+
+const MULTI_LINE_VAL_EVENT: &str = r#"
+ +DOC
+  +MAP
+   =VAL :x
+   =VAL :a b\nc
+  -MAP
+ -DOC"#;
+
+#[test]
+fn multi_line_value() {
+    assert_eq_event(MULTI_LINE_VAL, MULTI_LINE_VAL_EVENT);
+}
