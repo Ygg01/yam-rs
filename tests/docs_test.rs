@@ -233,3 +233,20 @@ fn doc_multi() {
     assert_eq_event(MULTI_DOC2_INPUT, MULTI_DOC2_EVENTS);
     assert_eq_event(MULTI_DOC3_INPUT, MULTI_DOC3_EVENTS);
 }
+
+const DOC_MAP_ERR_INPUT: &str = r"
+--- a: b";
+
+const DOC_MAP_ERR_EVENTS: &str = r"
++DOC ---
+ERR
++MAP
+=VAL :a
+=VAL :b
+-MAP
+-DOC";
+
+#[test]
+fn doc_err() {
+    assert_eq_event(DOC_MAP_ERR_INPUT, DOC_MAP_ERR_EVENTS);
+}
