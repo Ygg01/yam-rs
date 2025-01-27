@@ -474,9 +474,9 @@ const X2_8UDB_EVENTS: &str = r"
 
 #[test]
 fn flow_seq_edge() {
-    assert_eq_event(SEQ_EDGE_INPUT, SEQ_EDGE_EVENTS);
-    assert_eq_event(X2_8UDB_INPUT, X2_8UDB_EVENTS);
     assert_eq_event(X1_8UDB_INPUT, X1_8UDB_EVENTS);
+    assert_eq_event(X2_8UDB_INPUT, X2_8UDB_EVENTS);
+    assert_eq_event(SEQ_EDGE_INPUT, SEQ_EDGE_EVENTS);
 }
 
 const MAP_EDGE1_INPUT: &str = r"
@@ -501,10 +501,25 @@ const MAP_EDGE2_EVENTS: &str = r"
 -MAP
 -DOC";
 
+const MAP_ERR_INPUT: &str = r"
+[23
+]: 42";
+
+const MAP_ERR_EVENTS: &str = r"
++DOC
++SEQ []
+=VAL :23
+ERR
+=VAL :42
+ERR
+-SEQ
+-DOC";
+
 #[test]
 fn flow_map_edge() {
     assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
     assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);
+    assert_eq_event(MAP_ERR_INPUT, MAP_ERR_EVENTS);
 }
 
 const CUSTOM_TAG_INPUT: &str = r"
