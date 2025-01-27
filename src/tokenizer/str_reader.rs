@@ -292,13 +292,8 @@ impl<'r> Reader<()> for StrReader<'r> {
                 let (line_start, line_end, _) = self.get_line_offset();
                 let haystack = &self.slice[line_start..line_end];
                 if let Some(end) = memchr(b'>', haystack) {
-                    let err = if self.slice[self.pos + end + 1] != b'!' {
-                        Some(ErrorType::UnfinishedTag)
-                    } else {
-                        None
-                    };
                     self.consume_bytes(end + 1);
-                    (err, start, end, 0)
+                    (None, start, start + end, 0)
                 } else {
                     self.skip_space_tab();
                     (Some(ErrorType::UnfinishedTag), 0, 0, 0)

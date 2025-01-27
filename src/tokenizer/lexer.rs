@@ -926,7 +926,7 @@ impl<B> Lexer<B> {
             [b',', ..] => {
                 reader.consume_bytes(1);
                 if !self.prev_scalar.is_empty() {
-                    self.emit_prev_anchor();
+                    self.emit_meta_nodes();
                     self.tokens.extend(take(&mut self.prev_scalar.tokens));
                     self.set_map_state(BeforeKey);
                 } else if self.is_prev_sequence() {
@@ -962,7 +962,7 @@ impl<B> Lexer<B> {
 
     fn process_colon_flow(&mut self, curr_state: LexerState) {
         if !self.prev_scalar.is_empty() {
-            self.emit_prev_anchor();
+            self.emit_meta_nodes();
             self.tokens.extend(take(&mut self.prev_scalar.tokens));
             self.set_map_state(AfterColon);
         } else if matches!(curr_state, FlowMap(_, BeforeKey)) {
@@ -995,7 +995,7 @@ impl<B> Lexer<B> {
             self.unwind_map(curr_state, scalar_start, reader.line());
             self.set_map_state(BeforeColon);
         }
-        self.emit_prev_anchor();
+        self.emit_meta_nodes();
         self.tokens.extend(tokens);
     }
 
@@ -1033,7 +1033,7 @@ impl<B> Lexer<B> {
             self.prev_scalar = scalar;
             self.continue_processing = true;
         } else {
-            self.emit_prev_anchor();
+            self.emit_meta_nodes();
             self.tokens.extend(scalar.tokens);
         }
     }
@@ -1162,15 +1162,16 @@ impl<B> Lexer<B> {
                     self.push_error(ErrorType::ImplicitKeysNeedToBeInline);
                 }
             }
-
             self.last_map_line = Some(scalar_line);
             if is_map_start {
+                self.had_anchor = false;
                 self.next_map_state();
                 self.continue_processing = true;
                 if had_tab {
                     self.push_error(ErrorType::TabsNotAllowedAsIndentation);
                 }
                 self.tokens.push_back(MAP_START_BLOCK);
+                self.emit_meta_nodes();
                 self.push_state(BlockMap(scalar_start, BeforeColon), scalar_line);
             }
         } else {
@@ -1193,13 +1194,13 @@ impl<B> Lexer<B> {
                 BlockSeq(_, _) => self.set_block_seq_state(BlockSeqState::BeforeMinus),
                 _ => {}
             }
-            self.emit_prev_anchor();
+            self.emit_meta_nodes();
             self.tokens.extend(tokens);
         }
     }
 
     #[inline]
-    fn emit_prev_anchor(&mut self) {
+    fn emit_meta_nodes(&mut self) {
         if let Some(anchor) = take(&mut self.prev_anchor) {
             if self.had_anchor {
                 self.push_error(ErrorType::NodeWithTwoAnchors);
@@ -1271,7 +1272,7 @@ impl<B> Lexer<B> {
         reader.consume_bytes(1);
         let pos = self.get_token_pos();
         self.had_anchor = false;
-        self.emit_prev_anchor();
+        self.emit_meta_nodes();
         self.next_map_state();
         self.tokens.push_back(SEQ_START);
 
@@ -1285,7 +1286,7 @@ impl<B> Lexer<B> {
     fn process_flow_map_start<R: Reader<B>>(&mut self, reader: &mut R) {
         reader.consume_bytes(1);
         reader.skip_space_tab();
-        self.emit_prev_anchor();
+        self.emit_meta_nodes();
 
         if reader.peek_byte_is(b'?') {
             let state = FlowKeyExp(self.get_token_pos(), BeforeKey);
@@ -1390,7 +1391,7 @@ impl<B> Lexer<B> {
         self.last_map_line = Some(reader.line());
         reader.consume_bytes(1);
         reader.skip_space_tab();
-        self.emit_prev_anchor();
+        self.emit_meta_nodes();
         match curr_state {
             DocBlock => {
                 let state = BlockMapExp(indent, BeforeKey);
@@ -1508,7 +1509,7 @@ impl<B> Lexer<B> {
             && !self.prev_scalar.is_empty()
         {
             if !self.prev_scalar.is_empty() {
-                self.emit_prev_anchor();
+                self.emit_meta_nodes();
                 self.set_map_state(AfterColon);
                 self.tokens.extend(take(&mut self.prev_scalar.tokens));
             }
@@ -1539,7 +1540,7 @@ impl<B> Lexer<B> {
             }
 
         if !self.prev_scalar.is_empty() {
-            self.emit_prev_anchor();
+            self.emit_meta_nodes();
             self.set_map_state(AfterColon);
             self.tokens.extend(take(&mut self.prev_scalar.tokens));
         }
@@ -1584,7 +1585,7 @@ impl<B> Lexer<B> {
             if self.prev_anchor.is_some() && !self.had_anchor {
                 self.push_error(ErrorType::InvalidAnchorDeclaration);
             }
-            self.emit_prev_anchor();
+            self.emit_meta_nodes();
             self.push_state(BlockSeq(indent, BlockSeqState::AfterMinus), reader.line());
             self.tokens.push_back(SEQ_START_BLOCK);
         }
@@ -1610,7 +1611,7 @@ impl<B> Lexer<B> {
             self.prev_scalar = scalar;
             self.continue_processing = true;
         } else {
-            self.emit_prev_anchor();
+            self.emit_meta_nodes();
             self.tokens.extend(scalar.tokens);
         }
     }

@@ -377,7 +377,9 @@ where
                             self.state.pop_token(),
                         ) {
                             let namespace = self.buffer.slice(start, mid);
-                            let extension = self.buffer.slice(mid, end);
+                            let extension = if end != 0 { self.buffer.slice(mid, end) } else {
+                                b""
+                            };
                             self.tag = if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
                                 let mut tag = Vec::from(self.buffer.slice(e1, e2));
                                 tag.extend_from_slice(extension);
@@ -394,6 +396,8 @@ where
                                 let mut cow: Cow<'_, [u8]> = Cow::Owned(b"!".to_vec());
                                 cow.to_mut().extend(extension);
                                 Some(cow)
+                            } else if extension.is_empty() && end == 0 {
+                                Some(Cow::Borrowed(namespace))
                             } else {
                                 None
                             }
