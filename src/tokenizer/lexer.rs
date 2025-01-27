@@ -113,6 +113,7 @@ pub enum LiteralStringState {
     Indentation(u32),
     End,
     Comment,
+    TabError,
 }
 
 impl LiteralStringState {
@@ -2183,7 +2184,6 @@ impl Lexer {
             state = match state {
                 LiteralStringState::AutoIndentation => self.process_autoindentation(
                     reader,
-                    block_indent,
                     &mut prev_indent,
                     &mut new_lines,
                     &mut tokens,
@@ -2204,7 +2204,15 @@ impl Lexer {
                 }
 
                 LiteralStringState::Comment => self.process_comment(reader),
-                LiteralStringState::End => break,
+                LiteralStringState::TabError => {
+                    self.skip_separation_spaces(reader);
+                    if !(reader.eof() || reader.peek_stream_ending()) {
+                        self.prepend_error_token(ErrorType::InvalidScalarIndent, &mut tokens);
+                    }
+
+                    break;
+                }
+                LiteralStringState::End  => break,
             };
         }
 
@@ -2290,7 +2298,6 @@ impl Lexer {
     fn process_autoindentation<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
-        block_indent: u32,
         prev_indent: &mut u32,
         new_lines: &mut u32,
         tokens: &mut Vec<usize>,
@@ -2300,14 +2307,16 @@ impl Lexer {
             if reader.eof() {
                 return LiteralStringState::End;
             }
+
             let newline_indent = reader.count_spaces();
+            self.has_tab = matches!(reader.peek_byte_at(newline_indent as usize), Some(b'\t'));
+
             let newline_is_empty = reader.is_empty_newline();
             if newline_is_empty && max_prev_indent < newline_indent {
                 max_prev_indent = newline_indent;
             }
             if max_prev_indent > newline_indent {
-                tokens.insert(0, ErrorToken as usize);
-                self.errors.push(SpacesFoundAfterIndent);
+                self.prepend_error_token(SpacesFoundAfterIndent, tokens);
             }
             if !newline_is_empty {
                 *prev_indent = newline_indent;
@@ -2394,8 +2403,9 @@ impl Lexer {
             v @ (LiteralStringState::Comment |   LiteralStringState::End) => return v,
             x => x,
         };
+        
         reader.consume_bytes(indent as usize);
-        let (start, end) = reader.read_line();
+        let (start, end, _) = reader.get_read_line();
         if start == end {
             *new_lines += 1;
         } else {
@@ -2408,11 +2418,28 @@ impl Lexer {
                     tokens.push(*new_lines as usize);
                 }
             }
-            *prev_indent = curr_indent;
-            tokens.push(start);
-            tokens.push(end);
-            *new_lines = 1;
+            match self.last_block_indent  {
+                Some(i) if i >=  curr_indent => {
+                    *new_lines = 0;
+                    if reader.peek_byte_is(b'\t') {
+                        self.has_tab = true;
+                        next_state = LiteralStringState::TabError;
+                    } else {
+                        self.prepend_error_token(ErrorType::ExpectedIndent { actual: i, expected: curr_indent }, tokens);
+                        next_state = LiteralStringState::End;
+                    }
+                }
+                _ => {
+                    *prev_indent = curr_indent;
+                    tokens.push(start);
+                    tokens.push(end);
+                    self.read_line(reader);
+                    *new_lines = 1;
+                }
+            };
+            
         }
+        
         next_state
     }
 }

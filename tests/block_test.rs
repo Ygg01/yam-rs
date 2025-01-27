@@ -467,7 +467,6 @@ const X2_Y79Y_000_EVENTS: &str = r"
 const X3_Y79Y_000_INPUT: &str = r"
 foo: |
 	
-	
 bar: 1";
 
 const X3_Y79Y_000_EVENTS: &str = r"
@@ -475,6 +474,7 @@ const X3_Y79Y_000_EVENTS: &str = r"
 +MAP
 =VAL :foo
 ERR
+=VAL |
 =VAL :bar
 =VAL :1
 -MAP
@@ -489,16 +489,18 @@ const X4_Y79Y_000_EVENTS: &str = r"
 +MAP
 =VAL :foo
 ERR
-=VAL |x\n
+=VAL |
+=VAL :x
+=VAL :
 -MAP
 -DOC";
 
 #[test]
 pub fn block_literal_indents() {
-    // assert_eq_event(X3_Y79Y_000_INPUT, X3_Y79Y_000_EVENTS);
-    // assert_eq_event(X1_Y79Y_000_INPUT, X1_Y79Y_000_EVENTS);
-    // assert_eq_event(X2_Y79Y_000_INPUT, X2_Y79Y_000_EVENTS);
-    // assert_eq_event(X4_Y79Y_000_INPUT, X4_Y79Y_000_EVENTS);
+    assert_eq_event(X1_Y79Y_000_INPUT, X1_Y79Y_000_EVENTS);
+    assert_eq_event(X2_Y79Y_000_INPUT, X2_Y79Y_000_EVENTS);
+    assert_eq_event(X3_Y79Y_000_INPUT, X3_Y79Y_000_EVENTS);
+    assert_eq_event(X4_Y79Y_000_INPUT, X4_Y79Y_000_EVENTS);
 }
 
 const LITERAL_ERR_INPUT: &str = r"
@@ -574,21 +576,6 @@ const X2_7T8X_EVENTS: &str = r"
 =VAL >line\n
 -DOC";
 
-const X3_7T8X_INPUT: &str = r"
->
- line
-
-ERROR
-";
-
-const X3_7T8X_EVENTS: &str = r"
-+DOC
-=VAL >line\n
-ERR
-=VAL :
-=VAL :ERROR
--DOC";
-
 const X1_JEF9_INPUT: &str = r"
 - |+
    ";
@@ -632,11 +619,10 @@ const X2_F6MC_EVENTS: &str = r"
 
 #[test]
 pub fn block_indent_lit_fold() {
+    assert_eq_event(X2_7T8X_INPUT, X2_7T8X_EVENTS);
+    assert_eq_event(X1_7T8X_INPUT, X1_7T8X_EVENTS);
     assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENTS);
     assert_eq_event(X2_6VJK_INPUT, X2_6VJK_EVENTS);
-    assert_eq_event(X1_7T8X_INPUT, X1_7T8X_EVENTS);
-    assert_eq_event(X2_7T8X_INPUT, X2_7T8X_EVENTS);
-    assert_eq_event(X3_7T8X_INPUT, X3_7T8X_EVENTS);
     assert_eq_event(X1_JEF9_INPUT, X1_JEF9_EVENTS);
     assert_eq_event(X1_F6MC_INPUT, X1_F6MC_EVENTS);
     assert_eq_event(X2_F6MC_INPUT, X2_F6MC_EVENTS);
