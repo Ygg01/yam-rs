@@ -199,7 +199,9 @@ impl Lexer {
             match curr_state {
                 PreDocStart => self.fetch_pre_doc(reader),
                 DirectiveSection => self.fetch_directive_section(reader),
-                DocBlock | BlockMap(_, _) | BlockMapExp(_, _) =>  self.fetch_map_like_block(reader, curr_state),
+                DocBlock | BlockMap(_, _) | BlockMapExp(_, _) => {
+                    self.fetch_map_like_block(reader, curr_state)
+                }
                 BlockSeq(_) => self.fetch_block_seq(reader, curr_state),
                 FlowSeq(_, seq_state) => self.fetch_flow_seq(reader, seq_state),
                 FlowMap(_, _) | FlowKeyExp(_, _) => self.fetch_flow_map(reader, curr_state),
@@ -275,11 +277,7 @@ impl Lexer {
         }
     }
 
-    fn fetch_map_like_block<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        curr_state: LexerState,
-    ) {
+    fn fetch_map_like_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         self.continue_processing = false;
         match reader.peek_chars() {
             [b'{', ..] => self.process_flow_map_start(reader),
@@ -287,7 +285,9 @@ impl Lexer {
             [b'&', ..] => self.parse_anchor(reader),
             [b'*', ..] => self.parse_alias(reader),
             [b':'] => self.process_block_colon(reader, curr_state),
-            [b':', x, ..] if is_white_tab_or_break(*x) => self.process_block_colon(reader, curr_state),
+            [b':', x, ..] if is_white_tab_or_break(*x) => {
+                self.process_block_colon(reader, curr_state)
+            }
             [b'-', peek, ..] if is_white_tab_or_break(*peek) => {
                 self.process_seq(reader, curr_state);
             }
@@ -607,7 +607,11 @@ impl Lexer {
     }
 
     #[inline]
-    fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) -> (usize, Vec<usize>) {
+    fn process_double_quote<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        curr_state: LexerState,
+    ) -> (usize, Vec<usize>) {
         let scalar_start = self.update_col(reader);
         let mut is_multiline = false;
         let tokens = reader.read_double_quote(
@@ -620,14 +624,22 @@ impl Lexer {
         (scalar_start, tokens)
     }
 
-    fn process_double_quote_flow<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    fn process_double_quote_flow<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        curr_state: LexerState,
+    ) {
         let (_, tokens) = self.process_double_quote(reader, curr_state);
 
         self.emit_prev_anchor();
         self.tokens.extend(tokens);
     }
 
-    fn process_double_quote_block<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
+    fn process_double_quote_block<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        curr_state: LexerState,
+    ) {
         let (scalar_start, tokens) = self.process_double_quote(reader, curr_state);
 
         if reader.peek_byte_is(b':') {
