@@ -434,10 +434,10 @@ impl Lexer {
             [b'&', ..] => self.parse_anchor(reader),
             [b'*', ..] => self.parse_alias(reader),
             [b':'] => self.process_block_colon(reader, curr_state),
-            [b':', peek, ..] if !ns_plain_safe(*peek, true) => {
+            [b':', peek, ..] if !ns_plain_safe(*peek) => {
                 self.process_block_colon(reader, curr_state)
             }
-            [b'-', peek, ..] if !ns_plain_safe(*peek, true) => {
+            [b'-', peek, ..] if !ns_plain_safe(*peek) => {
                 self.process_block_seq(reader, curr_state);
             }
             b"..." => {
@@ -446,7 +446,7 @@ impl Lexer {
             b"---" => {
                 self.unwind_to_root_start(reader);
             }
-            [b'?', peek, ..] if !ns_plain_safe(*peek, true) => {
+            [b'?', peek, ..] if !ns_plain_safe(*peek) => {
                 self.fetch_exp_block_map_key(reader, curr_state)
             }
             [b'!', ..] => self.fetch_tag(reader),
@@ -580,7 +580,7 @@ impl Lexer {
                 reader.consume_bytes(1);
                 self.push_error(UnexpectedSymbol('-'));
             }
-            [b':', chr, ..] if seq_state != InSeq && !ns_plain_safe(*chr, true) => {
+            [b':', chr, ..] if seq_state != InSeq && !ns_plain_safe(*chr) => {
                 self.tokens.push_back(MAP_START);
                 let indent = self.get_token_pos();
                 self.push_empty_token();
@@ -599,7 +599,7 @@ impl Lexer {
             }
             [b'\'', ..] => self.process_quote(reader, self.curr_state()),
             [b'"', ..] => self.process_double_quote_flow(reader),
-            [b'?', chr, ..] if !ns_plain_safe(*chr, true) => {
+            [b'?', chr, ..] if !ns_plain_safe(*chr) => {
                 self.fetch_explicit_map(reader, self.curr_state())
             }
             [b'#', ..] => {
@@ -635,7 +635,7 @@ impl Lexer {
                 self.pop_state();
                 self.continue_processing = false;
             }
-            [b':', peek, ..] if !ns_plain_safe(*peek, true) => {
+            [b':', peek, ..] if !ns_plain_safe(*peek) => {
                 reader.consume_bytes(1);
                 if matches!(curr_state, FlowMap(_, BeforeKey)) {
                     self.push_empty_token();
@@ -646,7 +646,7 @@ impl Lexer {
                 }
             }
             [b':', peek, ..]
-                if ns_plain_safe(*peek, true) && matches!(curr_state, FlowMap(_, BeforeColon)) =>
+                if ns_plain_safe(*peek) && matches!(curr_state, FlowMap(_, BeforeColon)) =>
             {
                 reader.consume_bytes(1);
                 self.set_next_map_state();
@@ -663,7 +663,7 @@ impl Lexer {
                     self.push_error(UnexpectedSymbol(']'));
                 }
             }
-            [b'?', peek, ..] if !ns_plain_safe(*peek, true) => {
+            [b'?', peek, ..] if !ns_plain_safe(*peek) => {
                 self.fetch_explicit_map(reader, curr_state)
             }
             [b',', ..] => {

@@ -392,7 +392,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
             // ns-plain-char prevent `: `
             // or `:{`  in flow collections
-            if curr == b':' && !ns_plain_safe(next, in_flow_collection) {
+            if curr == b':' && !ns_plain_safe(next) {
                 pos_end = end_of_str;
                 break;
             }
