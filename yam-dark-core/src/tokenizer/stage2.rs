@@ -23,21 +23,21 @@
 // SOFTWARE.
 
 use crate::impls::{AvxScanner, NativeScanner};
+use crate::tape::Node;
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
-use crate::tokenizer::visitor::{EventStringVisitor, YamlVisitor};
-use crate::util::{ChunkyIterator, NoopValidator};
+use crate::util::NoopValidator;
 use crate::YamlChunkState;
 use alloc::boxed::Box;
-use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
-use yam_core::error::{YamlError, YamlResult};
+use yam_core::error::YamlError;
 
 pub type ParseResult<T> = Result<T, YamlError>;
 
-pub struct Parser<'de> {
+pub struct Deserializer<'de> {
     idx: usize,
+    tape: Vec<Node<'de>>,
     _data: &'de PhantomData<()>,
 }
 
@@ -97,16 +97,6 @@ impl YamlParserState {
     }
 }
 
-impl YamlParserState {
-    pub(crate) fn process_chunk<B: Buffer>(
-        &mut self,
-        p0: &B,
-        p1: YamlChunkState,
-    ) -> YamlResult<()> {
-        todo!()
-    }
-}
-
 /// Function that returns right validator for the right architecture
 ///
 /// # Arguments
@@ -141,49 +131,4 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_stage1_next<B: Buffer>() -> NextFn<B> {
     NativeScanner::next::<B>
-}
-
-impl<'de> Parser<'de> {
-    pub fn build_events(input: &'de [u8], hint: Option<usize>) -> String {
-        let mut event_visitor = EventStringVisitor::new_with_hint(hint);
-        let mut buffer = Buffers::default();
-
-        let mut validator = get_validator(true);
-
-        Self::run_to_end::<Buffers, EventStringVisitor>(
-            input,
-            &mut event_visitor,
-            &mut buffer,
-            &mut validator,
-        );
-        event_visitor.buffer
-    }
-
-    fn run_to_end<B: Buffer, V: YamlVisitor<'de>>(
-        input: &'de [u8],
-        event_visitor: &mut V,
-        buffer: &mut B,
-        validator: &mut Box<dyn ChunkedUtf8Validator>,
-    ) -> YamlResult<()> {
-        let mut iter = ChunkyIterator::from_bytes(input);
-        let mut state = YamlParserState::default();
-        let next_fn = get_stage1_next::<B>();
-
-        iter.try_for_each(|chunk| {
-            // SAFETY: The chunk is always 64 bytes, so it is always compatible with validator.
-            let res: Result<YamlChunkState, YamlError> = unsafe {
-                validator.update_from_chunks(chunk);
-                next_fn(chunk, buffer, &mut state)
-            };
-            match res {
-                Err(e) => event_visitor.visit_error(e),
-                Ok(chunk_state) => state.process_chunk(buffer, chunk_state),
-            }
-        })?;
-
-        // Remaining part
-        for _rem in iter.finalize() {}
-
-        Ok(())
-    }
 }

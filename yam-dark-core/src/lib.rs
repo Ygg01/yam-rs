@@ -12,6 +12,7 @@ pub use tokenizer::stage1::Stage1Scanner;
 use yam_core::error::YamlError;
 
 pub mod impls;
+mod tape;
 mod tokenizer;
 pub mod util;
 
