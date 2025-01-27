@@ -693,6 +693,7 @@ const MAPS_WITH_QUOTES_EVENTS: &str = r#"
 #[test]
 pub fn block_map_scalar_and_ws() {
     assert_eq_event(MAPS_WITH_QUOTES_INPUT, MAPS_WITH_QUOTES_EVENTS);
+
 }
 
 const NESTED_MAPS_INPUT: &str = r#"
@@ -751,10 +752,71 @@ const ALIAS_N_MAPS_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const ALIAS_N_MAPS2_INPUT: &str = r#"
+top3: &node3 
+  *alias1 : scalar3
+ "#;
+ 
+const ALIAS_N_MAPS2_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL :top3
+   +MAP &node3
+    =ALI *alias1
+    =VAL :scalar3
+   -MAP
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn block_map_anchor_alias() {
     assert_eq_event(ALIAS_N_MAPS_INPUT, ALIAS_N_MAPS_EVENTS);
+    assert_eq_event(ALIAS_N_MAPS2_INPUT, ALIAS_N_MAPS2_EVENTS);
 }
+
+const ALIAS_N_SEQ1_INPUT: &str = r#"
+&seq
+ - a
+ "#;
+
+const ALIAS_N_SEQ1_EVENTS: &str = r#"
+ +DOC
+  +SEQ &seq
+   =VAL :a
+  -SEQ
+ -DOC"#;
+
+const ALIAS_N_SEQ2_INPUT: &str = r#"
+ &seq  - a
+  "#;
+
+const ALIAS_N_SEQ2_EVENTS: &str = r#"
+ +DOC
+  ERR
+  +SEQ &seq
+   =VAL :a
+  -SEQ
+ -DOC"#;
+
+const ALIAS_N_SEQ3_INPUT: &str = r#"
+  - &node a
+  "#;
+
+const ALIAS_N_SEQ3_EVENTS: &str = r#"
+ +DOC
+  +SEQ
+   =VAL &node :a
+  -SEQ
+ -DOC"#;
+ 
+
+#[test]
+pub fn block_seq_anchor_alias() {
+    assert_eq_event(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS);
+    assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
+    assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
+}
+
 
 const ANCHOR_COLON_INPUT: &str = r#"
 &node3:  key : scalar3
@@ -774,7 +836,7 @@ const ANCHOR_MULTI_INPUT: &str = r#"
 top2: &node2
   &v2 val: x"#;
 
-const ANCHOR_MULTI_EVENT: &str = r#"
+const ANCHOR_MULTI_EVENTS: &str = r#"
  +DOC
   +MAP
    =VAL :top2
@@ -784,8 +846,6 @@ const ANCHOR_MULTI_EVENT: &str = r#"
    -MAP
   -MAP
  -DOC"#;
-
-
 
 const ANCHOR_ERR_INPUT: &str = r#"
 top2: &node2
@@ -800,12 +860,14 @@ const ANCHOR_ERR_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
- #[test]
- pub fn block_anchor() {
-     assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
-     assert_eq_event(ANCHOR_MULTI_INPUT, ANCHOR_MULTI_EVENT);
-     assert_eq_event(ANCHOR_ERR_INPUT, ANCHOR_ERR_EVENTS);
- }
+
+
+#[test]
+pub fn block_anchor() {
+    assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
+    assert_eq_event(ANCHOR_MULTI_INPUT, ANCHOR_MULTI_EVENTS);
+    assert_eq_event(ANCHOR_ERR_INPUT, ANCHOR_ERR_EVENTS);
+}
 
 const MIX_BLOCK_INPUT: &str = r##"
 -
