@@ -82,13 +82,14 @@ impl LexerState {
     #[inline]
     pub(crate) fn indent(&self) -> u32 {
         match self {
-            FlowKeyExp(ind, _)
-            | FlowMap(ind, _)
-            | FlowSeq(ind, _)
-            | BlockSeq(ind)
-            | BlockMap(ind, _)
-            | BlockMapExp(ind, _) => *ind,
-            PreDocStart | AfterDocEnd | DirectiveSection | DocBlock => 0,
+            BlockSeq(ind) | BlockMap(ind, _) | BlockMapExp(ind, _) => *ind,
+            FlowKeyExp(_, _)
+            | FlowMap(_, _)
+            | FlowSeq(_, _)
+            | PreDocStart
+            | AfterDocEnd
+            | DirectiveSection
+            | DocBlock => 0,
         }
     }
 
@@ -268,11 +269,7 @@ impl Lexer {
         self.set_curr_state(PreDocStart);
     }
 
-    fn fetch_block_seq<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        curr_state: LexerState,
-    ) {
+    fn fetch_block_seq<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         self.continue_processing = false;
         match reader.peek_byte() {
             Some(b'{') => self.process_flow_map_start(reader),
@@ -338,7 +335,6 @@ impl Lexer {
                 }
                 self.tokens.push_back(DOC_START_EXP);
                 self.set_curr_state(DocBlock);
-                
             }
             [b'?', peek, ..] if is_white_tab_or_break(*peek) => {
                 self.fetch_exp_block_map_key(reader, curr_state)
@@ -375,7 +371,6 @@ impl Lexer {
             if reader.try_read_slice_exact("---") {
                 self.tokens.push_back(DOC_START_EXP);
                 self.set_curr_state(DocBlock);
-                return;
             } else if reader.peek_byte_is(b'#') {
                 reader.read_line();
             }
@@ -388,7 +383,6 @@ impl Lexer {
         self.continue_processing = false;
         if reader.peek_byte_is(b'%') {
             self.stack.push(DirectiveSection);
-            return;
         } else if reader.peek_byte_is(b'#') {
             reader.read_line();
         } else if reader.try_read_slice_exact("---") {
@@ -456,11 +450,7 @@ impl Lexer {
         self.tokens.push_back(alias.1);
     }
 
-    fn fetch_flow_seq<B, R: Reader<B>>(
-        &mut self,
-        reader: &mut R,
-        seq_state: SeqState,
-    ) {
+    fn fetch_flow_seq<B, R: Reader<B>>(&mut self, reader: &mut R, seq_state: SeqState) {
         match reader.peek_byte() {
             Some(b'&') => self.parse_anchor(reader),
             Some(b'*') => self.parse_alias(reader),
@@ -615,7 +605,13 @@ impl Lexer {
 
     fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let scalar_start = self.update_col(reader);
-        let tokens = reader.read_double_quote(curr_state.is_implicit());
+        let mut is_multiline = false;
+        let tokens = reader.read_double_quote(
+            curr_state.indent() as usize,
+            curr_state.is_implicit(),
+            &mut is_multiline,
+            &mut self.errors,
+        );
 
         self.skip_separation_spaces(reader, true);
         if reader.peek_byte_is(b':') {
@@ -648,7 +644,7 @@ impl Lexer {
         lines
     }
 
-    fn process_flow_seq_start<B, R: Reader<B>>(&mut self, reader: &mut R,) {
+    fn process_flow_seq_start<B, R: Reader<B>>(&mut self, reader: &mut R) {
         reader.consume_bytes(1);
         self.tokens.push_back(SEQ_START);
 
@@ -667,7 +663,7 @@ impl Lexer {
             let state = FlowKeyExp(self.get_token_pos(), BeforeKey);
             self.stack.push(state);
         } else {
-            let state = FlowMap(self.get_token_pos() as u32, BeforeKey);
+            let state = FlowMap(self.get_token_pos(), BeforeKey);
             self.stack.push(state);
         }
         self.tokens.push_back(MAP_START);
@@ -681,7 +677,7 @@ impl Lexer {
 
     #[inline]
     fn get_token_pos(&self) -> u32 {
-        self.tokens.len() as u32 
+        self.tokens.len() as u32
     }
 
     #[inline]
