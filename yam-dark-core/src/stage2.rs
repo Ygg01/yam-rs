@@ -28,7 +28,8 @@ use core::marker::PhantomData;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::error::Error;
-use crate::stage1::{AvxScanner, NativeScanner, NextFn, Stage1Scanner};
+use crate::impls::{AvxScanner, NativeScanner};
+use crate::stage1::{NextFn, Stage1Scanner};
 use crate::util::{ChunkyIterator, NoopValidator};
 
 pub type ParseResult<T> = Result<T, Error>;

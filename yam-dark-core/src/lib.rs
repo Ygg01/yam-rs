@@ -10,6 +10,7 @@ mod stage1;
 mod stage2;
 mod tokenizer;
 mod util;
+mod impls;
 
 pub const SIMD_INPUT_LENGTH: usize = 64;
 pub const SIMD_JSON_PADDING: usize = 32;
