@@ -33,7 +33,7 @@ use crate::tokenizer::stage2::{Buffer, YamlParserState};
 pub struct YamlChunkState {
     double_quote: YamlDoubleQuoteChunk,
     single_quote: YamlSingleQuoteChunk,
-    characters: YamlCharacterChunk,
+    pub(crate) characters: YamlCharacterChunk,
     rows: Vec<u32>,
     cols: Vec<u32>,
     follows_non_quote_scalar: u64,
