@@ -586,12 +586,12 @@ pub fn test_complex_block() {
     assert_eq_event(COMPLEX_BLOCK_KEY, COMPLEX_BLOCK_EVENTS);
 }
 
-const COMPLEX_MAP: &str = r#"
+const MAPS_WITH_QUOTES: &str = r#"
 "double" : 
   'single'  :   &alias plain
 "#;
 
-const COMPLEX_MAP_EVENTS: &str = r#"
+const MAPS_WITH_QUOTES_EVENTS: &str = r#"
  +DOC
   +MAP
    =VAL "double
@@ -604,7 +604,35 @@ const COMPLEX_MAP_EVENTS: &str = r#"
 
 #[test]
 pub fn test_map_scalar_and_ws() {
-    assert_eq_event(COMPLEX_MAP, COMPLEX_MAP_EVENTS);
+    assert_eq_event(MAPS_WITH_QUOTES, MAPS_WITH_QUOTES_EVENTS);
+}
+
+const NESTED_MAPS: &str = r#"
+"top1" : 
+  "key1" : &alias1 scalar1
+'top2' : 
+  *alias: &alias2 scalar2
+"#;
+
+const NESTED_MAPS_EVENTS: &str = r#"
+ +DOC
+  +MAP
+   =VAL "top1
+   +MAP
+    =VAL "key1
+    =VAL &alias1 :scalar1
+   -MAP
+   =VAL :top3
+   +MAP &node3
+    =ALI *alias1
+    =VAL :scalar3
+   -MAP
+  -MAP
+ -DOC"#;
+
+#[test]
+pub fn test_nested_maps() {
+    assert_eq_event(NESTED_MAPS, NESTED_MAPS_EVENTS);
 }
 
 const MIX_BLOCK: &str = r##"
