@@ -124,6 +124,11 @@ const COMPLEX_MAP_EVENTS: &str = r#"
  -DOC"#;
 
 #[test]
+fn flow_complex_map() {
+    assert_eq_event(COMPLEX_MAP_INPUT, COMPLEX_MAP_EVENTS);
+}
+
+#[test]
 fn flow_map() {
     assert_eq_event(MAP_XY_INPUT, MAP_XY_EVENTS);
     assert_eq_event(MAP_X_Y_INPUT, MAP_X_Y_EVENTS);
@@ -186,11 +191,6 @@ fn flow_empty_nodes() {
     assert_eq_event(EMPTY_NODES_INPUT, EMPTY_NODES_EVENTS);
 }
 
-#[test]
-fn flow_complex_map() {
-    assert_eq_event(COMPLEX_MAP_INPUT, COMPLEX_MAP_EVENTS);
-}
-
 const ERR_PLAIN_SCALAR_INPUT: &str = r#"
   a
   b
@@ -225,10 +225,10 @@ fn doc_end_err() {
     assert_eq_event(DOC_END_ERR_INPUT, DOC_END_ERR_EVENTS);
 }
 
-const SEQ_KEY_INPUT: &str = r#"
+const SEQ_KEY1_INPUT: &str = r#"
 [a, b]: 3 "#;
 
-const SEQ_KEY_EVENTS: &str = r#"
+const SEQ_KEY1_EVENTS: &str = r#"
  +DOC
   +MAP
    +SEQ []
@@ -292,7 +292,7 @@ const SEQ_KEY4_EVENTS: &str = r#"
 
 #[test]
 fn flow_seq_as_key() {
-    assert_eq_event(SEQ_KEY_INPUT, SEQ_KEY_EVENTS);
+    assert_eq_event(SEQ_KEY1_INPUT, SEQ_KEY1_EVENTS);
     assert_eq_event(SEQ_KEY2_INPUT, SEQ_KEY2_EVENTS);
     assert_eq_event(SEQ_KEY3_INPUT, SEQ_KEY3_EVENTS);
     assert_eq_event(SEQ_KEY4_INPUT, SEQ_KEY4_EVENTS);
@@ -313,10 +313,25 @@ fn flow_seq_err() {
     assert_eq_event(SEQ_ERR_INPUT, SEQ_ERR_EVENTS);
 }
 
-const MAP_ERR_INPUT: &str = r#"
+const SEQ_EDGE_INPUT: &str = r#"
+ [:x]"#;
+
+const SEQ_EDGE_EVENTS: &str = r#"
+ +DOC
+  +SEQ []
+   =VAL ::x
+  -SEQ
+ -DOC"#;
+
+#[test]
+fn flow_seq_edge() {
+    assert_eq_event(SEQ_EDGE_INPUT, SEQ_EDGE_EVENTS);
+}
+
+const MAP_EDGE1_INPUT: &str = r#"
  {x: :x}"#;
 
-const MAP_ERR_EVENTS: &str = r#"
+const MAP_EDGE1_EVENTS: &str = r#"
  +DOC
   +MAP {}
    =VAL :x
@@ -324,7 +339,19 @@ const MAP_ERR_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const MAP_EDGE2_INPUT: &str = r#"
+ {:x}"#;
+
+const MAP_EDGE2_EVENTS: &str = r#"
+ +DOC
+  +MAP {}
+   =VAL ::x
+   =VAL :
+  -MAP
+ -DOC"#;
+
 #[test]
-fn flow_map_err() {
-    assert_eq_event(MAP_ERR_INPUT, MAP_ERR_EVENTS);
+fn flow_map_edge() {
+    assert_eq_event(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS);
+    assert_eq_event(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS);
 }
