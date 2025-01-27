@@ -45,7 +45,6 @@ impl<'a> StrIterator<'a> {
         match token {
             SpanToken::StreamStart => YamlEvent::StreamStart,
             SpanToken::StreamEnd => YamlEvent::StreamEnd,
-            SpanToken::Comment(start, end) => YamlEvent::Comment(self.to_cow(start, end)),
             SpanToken::Scalar(start, end) => YamlEvent::ScalarValue(self.to_cow(start, end)),
         }
     }
