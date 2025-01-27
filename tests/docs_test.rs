@@ -81,7 +81,9 @@ const ERR_MULTIDOC_EVENTS: &str = r"
 %YAML 1.2
 +DOC ---
 ERR
+ERR
 -DOC
+%YAML 1.2
 +DOC ---
 =VAL :
 -DOC";
@@ -198,18 +200,15 @@ const MULTI_DOC1_EVENTS: &str = r"
 -SEQ
 -DOC";
 
-const MULTI_DOC2_INPUT: &str = r"
-Mapping: Document
+const X1_6ZKB_INPUT: &str = r"
+Document
 ---
 # Empty
 ...";
 
-const MULTI_DOC2_EVENTS: &str = r#"
+const X1_6ZKB_EVENTS: &str = r#"
 +DOC
-+MAP
-=VAL :Mapping
 =VAL :Document
--MAP
 -DOC
 +DOC ---
 =VAL :
@@ -245,8 +244,8 @@ const MULTI_DOC4_EVENTS: &str = r"
 
 #[test]
 fn doc_multi() {
+    assert_eq_event(X1_6ZKB_INPUT, X1_6ZKB_EVENTS);
     assert_eq_event(MULTI_DOC1_INPUT, MULTI_DOC1_EVENTS);
-    assert_eq_event(MULTI_DOC2_INPUT, MULTI_DOC2_EVENTS);
     assert_eq_event(MULTI_DOC3_INPUT, MULTI_DOC3_EVENTS);
     assert_eq_event(MULTI_DOC4_INPUT, MULTI_DOC4_EVENTS);
 }
@@ -266,4 +265,42 @@ ERR
 #[test]
 fn doc_err() {
     assert_eq_event(DOC_MAP_ERR_INPUT, DOC_MAP_ERR_EVENTS);
+}
+
+const X1_3HFZ_INPUT: &str = r"
+---
+a: b
+... invalid";
+
+const X1_3HFZ_EVENTS: &str = r"
++DOC ---
++MAP
+=VAL :a
+=VAL :b
+-MAP
+-DOC ...
+ERR
++DOC
+=VAL :invalid
+-DOC";
+
+const X1_9HCY_INPUT: &str = r#"
+!foo "bar"
+%TAG ! tag:example.com,2000:app/
+---
+!foo "bar""#;
+
+const X1_9HCY_EVENTS: &str = r#"
++DOC
+=VAL <!foo> "bar
+ERR
+-DOC
++DOC ---
+=VAL <tag:example.com,2000:app/foo> "bar
+-DOC"#;
+
+#[test]
+fn doc_after_err() {
+    assert_eq_event(X1_3HFZ_INPUT, X1_3HFZ_EVENTS);
+    assert_eq_event(X1_9HCY_INPUT, X1_9HCY_EVENTS);
 }

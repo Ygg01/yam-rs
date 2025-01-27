@@ -42,10 +42,10 @@ fn perform_test(data: TestData) -> Result<(), Failed> {
     if !is_error {
         actual_event.push_str("-STR\r\n");
     }
-    // TODO Input json/output yaml/emit yaml
 
     let expected_event = fs::read_to_string(data.test_event)?;
     assert_eq!(actual_event, expected_event);
+    // TODO Input json/output yaml/emit yaml
 
     Ok(())
 }
