@@ -336,21 +336,25 @@ const BLOCK_MAP_NESTED_EXPECTED: &str = r#"
 
 const BLOCK_MAP_SIMPLE: &str = r#"
 a: b
-:"#;
+"#;
+
+const BLOCK_MAP_SIMPLE2: &str = r#"
+a: 
+  b
+"#;
 
 const BLOCK_MAP_SIMPLE_EXPECTED: &str = r#"
  +DOC
   +MAP
    =VAL :a
    =VAL :b
-   =VAL :
-   =VAL :
   -MAP
  -DOC"#;
 
 #[test]
 pub fn block_map() {
     assert_eq_event(BLOCK_MAP_SIMPLE, BLOCK_MAP_SIMPLE_EXPECTED);
+    assert_eq_event(BLOCK_MAP_SIMPLE2, BLOCK_MAP_SIMPLE_EXPECTED);
     assert_eq_event(BLOCK_MAP_INPUT2, BLOCK_MAP_EXPECTED2);
     assert_eq_event(BLOCK_MAP_INPUT, BLOCK_MAP_EXPECTED);
     assert_eq_event(BLOCK_MAP_NESTED, BLOCK_MAP_NESTED_EXPECTED);

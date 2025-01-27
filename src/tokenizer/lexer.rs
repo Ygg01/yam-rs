@@ -395,13 +395,11 @@ impl Lexer {
     }
 
     fn parse_alias<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        let curr_state = self.curr_state();
         let scalar_start = reader.col();
         let alias = reader.consume_anchor_alias();
         self.skip_separation_spaces(reader, true);
 
-        let next_is_colon = reader.peek_byte_is(b':')
-            || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _));
+        let next_is_colon = reader.peek_byte_is(b':');
         
         if next_is_colon {
             self.process_map(scalar_start, false, b':');
