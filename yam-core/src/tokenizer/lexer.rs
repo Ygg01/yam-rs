@@ -1740,7 +1740,7 @@ impl Lexer {
                 reader.read_plain_one_line(offset_start, &mut had_comment, in_flow_collection);
 
             match num_newlines {
-                x if x == 1 => {
+                1 => {
                     tokens.push(NewLine as usize);
                     tokens.push(0);
                 }

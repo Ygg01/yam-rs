@@ -1,12 +1,10 @@
 #![no_std]
-#[allow(unused)]
 extern crate alloc;
 extern crate core_detect;
 
 use crate::error::Error;
 
 mod error;
-mod safer_unchecked;
 mod stage1;
 mod stage2;
 mod tokenizer;

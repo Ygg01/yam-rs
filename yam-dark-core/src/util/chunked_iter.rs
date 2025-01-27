@@ -1,3 +1,4 @@
+#![allow(unused)]
 use core::slice::from_raw_parts;
 use crate::SIMD_INPUT_LENGTH;
 

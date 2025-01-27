@@ -8,6 +8,12 @@ pub enum ErrorType {
     InvalidUtf8,
 }
 
+impl Display for ErrorType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Error{:?}", self)
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Error {
     /// Type of error
@@ -22,6 +28,6 @@ impl Error {
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.error)
+        write!(f, "Error{:?}", self.error)
     }
 }

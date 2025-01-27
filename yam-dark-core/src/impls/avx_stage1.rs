@@ -15,8 +15,8 @@ impl Stage1Scanner for AvxScanner {
         unsafe { simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp::new() }
     }
 
-    fn next<'b, 'i, T: Buffer>(
-        _chunk: &'b [u8; 64],
+    fn next<'i, T: Buffer>(
+        _chunk: &[u8; 64],
         _buffers: &'i mut T,
         _state: &'i mut YamlParserState,
     ) -> ParseResult<YamlBlockState> {

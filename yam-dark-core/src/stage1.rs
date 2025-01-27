@@ -1,3 +1,4 @@
+#![allow(unused)]
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 use crate::ParseResult;
