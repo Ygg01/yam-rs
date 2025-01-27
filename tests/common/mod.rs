@@ -7,9 +7,8 @@ use steel_yaml::tokenizer::{EventIterator, StrReader};
 pub fn assert_eq_event(input: &str, events: &str) {
     let mut line = String::new();
     let scan: EventIterator<StrReader> = EventIterator::from(input);
-    scan.for_each(|(ev, indent)| {
+    scan.for_each(|ev| {
         line.push_str("\n");
-        line.push_str(&" ".repeat(indent));
         write!(line, "{:}", ev).unwrap();
     });
 

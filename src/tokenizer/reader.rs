@@ -70,15 +70,16 @@ pub trait Reader<B> {
     fn count_spaces(&self) -> u32;
     fn count_spaces_till(&self, indent: u32) -> usize;
     fn is_empty_newline(&self) -> bool;
-    // Refactor
+    fn get_double_quote(&self, buf: &mut B) -> Option<usize>;
+    fn get_double_quote_trim(&self, buf: &mut B, start_str: usize) -> Option<(usize, usize)>;
+    fn get_single_quote(&self, buf: &mut B) -> Option<usize>;
+    fn get_single_quote_trim(&self, buf: &mut B, start_str: usize) -> Option<(usize, usize)>;
     fn read_plain_one_line(
         &mut self,
         offset_start: Option<usize>,
         had_comment: &mut bool,
         in_flow_collection: bool,
     ) -> (usize, usize, Option<ErrorType>);
-    fn read_double_quote(&mut self, errors: &mut Vec<ErrorType>) -> Vec<usize>;
-    fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);

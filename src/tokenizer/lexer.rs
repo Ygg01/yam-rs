@@ -20,7 +20,7 @@ use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::ErrorType::*;
 
 use super::iterator::{DirectiveType, ScalarType};
-use super::reader::{is_flow_indicator, is_newline, is_not_whitespace, ns_plain_safe};
+use super::reader::{is_flow_indicator, is_newline, is_not_whitespace, ns_plain_safe, is_valid_escape};
 use crate::tokenizer::ErrorType;
 
 #[derive(Clone)]
@@ -815,7 +815,10 @@ impl<B> Lexer<B> {
 
     fn process_single_quote_flow<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let scalar_start = self.update_col(reader);
-        let tokens = reader.read_single_quote(curr_state.is_implicit());
+        let Scalar {
+            tokens,
+            ..
+        } = self.process_single_quote(reader);
 
         self.skip_separation_spaces(reader, true);
         if reader.peek_byte_is(b':') {
@@ -826,11 +829,27 @@ impl<B> Lexer<B> {
         self.tokens.extend(tokens);
     }
 
-    #[inline]
-    fn process_double_quote<R: Reader<B>>(&mut self, reader: &mut R) -> Scalar {
+    fn process_single_quote<R: Reader<B>>(&mut self, reader: &mut R) -> Scalar {
         let scalar_start = self.update_col(reader);
         let start_line = reader.line();
-        let tokens = reader.read_double_quote(&mut self.errors);
+
+        let mut start_str = reader.consume_bytes(1);
+        let mut tokens = vec![SCALAR_QUOTE];
+        let mut newspaces = None;
+        let mut state = QuoteState::Start;
+
+        loop {
+            state = match state {
+                QuoteState::Start => {
+                    self.single_quote_start(reader, &mut start_str, &mut newspaces, &mut tokens)
+                }
+                QuoteState::Trim => {
+                    self.single_quote_trim(reader, &mut start_str, &mut newspaces, &mut tokens)
+                }
+                QuoteState::End => break,
+            };
+        }
+        tokens.push(ScalarEnd as usize);
         let is_multiline = start_line != reader.line();
         Scalar {
             scalar_start,
@@ -839,18 +858,66 @@ impl<B> Lexer<B> {
         }
     }
 
-    #[inline]
-    fn process_single_quote<R: Reader<B>>(&mut self, reader: &mut R) -> Scalar {
-        let scalar_start = self.update_col(reader);
-        let start_line = reader.line();
-        let tokens = reader.read_single_quote(self.curr_state().is_implicit());
-        let is_multiline = start_line != reader.line();
-        Scalar {
-            scalar_start,
-            is_multiline,
-            tokens,
+    fn single_quote_start<R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        if let Some(pos) = reader.get_single_quote(&mut self.buf) {
+            let match_pos = reader.consume_bytes(pos);
+            match reader.peek_chars(&mut self.buf) {
+                [b'\'', b'\'', ..] => {
+                    emit_token_mut(start_str, match_pos + 1, newspaces, tokens);
+                    reader.consume_bytes(2);
+                    *start_str = reader.pos();
+                }
+                [b'\'', ..] => {
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
+                    reader.consume_bytes(1);
+                    return QuoteState::End;
+                }
+                _ => {}
+            }
+            QuoteState::Start
+        } else {
+            QuoteState::Trim
         }
     }
+
+    fn single_quote_trim<R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        if reader.col() == 0 && (matches!(reader.peek_chars(&mut self.buf), b"..." | b"---")) {
+            self.errors.push(ErrorType::UnexpectedEndOfStream);
+            tokens.insert(0, ErrorToken as usize);
+        };
+
+        if let Some((match_pos, len)) = reader.get_single_quote_trim(&mut self.buf, *start_str) {
+            emit_token_mut(start_str, match_pos, newspaces, tokens);
+            reader.consume_bytes(len);
+        } else {
+            update_newlines(reader, newspaces, start_str);
+        }
+
+        match reader.peek_byte() {
+            Some(b'\n') => {
+                update_newlines(reader, newspaces, start_str);
+                QuoteState::Start
+            }
+            Some(b'\'') | None => {
+                reader.consume_bytes(1);
+                QuoteState::End
+            }
+            Some(_) => QuoteState::Start,
+        }
+    }
+
 
     fn process_double_quote_flow<R: Reader<B>>(&mut self, reader: &mut R) {
         let scalar = self.process_double_quote(reader);
@@ -867,7 +934,7 @@ impl<B> Lexer<B> {
 
     fn process_double_quote_block<R: Reader<B>>(&mut self, reader: &mut R, curr_state: LexerState) {
         let had_tab = self.has_tab;
-        let scalar_line = reader.line();
+        let scalar_line: u32 = reader.line();
         let Scalar {
             scalar_start,
             is_multiline,
@@ -886,6 +953,127 @@ impl<B> Lexer<B> {
             tokens,
             scalar_line,
         );
+    }
+
+    fn process_double_quote<R: Reader<B>>(&mut self, reader: &mut R) -> Scalar {
+        let scalar_start = self.update_col(reader);
+        let start_line = reader.line();
+
+        let mut start_str = reader.consume_bytes(1);
+        let mut tokens = vec![ScalarDoubleQuote as usize];
+        let mut newspaces = None;
+        let mut state = QuoteState::Start;
+
+        loop {
+            state = match state {
+                QuoteState::Start => {
+                    self.quote_start(reader, &mut start_str, &mut newspaces, &mut tokens)
+                }
+                QuoteState::Trim => {
+                    self.quote_trim(reader, &mut start_str, &mut newspaces, &mut tokens)
+                }
+                QuoteState::End => break,
+            };
+        }
+        tokens.push(ScalarEnd as usize);
+        let is_multiline = start_line != reader.line();
+        Scalar {
+            scalar_start,
+            is_multiline,
+            tokens,
+        }
+    }
+
+    fn quote_start<R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        if let Some(pos) = reader.get_double_quote(&mut self.buf) {
+            let match_pos = reader.consume_bytes(pos);
+            match reader.peek_chars(&mut self.buf) {
+                [b'\\', b'\t', ..] => {
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
+                    emit_token_mut(&mut (match_pos + 1), match_pos + 2, newspaces, tokens);
+                    reader.consume_bytes(2);
+                    *start_str = reader.pos();
+                }
+                [b'\\', b't', ..] => {
+                    emit_token_mut(start_str, match_pos + 2, newspaces, tokens);
+                    reader.consume_bytes(2);
+                }
+                [b'\\', b'\r' | b'\n', ..] => {
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
+                    reader.consume_bytes(1);
+                    update_newlines(reader, &mut None, start_str);
+                }
+                [b'\\', b'"', ..] => {
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
+                    *start_str = reader.pos() + 1;
+                    reader.consume_bytes(2);
+                }
+                [b'\\', b'/', ..] => {
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
+                    *start_str = reader.consume_bytes(1);
+                }
+                [b'\\', x, ..] => {
+                    if is_valid_escape(*x) {
+                        emit_token_mut(start_str, match_pos, newspaces, tokens);
+                        reader.consume_bytes(2);
+                    } else {
+                        tokens.insert(0, ErrorToken as usize);
+                        self.errors.push(ErrorType::InvalidEscapeCharacter);
+                        reader.consume_bytes(2);
+                    }
+                }
+                [b'"', ..] => {
+                    emit_token_mut(start_str, match_pos, newspaces, tokens);
+                    reader.consume_bytes(1);
+                    return QuoteState::End;
+                }
+                [b'\\'] => {
+                    reader.consume_bytes(1);
+                }
+                _ => {}
+            }
+            QuoteState::Start
+        } else {
+            QuoteState::Trim
+        }
+    }
+
+    fn quote_trim<R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        start_str: &mut usize,
+        newspaces: &mut Option<usize>,
+        tokens: &mut Vec<usize>,
+    ) -> QuoteState {
+        if reader.col() == 0 && (matches!(reader.peek_chars(&mut self.buf), b"..." | b"---")) {
+            self.errors.push(ErrorType::UnexpectedEndOfStream);
+            tokens.insert(0, ErrorToken as usize);
+        };
+
+        if let Some((match_pos, len)) = reader.get_double_quote_trim(&mut self.buf, *start_str) {
+            emit_token_mut(start_str, match_pos, newspaces, tokens);
+            reader.consume_bytes(len);
+        } else {
+            update_newlines(reader, newspaces, start_str);
+        }
+
+        match reader.peek_byte() {
+            Some(b'\n') => {
+                update_newlines(reader, newspaces, start_str);
+                QuoteState::Start
+            }
+            Some(b'"') | None => {
+                reader.consume_bytes(1);
+                QuoteState::End
+            }
+            Some(_) => QuoteState::Start,
+        }
     }
 
     fn process_block_scalar(
@@ -1766,6 +1954,39 @@ impl<B> Lexer<B> {
         tokens.push(ScalarEnd as usize);
         tokens
     }
+}
+
+pub(crate) enum QuoteState {
+    Start,
+    Trim,
+    End,
+}
+
+fn emit_token_mut(
+    start: &mut usize,
+    end: usize,
+    newspaces: &mut Option<usize>,
+    tokens: &mut Vec<usize>,
+) {
+    if end > *start {
+        if let Some(newspace) = newspaces.take() {
+            tokens.push(NewLine as usize);
+            tokens.push(newspace);
+        }
+        tokens.push(*start);
+        tokens.push(end);
+        *start = end;
+    }
+}
+
+#[inline]
+fn update_newlines<B, R: Reader<B>>(
+    reader: &mut R,
+    newspaces: &mut Option<usize>,
+    start_str: &mut usize,
+) {
+    *newspaces = Some(reader.skip_separation_spaces(true).0.saturating_sub(1) as usize);
+    *start_str = reader.pos();
 }
 
 const DOC_END: usize = usize::MAX;

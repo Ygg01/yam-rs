@@ -6,18 +6,18 @@ const EMPTY_DOC_ERR_INPUT: &str = r#"
 %YAML 1.3 #arst
 "#;
 const EMPTY_DOC_ERR_EVENTS: &str = r#"
- %YAML 1.3
- ERR"#;
+%YAML 1.3
+ERR"#;
 
 const EMPTY_DOC_INPUT: &str = r#"
 %YAML 1.2
 ---
 "#;
 const EMPTY_DOC_EVENTS: &str = r#"
- %YAML 1.2
- +DOC ---
-  =VAL :
- -DOC"#;
+%YAML 1.2
++DOC ---
+=VAL :
+-DOC"#;
 
 const DOC_EMPTY_TAG_INPUT: &str = r#"
 %YAM 1.2
@@ -25,9 +25,9 @@ const DOC_EMPTY_TAG_INPUT: &str = r#"
 "#;
 
 const DOC_EMPTY_TAG_EVENTS: &str = r#"
- +DOC ---
-  =VAL :
- -DOC"#;
++DOC ---
+=VAL :
+-DOC"#;
 
 #[test]
 fn doc_empty() {
@@ -42,10 +42,10 @@ const ERR_DIRECTIVE_INPUT: &str = r#"
 "#;
 
 const ERR_DIRECTIVE_EVENTS: &str = r#"
- ERR
- %YAML 1.2
- +DOC
- -DOC ..."#;
+ERR
+%YAML 1.2
++DOC
+-DOC ..."#;
 
 const ERR_DIRECTIVE2_INPUT: &str = r#"
 %YAML 1.2#err
@@ -53,11 +53,11 @@ const ERR_DIRECTIVE2_INPUT: &str = r#"
 "#;
 
 const ERR_DIRECTIVE2_EVENTS: &str = r#"
- ERR
- ERR
- %YAML 1.2
- +DOC
- -DOC ..."#;
+ERR
+ERR
+%YAML 1.2
++DOC
+-DOC ..."#;
 
 const ERR_DIRECTIVE3_INPUT: &str = r#"
 %YAML 1.2 err
@@ -65,11 +65,11 @@ const ERR_DIRECTIVE3_INPUT: &str = r#"
 "#;
 
 const ERR_DIRECTIVE3_EVENTS: &str = r#"
- ERR
- %YAML 1.2
- +DOC ---
-  =VAL :
- -DOC"#;
+ERR
+%YAML 1.2
++DOC ---
+=VAL :
+-DOC"#;
 
 const ERR_MULTIDOC_INPUT: &str = r#"
  %YAML 1.2
@@ -79,14 +79,14 @@ const ERR_MULTIDOC_INPUT: &str = r#"
  "#;
 
 const ERR_MULTIDOC_EVENTS: &str = r#"
- ERR
- %YAML 1.2
- +DOC ---
- -DOC
- %YAML 1.2
- +DOC ---
-  =VAL :
- -DOC"#;
+ERR
+%YAML 1.2
++DOC ---
+-DOC
+%YAML 1.2
++DOC ---
+=VAL :
+-DOC"#;
 
 #[test]
 fn doc_err_directive() {
@@ -100,10 +100,10 @@ const SIMPLE_DOC_INPUT: &str = r#"
 ---[]"#;
 
 const SIMPLE_DOC_EVENTS: &str = r#"
- +DOC ---
-  +SEQ []
-  -SEQ
- -DOC"#;
++DOC ---
++SEQ []
+-SEQ
+-DOC"#;
 
 const SIMPLE_DOC2_INPUT: &str = r##"
 %YAML 1.3 #comment
@@ -113,10 +113,10 @@ const SIMPLE_DOC2_INPUT: &str = r##"
 "##;
 
 const SIMPLE_DOC2_EVENTS: &str = r#"
- %YAML 1.3
- +DOC ---
-  =VAL "test
- -DOC"#;
+%YAML 1.3
++DOC ---
+=VAL "test
+-DOC"#;
 
 const EMPTY_INPUT: &str = r##"
 ---
@@ -124,9 +124,9 @@ const EMPTY_INPUT: &str = r##"
 "##;
 
 const EMPTY_EVENTS: &str = r#"
- +DOC ---
-  =VAL :
- -DOC ..."#;
++DOC ---
+=VAL :
+-DOC ..."#;
 
 const EMPTY2_INPUT: &str = r##"
 ...
@@ -148,9 +148,9 @@ const FOOTER_INPUT: &str = r##"
 "##;
 
 const FOOTER_EVENTS: &str = r#"
- +DOC
-  =VAL "test
- -DOC ..."#;
++DOC
+=VAL "test
+-DOC ..."#;
 
 #[test]
 fn doc_footer() {
@@ -163,10 +163,10 @@ const POST_DOC_ERR_INPUT: &str = r##"
 "##;
 
 const POST_DOC_ERR_EVENTS: &str = r#"
- +DOC ---
-  =VAL :
- -DOC ...
- ERR"#;
++DOC ---
+=VAL :
+-DOC ...
+ERR"#;
 
 #[test]
 fn doc_after_stream() {
@@ -182,17 +182,17 @@ const MULTI_DOC_INPUT: &str = r#"
 "#;
 
 const MULTI_DOC_EVENTS: &str = r#"
- +DOC ---
-  +MAP
-   =VAL :a
-   =VAL :b
-  -MAP
- -DOC
- +DOC ---
-  +SEQ
-   =VAL :c
-  -SEQ
- -DOC"#;
++DOC ---
++MAP
+=VAL :a
+=VAL :b
+-MAP
+-DOC
++DOC ---
++SEQ
+=VAL :c
+-SEQ
+-DOC"#;
 
 #[test]
 fn doc_multi() {
