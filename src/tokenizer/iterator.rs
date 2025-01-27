@@ -62,7 +62,6 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
     }
 }
 
-
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ScalarType {
     Plain,

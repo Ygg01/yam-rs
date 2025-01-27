@@ -1333,7 +1333,8 @@ impl Lexer {
         let x = self.skip_separation_spaces(reader);
         *newspaces = Some(x.num_breaks.saturating_sub(1) as usize);
         *start_str = reader.pos();
-        self.last_block_indent.map_or(false, |indent| indent >= x.num_indent)
+        self.last_block_indent
+            .map_or(false, |indent| indent >= x.num_indent)
     }
 
     fn process_block_scalar(
@@ -1502,7 +1503,7 @@ impl Lexer {
                 }
 
                 if found_eol {
-                    let  (indent, amount) = reader.count_space_then_tab();
+                    let (indent, amount) = reader.count_space_then_tab();
                     num_indent = indent;
                     has_tab = indent as usize != amount;
                     reader.consume_bytes(amount);
