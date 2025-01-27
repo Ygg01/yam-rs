@@ -42,46 +42,38 @@ unsafe impl Stage1Scanner for NativeScanner {
         chunk_state: &mut YamlChunkState,
         prev_state: &mut YamlParserState,
     ) {
-        let mut curr_row = prev_state.last_row;
-        let mut curr_col = prev_state.last_col;
-        let mut curr_indent = prev_state.last_indent;
+        let mut curr_col = 0;
+        let mut curr_row = 0;
+        let mut curr_indent = 0;
+        let mut is_indent_frozen = false;
 
         for pos in 0..64 {
             let is_newline = chunk_state.characters.line_feeds & (1 << pos) != 0;
             let is_space = chunk_state.characters.spaces & (1 << pos) != 0;
 
-            if is_space && !prev_state.is_indent_frozen {
-                curr_indent += 1;
-            } else if !is_space && prev_state.is_indent_frozen {
-                prev_state.is_indent_frozen = true;
-            }
-
-            if is_newline {
-                // # Safety
-                // Since pos is guaranteed to be between `0..=63`,
-                // and we initialized cols/rows/indents up to be exactly 64 elements, we can
-                // safely access it without bound checks.
-                unsafe {
-                    *chunk_state.cols.get_unchecked_mut(pos) = curr_col + 1;
-                    *chunk_state.rows.get_unchecked_mut(pos) = curr_row;
-                }
-                curr_col = 0;
-                curr_indent = 0;
-                curr_row += 1;
-                prev_state.is_indent_frozen = false;
-                continue;
-            }
-
-            curr_col += 1;
-            // # Safety
-            // Since pos is guaranteed to be between `0..=63`,
-            // and we initialized cols/rows/indents to be exactly 64 elements, we can
-            // safely access it without bound checks.
             unsafe {
                 *chunk_state.cols.get_unchecked_mut(pos) = curr_col;
                 *chunk_state.rows.get_unchecked_mut(pos) = curr_row;
                 *chunk_state.indents.get_unchecked_mut(pos) = curr_indent;
+            };
+
+            if is_newline {
+                curr_row += 1;
+                curr_indent = 0;
+                curr_col = 0;
+                is_indent_frozen = false;
+                continue;
             }
+
+            if !is_space {
+                is_indent_frozen = true;
+            }
+            curr_col += 1;
+            curr_indent = if is_indent_frozen {
+                curr_indent
+            } else {
+                curr_indent + 1
+            };
         }
     }
 
@@ -181,69 +173,21 @@ unsafe impl Stage1Scanner for NativeScanner {
             | (flow_structural_res_3 << 48));
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
-        let count_ones: usize = bits.count_ones() as usize;
-        let mut base_len = base.len();
-        let idx_minus_64 = idx.wrapping_sub(64);
-        let idx_64_v: [i32; 4] = [
-            core::mem::transmute::<u32, i32>(idx_minus_64),
-            core::mem::transmute::<u32, i32>(idx_minus_64),
-            core::mem::transmute::<u32, i32>(idx_minus_64),
-            core::mem::transmute::<u32, i32>(idx_minus_64),
-        ];
-
-        // We're doing some trickery here.
-        // We reserve 64 extra entries, because we've at most 64 bit to set
-        // then we truncate the base to the next base (that we calculated above)
-        // We later indiscriminatory write over the len we set but that's OK
-        // since we ensure we reserve the needed space
-        base.reserve(64);
-        let final_len = base_len + count_ones;
-
-        let is_unaligned = base_len % 4 != 0;
-        let write_fn = if is_unaligned {
-            core::ptr::write_unaligned
-        } else {
-            core::ptr::write
-        };
-
-        while bits != 0 {
-            let v0 = bits.trailing_zeros() as i32;
-            bits &= bits.wrapping_sub(1);
-            let v1 = bits.trailing_zeros() as i32;
-            bits &= bits.wrapping_sub(1);
-            let v2 = bits.trailing_zeros() as i32;
-            bits &= bits.wrapping_sub(1);
-            let v3 = bits.trailing_zeros() as i32;
-            bits &= bits.wrapping_sub(1);
-
-            let v: [i32; 4] = [
-                idx_64_v[0] + v0,
-                idx_64_v[1] + v1,
-                idx_64_v[2] + v2,
-                idx_64_v[3] + v3,
-            ];
-            write_fn(base.as_mut_ptr().add(base_len).cast::<[i32; 4]>(), v);
-            base_len += 4;
-        }
-        // We have written all the data
-        base.set_len(final_len);
-    }
-
-    unsafe fn flatten_bits_yaml(
+    fn flatten_bits_yaml(
         base: &mut YamlParserState,
         _yaml_chunk_state: &YamlChunkState,
         mut bits: u64,
     ) {
         let count_ones: usize = bits.count_ones() as usize;
         let mut base_len = base.structurals.len();
-        let idx_64_v: [isize; 4] = [
-            core::mem::transmute::<usize, isize>(base.idx),
-            core::mem::transmute::<usize, isize>(base.idx),
-            core::mem::transmute::<usize, isize>(base.idx),
-            core::mem::transmute::<usize, isize>(base.idx),
-        ];
+        let idx_64_v: [isize; 4] = unsafe {
+            [
+                core::mem::transmute::<usize, isize>(base.idx),
+                core::mem::transmute::<usize, isize>(base.idx),
+                core::mem::transmute::<usize, isize>(base.idx),
+                core::mem::transmute::<usize, isize>(base.idx),
+            ]
+        };
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
@@ -279,22 +223,27 @@ unsafe impl Stage1Scanner for NativeScanner {
                 idx_64_v[2] + v2 as isize,
                 idx_64_v[3] + v3 as isize,
             ];
-            write_fn(
-                base.structurals
-                    .as_mut_ptr()
-                    .add(base_len)
-                    .cast::<[isize; 4]>(),
-                v,
-            );
+            unsafe {
+                write_fn(
+                    base.structurals
+                        .as_mut_ptr()
+                        .add(base_len)
+                        .cast::<[isize; 4]>(),
+                    v,
+                );
+            }
+
             base_len += 4;
         }
         // Safety:
         //  1. We have reserved 64 entries
         //  2. We have written only `count_len` entries (maximum number is 64)
-        base.structurals.set_len(final_len);
-        base.byte_cols.set_len(final_len);
-        base.byte_rows.set_len(final_len);
-        base.indents.set_len(final_len);
+        unsafe {
+            base.structurals.set_len(final_len);
+            base.byte_cols.set_len(final_len);
+            base.byte_rows.set_len(final_len);
+            base.indents.set_len(final_len);
+        }
     }
 }
 
@@ -303,7 +252,7 @@ fn test_calculate_indents() {
     let bin_str = b"                                                                ";
     let mut chunk = YamlChunkState::default();
     let mut prev_iter_state = YamlParserState::default();
-    let range1_to_64 = (1..=64u32).collect::<Vec<_>>();
+    let range1_to_64 = (1..=64u8).collect::<Vec<_>>();
     let scanner = NativeScanner::from_chunk(bin_str);
     // Needs to be called before indent
     chunk.characters.spaces = u8x64_eq(bin_str, b' ');

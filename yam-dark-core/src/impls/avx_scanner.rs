@@ -1,5 +1,5 @@
 use crate::{Stage1Scanner, YamlChunkState, YamlParserState, SIMD_CHUNK_LENGTH};
-use alloc::vec::Vec;
+
 #[cfg(target_arch = "x86")]
 use core::arch::x86::{
     __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
@@ -50,11 +50,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    unsafe fn flatten_bits(_base: &mut Vec<u32>, _idx: u32, _bits: u64) {
-        todo!()
-    }
-
-    unsafe fn flatten_bits_yaml(
+    fn flatten_bits_yaml(
         _base: &mut YamlParserState,
         _yaml_chunk_state: &YamlChunkState,
         _bits: u64,
