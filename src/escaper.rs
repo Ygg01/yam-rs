@@ -5,7 +5,7 @@ pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
 }
 
 pub fn escape_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
-    _escape(input, |ch| matches!(ch, b'\n' | b'\t' | b'\\'))
+    _escape(input, |ch| matches!(ch, b'\n' | b'\t' | b'\\' ))
 }
 
 pub(crate) fn _escape<F: Fn(u8) -> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> Cow<'_, [u8]> {
@@ -21,7 +21,12 @@ pub(crate) fn _escape<F: Fn(u8) -> bool>(input: Cow<'_, [u8]>, escape_fn: F) -> 
         let new_pos = pos + i;
         escaped.extend(&raw[pos..new_pos]);
         match raw[new_pos] {
-            b'\\' => escaped.extend("\\\\".as_bytes()),
+            b'\\' => {
+                match raw.get(new_pos + 1) {
+                    Some(b'\t') | Some(b't') | Some(b'r') | Some (b'n') => {},
+                    _ => escaped.extend("\\\\".as_bytes()),
+                }
+            },
             b'\t' => escaped.extend("\\t".as_bytes()),
             b'\r' => escaped.extend("\\r".as_bytes()),
             b'\n' => escaped.extend("\\n".as_bytes()),
