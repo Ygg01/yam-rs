@@ -741,6 +741,9 @@ impl Lexer {
             [b'-', peek, ..] if is_plain_unsafe(*peek) => {
                 self.process_block_seq(reader, curr_state);
             }
+            [b'-'] => {
+                self.process_block_seq(reader, curr_state);
+            }
             b"..." if is_stream_ending => {
                 self.unwind_to_root_end(reader);
             }
@@ -1642,7 +1645,7 @@ impl Lexer {
         let indent = reader.col();
         self.last_map_line = Some(reader.line());
         reader.consume_bytes(1);
-        reader.skip_space_tab();
+        reader.skip_space_and_tab_detect(&mut self.has_tab);
         self.emit_meta_nodes();
         match curr_state {
             DocBlock => {
@@ -1818,6 +1821,9 @@ impl Lexer {
         };
 
         if new_seq {
+            if self.has_tab {
+                self.push_error(ErrorType::TabsNotAllowedAsIndentation);
+            }
             if self.prev_anchor.is_some() && !self.had_anchor {
                 self.push_error(InvalidAnchorDeclaration);
             }
@@ -1828,9 +1834,6 @@ impl Lexer {
                 reader.line(),
             );
             self.tokens.push_back(SEQ_START);
-            if self.has_tab {
-                self.push_error(ErrorType::TabsNotAllowedAsIndentation);
-            }
         } else if matches!(curr_state, BlockSeq(_, BeforeFirst)) {
             self.push_empty_token();
         } else {

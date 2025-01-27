@@ -117,6 +117,13 @@ impl<'r> Reader<()> for StrReader<'r> {
         amount
     }
 
+    fn skip_space_and_tab_detect(&mut self, has_tab: &mut bool) -> usize {
+        let (indent, amount) = self.count_space_then_tab();
+        *has_tab = indent as usize != amount;
+        self.consume_bytes(amount);
+        amount
+    }
+
     #[inline]
     fn consume_bytes(&mut self, amount: usize) -> usize {
         self.pos += amount;
