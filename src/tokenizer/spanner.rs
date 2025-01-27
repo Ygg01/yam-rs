@@ -294,113 +294,8 @@ impl Lexer {
                     None => self.stream_end = true,
                 }
             }
-            FlowSeq(indent, seq_state) => match reader.peek_byte() {
-                Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
-                Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
-                Some(b'[') => self.fetch_flow_seq(reader, (indent + 1) as usize),
-                Some(b'{') => self.fetch_flow_map(reader, (indent + 1) as usize),
-                Some(b']') => {
-                    reader.consume_bytes(1);
-                    self.tokens.push_back(SEQ_END);
-                    self.pop_state();
-                }
-                Some(b':') if seq_state == BeforeSeq => {
-                    self.tokens.push_back(MAP_START);
-                    self.push_empty_token();
-                    self.set_curr_state(FlowSeq(indent, InSeq));
-                    self.push_state(FlowMap(indent + 1, AfterColon));
-                }
-                Some(b'}') => {
-                    reader.consume_bytes(1);
-                    self.tokens.push_back(ERROR);
-                    self.errors.push(UnexpectedSymbol('}'));
-                }
-                Some(b',') => {
-                    reader.consume_bytes(1);
-                    self.tokens.push_back(ScalarEnd as usize);
-                    self.set_curr_state(FlowSeq(indent, BeforeSeq));
-                }
-                Some(b'\'') => {
-                    reader.read_single_quote(self.curr_state().is_implicit(), &mut self.tokens)
-                }
-                Some(b'"') => {
-                    reader.read_double_quote(self.curr_state().is_implicit(), &mut self.tokens)
-                }
-                Some(b'?') => self.fetch_explicit_map(reader),
-                Some(b'#') => {
-                    // comment
-                    reader.read_line();
-                }
-                Some(_) => {
-                    self.get_plain_scalar_flow(reader, indent as usize, reader.col());
-                }
-                None => self.stream_end = true,
-            },
-            FlowMap(indent, _) | FlowKeyExp(indent, _) => {
-                match reader.peek_byte() {
-                    Some(b'&') => {
-                        reader.consume_anchor_alias(&mut self.tokens, AnchorToken);
-                    }
-                    Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
-                    Some(b'[') => {
-                        self.set_next_map_state();
-                        self.fetch_flow_seq(reader, (indent + 1) as usize);
-                    }
-                    Some(b'{') => {
-                        self.set_next_map_state();
-                        self.fetch_flow_map(reader, (indent + 1) as usize)
-                    }
-                    Some(b'}') => {
-                        reader.consume_bytes(1);
-                        if matches!(self.curr_state(), FlowMap(_, BeforeColon)) {
-                            self.push_empty_token();
-                        }
-                        self.tokens.push_back(MappingEnd as usize);
-                        self.pop_state();
-                    }
-                    Some(b':') => {
-                        reader.consume_bytes(1);
-                        let curr_state = self.curr_state();
-
-                        if matches!(curr_state, FlowMap(_, BeforeKey)) {
-                            self.push_empty_token();
-                            self.set_next_map_state();
-                        } else if matches!(curr_state, FlowMap(_, BeforeColon) | FlowKeyExp(_, _)) {
-                            self.set_next_map_state();
-                            self.tokens.push_back(ScalarEnd as usize);
-                        }
-                    }
-                    Some(b']') => {
-                        if self.is_prev_sequence() {
-                            self.push_empty_token();
-                            self.tokens.push_back(MappingEnd as usize);
-                            self.pop_state();
-                        } else {
-                            reader.consume_bytes(1);
-                            self.tokens.push_back(ErrorToken as usize);
-                            self.errors.push(UnexpectedSymbol(']'));
-                        }
-                    }
-                    Some(b'?') => self.fetch_explicit_map(reader),
-                    Some(b',') => {
-                        reader.consume_bytes(1);
-                    }
-                    Some(b'\'') => {
-                        reader.read_single_quote(self.curr_state().is_implicit(), &mut self.tokens)
-                    }
-                    Some(b'"') => {
-                        reader.read_double_quote(self.curr_state().is_implicit(), &mut self.tokens)
-                    }
-                    Some(b'#') => {
-                        // comment
-                        reader.read_line();
-                    }
-                    Some(_) => {
-                        self.get_plain_scalar_flow(reader, indent as usize, reader.col());
-                    }
-                    None => self.stream_end = true,
-                }
-            }
+            FlowSeq(indent, seq_state) => self.parse_flow_seq(reader, indent, seq_state),
+            FlowMap(indent, _) | FlowKeyExp(indent, _) => self.parse_flow_map(reader, indent),
             AfterDocEnd => {
                 if reader.eof() {
                     self.tokens.push_back(DOC_END);
@@ -427,7 +322,7 @@ impl Lexer {
                         self.tokens.push_back(SCALAR_END);
                         MappingEnd
                     }
-                    BlockMapExp(_, _) | BlockMap(_, _) => MappingEnd,
+                    BlockMapExp(_, _) | BlockMap(_, _) | FlowMap(_, _) => MappingEnd,
                     DirectiveSection => {
                         self.errors.push(ErrorType::DirectiveEndMark);
                         ErrorToken
@@ -440,9 +335,120 @@ impl Lexer {
         }
     }
 
-    fn push_empty_token(&mut self) {
-        self.tokens.push_back(SCALAR_PLAIN);
-        self.tokens.push_back(SCALAR_END);
+    fn parse_flow_seq<B, R: Reader<B>>(
+        &mut self,
+        reader: &mut R,
+        indent: u32,
+        seq_state: SeqState,
+    ) {
+        match reader.peek_byte() {
+            Some(b'&') => reader.consume_anchor_alias(&mut self.tokens, AnchorToken),
+            Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
+            Some(b'[') => self.fetch_flow_seq(reader, (indent + 1) as usize),
+            Some(b'{') => self.fetch_flow_map(reader, (indent + 1) as usize),
+            Some(b']') => {
+                reader.consume_bytes(1);
+                self.tokens.push_back(SEQ_END);
+                self.pop_state();
+            }
+            Some(b':') if seq_state == BeforeSeq => {
+                self.tokens.push_back(MAP_START);
+                self.push_empty_token();
+                self.set_curr_state(FlowSeq(indent, InSeq));
+                self.push_state(FlowMap(indent + 1, AfterColon));
+            }
+            Some(b'}') => {
+                reader.consume_bytes(1);
+                self.tokens.push_back(ERROR);
+                self.errors.push(UnexpectedSymbol('}'));
+            }
+            Some(b',') => {
+                reader.consume_bytes(1);
+                self.tokens.push_back(ScalarEnd as usize);
+                self.set_curr_state(FlowSeq(indent, BeforeSeq));
+            }
+            Some(b'\'') => {
+                reader.read_single_quote(self.curr_state().is_implicit(), &mut self.tokens)
+            }
+            Some(b'"') => {
+                reader.read_double_quote(self.curr_state().is_implicit(), &mut self.tokens)
+            }
+            Some(b'?') => self.fetch_explicit_map(reader),
+            Some(b'#') => {
+                // comment
+                reader.read_line();
+            }
+            Some(_) => {
+                self.get_plain_scalar_flow(reader, indent as usize, reader.col());
+            }
+            None => self.stream_end = true,
+        }
+    }
+
+    fn parse_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) {
+        match reader.peek_byte() {
+            Some(b'&') => {
+                reader.consume_anchor_alias(&mut self.tokens, AnchorToken);
+            }
+            Some(b'*') => reader.consume_anchor_alias(&mut self.tokens, AliasToken),
+            Some(b'[') => {
+                self.set_next_map_state();
+                self.fetch_flow_seq(reader, (indent + 1) as usize);
+            }
+            Some(b'{') => {
+                self.set_next_map_state();
+                self.fetch_flow_map(reader, (indent + 1) as usize)
+            }
+            Some(b'}') => {
+                reader.consume_bytes(1);
+                if matches!(self.curr_state(), FlowMap(_, BeforeColon)) {
+                    self.push_empty_token();
+                }
+                self.tokens.push_back(MappingEnd as usize);
+                self.pop_state();
+            }
+            Some(b':') => {
+                reader.consume_bytes(1);
+                let curr_state = self.curr_state();
+
+                if matches!(curr_state, FlowMap(_, BeforeKey)) {
+                    self.push_empty_token();
+                    self.set_next_map_state();
+                } else if matches!(curr_state, FlowMap(_, BeforeColon) | FlowKeyExp(_, _)) {
+                    self.set_next_map_state();
+                    self.tokens.push_back(ScalarEnd as usize);
+                }
+            }
+            Some(b']') => {
+                if self.is_prev_sequence() {
+                    self.push_empty_token();
+                    self.tokens.push_back(MappingEnd as usize);
+                    self.pop_state();
+                } else {
+                    reader.consume_bytes(1);
+                    self.tokens.push_back(ErrorToken as usize);
+                    self.errors.push(UnexpectedSymbol(']'));
+                }
+            }
+            Some(b'?') => self.fetch_explicit_map(reader),
+            Some(b',') => {
+                reader.consume_bytes(1);
+            }
+            Some(b'\'') => {
+                reader.read_single_quote(self.curr_state().is_implicit(), &mut self.tokens)
+            }
+            Some(b'"') => {
+                reader.read_double_quote(self.curr_state().is_implicit(), &mut self.tokens)
+            }
+            Some(b'#') => {
+                // comment
+                reader.read_line();
+            }
+            Some(_) => {
+                self.get_plain_scalar_flow(reader, indent as usize, reader.col());
+            }
+            None => self.stream_end = true,
+        }
     }
 
     fn process_colon<B, R: Reader<B>>(&mut self, reader: &mut R) {
@@ -453,7 +459,7 @@ impl Lexer {
 
         if col == 0 && curr_state == DocBlock {
             self.push_state(BlockMap(0, AfterColon));
-            self.tokens.push_back(MAP_START);
+            self.tokens.push_back(MAP_START_BLOCK);
             self.push_empty_token();
         } else if col == 0 && matches!(curr_state, BlockMap(0, BeforeKey)) {
             self.push_empty_token();
@@ -472,8 +478,29 @@ impl Lexer {
 
     fn fetch_flow_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
-        self.tokens.push_back(SEQ_START);
         self.push_state(FlowSeq(indent as u32, BeforeSeq));
+
+        while !reader.eof() {
+            reader.skip_separation_spaces(true);
+
+            match self.curr_state() {
+                FlowSeq(indent, seq_state) => self.parse_flow_seq(reader, indent, seq_state),
+                FlowMap(indent, _) | FlowKeyExp(indent, _) => self.parse_flow_map(reader, indent),
+                _ => break,
+            }
+        }
+
+        reader.count_space_tab(true);
+
+        if !reader.peek_byte_is(b':') {
+            self.tokens.push_front(SEQ_START);
+        } else {
+            reader.consume_bytes(1);
+            self.tokens.push_front(SEQ_START);
+            self.tokens.push_front(MAP_START_BLOCK);
+            // self.tokens.push_back(SEQ_END);
+            self.push_state(FlowMap(indent as u32, AfterColon))
+        }
     }
 
     fn fetch_flow_map<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
@@ -494,6 +521,12 @@ impl Lexer {
     }
 
     #[inline]
+    fn push_empty_token(&mut self) {
+        self.tokens.push_back(SCALAR_PLAIN);
+        self.tokens.push_back(SCALAR_END);
+    }
+
+    #[inline]
     fn pop_state(&mut self) -> Option<LexerState> {
         let x = self.stack.pop();
         if let Some(state) = self.stack.last_mut() {
@@ -509,7 +542,7 @@ impl Lexer {
         reader.consume_bytes(1);
         reader.skip_space_tab(true);
         self.push_state(BlockMapExp(indent as u32, BeforeKey));
-        self.tokens.push_back(MappingStart as usize);
+        self.tokens.push_back(MAP_START_BLOCK);
     }
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
@@ -578,7 +611,7 @@ impl Lexer {
             {
                 self.set_next_map_state();
                 self.push_state(BlockMap(init_indent as u32, BeforeKey));
-                self.tokens.push_back(MappingStart as usize);
+                self.tokens.push_back(MAP_START_BLOCK);
                 self.tokens.extend(scalar_tokens);
             }
             BlockMap(indent, AfterColon) | BlockMapExp(indent, _)
@@ -592,7 +625,7 @@ impl Lexer {
                 if init_indent > indent as usize && chr == b':' =>
             {
                 self.set_next_map_state();
-                self.tokens.push_back(MappingStart as usize);
+                self.tokens.push_back(MAP_START_BLOCK);
                 self.push_state(BlockMap(init_indent as u32, BeforeColon));
                 self.tokens.extend(scalar_tokens);
             }
@@ -604,7 +637,7 @@ impl Lexer {
             }
             state if !matches!(state, BlockMap(_, _) | BlockMapExp(_, _)) => {
                 self.push_state(BlockMap(init_indent as u32, BeforeColon));
-                self.tokens.push_back(MappingStart as usize);
+                self.tokens.push_back(MAP_START_BLOCK);
                 self.tokens.extend(scalar_tokens);
             }
             _ => {
@@ -626,11 +659,11 @@ impl Lexer {
         match curr_state {
             DocBlock => {
                 self.push_state(BlockSeq(indent as u32));
-                self.tokens.push_back(SequenceStart as usize);
+                self.tokens.push_back(SEQ_START_BLOCK);
             }
             BlockSeq(ind) if indent > ind as usize => {
                 self.push_state(BlockSeq(indent as u32));
-                self.tokens.push_back(SequenceStart as usize);
+                self.tokens.push_back(SEQ_START_BLOCK);
             }
             BlockSeq(ind) if indent == ind as usize => {}
             _ => {
@@ -835,22 +868,24 @@ const DOC_START: usize = usize::MAX - 2;
 const DOC_START_EXP: usize = usize::MAX - 3;
 const MAP_END: usize = usize::MAX - 4;
 const MAP_START: usize = usize::MAX - 5;
-const SEQ_END: usize = usize::MAX - 6;
-const SEQ_START: usize = usize::MAX - 7;
-const SCALAR_PLAIN: usize = usize::MAX - 8;
-const SCALAR_FOLD: usize = usize::MAX - 9;
-const SCALAR_LIT: usize = usize::MAX - 10;
-const SCALAR_QUOTE: usize = usize::MAX - 11;
-const SCALAR_DQUOTE: usize = usize::MAX - 12;
-const SCALAR_END: usize = usize::MAX - 13;
-const TAG_START: usize = usize::MAX - 14;
-const ANCHOR: usize = usize::MAX - 15;
-const ALIAS: usize = usize::MAX - 16;
-const DIR_RES: usize = usize::MAX - 17;
-const DIR_TAG: usize = usize::MAX - 18;
-const DIR_YAML: usize = usize::MAX - 19;
-const ERROR: usize = usize::MAX - 20;
-const NEWLINE: usize = usize::MAX - 21;
+const MAP_START_BLOCK: usize = usize::MAX - 6;
+const SEQ_END: usize = usize::MAX - 7;
+const SEQ_START: usize = usize::MAX - 8;
+const SEQ_START_BLOCK: usize = usize::MAX - 9;
+const SCALAR_PLAIN: usize = usize::MAX - 10;
+const SCALAR_FOLD: usize = usize::MAX - 11;
+const SCALAR_LIT: usize = usize::MAX - 12;
+const SCALAR_QUOTE: usize = usize::MAX - 13;
+const SCALAR_DQUOTE: usize = usize::MAX - 14;
+const SCALAR_END: usize = usize::MAX - 15;
+const TAG_START: usize = usize::MAX - 16;
+const ANCHOR: usize = usize::MAX - 17;
+const ALIAS: usize = usize::MAX - 18;
+const DIR_RES: usize = usize::MAX - 19;
+const DIR_TAG: usize = usize::MAX - 20;
+const DIR_YAML: usize = usize::MAX - 21;
+const ERROR: usize = usize::MAX - 22;
+const NEWLINE: usize = usize::MAX - 32;
 
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -915,6 +950,12 @@ pub enum LexerToken {
     /// #^-- start of sequence
     /// ```
     SequenceStart = SEQ_START,
+    /// Start of a sequence token, e.g. `[` in
+    /// ```yaml
+    ///  [a, b, c]
+    /// #^-- start of sequence
+    /// ```
+    SequenceStartImplict = SEQ_START_BLOCK,
     /// End of a sequence token, e.g. `]` in
     /// ```yaml
     ///  [a, b, c]
@@ -927,6 +968,12 @@ pub enum LexerToken {
     /// #^-- start of mapping
     /// ```
     MappingStart = MAP_START,
+    /// Start of a map  token, e.g. `{` in
+    /// ```yaml
+    ///   [a]: 3
+    /// #^-- start of mapping
+    /// ```
+    MappingStartImplict = MAP_START_BLOCK,
     /// End of a map  token, e.g. `}` in
     /// ```yaml
     ///  { a: b}
@@ -987,6 +1034,8 @@ impl From<usize> for LexerToken {
             DOC_START_EXP => DocumentStartExplicit,
             MAP_END => MappingEnd,
             MAP_START => MappingStart,
+            MAP_START_BLOCK => MappingStartImplict,
+            SEQ_START_BLOCK => SequenceStartImplict,
             SEQ_END => SequenceEnd,
             SEQ_START => SequenceStart,
             SCALAR_PLAIN => ScalarPlain,

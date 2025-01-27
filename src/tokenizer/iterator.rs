@@ -208,21 +208,19 @@ where
                 match token {
                     SequenceStart => {
                         self.indent += 1;
-                        return Some((
-                            SeqStart {
-                                flow: self.state.curr_state().in_flow_collection(),
-                            },
-                            curr_indent,
-                        ));
+                        return Some((SeqStart { flow: true }, curr_indent));
+                    }
+                    SequenceStartImplict => {
+                        self.indent += 1;
+                        return Some((SeqStart { flow: false }, curr_indent));
                     }
                     MappingStart => {
                         self.indent += 1;
-                        return Some((
-                            MapStart {
-                                flow: self.state.curr_state().in_flow_collection(),
-                            },
-                            curr_indent,
-                        ));
+                        return Some((MapStart { flow: true }, curr_indent));
+                    }
+                    MappingStartImplict => {
+                        self.indent += 1;
+                        return Some((MapStart { flow: false }, curr_indent));
                     }
                     DocumentStart => {
                         self.indent += 1;
