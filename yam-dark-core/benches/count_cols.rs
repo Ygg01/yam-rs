@@ -1,10 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{black_box, Criterion, criterion_group, criterion_main, Throughput};
 
+use yam_dark_core::{ChunkyIterator, u8x64_eq};
 use yam_dark_core::util::{
     count_col_rows, count_col_rows_immut, count_indent_dependent, count_indent_naive, mask_merge,
-    U8X16, U8X8, U8_BYTE_COL_TABLE, U8_ROW_TABLE,
+    U8_BYTE_COL_TABLE, U8_ROW_TABLE, U8X16, U8X8,
 };
-use yam_dark_core::{u8x64_eq, ChunkyIterator};
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -130,8 +130,9 @@ fn col_count_small(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(64 * 2));
 
     let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let chunk = chunk_iter.next().unwrap();
-    let mask = u8x64_eq(chunk, b'\n');
+    let mask = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
+    let mask2 = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
+
 
     group.bench_function("col_count_small", |b| {
         b.iter(|| {
@@ -147,7 +148,7 @@ fn col_count_small(c: &mut Criterion) {
                 &mut count_row,
             );
             count_col_rows(
-                mask,
+                mask2,
                 &mut prev_col,
                 &mut prev_row,
                 &mut count_col,
@@ -164,16 +165,18 @@ fn col_count_immut(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(64 * 2));
 
     let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
-    let chunk = chunk_iter.next().unwrap();
-    let mask = u8x64_eq(chunk, b'\n');
+    let mask = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
+    let mask2 = u8x64_eq(chunk_iter.next().unwrap(), b'\n');
+
 
     group.bench_function("col_count_immut", |b| {
         b.iter(|| {
             let mut prev_col = 0;
             let mut prev_row = 0;
-            count_col_rows_immut(mask, &mut prev_col, &mut prev_row);
             let (row, col) = count_col_rows_immut(mask, &mut prev_col, &mut prev_row);
-            black_box(row[2] == 0 && col[3] == 1)
+            black_box(row[2] == 0 && col[3] == 1);
+            let (row, col) = count_col_rows_immut(mask2, &mut prev_col, &mut prev_row);
+            black_box(row[1] == 3 && col[4] > 10);
         })
     });
     group.finish();
@@ -182,15 +185,18 @@ fn col_count_immut(c: &mut Criterion) {
 fn col_count_u8x16(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-col");
     group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(64));
+    group.throughput(Throughput::Bytes(64 * 2));
 
     let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
     let chunk = chunk_iter.next().unwrap();
+    let chunk2 = chunk_iter.next().unwrap();
 
     group.bench_function("col_count_u8x16", |b| {
         b.iter(|| {
             let count = count_table_u8x16(*chunk);
             black_box(count[0] > 0);
+            let count = count_table_u8x16(*chunk2);
+            black_box(count[1] > 0);
         })
     });
     group.finish();
