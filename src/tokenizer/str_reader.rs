@@ -592,7 +592,7 @@ impl<'r> Reader<()> for StrReader<'r> {
 
         let amount = self.slice[self.pos..]
             .iter()
-            .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p) || *p == b':')
+            .position(|p| is_white_tab_or_break(*p) || is_flow_indicator(*p))
             .unwrap_or(self.slice.len() - self.pos);
         self.consume_bytes(amount);
         (start, start + amount)

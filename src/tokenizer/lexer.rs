@@ -213,7 +213,7 @@ impl Lexer {
     }
 
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        reader.skip_separation_spaces(true);
+        self.skip_separation_spaces(reader, true);
         let curr_state = self.curr_state();
         match curr_state {
             PreDocStart => {
@@ -270,12 +270,10 @@ impl Lexer {
                         self.set_next_map_state();
                     }
                     Some(b'\'') => {
-                        self.update_col(reader);
                         self.set_next_map_state();
                         self.process_quote(reader);
                     }
                     Some(b'"') => {
-                        self.update_col(reader);
                         self.set_next_map_state();
                         self.process_double_quote(reader);
                     }
@@ -377,29 +375,34 @@ impl Lexer {
     }
 
     fn parse_anchor<B, R: Reader<B>>(&mut self, reader: &mut R) {
+        self.update_col(reader);
         let anchor = reader.consume_anchor_alias();
     
-        let line = reader.skip_separation_spaces(true);
-        if line > 0 {
-            self.tokens.push_back(ANCHOR);
-            self.tokens.push_back(anchor.0);
-            self.tokens.push_back(anchor.1);
-        } else if line == 0 {
-            if reader.peek_byte_is(b'*') {
-                self.push_error(ErrorType::AliasAndAnchor);
+        let line = self.skip_separation_spaces(reader, true);
+        match line {
+            0 => {
+                if reader.peek_byte_is(b'*') {
+                    self.push_error(ErrorType::AliasAndAnchor);
+                }
+                self.prev_anchor = Some(anchor);
             }
-            self.prev_anchor = Some(anchor);
+            _ => {
+                self.tokens.push_back(ANCHOR);
+                self.tokens.push_back(anchor.0);
+                self.tokens.push_back(anchor.1);
+            }
         }
     }
 
     fn parse_alias<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
+        let scalar_start = reader.col();
         let alias = reader.consume_anchor_alias();
-        reader.skip_separation_spaces(true);
+        self.skip_separation_spaces(reader, true);
 
         let next_is_colon = reader.peek_byte_is(b':')
             || matches!(curr_state, BlockMap(_, _) | BlockMapExp(_, _));
-        let scalar_start = reader.col();
+        
         if next_is_colon {
             self.process_map(scalar_start, false, b':');
         } else {
@@ -534,11 +537,12 @@ impl Lexer {
 
     fn process_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
+        let scalar_start = self.update_col(reader);
         let tokens = reader.read_single_quote(curr_state.is_implicit());
 
-        reader.skip_separation_spaces(true);
+        self.skip_separation_spaces(reader, true);
         if reader.peek_byte_is(b':') {
-            self.unwind_map(curr_state, self.col_start.unwrap_or(reader.col()));
+            self.unwind_map(curr_state, scalar_start);
             self.set_map_state(BeforeColon);
         }
         self.emit_prev_anchor();
@@ -547,12 +551,12 @@ impl Lexer {
 
     fn process_double_quote<B, R: Reader<B>>(&mut self, reader: &mut R) {
         let curr_state = self.curr_state();
-
+        let scalar_start = self.update_col(reader);
         let tokens = reader.read_double_quote(curr_state.is_implicit());
 
-        reader.skip_separation_spaces(true);
+        self.skip_separation_spaces(reader, true);
         if reader.peek_byte_is(b':') {
-            self.unwind_map(curr_state, self.col_start.unwrap_or(reader.col()));
+            self.unwind_map(curr_state, scalar_start);
             self.set_map_state(BeforeColon);
         }
         self.emit_prev_anchor();
@@ -568,6 +572,15 @@ impl Lexer {
         };
     }
 
+    #[inline]
+    fn skip_separation_spaces<B, R: Reader<B>>(&mut self, reader: &mut R, allow_comments: bool) -> usize {
+        let lines = reader.skip_separation_spaces(allow_comments);
+        if lines > 0 {
+            self.reset_col();
+        }
+        lines
+    }
+
     fn read_flow_seq<B, R: Reader<B>>(&mut self, reader: &mut R, indent: usize) {
         reader.consume_bytes(1);
         let state = FlowSeq(indent as u32, BeforeFirstElem);
@@ -577,7 +590,7 @@ impl Lexer {
         self.tokens.push_back(SEQ_START);
 
         while !reader.eof() {
-            reader.skip_separation_spaces(true);
+            self.skip_separation_spaces(reader, true);            
             let curr_state = self.curr_state();
 
             match curr_state {
@@ -594,7 +607,7 @@ impl Lexer {
                 if matches!(curr_state, FlowSeq(_, _))
                     && !matches!(self.curr_state(), FlowKeyExp(_, _) | FlowMap(_, _))
                 {
-                    reader.skip_separation_spaces(true);
+                    self.skip_separation_spaces(reader, true);
 
                     if reader.peek_byte_is(b':') {
                         let token = if self.curr_state().in_flow_collection() {
@@ -677,12 +690,12 @@ impl Lexer {
             self.push_error(UnexpectedSymbol(peek_chr as char));
             return;
         }
-        self.update_col(reader);
         let mut is_multiline = false;
         let mut ends_with = b'\x7F';
         let state_indent = self.curr_state().indent() as usize;
         let scalar_start = match curr_state {
             BlockMapExp(ind, _) => ind as usize,
+            BlockMap(_, BeforeColon) | DocBlock => self.col_start.unwrap_or(reader.col()),
             _ => reader.col(),
         };
         let init_indent = match curr_state {
@@ -746,7 +759,6 @@ impl Lexer {
             }
             self.set_next_map_state();
         }
-        self.reset_col();
     }
 
     fn process_map(&mut self, scalar_start: usize, is_multiline: bool, ends_with: u8) {
@@ -960,7 +972,7 @@ impl Lexer {
             reader.skip_space_tab(true);
 
             if reader.peek_byte().map_or(false, is_newline) {
-                let folded_newline = reader.skip_separation_spaces(false);
+                let folded_newline = self.skip_separation_spaces(reader, false);
                 if reader.col() >= self.curr_state().indent() as usize {
                     num_newlines = folded_newline as u32;
                 }
@@ -1003,8 +1015,15 @@ impl Lexer {
     }
 
     #[inline]
-    fn update_col<B, R: Reader<B>>(&mut self, reader: &R) {
-        self.col_start = Some(reader.col());
+    fn update_col<B, R: Reader<B>>(&mut self, reader: &R) -> usize {
+        match self.col_start {
+            Some(x) => x,
+            None => {
+                let col = reader.col(); 
+                self.col_start = Some(col);
+                col
+            }
+        }
     }
 
     #[inline]
