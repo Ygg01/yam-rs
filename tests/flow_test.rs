@@ -2,17 +2,27 @@ mod common;
 
 use crate::common::assert_eq_event;
 
-const EMPTY_DOC_INPUT: &'static str = r#"
+const EMPTY_DOC_ERR_INPUT: &'static str = r#"
 # test"
   # test
 %YAML 1.3 #arst
 "#;
-const EMPTY_DOC_EXPECTED: &'static str = r#"
+const EMPTY_DOC_ERR_EXPECTED: &'static str = r#"
  %YAML 1.3
  ERR"#;
 
+const EMPTY_DOC_INPUT: &'static str = r#"
+%YAML 1.2
+---
+"#;
+const EMPTY_DOC_EXPECTED: &'static str = r#"
+ %YAML 1.2
+ +DOC
+ -DOC"#;
+
 #[test]
 fn parse_empty_document() {
+    assert_eq_event(EMPTY_DOC_ERR_INPUT, EMPTY_DOC_ERR_EXPECTED);
     assert_eq_event(EMPTY_DOC_INPUT, EMPTY_DOC_EXPECTED);
 }
 
@@ -213,8 +223,10 @@ const SIMPLE_DOC: &'static str = r#"
 ---[]"#;
 
 const SIMPLE_DOC_EXPECTED: &'static str = r#"
- +SEQ
- -SEQ"#;
+ +DOC
+  +SEQ
+  -SEQ
+ -DOC"#;
 
 #[test]
 fn simple_doc() {

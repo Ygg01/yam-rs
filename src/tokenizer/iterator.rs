@@ -6,7 +6,7 @@ use super::StrReader;
 
 pub struct EventIterator<'a> {
     pub(crate) reader: StrReader<'a>,
-    pub(crate) all_events: VecDeque<usize>,
+    pub all_events: VecDeque<usize>,
     pub indent: usize,
 }
 
@@ -19,7 +19,7 @@ impl<'a> EventIterator<'a> {
         }
         EventIterator {
             reader,
-            all_events: spanner.tokens,
+            all_events: spanner.tokens(),
             indent: 1,
         }
     }
@@ -49,11 +49,7 @@ impl<'a> Iterator for EventIterator<'a> {
                 (DirectiveYaml, Some(start), Some(end)) => {
                     line.push_str(&" ".repeat(self.indent));
                     line.push_str("%YAML ");
-                    line.push_str(unsafe {
-                        from_utf8_unchecked(
-                            &self.reader.slice[start..end],
-                        )
-                    });
+                    line.push_str(unsafe { from_utf8_unchecked(&self.reader.slice[start..end]) });
                     i += 3;
                     break Some(line);
                 }

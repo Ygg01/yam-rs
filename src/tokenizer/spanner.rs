@@ -2,41 +2,34 @@
 
 use std::collections::VecDeque;
 use std::fmt::Display;
+use ParserState::PreDocStart;
 
-use ErrorType::NoDocStartAfterTag;
-
-use crate::tokenizer::ErrorType;
-use crate::tokenizer::ErrorType::UnexpectedSymbol;
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::spanner::ParserState::{
-    AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, BlockValExp, FlowKey, FlowKeyExp, FlowMap,
-    FlowSeq, PreDocStart, RootBlock,
+    AfterDocEnd, BlockKeyExp, BlockMap, BlockSeq, BlockValExp, DirectiveSection, FlowKey,
+    FlowKeyExp, FlowMap, FlowSeq, RootBlock,
 };
-use crate::tokenizer::spanner::SpanToken::{KeyEnd, MappingStart, SequenceStart};
+use crate::tokenizer::spanner::SpanToken::*;
+use crate::tokenizer::ErrorType;
+use crate::tokenizer::ErrorType::UnexpectedSymbol;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Spanner {
     pub(crate) curr_state: ParserState,
     pub stream_end: bool,
-    pub(crate) tokens: VecDeque<usize>,
+    pub directive: bool,
+    tokens: VecDeque<usize>,
     errors: Vec<ErrorType>,
     stack: Vec<ParserState>,
 }
-impl Default for Spanner {
-    fn default() -> Self {
-        Self {
-            stream_end: false,
-            tokens: VecDeque::new(),
-            curr_state: PreDocStart,
-            errors: vec![],
-            stack: vec![],
-        }
-    }
-}
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+pub trait StateSpanner<T> {}
+
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub enum ParserState {
+    #[default]
     PreDocStart,
+    DirectiveSection,
     RootBlock,
     FlowSeq(u32),
     FlowMap(u32),
@@ -56,7 +49,7 @@ impl ParserState {
             FlowKey(ind) | FlowKeyExp(ind) | FlowMap(ind) | FlowSeq(ind) | BlockSeq(ind)
             | BlockMap(ind) | BlockKeyExp(ind) | BlockValExp(ind) => *ind,
             RootBlock => default as u32,
-            PreDocStart | AfterDocEnd => 0,
+            PreDocStart | AfterDocEnd | DirectiveSection => 0,
         }
     }
 
@@ -109,6 +102,11 @@ impl Spanner {
     }
 
     #[inline(always)]
+    pub fn tokens(self) -> VecDeque<usize> {
+        self.tokens
+    }
+
+    #[inline(always)]
     pub fn peek_token(&mut self) -> Option<usize> {
         self.tokens.front().copied()
     }
@@ -119,22 +117,35 @@ impl Spanner {
     }
 
     pub fn fetch_next_token<B, R: Reader<B>>(&mut self, reader: &mut R) {
-        pub use SpanToken::*;
-
         reader.skip_separation_spaces(true);
         match self.curr_state {
             PreDocStart => {
                 if reader.peek_byte_is(b'%') {
-                    reader.try_read_yaml_directive(&mut self.tokens);
-                    if reader.try_read_slice_exact("---") {
-                        self.tokens.push_back(DocumentStart as usize)
-                    } else {
-                        self.tokens.push_back(Error as usize);
-                        self.errors.push(NoDocStartAfterTag)
-                    }
-                } else if reader.try_read_slice_exact("---") {}
-                self.curr_state = RootBlock;
+                    self.curr_state = DirectiveSection;
+                    return;
+                } else if reader.peek_byte_is(b'#') {
+                    reader.read_line();
+                } else if reader.try_read_slice_exact("---") {
+                    self.directive = true;
+                    self.tokens.push_back(DocumentStart as usize);
+                } else {
+                    self.curr_state = RootBlock;
+                }
                 return;
+            }
+            DirectiveSection => {
+                if !reader.try_read_yaml_directive(&mut self.tokens) {
+                    if reader.try_read_slice_exact("---") {
+                        self.tokens.push_back(DocumentStart as usize);
+                        self.curr_state = RootBlock;
+                        self.directive = true;
+                        return;
+                    } else if reader.peek_byte_is(b'#') {
+                        reader.read_line();
+                    }
+                } else if reader.peek_byte_is(b'#') {
+                    reader.read_line();
+                }
             }
             RootBlock | BlockMap(_) | BlockKeyExp(_) | BlockValExp(_) | BlockSeq(_) => {
                 let indent = self.curr_state.indent(reader.col());
@@ -278,9 +289,16 @@ impl Spanner {
                 let x = match *state {
                     BlockSeq(_) => SequenceEnd,
                     BlockMap(_) | BlockKeyExp(_) => MappingEnd,
+                    DirectiveSection => {
+                        self.errors.push(ErrorType::DirectiveEndMark);
+                        Error
+                    }
                     _ => continue,
                 };
                 self.tokens.push_back(x as usize);
+            }
+            if self.directive {
+                self.tokens.push_back(DocumentEnd as usize);
             }
         }
     }
@@ -434,20 +452,17 @@ const TAG_START: usize = usize::MAX - 7;
 const SEPARATOR: usize = usize::MAX - 8;
 const ANCHOR: usize = usize::MAX - 9;
 const ALIAS: usize = usize::MAX - 10;
-//  const DIR_FLOAT: usize = usize::MAX - 11;
-//  const DIR_INT: usize = usize::MAX - 12;
-//  const DIR_BOOL: usize = usize::MAX - 13;
-//  const DIR_NULL: usize = usize::MAX - 14;
-//  const DIR_STR: usize = usize::MAX - 15;
-//  const DIR_SEQ: usize = usize::MAX - 16;
-//  const DIR_MAP: usize = usize::MAX - 17;
-const DIR_RES: usize = usize::MAX - 18;
-const DIR_TAG: usize = usize::MAX - 19;
-const DIR_YAML: usize = usize::MAX - 20;
-//  const DIR_YAML_11: usize = usize::MAX - 21;
-const ERROR: usize = usize::MAX - 22;
-const SPACE: usize = usize::MAX - 23;
-const NEWLINE: usize = usize::MAX - 24;
+const SCALAR_PLAIN: usize = usize::MAX - 11;
+const SCALAR_FOLD: usize = usize::MAX - 12;
+const SCALAR_LIT: usize = usize::MAX - 13;
+const SCALAR_QUOTE: usize = usize::MAX - 14;
+const SCALAR_DQUOTE: usize = usize::MAX - 15;
+const DIR_RES: usize = usize::MAX - 16;
+const DIR_TAG: usize = usize::MAX - 17;
+const DIR_YAML: usize = usize::MAX - 18;
+const ERROR: usize = usize::MAX - 19;
+const SPACE: usize = usize::MAX - 20;
+const NEWLINE: usize = usize::MAX - 21;
 
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -459,15 +474,12 @@ pub enum SpanToken {
     Error = ERROR,
     DirectiveTag = DIR_TAG,
     DirectiveReserved = DIR_RES,
-    // DirectiveYaml1_1 = DIR_YAML_11,
     DirectiveYaml = DIR_YAML,
-    // DirectiveFailsafeMap = DIR_MAP,
-    // DirectiveFailsafeSeq = DIR_SEQ,
-    // DirectiveFailsafeStr = DIR_STR,
-    // DirectiveFailsafeNull = DIR_NULL,
-    // DirectiveFailsafeBool = DIR_BOOL,
-    // DirectiveFailsafeInt = DIR_INT,
-    // DirectiveFailsafeFloat = DIR_FLOAT,
+    ScalarPlain = SCALAR_PLAIN,
+    ScalarFold = SCALAR_FOLD,
+    ScalarEnd = SCALAR_LIT,
+    ScalarSingleQuote = SCALAR_QUOTE,
+    ScalarDoubleQuote = SCALAR_DQUOTE,
     /// Element with alternative name e.g. `&foo [x,y]`
     Alias = ALIAS,
     /// Reference to an element with alternative name e.g. `*foo`

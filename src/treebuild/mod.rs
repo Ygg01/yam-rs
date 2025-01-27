@@ -1,10 +1,11 @@
 use std::borrow::Cow;
 
 use crate::tokenizer::ErrorType;
+use crate::treebuild::YamlToken::Scalar;
 
 mod iter;
 
-pub enum YamlToken<'a, TAG> {
+pub enum YamlToken<'a, TAG = ()> {
     // strings, booleans, numbers, nulls, all treated the same
     Scalar(Cow<'a, [u8]>, TAG),
 
@@ -21,9 +22,9 @@ pub enum YamlToken<'a, TAG> {
     Mapping(Vec<Entry<'a, TAG>>, TAG),
 }
 
-impl<'a, TAG> YamlToken<'a, TAG> {
-    pub fn empty(tag: TAG) -> YamlToken<'a, TAG> {
-        YamlToken::Scalar(Cow::default(), tag)
+impl<'a, TAG: Default> Default for YamlToken<'a, TAG> {
+    fn default() -> Self {
+        Scalar(Cow::default(), TAG::default())
     }
 }
 
