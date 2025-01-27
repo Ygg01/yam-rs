@@ -415,16 +415,23 @@ where
                             self.state.pop_token(),
                         ) {
                             let namespace = self.reader.slice(start, mid);
-                            self.tag =
-                                if namespace == b"!!" && !self.state.tags.contains_key(namespace) {
-                                    Lexer::get_default_namespace(self.reader.slice(start, end))
-                                } else if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
-                                    let mut cow = Cow::Borrowed(self.reader.slice(e1, e2));
-                                    cow.to_mut().extend(self.reader.slice(mid, end));
-                                    Some(cow)
-                                } else {
-                                    None
-                                }
+                            let extension = self.reader.slice(mid, end);
+                            self.tag = if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
+                                let mut cow = Cow::Borrowed(self.reader.slice(e1, e2));
+                                cow.to_mut().extend(extension);
+                                Some(cow)
+                            } else if namespace == b"!!" && !extension.is_empty() {
+                                let mut cow: Cow<'_, [u8]> =
+                                    Cow::Owned(b"tag:yaml.org,2002:".to_vec());
+                                cow.to_mut().extend(extension);
+                                Some(cow)
+                            } else if namespace == b"!" {
+                                let mut cow: Cow<'_, [u8]> = Cow::Owned(b"!".to_vec());
+                                cow.to_mut().extend(extension);
+                                Some(cow)
+                            } else {
+                                None
+                            }
                         }
                     }
                     NewLine | ScalarEnd => {}

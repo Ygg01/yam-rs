@@ -934,9 +934,19 @@ const SEQ_AND_TAG_EVENTS: &str = r#"
   -MAP
  -DOC"#;
 
+const TAG_DEF_INPUT: &str = r#"
+ ! test
+"#;
+
+const TAG_DEF_EVENT: &str = r#"
+ +DOC
+  =VAL <!> :test
+ -DOC"#;
+
 #[test]
 pub fn block_col_tags() {
     assert_eq_event(SEQ_AND_TAG_INPUT, SEQ_AND_TAG_EVENTS);
+    assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENT);
 }
 
 const ANCHOR_COLON_INPUT: &str = r#"

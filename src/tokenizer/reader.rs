@@ -94,7 +94,9 @@ pub trait Reader<B> {
     fn read_single_quote(&mut self, is_implicit: bool) -> Vec<usize>;
     fn skip_separation_spaces(&mut self, allow_comments: bool) -> (u32, bool);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
-    fn read_tag(&self) -> Result<(usize, usize), ErrorType>;
+    fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
+    fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType>;
+    fn read_tag_uri(&mut self) -> Option<(usize, usize)>;
     fn read_break(&mut self) -> Option<(usize, usize)>;
 }
 
@@ -147,6 +149,11 @@ pub(crate) fn is_uri_char(chr: u8) -> bool {
         || (b'-'..=b';').contains(&chr)
         || (b'?'..=b'[').contains(&chr)
         || chr.is_ascii_lowercase()
+}
+
+#[inline]
+pub(crate) fn is_tag_char(chr: u8) -> bool {
+    matches!(chr, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')
 }
 
 #[inline]
