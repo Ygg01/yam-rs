@@ -448,6 +448,17 @@ ERR
 =VAL :ERROR
 -DOC";
 
+const X1_JEF9_INPUT: &str = r"
+- |+
+   ";
+
+const X1_JEF9_EVENTS: &str = r"
++DOC
++SEQ
+=VAL |\n
+-SEQ
+-DOC";
+
 #[test]
 pub fn block_indent_lit_fold() {
     assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENTS);
@@ -455,6 +466,7 @@ pub fn block_indent_lit_fold() {
     assert_eq_event(X1_7T8X_INPUT, X1_7T8X_EVENTS);
     assert_eq_event(X2_7T8X_INPUT, X2_7T8X_EVENTS);
     assert_eq_event(X3_7T8X_INPUT, X3_7T8X_EVENTS);
+    assert_eq_event(X1_JEF9_INPUT, X1_JEF9_EVENTS);
 }
 
 const PLAIN_MULTI_INPUT: &str = r"
