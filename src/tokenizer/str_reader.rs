@@ -1,16 +1,17 @@
-use crate::tokenizer::SpanToken::*;
-use crate::tokenizer::StrReader;
-use crate::Scanner;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::str::from_utf8_unchecked;
 
+use crate::tokenizer::SpanToken::*;
+use crate::tokenizer::StrReader;
+use crate::Scanner;
+
 pub struct EventIterator<'a> {
     pub(crate) state: Scanner,
     pub(crate) reader: StrReader<'a>,
-    inner_cow: Cow<'a, [u8]>,
-    indent: u32,
+    indent: usize,
+    pub(crate) lines: Vec<String>,
 }
 
 impl<'a> EventIterator<'a> {
@@ -18,33 +19,9 @@ impl<'a> EventIterator<'a> {
         EventIterator {
             state: Scanner::default(),
             reader: StrReader::new(input),
-            inner_cow: Cow::default(),
             indent: 2,
+            lines: vec![],
         }
-    }
-}
-
-impl<'a> EventIterator<'a> {
-    fn to_cow(&self, start: usize, end: usize) -> Cow<'a, [u8]> {
-        Cow::Borrowed(self.reader.slice[start..end].as_bytes())
-    }
-
-    fn merge_cow(&mut self, start: usize, end: usize) {
-        if self.inner_cow.is_empty() {
-            self.inner_cow = Cow::Borrowed(self.reader.slice[start..end].as_bytes());
-        } else {
-            self.inner_cow
-                .to_mut()
-                .extend(self.reader.slice[start..end].as_bytes());
-        }
-    }
-
-    fn merge_space(&mut self) {
-        self.inner_cow.to_mut().push(b' ');
-    }
-
-    fn merge_newline(&mut self) {
-        self.inner_cow.to_mut().push(b'\n');
     }
 }
 
@@ -53,136 +30,133 @@ impl<'a> Iterator for EventIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let mut ind = vec![b'\n'];
-            if let Some(token) = self.state.pop_token() {
-                match token {
-                    MarkStart(start) => {
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("=VAL ".as_bytes());
-                        self.inner_cow = Cow::Owned(ind);
-                        if let Some(MarkEnd(end)) = self.state.peek_token() {
-                            self.state.pop_token();
-                            self.merge_cow(start, end);
+            if !self.lines.is_empty() {
+                return self.lines.pop();
+            }
+
+            if self.state.is_empty() && !self.state.stream_end {
+                self.state.fetch_next_token(&mut self.reader);
+                let mut start = 0;
+
+                while let Some(token) = self.state.pop_token() {
+                    let mut ind = vec![b'\n'];
+                    match token {
+                        MarkStart(index) => start = index,
+                        MarkEnd(end) => {
+                            let scalar = self.reader.slice[start..end].to_owned();
+
+                            if let Some(x) = self.lines.last_mut() 
+                            {
+                                // account for indent and newline
+                                if x[self.indent + 1..].starts_with("=VAL") {
+                                    x.push_str(scalar.as_str()); 
+                                };
+                            }else {
+                                ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                                ind.extend("=VAL ".as_bytes());   
+                                ind.extend(scalar.as_bytes().to_vec()); 
+                                unsafe {
+                                    self.lines.push(String::from_utf8_unchecked(ind));
+                                } 
+                            }
+                        },
+                        NewLine => {
+                            if let Some(x) = self.lines.last_mut() {
+                                x.push_str("\n");
+                            }
+                        },
+                        Space => {
+                            if let Some(x) = self.lines.last_mut() {
+                                x.push_str(" ");
+                            }
+                        },
+                        Alias => {},
+                        MappingStart => {
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("+MAP".as_bytes());
+                            self.indent += 2;
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    Space => self.merge_space(),
-                    NewLine => self.merge_newline(),
-                    MappingStart => {
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("+MAP".as_bytes());
-                        self.indent += 2;
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        MappingEnd => {
+                            self.indent -= 2;
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("-MAP".as_bytes());
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    MappingEnd => {
-                        self.indent -= 2;
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("-MAP".as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        SequenceStart => {
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("+SEQ".as_bytes());
+                            self.indent += 2;
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    SequenceStart => {
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("+SEQ".as_bytes());
-                        self.indent += 2;
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        SequenceEnd => {
+                            self.indent -= 2;
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("-SEQ".as_bytes());
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    SequenceEnd => {
-                        self.indent -= 2;
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("-SEQ".as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        DocumentStart => {
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("+DOC".as_bytes());
+                            self.indent += 2;
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    DocumentStart => {
-                        self.indent += 2;
-                        ind.extend("+DOC".as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        DocumentEnd => {
+                            self.indent -= 2;
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("-DOC".as_bytes());
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    DocumentEnd => {
-                        self.indent -= 2;
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("-DOC".as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        KeyEnd => {
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("-KEY-".as_bytes());
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    KeyEnd => {
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("-KEY-".as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        Directive(typ) => {
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend(format!("#{:} ", typ).as_bytes());
+                            if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
+                                (self.state.pop_token(), self.state.pop_token())
+                            {
+                                ind.extend(self.reader.slice[start..end].as_bytes());
+                            }
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    Directive(typ) => {
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend(format!("#{:} ", typ).as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        if let (Some(MarkStart(start)), Some(MarkEnd(end))) =
-                            (self.state.pop_token(), self.state.pop_token())
-                        {
-                            self.merge_cow(start, end);
+                        Separator => {
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend("-SEP-".as_bytes());
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
+                        ErrorToken(x) => {
+                            ind.extend(" ".repeat(self.indent).as_bytes().to_vec());
+                            ind.extend(format!("ERR({:?})", x).as_bytes());
+                            unsafe {
+                                self.lines.push(String::from_utf8_unchecked(ind));
+                            }
                         }
-                    }
-                    Separator => {
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend("-SEP-".as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
-                        }
-                    }
-                    ErrorToken(x) => {
-                        ind.extend(" ".repeat(self.indent as usize).as_bytes().to_vec());
-                        ind.extend(format!("ERR({:?})", x).as_bytes());
-                        self.inner_cow.to_mut().extend(ind);
-                        unsafe {
-                            let x = mem::take(&mut self.inner_cow);
-                            return Some(String::from_utf8_unchecked(x.to_vec()));
-                        }
-                    }
-                    _ => {}
+                    };
                 }
-            } else {
-                // Deal with any leftover events
-                if !self.inner_cow.is_empty() {
-                    unsafe {
-                        let x = mem::take(&mut self.inner_cow);
-                        return Some(String::from_utf8_unchecked(x.to_vec()));
-                    }
-                }
-                if self.state.is_empty() && !self.state.stream_end {
-                    self.state.fetch_next_token(&mut self.reader);
-                }
-                if self.state.is_empty() && self.state.stream_end {
-                    return None;
-                }
+            }
+            if self.state.is_empty() && self.state.stream_end {
+                return None;
             }
         }
     }
