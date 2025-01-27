@@ -6,6 +6,8 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::{fmt::Write, io, str::from_utf8_unchecked};
 
+use urlencoding::decode_binary;
+
 use crate::escaper::{escape_double_quotes, escape_plain};
 use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
@@ -417,9 +419,12 @@ where
                             let namespace = self.reader.slice(start, mid);
                             let extension = self.reader.slice(mid, end);
                             self.tag = if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
-                                let mut cow = Cow::Borrowed(self.reader.slice(e1, e2));
-                                cow.to_mut().extend(extension);
-                                Some(cow)
+                                let mut tag = Vec::from(self.reader.slice(e1, e2));
+                                tag.extend_from_slice(extension);
+                                if tag.contains(&b'%') {
+                                    tag = decode_binary(&tag).into_owned()
+                                }
+                                Some(Cow::Owned(tag))
                             } else if namespace == b"!!" && !extension.is_empty() {
                                 let mut cow: Cow<'_, [u8]> =
                                     Cow::Owned(b"tag:yaml.org,2002:".to_vec());

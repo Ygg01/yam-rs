@@ -1,5 +1,5 @@
 use std::ops::ControlFlow::{Break, Continue};
-use std::ops::RangeInclusive;
+use std::ops::{Range};
 use std::usize;
 
 use memchr::{memchr, memchr2};
@@ -72,7 +72,7 @@ impl<'a> StrReader<'a> {
     }
 
     #[inline]
-    fn get_lookahead_iterator(&self, range: RangeInclusive<usize>) -> LookAroundBytes {
+    fn get_lookahead_iterator(&self, range: Range<usize>) -> LookAroundBytes {
         LookAroundBytes::new(self.slice, range)
     }
 
@@ -146,22 +146,19 @@ impl<'a> StrReader<'a> {
         }
     }
 
-    fn get_line_offset(&self) -> (usize, usize, usize) {
+    pub(crate) fn get_line_offset(&self) -> (usize, usize, usize) {
         let slice = self.slice;
         let start = self.pos;
-        let remaining = slice.len().saturating_sub(start);
-        let content = &slice[start..];
-        let (n, newline) =
-            memchr::memchr2_iter(b'\r', b'\n', content)
-                .next()
-                .map_or((remaining, 0), |p| {
-                    if content[p] == b'\r' && p < content.len() - 1 && content[p + 1] == b'\n' {
-                        (p, 2)
-                    } else {
-                        (p, 1)
-                    }
-                });
-        (start, start + n, start + n + newline)
+        let haystack: &[u8] = &slice[start..];
+        memchr::memchr2_iter(b'\r', b'\n', haystack)
+            .next()
+            .map_or((start, self.slice.len(), self.slice.len()), |pos| {
+                if haystack[pos] == b'\r' && pos < haystack.len() - 1 && haystack[pos + 1] == b'\n' {
+                    (start, start + pos, start + pos + 2)
+                } else {
+                    (start, start + pos, start + pos + 1)
+                }
+            })
     }
 
     fn get_quoteline_offset(&self, quote: u8) -> (usize, usize, usize) {
@@ -377,7 +374,7 @@ impl<'r> Reader<()> for StrReader<'r> {
         let line_end = StrReader::eof_or_pos(self, line_end);
         let mut end_of_str = end;
 
-        for (prev, curr, next, pos) in self.get_lookahead_iterator(end..=line_end) {
+        for (prev, curr, next, pos) in self.get_lookahead_iterator(end..line_end) {
             // ns-plain-char  prevent ` #`
             if curr == b'#' && is_white_tab_or_break(prev) {
                 // if we encounter two or more comment print error and try to recover
@@ -697,7 +694,9 @@ impl<'r> Reader<()> for StrReader<'r> {
         match self.peek_chars() {
             [b'!', b'<', ..] => {
                 let start = self.consume_bytes(2);
-                if let Some(end) = memchr(b'>', &self.slice[self.pos..]) {
+                let (line_start, line_end, _) = self.get_line_offset();
+                let haystack = &self.slice[line_start..line_end];
+                if let Some(end) = memchr(b'>', haystack) {
                     let err = if self.slice[self.pos + end + 1] != b'!' {
                         Some(ErrorType::UnfinishedTag)
                     } else {
@@ -718,17 +717,19 @@ impl<'r> Reader<()> for StrReader<'r> {
             [b'!', ..] => {
                 let start = self.pos;
                 self.consume_bytes(1);
-                if let Some(find) = memchr(b'!', &self.slice[self.pos..]) {
-                    let mid = self.pos + find + 1;
-                    let amount = self.slice[mid..]
-                        .iter()
-                        .position(|c| !is_uri_char(*c))
-                        .unwrap_or(self.slice.len() - self.pos);
-                    let end = self.consume_bytes(find + 1 + amount);
-                    (None, start, mid, end)
-                } else {
-                    (Some(ErrorType::UnfinishedTag), 0, 0, 0)
-                }
+                let (_, line_end, _) = self.get_line_offset();
+                let haystack = &self.slice[self.pos..line_end];
+                let find_pos = match memchr(b'!', haystack) {
+                    Some(find) => find + 1,
+                    None => 0,
+                };
+                let mid: usize = self.pos + find_pos;
+                let amount = self.slice[mid..line_end]
+                    .iter()
+                    .position(|c| !is_uri_char(*c))
+                    .unwrap_or(line_end.saturating_sub(mid));
+                let end = self.consume_bytes(amount + find_pos);
+                (None, start, mid, end)
             }
             _ => panic!("Tag must start with `!`"),
         }
@@ -829,4 +830,26 @@ pub fn test_plain_scalar() {
     reader.skip_separation_spaces(false);
     let (start, end, _) = reader.read_plain_one_line(None, &mut had_comment, false);
     assert_eq!("xyz".as_bytes(), &reader.slice[start..end]);
+}
+
+#[test]
+pub fn test_offset() {
+    let mut reader = StrReader::from("\n  rst\n");
+    let (start, end, consume) = reader.get_line_offset();
+    assert_eq!(start, 0);
+    assert_eq!(end, 0);
+    assert_eq!(b"", reader.slice(start, end));
+    assert_eq!(consume, 1);
+    reader.read_line();
+    let (start, end, consume) = reader.get_line_offset();
+    assert_eq!(start, 1);
+    assert_eq!(end, 6);
+    assert_eq!(b"  rst", reader.slice(start, end));
+    assert_eq!(consume, 7);
+    reader.read_line();
+    let (start, end, consume) = reader.get_line_offset();
+    assert_eq!(start, 7);
+    assert_eq!(end, 7);
+    assert_eq!(b"", reader.slice(start, end));
+    assert_eq!(consume, 7);
 }

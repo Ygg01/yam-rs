@@ -1191,3 +1191,24 @@ const SEQ_SAME_LINE_EVENTS: &str = r#"
 fn block_seq_and_map() {
     assert_eq_event(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS);
 }
+
+const TAG_SHORT_INPUT: &str = "
+%TAG !e! tag:example.com,2000:app/
+---
+- !local foo
+- !!str bar
+- !e!tag%21 baz";
+
+const TAG_SHORT_EVENTS: &str = "
+ +DOC ---
+  +SEQ
+   =VAL <!local> :foo
+   =VAL <tag:yaml.org,2002:str> :bar
+   =VAL <tag:example.com,2000:app/tag!> :baz
+  -SEQ
+ -DOC";
+
+#[test]
+fn block_tag_short() {
+    assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
+}
