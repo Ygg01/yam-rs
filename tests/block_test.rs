@@ -154,12 +154,34 @@ const BLOCK_STRINGS_EXPECTED3: &str = r#"
   -MAP
  -DOC"#;
 
+ const BLOCK_STRINGS_INPUT4: &str = r#"
+plain: 
+  spans
+  lines
+
+quoted: 
+  "text"
+"#;
+
+const BLOCK_STRINGS_EXPECTED4: &str = r#"
+ +DOC
+  +MAP
+   =VAL :plain
+   =VAL :spans lines
+   =VAL :quoted
+   =VAL "text
+  -MAP
+ -DOC"#;
+
 #[test]
 pub fn literal_block() {
     assert_eq_event(BLOCK_STRINGS_INPUT, BLOCK_STRINGS_EXPECTED);
     assert_eq_event(BLOCK_STRINGS_INPUT2, BLOCK_STRINGS_EXPECTED2);
     assert_eq_event(BLOCK_STRINGS_INPUT3, BLOCK_STRINGS_EXPECTED3);
+    assert_eq_event(BLOCK_STRINGS_INPUT4, BLOCK_STRINGS_EXPECTED4);
 }
+
+
 
 const BLOCK_PLAIN: &str = r#"
   a
@@ -539,4 +561,17 @@ const MIX_BLOCK_EXPECTED: &str = r##"
 #[test]
 pub fn test_mix_blocks() {
     assert_eq_event(MIX_BLOCK, MIX_BLOCK_EXPECTED);
+}
+
+const TAG1: &str = r#"
+ !!str a"#;
+
+const TAG1_EXPECTED: &str = r#"
+ +DOC
+  =VAL <tag:yaml.org,2002:str> :a
+ -DOC"#;
+
+#[test]
+fn parse_tag() {
+    assert_eq_event(TAG1, TAG1_EXPECTED);
 }

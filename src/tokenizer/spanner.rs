@@ -22,45 +22,17 @@ use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{is_flow_indicator, is_newline};
 
 #[derive(Clone)]
-pub struct Lexer<'a> {
+pub struct Lexer {
     pub stream_end: bool,
     pub(crate) tokens: VecDeque<usize>,
     pub(crate) errors: Vec<ErrorType>,
-    pub(crate) tags: HashMap<Cow<'a, [u8]>, Cow<'a, [u8]>>,
+    pub(crate) tags: HashMap<Vec<u8>, (usize, usize)>,
     stack: Vec<LexerState>,
 }
 
-impl<'a> Default for Lexer<'a> {
+impl Default for Lexer {
     fn default() -> Self {
-        let mut tags = HashMap::with_capacity(10);
-        tags.insert(
-            Cow::Borrowed("!!map".as_bytes()),
-            Cow::Borrowed("tag:yaml.org,2002:map".as_bytes()),
-        );
-        tags.insert(
-            Cow::Borrowed("!!seq".as_bytes()),
-            Cow::Borrowed("tag:yaml.org,2002:seq".as_bytes()),
-        );
-        tags.insert(
-            Cow::Borrowed("!!str".as_bytes()),
-            Cow::Borrowed("tag:yaml.org,2002:str".as_bytes()),
-        );
-        tags.insert(
-            Cow::Borrowed("!!int".as_bytes()),
-            Cow::Borrowed("tag:yaml.org,2002:int".as_bytes()),
-        );
-        tags.insert(
-            Cow::Borrowed("!!null".as_bytes()),
-            Cow::Borrowed("tag:yaml.org,2002:null".as_bytes()),
-        );
-        tags.insert(
-            Cow::Borrowed("!!bool".as_bytes()),
-            Cow::Borrowed("tag:yaml.org,2002:bool".as_bytes()),
-        );
-        tags.insert(
-            Cow::Borrowed("!!float".as_bytes()),
-            Cow::Borrowed("tag:yaml.org,2002:float".as_bytes()),
-        );
+        let tags = HashMap::with_capacity(10);
         Lexer {
             stream_end: false,
             tokens: VecDeque::with_capacity(10),
@@ -158,7 +130,21 @@ impl LexerState {
     }
 }
 
-impl Lexer<'_> {
+impl Lexer {
+    pub const fn get_default_namespace(namespace: &[u8]) -> Option<Cow<'static, [u8]>> {
+        match namespace {
+            b"!!str" => Some(Cow::Borrowed(b"tag:yaml.org,2002:str")),
+            b"!!int" => Some(Cow::Borrowed(b"tag:yaml.org,2002:int")),
+            b"!!null" => Some(Cow::Borrowed(b"tag:yaml.org,2002:null")),
+            b"!!bool" => Some(Cow::Borrowed(b"tag:yaml.org,2002:bool")),
+            b"!!float" => Some(Cow::Borrowed(b"tag:yaml.org,2002:float")),
+            b"!!map" => Some(Cow::Borrowed(b"tag:yaml.org,2002:map")),
+            b"!!seq" => Some(Cow::Borrowed(b"tag:yaml.org,2002:seq")),
+            b"!!set" => Some(Cow::Borrowed(b"tag:yaml.org,2002:set")),
+            _ => None,
+        }
+    }
+
     #[inline(always)]
     pub fn curr_state(&self) -> LexerState {
         *self.stack.last().unwrap_or(&LexerState::default())
@@ -292,8 +278,14 @@ impl Lexer<'_> {
                         );
                         self.set_next_map_state();
                     }
-                    Some(b'\'') => reader.read_single_quote(false, &mut self.tokens),
-                    Some(b'"') => reader.read_double_quote(false, &mut self.tokens),
+                    Some(b'\'') => {
+                        reader.read_single_quote(false, &mut self.tokens);
+                        self.set_next_map_state();
+                    }
+                    Some(b'"') => {
+                        reader.read_double_quote(false, &mut self.tokens);
+                        self.set_next_map_state();
+                    }
                     Some(b'#') => {
                         // comment
                         reader.read_line();
@@ -609,9 +601,9 @@ impl Lexer<'_> {
 
     fn fetch_tag<B, R: Reader<B>>(&mut self, reader: &mut R) {
         pub use LexerToken::*;
-
-        let start = reader.consume_bytes(1);
-        if let Some((mid, end)) = reader.read_tag() {
+        let start = reader.pos();
+        reader.consume_bytes(1);
+        if let Ok((mid, end)) = reader.read_tag() {
             self.tokens.push_back(TAG_START);
             self.tokens.push_back(start);
             self.tokens.push_back(mid);
@@ -619,7 +611,6 @@ impl Lexer<'_> {
             reader.consume_bytes(end - start);
         }
     }
-
     fn fetch_plain_scalar_block<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -1013,6 +1004,7 @@ pub enum LexerToken {
     AliasToken = ALIAS,
     /// Reference to an element with alternative name e.g. `*foo`
     AnchorToken = ANCHOR,
+    /// Tag
     TagStart = TAG_START,
     /// Start of a sequence token, e.g. `[` in
     /// ```yaml
@@ -1025,7 +1017,7 @@ pub enum LexerToken {
     ///  [a, b, c]
     /// #^-- start of sequence
     /// ```
-    SequenceStartImplict = SEQ_START_BLOCK,
+    SequenceStartImplicit = SEQ_START_BLOCK,
     /// End of a sequence token, e.g. `]` in
     /// ```yaml
     ///  [a, b, c]
@@ -1105,7 +1097,7 @@ impl From<usize> for LexerToken {
             MAP_END => MappingEnd,
             MAP_START => MappingStart,
             MAP_START_BLOCK => MappingStartImplict,
-            SEQ_START_BLOCK => SequenceStartImplict,
+            SEQ_START_BLOCK => SequenceStartImplicit,
             SEQ_END => SequenceEnd,
             SEQ_START => SequenceStart,
             SCALAR_PLAIN => ScalarPlain,

@@ -26,9 +26,13 @@ pub struct EventIterator<'a, R, B = (), S = &'a mut [u8]> {
     /// Reader type that usually implements a [Reader] trait which takes a Buffer type [B]
     pub(crate) reader: R,
     /// Lexer which controls current state of parsing
-    pub(crate) state: Lexer<'a>,
+    pub(crate) state: Lexer,
     /// Current event indentation level
     pub indent: usize,
+    /// Tag of current node,
+    pub(crate) tag: Option<Cow<'a, [u8]>>,
+    /// Alias of current node,
+    pub(crate) anchor: Option<Cow<'a, [u8]>>,
     /// Helper to store the unconstrained types
     phantom: PhantomData<(&'a B, S)>,
 }
@@ -40,6 +44,8 @@ impl<'a, R, B, S> EventIterator<'a, R, B, S> {
             reader,
             state: Lexer::default(),
             indent: 1,
+            tag: None,
+            anchor: None,
             phantom: PhantomData::default(),
         }
     }
@@ -108,10 +114,14 @@ pub enum Event<'a> {
         explicit: bool,
     },
     SeqStart {
+        tag: Option<Cow<'a, [u8]>>,
+        anchor: Option<Cow<'a, [u8]>>,
         flow: bool,
     },
     SeqEnd,
     MapStart {
+        tag: Option<Cow<'a, [u8]>>,
+        anchor: Option<Cow<'a, [u8]>>,
         flow: bool,
     },
     MapEnd,
@@ -120,12 +130,12 @@ pub enum Event<'a> {
         value: Cow<'a, [u8]>,
     },
     Scalar {
+        tag: Option<Cow<'a, [u8]>>,
+        anchor: Option<Cow<'a, [u8]>>,
         scalar_type: ScalarType,
         value: Cow<'a, [u8]>,
     },
-    Tag(Cow<'a, [u8]>),
     Alias(Cow<'a, [u8]>),
-    Anchor(Cow<'a, [u8]>),
     ErrorEvent,
 }
 
@@ -140,16 +150,38 @@ impl<'a> Display for Event<'a> {
                 let exp_str = if *explicit { " ---" } else { "" };
                 write!(f, "-DOC{}", exp_str)
             }
-            Event::SeqStart { flow } => {
-                let flow_str = if *flow { " []" } else { "" };
-                write!(f, "+SEQ{}", flow_str)
+            Event::SeqStart { flow, tag, anchor } => {
+                write!(f, "+SEQ",)?;
+                if *flow {
+                    write!(f, " []")?;
+                }
+                if let Some(cow) = anchor {
+                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
+                    write!(f, " &{}", string)?;
+                };
+                if let Some(cow) = tag {
+                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
+                    write!(f, " <{}>", string)?;
+                };
+                Ok(())
             }
             Event::SeqEnd => {
                 write!(f, "-SEQ")
             }
-            Event::MapStart { flow } => {
-                let flow_str = if *flow { " {}" } else { "" };
-                write!(f, "+MAP{}", flow_str)
+            Event::MapStart { flow, tag, anchor } => {
+                write!(f, "+MAP")?;
+                if *flow {
+                    write!(f, " {{}}")?;
+                }
+                if let Some(cow) = anchor {
+                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
+                    write!(f, " &{}", string)?;
+                };
+                if let Some(cow) = tag {
+                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
+                    write!(f, " <{}>", string)?;
+                };
+                Ok(())
             }
             Event::MapEnd => {
                 write!(f, "-MAP")
@@ -164,25 +196,40 @@ impl<'a> Display for Event<'a> {
                     _ => write!(f, "{}", val_str),
                 }
             }
-            Event::Scalar { scalar_type, value } => {
+            Event::Scalar {
+                scalar_type,
+                value,
+                tag,
+                anchor,
+            } => {
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                write!(f, "=VAL ")?;
+                write!(f, "=VAL")?;
+
+                if let Some(cow) = anchor {
+                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
+                    write!(f, " &{}", string)?;
+                };
+                if let Some(cow) = tag {
+                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
+                    write!(f, " <{}>", string)?;
+                };
                 match *scalar_type {
-                    ScalarType::Plain => write!(f, ":"),
-                    ScalarType::Folded => write!(f, ">"),
-                    ScalarType::Literal => write!(f, "|"),
-                    ScalarType::SingleQuote => write!(f, "\'"),
-                    ScalarType::DoubleQuote => write!(f, "\""),
+                    ScalarType::Plain => write!(f, " :"),
+                    ScalarType::Folded => write!(f, " >"),
+                    ScalarType::Literal => write!(f, " |"),
+                    ScalarType::SingleQuote => write!(f, " \'"),
+                    ScalarType::DoubleQuote => write!(f, " \""),
                 }?;
-                write!(f, "{}", val_str)
+                write!(f, "{}", val_str)?;
+
+                Ok(())
             }
             ErrorEvent => {
                 write!(f, "ERR")
             }
-            _ => Ok(()),
-            // Event::Tag(_) => todo!(),
             // Event::Alias(_) => todo!(),
             // Event::Anchor(_) => todo!(),
+            _ => Ok(()),
         }
     }
 }
@@ -205,22 +252,52 @@ where
             let curr_indent = self.indent;
             if let Some(x) = self.state.pop_token() {
                 let token = x.into();
+                let tag = self.tag.take();
+                let anchor = self.anchor.take();
                 match token {
                     SequenceStart => {
                         self.indent += 1;
-                        return Some((SeqStart { flow: true }, curr_indent));
+                        return Some((
+                            SeqStart {
+                                flow: true,
+                                tag,
+                                anchor,
+                            },
+                            curr_indent,
+                        ));
                     }
-                    SequenceStartImplict => {
+                    SequenceStartImplicit => {
                         self.indent += 1;
-                        return Some((SeqStart { flow: false }, curr_indent));
+                        return Some((
+                            SeqStart {
+                                flow: false,
+                                tag,
+                                anchor,
+                            },
+                            curr_indent,
+                        ));
                     }
                     MappingStart => {
                         self.indent += 1;
-                        return Some((MapStart { flow: true }, curr_indent));
+                        return Some((
+                            MapStart {
+                                flow: true,
+                                tag,
+                                anchor,
+                            },
+                            curr_indent,
+                        ));
                     }
                     MappingStartImplict => {
                         self.indent += 1;
-                        return Some((MapStart { flow: false }, curr_indent));
+                        return Some((
+                            MapStart {
+                                flow: false,
+                                tag,
+                                anchor,
+                            },
+                            curr_indent,
+                        ));
                     }
                     DocumentStart => {
                         self.indent += 1;
@@ -306,13 +383,33 @@ where
                             Scalar {
                                 scalar_type,
                                 value: cow,
+                                tag,
+                                anchor,
                             },
                             curr_indent,
                         ));
                     }
                     AliasToken => todo!(),
                     AnchorToken => todo!(),
-                    TagStart => todo!(),
+                    TagStart => {
+                        if let (Some(start), Some(mid), Some(end)) = (
+                            self.state.pop_token(),
+                            self.state.pop_token(),
+                            self.state.pop_token(),
+                        ) {
+                            let namespace = self.reader.slice(start, mid);
+                            self.tag =
+                                if namespace == b"!!" && !self.state.tags.contains_key(namespace) {
+                                    Lexer::get_default_namespace(self.reader.slice(start, end))
+                                } else if let Some(&(e1, e2)) = self.state.tags.get(namespace) {
+                                    let mut cow = Cow::Borrowed(self.reader.slice(e1, e2));
+                                    cow.to_mut().extend(self.reader.slice(mid, end));
+                                    Some(cow)
+                                } else {
+                                    None
+                                }
+                        }
+                    }
                     NewLine | ScalarEnd => {}
                 }
             }
