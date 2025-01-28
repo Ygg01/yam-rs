@@ -342,9 +342,9 @@ fn get_stage1_next<B: Buffer>() -> NextFn<B> {
 
 #[test]
 fn test_parsing_basic_processing1() {
-    let input = r#"""
+    let input = r#"
         test
-    """#;
+    "#;
     let mut buffer = BorrowBuffer::new(input);
     let mut state = YamlParserState::default();
     let mut validator = get_validator(false);

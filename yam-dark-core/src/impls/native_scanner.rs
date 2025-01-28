@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use core::ptr::write;
 use util::u8x16_swizzle;
 
+use crate::tokenizer::chunk;
 use crate::tokenizer::stage1::Stage1Scanner;
 use crate::tokenizer::stage2::YamlIndentInfo;
 use crate::util::NoopValidator;
@@ -131,6 +132,8 @@ unsafe impl Stage1Scanner for NativeScanner {
             | (flow_structural_res_1 << 16)
             | (flow_structural_res_2 << 32)
             | (flow_structural_res_3 << 48));
+
+        block_state.characters.line_feeds = self.cmp_ascii_to_input(b'\n');
     }
 
     fn flatten_bits_yaml(

@@ -159,7 +159,7 @@ pub unsafe trait Stage1Scanner {
 
     fn flatten_bits_yaml(
         base: &mut YamlParserState,
-        yaml_chunk_state: &YamlChunkState,
+        chunk_state: &YamlChunkState,
         indent_info: &mut YamlIndentInfo,
     );
 
