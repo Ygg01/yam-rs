@@ -178,7 +178,7 @@ pub unsafe trait Stage1Scanner {
                 };
             };
         }
-        info.last_row_mask = state.last_row | !63;
+        info.row_indent_mask = state.last_row | !63;
 
         add_cols_rows_unchecked!(0);
         add_cols_rows_unchecked!(8);
@@ -251,7 +251,7 @@ pub unsafe trait Stage1Scanner {
             // Unchecked access will be safe as long as info.indents, info.rows size is below 64
             // Row Pos is less then 63 (which should be fixed with `info.last_row_mask`)
             unsafe {
-                let row_pos = *info.rows.get_unchecked(index) & info.last_row_mask;
+                let row_pos = *info.rows.get_unchecked(index) & info.row_indent_mask;
                 *info.indents.get_unchecked_mut(index) = *compressed_indents.get_unchecked(row_pos as usize); 
             }
         }

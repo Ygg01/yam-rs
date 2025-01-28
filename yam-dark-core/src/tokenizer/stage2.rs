@@ -260,9 +260,8 @@ pub struct YamlIndentInfo {
     pub(crate) rows: [u32; 64],
     /// Indents of the chunk
     pub(crate) indents: [u32; 64],
-
-    /// Last row since then
-    pub(crate) last_row_mask: u32,
+    /// Mask for last row since then
+    pub(crate) row_indent_mask: u32,
 }
 
 impl Default for YamlIndentInfo {
@@ -271,7 +270,7 @@ impl Default for YamlIndentInfo {
             cols: [0; 64],
             rows: [0; 64],
             indents: [0; 64],
-            last_row_mask: 0,
+            row_indent_mask: 0,
         }
     }
 }
