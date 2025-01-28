@@ -216,17 +216,16 @@ pub unsafe trait Stage1Scanner {
 
         while neg_indents_mask != 0 {
             let part0 = neg_indents_mask.trailing_zeros();
-            neg_indents_mask &= neg_indents_mask - 1;
-
+            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
 
             let part1 = neg_indents_mask.trailing_zeros();
-            neg_indents_mask &= neg_indents_mask - 1;
+            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
 
             let part2 = neg_indents_mask.trailing_zeros();
-            neg_indents_mask &= neg_indents_mask - 1;
+            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
 
             let part3 = neg_indents_mask.trailing_zeros();
-            neg_indents_mask &= neg_indents_mask - 1;
+            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
 
             let v = [part0, part1, part2,  part3];
             unsafe {
