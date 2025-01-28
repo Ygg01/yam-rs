@@ -173,8 +173,8 @@ pub unsafe trait Stage1Scanner {
             ($e:expr) => {
                 let nl_ind = ((chunk_state.characters.line_feeds >> $e) & 0xFF) as usize;
                 unsafe {
-                    add_rows_unchecked(&mut state.byte_rows, nl_ind, &mut state.last_row, state.pos + $e);
-                    add_cols_unchecked(&mut state.byte_cols, nl_ind, &mut state.last_col, state.pos + $e);
+                    add_rows_unchecked(&mut info.rows, nl_ind, &mut state.last_row, state.pos + $e);
+                    add_cols_unchecked(&mut info.cols, nl_ind, &mut state.last_col, state.pos + $e);
                 };
             };
         }
@@ -205,9 +205,15 @@ pub unsafe trait Stage1Scanner {
         let count = neg_indents_mask.count_ones();
         let last_bit = (neg_indents_mask | chunk_state.characters.line_feeds) & (1 << 63) != 0;
 
-        let  mut compressed_info : Vec<u32> = Vec::with_capacity(64);
-
+        let  mut compressed_indents : Vec<u32> = Vec::with_capacity(64);
         let mut i = 0;
+
+        state.is_indent_running = last_bit;
+
+        if neg_indents_mask == 0 {
+            return;
+        }
+
         while neg_indents_mask != 0 {
             let part0 = neg_indents_mask.trailing_zeros();
             neg_indents_mask &= neg_indents_mask - 1;
@@ -224,14 +230,19 @@ pub unsafe trait Stage1Scanner {
 
             let v = [part0, part1, part2,  part3];
             unsafe {
-                core::ptr::write(compressed_info.as_mut_ptr().add(i).cast::<[u32;4]>(), v);
+                core::ptr::write(compressed_indents.as_mut_ptr().add(i).cast::<[u32;4]>(), v);
             };
             i += 4;
         }
 
+        // SAFETY:
+        // `set_len` is safe iff `count` < `compressed_indents.capacity` and `count` doesn't see uninitialized.
+        // `get_unchecked_mut` is safe iff `index` is a valid value. There is a presumption there will be a count
         unsafe {
-            compressed_info.set_len(count as usize);
-            *compressed_info.get_unchecked_mut(0) += state.last_indent;
+            // Snip the size of compressed only interesting ones
+            compressed_indents.set_len(count as usize);
+            // First indent of compressed will always take previous chunk into account
+            *compressed_indents.get_unchecked_mut(0) += state.last_indent;
         }
 
 
@@ -241,13 +252,13 @@ pub unsafe trait Stage1Scanner {
             // Row Pos is less then 63 (which should be fixed with `info.last_row_mask`)
             unsafe {
                 let row_pos = *info.rows.get_unchecked(index) & info.last_row_mask;
-                *info.indents.get_unchecked_mut(index) = *compressed_info.get_unchecked(row_pos as usize); 
+                *info.indents.get_unchecked_mut(index) = *compressed_indents.get_unchecked(row_pos as usize); 
             }
         }
 
-        state.is_indent_running = last_bit;
+        
         unsafe {
-            state.last_indent = compressed_info.get_unchecked(count as usize - 1) * u32::from(last_bit);
+            state.last_indent = compressed_indents.get_unchecked(count as usize - 1) * u32::from(last_bit);
         }
     }
 
