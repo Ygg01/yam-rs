@@ -16,9 +16,9 @@ use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 /// * `double_quote` - [`YamlDoubleQuoteChunk`] struct containing double-quoted YAML strings information.
 /// * `single_quote` - [`YamlSingleQuoteChunk`] struct containing single-quoted YAML strings information.
 /// * `characters` - [`YamlCharacterChunk`] struct containing info for characters (e.g., whitespace, operators).
-/// * `rows` - [`Vec`] maintaining the row positions in the chunk.
-/// * `cols` - [`Vec`] maintaining the column positions in the chunk.
-/// * `indents` - [`Vec`] maintaining the indent levels in the chunk.
+/// * `rows` - [`alloc::vec::Vec`] maintaining the row positions in the chunk.
+/// * `cols` - [`alloc::vec::Vec`] maintaining the column positions in the chunk.
+/// * `indents` - [`alloc::vec::Vec`] maintaining the indent levels in the chunk.
 /// * `follows_non_quote_scalar` - Bitmask indicating positions following non-quote scalar values.
 /// * `error_mask` - Bitmask indicating positions with errors.
 ///

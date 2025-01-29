@@ -42,7 +42,7 @@ pub struct Deserializer<'de> {
     _data: &'de PhantomData<()>,
 }
 
-pub trait Buffer {
+pub trait YamlBuffer {
     fn get_buffer(&self) -> &[u8];
     unsafe fn get_byte_unsafely(&self, pos: usize) -> u8 {
         *self.get_buffer().get_unchecked(pos)
@@ -59,12 +59,12 @@ pub struct BorrowBuffer<'buff> {
     string_buffer: &'buff [u8],
 }
 
-impl Buffer for OwnedBuffer {
+impl YamlBuffer for OwnedBuffer {
     fn get_buffer(&self) -> &[u8] {
         self.string_buffer.as_slice()
     }
 }
-impl<'b> Buffer for BorrowBuffer<'b> {
+impl<'b> YamlBuffer for BorrowBuffer<'b> {
     fn get_buffer(&self) -> &[u8] {
         self.string_buffer
     }
@@ -78,7 +78,7 @@ impl<'a> BorrowBuffer<'a> {
     }
 }
 
-fn fill_tape<'de, B: Buffer>(
+fn fill_tape<'de, B: YamlBuffer>(
     input: &'de [u8],
     buffer: &mut B,
     tape: &mut [Node<'de>],
@@ -100,7 +100,7 @@ pub(crate) enum State {
 }
 
 impl<'de> Deserializer<'de> {
-    fn fill_tape<B: Buffer, S: Stage1Scanner>(
+    fn fill_tape<B: YamlBuffer, S: Stage1Scanner>(
         input: &'de [u8],
         buffer: &mut B,
         tape: &mut [Node<'de>],
@@ -128,7 +128,7 @@ impl<'de> Deserializer<'de> {
         Self::build_tape(&mut state, buffer, tape)
     }
 
-    fn build_tape<B: Buffer>(
+    fn build_tape<B: YamlBuffer>(
         parser_state: &mut YamlParserState,
         buffer: &mut B,
         _tape: &mut [Node],
@@ -216,7 +216,7 @@ impl<'de> Deserializer<'de> {
 /// - `is_in_comment`: A flag that tracks if the parser is currently inside a comment segment.
 ///
 /// This struct is part of the internal workings of a YAML parsing library, often
-/// utilized by the parsing modules such as `stage1` and `stage2` for processing
+/// used by the parsing modules such as `stage1` and `stage2` for processing
 /// various stages of parsing a YAML document.
 
 #[derive(Default)]
@@ -249,19 +249,18 @@ pub struct YamlParserState {
     pub(crate) is_in_comment: bool,
 }
 
-/// Transient data about cols, rows and indents
-/// 
-/// Each u32 corresponds to cols/row/indent triplet for 64 bits of the chunk.
-/// On initialization it will be set to 0.
+/// Transient data about cols, rows and indents that is valid per chunk
+///
+/// It will default, [`cols`](field@YamlIndentInfo#cols)/`rows`/`indent` to `[0; 64]` and set [`row_indents_mask`] to zero.
 pub struct YamlIndentInfo {
-    /// Cols of the chunk
-    pub(crate) cols: [u32; 64],
-    /// Rows of the chunk
-    pub(crate) rows: [u32; 64],
-    /// Indents of the chunk
-    pub(crate) indents: [u32; 64],
-    /// Mask for last row since then
-    pub(crate) row_indent_mask: u32,
+    /// Cols of the chunk, used by structurals to find only used ones
+    pub cols: [u32; 64],
+    /// Rows of the chunk, used by structurals to find only used ones
+    pub rows: [u32; 64],
+    /// Indents of each row in chunk they are guaranteed to be less than
+    pub indents: [u32; 64],
+    /// Mask for extracting indents based on [YamlIndentInfo::rows]
+    pub row_indent_mask: u32,
 }
 
 impl Default for YamlIndentInfo {
@@ -276,7 +275,7 @@ impl Default for YamlIndentInfo {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<B: Buffer, S: Stage1Scanner>(
+    pub(crate) fn process_chunk<B: YamlBuffer, S: Stage1Scanner>(
         &mut self,
         buffer: &mut B,
         chunk_state: &YamlChunkState,
@@ -336,14 +335,14 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn get_stage1_next<B: Buffer>() -> NextFn<B> {
+fn get_stage1_next<B: YamlBuffer>() -> NextFn<B> {
     NativeScanner::next::<B>
 }
 
 #[test]
 fn test_parsing_basic_processing1() {
     let input = r#"
-        test
+        "test"
     "#;
     let mut buffer = BorrowBuffer::new(input);
     let mut state = YamlParserState::default();

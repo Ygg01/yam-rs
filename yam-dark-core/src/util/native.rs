@@ -275,14 +275,14 @@ impl U8X16 {
         ])
     }
 
-    /// Converts [U8x16] into a 16-bit unsigned integer bitmask.
+    /// Converts [`self::U8X16`] into a 16-bit unsigned integer bitmask.
     /// The most significant bit of each byte is used to form the 16-bit bitmask.
     /// The resulting bitmask will have its bits set according to the most significant bit
     /// of each byte in the byte array, starting from the least significant bit.
     ///
     /// # Arguments
     ///
-    /// * `self` - The [U8x16] structure to convert to bitmask.
+    /// * `self` - The [`self::U8X16`] structure to convert to bitmask.
     ///
     /// # Returns
     ///

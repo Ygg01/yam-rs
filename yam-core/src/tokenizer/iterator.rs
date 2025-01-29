@@ -15,20 +15,16 @@ use crate::Lexer;
 
 use super::StrReader;
 
-///
 /// Iterator over events
 ///
-/// It returns borrowed events that correspond to the
-/// It's generic over:
-/// `'a` - lifetime
-/// [R] - Reader
-/// [RB] - Reader Buffer
-/// [I] - Input Buffer (optional)
+/// It returns borrowed events that correspond to the YAML parsing events.
 pub struct EventIterator<'a, R, RB = &'a [u8], I = ()> {
     /// Reader type that usually implements a [Reader] trait which takes a Buffer type [B]
     pub(crate) reader: R,
+    /// Reader buffer, which is the internal buffer of the reader
+    /// used to store data from intermittent sources like buffered readers.
     pub(crate) buffer: RB,
-    /// Lexer which controls current state of parsing
+    /// Lexer, which controls the current state of parsing
     pub(crate) state: Lexer,
     /// Tag of current node,
     pub(crate) tag: Option<Cow<'a, [u8]>>,

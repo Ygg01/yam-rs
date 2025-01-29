@@ -25,9 +25,9 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::tokenizer::chunk::YamlChunkState;
-use crate::tokenizer::stage2::{Buffer, YamlIndentInfo, YamlParserState};
+use crate::tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
 use crate::util::{add_cols_unchecked, add_rows_unchecked, select_right_bits_branch_less};
-use crate::{util, EvenOrOddBits};
+use crate::{util, EvenOrOddBits, YamlCharacterChunk, YamlSingleQuoteChunk};
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
@@ -54,12 +54,12 @@ pub unsafe trait Stage1Scanner {
     /// [`ChunkedUtf8Validator`] that matches the [`Stage1Scanner`] architecture.
     type Validator: ChunkedUtf8Validator;
 
-    /// Returns the  [`Self::Validator`] for the given trait implementor.
+    /// Returns the [`Self::Validator`] for the given trait implementor.
     ///
     /// The `validator` function is a generic method that returns the validator for the type it is called on.
     ///
     /// # Safety
-    /// Method implementers need to make sure they are calling the right implementation for correct architecture.
+    /// Method implementers need to make sure they are calling the right implementation for the correct architecture.
     unsafe fn validator() -> Self::Validator;
 
     /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
@@ -131,14 +131,15 @@ pub unsafe trait Stage1Scanner {
     /// Scans the whitespace and structurals in the given YAML chunk state.
     /// This method sets [`YamlCharacterChunk`] part of [`YamlChunkState`].
     ///
-    /// # Arguments
+    /// # Arguments:
     ///
     /// - `block_state` - A mutable reference to the [`YamlChunkState`] for scanning.
     ///
     /// # Nibble mask
     ///
-    /// Based on structure in structure.md, we compute low and high nibble mask and use them to swizzle
-    /// higher and lower component of a byte. E.g. if a byte is `0x23`, we use the `low_nibble[2]` and
+    /// Based on structure in structure.md, we compute low and high nibble masks and use them to swizzle
+    /// higher and lower component of a byte.
+    /// E.g., if a byte is `0x23`, we use the `low_nibble[2]` and
     /// `high_nibble[3]` for swizzling.
     ///
     /// # Example
@@ -205,7 +206,7 @@ pub unsafe trait Stage1Scanner {
         let count = neg_indents_mask.count_ones();
         let last_bit = (neg_indents_mask | chunk_state.characters.line_feeds) & (1 << 63) != 0;
 
-        let  mut compressed_indents : Vec<u32> = Vec::with_capacity(64);
+        let mut compressed_indents: Vec<u32> = Vec::with_capacity(64);
         let mut i = 0;
 
         state.is_indent_running = last_bit;
@@ -227,9 +228,9 @@ pub unsafe trait Stage1Scanner {
             let part3 = neg_indents_mask.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
 
-            let v = [part0, part1, part2,  part3];
+            let v = [part0, part1, part2, part3];
             unsafe {
-                core::ptr::write(compressed_indents.as_mut_ptr().add(i).cast::<[u32;4]>(), v);
+                core::ptr::write(compressed_indents.as_mut_ptr().add(i).cast::<[u32; 4]>(), v);
             };
             i += 4;
         }
@@ -240,24 +241,24 @@ pub unsafe trait Stage1Scanner {
         unsafe {
             // Snip the size of compressed only interesting ones
             compressed_indents.set_len(count as usize);
-            // First indent of compressed will always take previous chunk into account
+            // First indent of compressed will always take the previous chunk into account
             *compressed_indents.get_unchecked_mut(0) += state.last_indent;
         }
-
 
         for index in 0..63 {
             // SAFETY:
             // Unchecked access will be safe as long as info.indents, info.rows size is below 64
-            // Row Pos is less then 63 (which should be fixed with `info.last_row_mask`)
+            // Row Pos is less than 63 (which should be fixed with `info.last_row_mask`)
             unsafe {
                 let row_pos = *info.rows.get_unchecked(index) & info.row_indent_mask;
-                *info.indents.get_unchecked_mut(index) = *compressed_indents.get_unchecked(row_pos as usize); 
+                *info.indents.get_unchecked_mut(index) =
+                    *compressed_indents.get_unchecked(row_pos as usize);
             }
         }
 
-        
         unsafe {
-            state.last_indent = compressed_indents.get_unchecked(count as usize - 1) * u32::from(last_bit);
+            state.last_indent =
+                compressed_indents.get_unchecked(count as usize - 1) * u32::from(last_bit);
         }
     }
 
@@ -270,7 +271,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `quote_bits` - The quote bits of type `u64` that specify the positions to be masked.
+    /// * `quote_bits` - The quote bits of a type `u64` that specify the positions to be masked.
     ///
     /// # Returns
     ///
@@ -306,15 +307,17 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments
     ///
     /// * `chunk` - A reference to a byte slice `chunk` containing the next 64 bytes of input data.
-    /// * `buffers` - A mutable reference to a `buffers` object implementing the [`Buffer`] trait.
-    /// * `prev_state` - A mutable reference to a [`YamlParserState`] object that stores previous iteration state information.
+    /// * `buffers` - A mutable reference to a `buffers`
+    /// object implementing the [`YamlBuffer`] trait.
+    /// * `prev_state` -
+    /// A mutable reference to a [`YamlParserState`] object that stores previous iteration state information.
     ///
     /// # Returns
     ///
     /// Returns the Result that returns an error if it encounters a parse error or [`YamlChunkState`].
     /// [`YamlChunkState`] stores current iteration information and is merged on each [`Stage1Scanner::next`]
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next<T: Buffer>(
+    fn next<T: YamlBuffer>(
         chunk: &[u8; 64],
         buffers: &mut T,
         prev_iter_state: &mut YamlParserState,
@@ -338,10 +341,10 @@ pub unsafe trait Stage1Scanner {
         chunk_state
     }
 
-    /// This function processes the comments for current chunk of characters.
+    /// This function processes the comments for the current chunk of characters.
     ///
     /// It takes a mutable reference to current [`chunk_state`](YamlChunkState) containing the current chunk data (like spaces and line feeds, etc.)
-    /// and a  mutable reference to a [`parser_state`](YamlParserState) which tracks parser state.
+    /// and a mutable reference to a [`parser_state`](YamlParserState) which tracks parser state.
     ///
     /// # Arguments
     ///
@@ -364,7 +367,7 @@ pub unsafe trait Stage1Scanner {
         chunk_state.characters.in_comment =
             select_right_bits_branch_less(not_whitespace, comment_start);
 
-        // Update values for next iteration.
+        // Update values for the next iteration.
         parser_state.is_in_comment = chunk_state.characters.in_comment >> 63 == 1;
         parser_state.is_previous_white_space = (chunk_state.characters.spaces >> 63) == 1;
     }
@@ -373,12 +376,13 @@ pub unsafe trait Stage1Scanner {
     /// of ones.
     ///
     /// The `prev_iteration_result` reference parameter is also updated to indicate whether the iteration
-    /// needs to be taken into account by subsequent search.
+    /// needs to be taken into account by a later search.
     ///
     /// # Arguments
     ///
-    /// * `prev_iteration_result` - A mutable reference to a `u64` representing the previous iteration's
-    ///                          result of backslashes. It will be updated with post result info.
+    /// * `prev_iteration_result` - A mutable reference to a `u64`
+    /// representing the previous iteration's result of backslashes.
+    /// It will be updated with post-result info.
     /// * `mask` - A bitmask determining ODD or Even Mask to be used.
     ///
     /// # Returns
@@ -417,7 +421,7 @@ pub unsafe trait Stage1Scanner {
         let (mut odd_carries, iter_ends_odd_backslash) = bits.overflowing_add(odd_starts);
 
         odd_carries |= prev_iter_odd;
-        // push in a bit zero as a potential end
+        // push a zero bit as a potential end
         // if we had an odd-numbered run at the
         // end of the previous iteration
         *prev_iteration_result = iter_ends_odd_backslash;
@@ -432,9 +436,10 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// - `block_state`: A mutable reference to a current [`YamlChunkState`]. It will  update the
+    /// * `block_state`: A mutable reference to a current [`YamlChunkState`].
+    /// It will update the
     ///   [`YamlSingleQuoteChunk`] with data for scanned single quotes.
-    /// - `prev_iter_state`: A mutable reference to previous iteration [`YamlParserState`].
+    /// * `prev_iter_state`: A mutable reference to previous iteration [`YamlParserState`].
     ///
     /// # Example
     ///
