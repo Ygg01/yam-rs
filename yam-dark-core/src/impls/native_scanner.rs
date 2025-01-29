@@ -5,7 +5,6 @@ use alloc::vec::Vec;
 use core::ptr::write;
 use util::u8x16_swizzle;
 
-use crate::tokenizer::chunk;
 use crate::tokenizer::stage1::Stage1Scanner;
 use crate::tokenizer::stage2::YamlIndentInfo;
 use crate::util::NoopValidator;

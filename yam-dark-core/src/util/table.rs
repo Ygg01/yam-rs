@@ -1,3 +1,4 @@
+#[doc(hidden)]
 pub const U8_BYTE_COL_TABLE: [[u8; 8]; 256] = [
     [0, 1, 2, 3, 4, 5, 6, 7],
     [0, 0, 1, 2, 3, 4, 5, 6],
@@ -257,6 +258,7 @@ pub const U8_BYTE_COL_TABLE: [[u8; 8]; 256] = [
     [0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
+#[doc(hidden)]
 pub const U8_ROW_TABLE: [[u8; 8]; 256] = [
     [0, 0, 0, 0, 0, 0, 0, 0],
     [1, 1, 1, 1, 1, 1, 1, 1],

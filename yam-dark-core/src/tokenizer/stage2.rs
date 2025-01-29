@@ -42,8 +42,16 @@ pub struct Deserializer<'de> {
     _data: &'de PhantomData<()>,
 }
 
+/// Trait for buffers used in yam.rs
+///
+/// It allows abstracting over owned or borrowed buffers, and operations like moving stuff into it.
 pub trait YamlBuffer {
+    /// Get the underlying buffer.
     fn get_buffer(&self) -> &[u8];
+    /// Access position in a buffer without overhead of access
+    ///
+    /// # Safety
+    /// The `pos` argument must be within bound, or this is Undefined Behavior.
     unsafe fn get_byte_unsafely(&self, pos: usize) -> u8 {
         *self.get_buffer().get_unchecked(pos)
     }
@@ -225,8 +233,8 @@ pub struct YamlParserState {
     // State field
     pub(crate) state: State,
 
-    // Structural fields
-    pub(crate) structurals: Vec<usize>,
+    /// Structural fields
+    pub structurals: Vec<usize>,
     pub(crate) byte_cols: Vec<u32>,
     pub(crate) byte_rows: Vec<u32>,
     pub(crate) indents: Vec<u32>,
@@ -249,6 +257,7 @@ pub struct YamlParserState {
     pub(crate) is_in_comment: bool,
 }
 
+#[doc(hidden)]
 /// Transient data about cols, rows and indents that is valid per chunk
 ///
 /// It will default, [`cols`](field@YamlIndentInfo#cols)/`rows`/`indent` to `[0; 64]` and set [`row_indents_mask`] to zero.
@@ -282,7 +291,7 @@ impl YamlParserState {
         indent_info: &mut YamlIndentInfo,
     ) -> YamlResult<()> {
         // Then we calculate rows, cols for structurals
-        S::calculate_indent_info(self, chunk_state, indent_info);
+        S::calculate_row_col_info(self, chunk_state, indent_info);
 
         // And based on rows/cols for structurals, we calculate indents
         S::calculate_relative_indents(self, chunk_state, indent_info);

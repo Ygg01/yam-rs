@@ -1,8 +1,9 @@
+//! Various utility methods that are straightforward to auto vectorize.
+
 use core::ptr;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
-pub use native::U8X8;
 pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
 pub use table::{U8_BYTE_COL_TABLE, U8_ROW_TABLE};
 
@@ -40,8 +41,8 @@ impl ChunkedUtf8Validator for NoopValidator {
 ///
 /// # Parameters
 ///
-/// - `input`: The input `u64` value from which bits will be selected.
-/// - `mask`:  The mask `u64` value that determines which bits in the `input` will be selected.
+/// * `input`: The input `u64` value from which bits will be selected.
+/// * `mask`: The mask `u64` value that determines which bits in the `input` will be selected.
 ///
 /// # Returns
 ///

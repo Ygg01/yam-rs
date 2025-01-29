@@ -153,18 +153,24 @@ pub unsafe trait Stage1Scanner {
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     ///  assert_eq!(
     ///     block_state.characters.block_structurals,
-    ///     expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.odd_quotes
+    ///     expected,
+    ///     "Expected:    {:#066b} \nGot instead: {:#066b} ",
+    ///     expected, block_state.single_quote.odd_quotes
     ///  );
     /// ```
     fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
 
+    /// Combines all structurals and pseudo structurals into a single flat structure and stores it
+    /// in [`YamlParserState::structurals`]. For every entry in `structurals` there will be
+    /// corresponding fields in called `cols`, `rows` and `indents`.
     fn flatten_bits_yaml(
         base: &mut YamlParserState,
         chunk_state: &YamlChunkState,
         indent_info: &mut YamlIndentInfo,
     );
 
-    fn calculate_indent_info(
+    /// Calculates rows and cols part of the [`YamlIndentInfo`]
+    fn calculate_row_col_info(
         state: &mut YamlParserState,
         chunk_state: &YamlChunkState,
         info: &mut YamlIndentInfo,
@@ -193,6 +199,7 @@ pub unsafe trait Stage1Scanner {
         state.pos += 64;
     }
 
+    /// Calculates [`indents`](YamlIndentInfo::indents) part of [`YamlIndentInfo`] based on previous newlines and spaces position
     fn calculate_relative_indents(
         state: &mut YamlParserState,
         chunk_state: &YamlChunkState,
@@ -380,9 +387,8 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `prev_iteration_result` - A mutable reference to a `u64`
-    /// representing the previous iteration's result of backslashes.
-    /// It will be updated with post-result info.
+    /// * `prev_iteration_result` - A mutable reference to a `u64` representing the previous
+    /// iteration's result of backslashes. It will be updated with post-result info.
     /// * `mask` - A bitmask determining ODD or Even Mask to be used.
     ///
     /// # Returns

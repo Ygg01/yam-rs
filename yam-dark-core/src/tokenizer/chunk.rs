@@ -11,16 +11,6 @@ use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 /// This struct also maintains vectors for row and column positions and
 /// indent levels, which are updated as the YAML content is processed.
 ///
-/// # Fields
-///
-/// * `double_quote` - [`YamlDoubleQuoteChunk`] struct containing double-quoted YAML strings information.
-/// * `single_quote` - [`YamlSingleQuoteChunk`] struct containing single-quoted YAML strings information.
-/// * `characters` - [`YamlCharacterChunk`] struct containing info for characters (e.g., whitespace, operators).
-/// * `rows` - [`alloc::vec::Vec`] maintaining the row positions in the chunk.
-/// * `cols` - [`alloc::vec::Vec`] maintaining the column positions in the chunk.
-/// * `indents` - [`alloc::vec::Vec`] maintaining the indent levels in the chunk.
-/// * `follows_non_quote_scalar` - Bitmask indicating positions following non-quote scalar values.
-/// * `error_mask` - Bitmask indicating positions with errors.
 ///
 /// # Default Implementation
 ///
@@ -33,9 +23,13 @@ use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 /// let x = YamlChunkState::default();
 /// ```
 pub struct YamlChunkState {
+    /// [`YamlDoubleQuoteChunk`] struct containing double-quoted YAML strings information.
     pub double_quote: YamlDoubleQuoteChunk,
+    /// [`YamlSingleQuoteChunk`] struct containing single-quoted YAML strings information.
     pub single_quote: YamlSingleQuoteChunk,
+    /// [`YamlCharacterChunk`] struct containing info for characters (e.g., whitespace, operators).
     pub characters: YamlCharacterChunk,
+    /// Bitmask indicating positions with errors
     pub(crate) error_mask: u64,
 }
 
@@ -45,12 +39,6 @@ pub struct YamlChunkState {
 /// `YamlDoubleQuoteChunk` is used to track the state of double-quoted YAML strings,
 /// maintaining information about escaped characters, real double quotes, and whether
 /// characters are within the string context.
-///
-/// # Fields
-///
-/// * `escaped` - A bitmask indicating the positions of escaped characters.
-/// * `quote_bits` - A bitmask indicating the positions of real double quotes.
-/// * `in_string` - A bitmask showing which characters are currently within a double-quoted string.
 ///
 /// # Default Implementation
 ///
@@ -65,11 +53,11 @@ pub struct YamlChunkState {
 /// assert_eq!(y.in_string, 0);
 /// ```
 pub struct YamlDoubleQuoteChunk {
-    /// Escaped characters
+    /// Bitmask indicating the positions of escaped characters.
     pub escaped: u64,
-    /// Real double quotes
+    /// Bitmask indicating the positions of real double quotes.
     pub quote_bits: u64,
-    /// Bitmask showing which characters are in string
+    /// Bitmask showing which characters are currently within a double-quoted string.
     pub in_string: u64,
 }
 
@@ -152,6 +140,8 @@ pub struct YamlCharacterChunk {
 }
 
 impl YamlCharacterChunk {
+    /// Returns a [`u64`] where 1-bit, at given position, represents either flow or block
+    /// structurals in the `[u8; 64]` chunk at corresponding position.
     #[must_use]
     pub const fn all_structurals(&self) -> u64 {
         self.flow_structurals | self.block_structurals
