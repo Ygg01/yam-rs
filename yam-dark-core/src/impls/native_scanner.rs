@@ -140,7 +140,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         yaml_chunk_state: &YamlChunkState,
         indent_info: &mut YamlIndentInfo,
     ) {
-        let mut bits = yaml_chunk_state.characters.all_structurals();
+        let mut bits = yaml_chunk_state.all_structurals();
         let count_ones: usize = bits.count_ones() as usize;
         let mut base_len = base.structurals.len();
 

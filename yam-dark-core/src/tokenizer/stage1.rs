@@ -135,13 +135,6 @@ pub unsafe trait Stage1Scanner {
     ///
     /// - `block_state` - A mutable reference to the [`YamlChunkState`] for scanning.
     ///
-    /// # Nibble mask
-    ///
-    /// Based on structure in structure.md, we compute low and high nibble masks and use them to swizzle
-    /// higher and lower component of a byte.
-    /// E.g., if a byte is `0x23`, we use the `low_nibble[2]` and
-    /// `high_nibble[3]` for swizzling.
-    ///
     /// # Example
     /// ```rust
     ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
@@ -195,8 +188,6 @@ pub unsafe trait Stage1Scanner {
         add_cols_rows_unchecked!(40);
         add_cols_rows_unchecked!(48);
         add_cols_rows_unchecked!(56);
-
-        state.pos += 64;
     }
 
     /// Calculates [`indents`](YamlIndentInfo::indents) part of [`YamlIndentInfo`] based on previous newlines and spaces position
@@ -476,7 +467,7 @@ pub unsafe trait Stage1Scanner {
 
         let even_mask = Self::calculate_mask_from_end(quotes, even_ends >> 1);
 
-        chunk_state.single_quote.odd_quotes = quotes & !even_mask;
+        chunk_state.single_quote.quote_bits = quotes & !even_mask;
         chunk_state.single_quote.escaped_quotes = even_mask;
     }
 
@@ -560,6 +551,7 @@ pub unsafe trait Stage1Scanner {
         // compliant as of C++20,
         // John Regher from Utah U. says this is fine code
         prev_iter_state.prev_iter_inside_quote = quote_mask >> 63;
-        chunk_state.double_quote.quote_bits = quote_mask;
+        chunk_state.double_quote.in_string = quote_mask;
+        chunk_state.double_quote.quote_starts = quote_mask & !(quote_mask << 1);
     }
 }

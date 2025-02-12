@@ -33,6 +33,14 @@ pub struct YamlChunkState {
     pub(crate) error_mask: u64,
 }
 
+impl YamlChunkState {
+    /// Returns a [`u64`] where 1-bit, at given position, represents either flow or block
+    /// structurals in the `[u8; 64]` chunk at corresponding position.
+    #[must_use]
+    pub const fn all_structurals(&self) -> u64 {
+        self.characters.flow_structurals | self.characters.block_structurals | self.double_quote.quote_starts | self.single_quote.quote_starts
+    }
+}
 #[derive(Default)]
 /// Represents the state of double-quoted YAML string processing.
 ///
@@ -55,10 +63,15 @@ pub struct YamlChunkState {
 pub struct YamlDoubleQuoteChunk {
     /// Bitmask indicating the positions of escaped characters.
     pub escaped: u64,
+
     /// Bitmask indicating the positions of real double quotes.
     pub quote_bits: u64,
+
     /// Bitmask showing which characters are currently within a double-quoted string.
     pub in_string: u64,
+
+    /// Bitmask indicating the starts of double quotes.
+    pub quote_starts: u64,
 }
 
 #[derive(Default)]
@@ -89,13 +102,16 @@ pub struct YamlDoubleQuoteChunk {
 /// ```
 pub struct YamlSingleQuoteChunk {
     /// Finds group of paired quotes
-    pub odd_quotes: u64,
+    pub quote_bits: u64,
 
     /// Finds group of paired quotes like `''` or `''''` that are escaped.
     pub escaped_quotes: u64,
 
     /// Bitmask showing which characters are in string
     pub in_string: u64,
+
+    /// Bitmask indicating the starts of double quotes.
+    pub quote_starts: u64,
 }
 
 #[derive(Default)]
@@ -127,26 +143,24 @@ pub struct YamlSingleQuoteChunk {
 pub struct YamlCharacterChunk {
     /// Whitespace bitmask SPACE  (`0x20`) , TABS (`0x09`), LINE_FEED (`0x0A`) or CARRIAGE_RETURN (`0x0D`)
     pub whitespace: u64,
+
     /// SPACE (`0x20`) bitmask
     pub spaces: u64,
+
     /// LINE_FEED (`0x0A`) bitmask
     pub line_feeds: u64,
+    
     /// Block operators used in YAML
     pub block_structurals: u64,
+
     /// Flow operators used in YAML
     pub flow_structurals: u64,
+
     /// Bitmask showing if chunk character is in_comment
     pub in_comment: u64,
 }
 
-impl YamlCharacterChunk {
-    /// Returns a [`u64`] where 1-bit, at given position, represents either flow or block
-    /// structurals in the `[u8; 64]` chunk at corresponding position.
-    #[must_use]
-    pub const fn all_structurals(&self) -> u64 {
-        self.flow_structurals | self.block_structurals
-    }
-}
+
 #[test]
 fn test_single_quotes1() {
     let mut block_state = YamlChunkState::default();
@@ -158,9 +172,9 @@ fn test_single_quotes1() {
     let expected =
         0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011_1000_0010;
     assert_eq!(
-        expected, block_state.single_quote.odd_quotes,
+        expected, block_state.single_quote.quote_bits,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, block_state.single_quote.odd_quotes
+        expected, block_state.single_quote.quote_bits
     );
 }
 
@@ -176,9 +190,9 @@ fn test_single_quotes2() {
         0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100_0000_0010;
 
     assert_eq!(
-        expected, block_state.single_quote.odd_quotes,
+        expected, block_state.single_quote.quote_bits,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, block_state.single_quote.odd_quotes
+        expected, block_state.single_quote.quote_bits
     );
 }
 

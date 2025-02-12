@@ -364,6 +364,6 @@ fn test_parsing_basic_processing1() {
     let res =
         state.process_chunk::<BorrowBuffer, NativeScanner>(&mut buffer, &chunk_state, &mut info);
 
-    let expected_structurals = vec![0usize];
+    let expected_structurals = vec![9usize];
     assert_eq!(expected_structurals, state.structurals);
 }
