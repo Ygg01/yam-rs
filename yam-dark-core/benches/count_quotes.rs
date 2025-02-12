@@ -37,7 +37,7 @@ fn find_bits_branchless(c: &mut Criterion) {
 
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(64));
-    group.bench_function("quotes_branching", |b| {
+    group.bench_function("quotes_branchless", |b| {
         b.iter(|| {
             black_box(select_left_bits_branch_less(random(), selector));
         });
