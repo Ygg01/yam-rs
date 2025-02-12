@@ -27,7 +27,7 @@
 use crate::tokenizer::chunk::YamlChunkState;
 use crate::tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
 use crate::util::{add_cols_unchecked, add_rows_unchecked, select_right_bits_branch_less};
-use crate::{util, EvenOrOddBits, YamlCharacterChunk, YamlSingleQuoteChunk};
+use crate::{util, EvenOrOddBits, YamlCharacterChunk, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
@@ -138,20 +138,19 @@ pub unsafe trait Stage1Scanner {
     /// # Example
     /// ```rust
     ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
-    ///  let mut block_state = YamlChunkState::default();
     ///  let mut prev_iter_state = YamlParserState::default();
     ///  let chunk = b" -                                                              ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  scanner.classify_yaml_characters(&mut block_state);
+    ///  let characters = scanner.classify_yaml_characters();
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000000010;
     ///  assert_eq!(
-    ///     block_state.characters.block_structurals,
+    ///     characters.block_structurals,
     ///     expected,
     ///     "Expected:    {:#066b} \nGot instead: {:#066b} ",
-    ///     expected, block_state.single_quote.quote_starts
+    ///     expected, characters.block_structurals
     ///  );
     /// ```
-    fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
+    fn classify_yaml_characters(&self) -> YamlCharacterChunk;
 
     /// Combines all structurals and pseudo structurals into a single flat structure and stores it
     /// in [`YamlParserState::structurals`]. For every entry in `structurals` there will be
@@ -323,20 +322,19 @@ pub unsafe trait Stage1Scanner {
     where
         Self: Sized,
     {
-        let mut chunk_state = YamlChunkState::default();
         let mut simd = Self::from_chunk(chunk);
 
-        simd.classify_yaml_characters(&mut chunk_state);
+        let mut characters = simd.classify_yaml_characters();
 
         // Pre-requisite
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
-        simd.scan_for_comments(&mut chunk_state, prev_iter_state);
+        simd.scan_for_comments(&mut characters, prev_iter_state);
 
-        simd.scan_double_quote_bitmask(&mut chunk_state, prev_iter_state);
-        simd.scan_single_quote_bitmask(&mut chunk_state, prev_iter_state);
+        let double_quotes = simd.scan_double_quote_bitmask(prev_iter_state);
+        let single_quotes = simd.scan_single_quote_bitmask(prev_iter_state);
 
-        chunk_state
+        YamlChunkState::new_from_parts(single_quotes, double_quotes, characters)
     }
 
     /// This function processes the comments for the current chunk of characters.
@@ -352,22 +350,21 @@ pub unsafe trait Stage1Scanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_for_comments(
         &self,
-        chunk_state: &mut YamlChunkState,
+        characters: &mut YamlCharacterChunk,
         parser_state: &mut YamlParserState,
     ) {
         let character = self.cmp_ascii_to_input(b'#');
         let shifted_spaces =
-            (chunk_state.characters.spaces << 1) ^ u64::from(parser_state.is_previous_white_space);
+            (characters.spaces << 1) ^ u64::from(parser_state.is_previous_white_space);
 
         let comment_start = (character & shifted_spaces) | u64::from(parser_state.is_in_comment);
-        let not_whitespace = !chunk_state.characters.line_feeds;
+        let not_whitespace = !characters.line_feeds;
 
-        chunk_state.characters.in_comment =
-            select_right_bits_branch_less(not_whitespace, comment_start);
+        characters.in_comment = select_right_bits_branch_less(not_whitespace, comment_start);
 
         // Update values for the next iteration.
-        parser_state.is_in_comment = chunk_state.characters.in_comment >> 63 == 1;
-        parser_state.is_previous_white_space = (chunk_state.characters.spaces >> 63) == 1;
+        parser_state.is_in_comment = characters.in_comment >> 63 == 1;
+        parser_state.is_previous_white_space = (characters.spaces >> 63) == 1;
     }
 
     /// Returns a bitmask indicating where there are characters that end an odd-length sequence
@@ -442,21 +439,22 @@ pub unsafe trait Stage1Scanner {
     ///
     /// ```rust
     ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
-    ///  let mut block_state = YamlChunkState::default();
+    ///
     ///  let mut prev_iter_state = YamlParserState::default();
     ///
     ///  let chunk = b" ' ''  '                                                        ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    ///  let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
     ///  let expected = 0b0000000000000000000000000000000000000000000000000000010000010;
-    ///  assert_eq!(block_state.single_quote.quote_bits, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote_bits);
+    ///  assert_eq!(single_quote.quote_bits, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, single_quote.quote_bits);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
         &self,
-        chunk_state: &mut YamlChunkState,
         prev_iter_state: &mut YamlParserState,
-    ) {
+    ) -> YamlSingleQuoteChunk {
+        let mut single_quote = YamlSingleQuoteChunk::default();
+
         let quotes = self.cmp_ascii_to_input(b'\'');
 
         let even_ends = Self::scan_for_mask(
@@ -467,8 +465,10 @@ pub unsafe trait Stage1Scanner {
 
         let even_mask = Self::calculate_mask_from_end(quotes, even_ends >> 1);
 
-        chunk_state.single_quote.quote_bits = quotes & !even_mask;
-        chunk_state.single_quote.escaped_quotes = even_mask;
+        single_quote.quote_bits = quotes & !even_mask;
+        single_quote.escaped_quotes = even_mask;
+
+        single_quote
     }
 
     /// Calculates a mask from the provided quote bits and an even boundary value.
@@ -516,28 +516,28 @@ pub unsafe trait Stage1Scanner {
     /// ```rust
     ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
     ///
-    ///  let mut block_state = YamlChunkState::default();
     ///  let mut prev_iter_state = YamlParserState::default();
     ///  let chunk = b" \"  \"                                                           ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  let result = scanner.scan_double_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    ///  let result = scanner.scan_double_quote_bitmask(&mut prev_iter_state);
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000010010;
+    ///  assert_eq!(result.quote_bits, expected)
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_double_quote_bitmask(
         &self,
-        chunk_state: &mut YamlChunkState,
         prev_iter_state: &mut YamlParserState,
-    ) {
+    ) -> YamlDoubleQuoteChunk {
+        let mut double_quote = YamlDoubleQuoteChunk::default();
         let prev_iteration_odd = &mut prev_iter_state.is_prev_double_quotes;
         let odds_ends =
             Self::scan_for_mask(self.cmp_ascii_to_input(b'\\'), prev_iteration_odd, OddBits);
 
-        chunk_state.double_quote.quote_bits = self.cmp_ascii_to_input(b'"');
-        chunk_state.double_quote.quote_bits &= !odds_ends;
+        double_quote.quote_bits = self.cmp_ascii_to_input(b'"');
+        double_quote.quote_bits &= !odds_ends;
 
         // remove from the valid quoted region the unescaped characters.
-        let mut quote_mask: u64 = Self::compute_quote_mask(chunk_state.double_quote.quote_bits);
+        let mut quote_mask: u64 = Self::compute_quote_mask(double_quote.quote_bits);
         quote_mask ^= prev_iter_state.prev_iter_inside_quote;
 
         // All Unicode characters may be placed within the
@@ -546,12 +546,14 @@ pub unsafe trait Stage1Scanner {
         //through U+001F).
         // https://tools.ietf.org/html/rfc8259
         let unescaped: u64 = self.unsigned_lteq_against_splat(0x1F);
-        chunk_state.error_mask |= quote_mask & unescaped;
+        double_quote.error_mask |= quote_mask & unescaped;
         // right shift of a signed value expected to be well-defined and standard
         // compliant as of C++20,
         // John Regher from Utah U. says this is fine code
         prev_iter_state.prev_iter_inside_quote = quote_mask >> 63;
-        chunk_state.double_quote.in_string = quote_mask;
-        chunk_state.double_quote.quote_starts = quote_mask & !(quote_mask << 1);
+        double_quote.in_string = quote_mask;
+        double_quote.quote_starts = quote_mask & !(quote_mask << 1);
+
+        double_quote
     }
 }

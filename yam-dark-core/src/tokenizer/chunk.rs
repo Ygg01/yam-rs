@@ -1,7 +1,6 @@
 #[allow(unused_imports)] // imports are used in tests
 use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 
-#[derive(Default)]
 /// Represents the state of YAML chunk processing.
 ///
 /// `YamlChunkState` is used to track the state of various chunks of YAML content,
@@ -10,18 +9,6 @@ use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 ///
 /// This struct also maintains vectors for row and column positions and
 /// indent levels, which are updated as the YAML content is processed.
-///
-///
-/// # Default Implementation
-///
-/// The `Default` implementation for `YamlChunkState` initializes
-/// the vectors (`rows`, `cols`, `indents`) to be 64 elements long
-/// and sets the `double_quote`, `single_quote`, `characters` to its default values.
-///
-/// ```rust
-/// use yam_dark_core::YamlChunkState;
-/// let x = YamlChunkState::default();
-/// ```
 pub struct YamlChunkState {
     /// [`YamlDoubleQuoteChunk`] struct containing double-quoted YAML strings information.
     pub double_quote: YamlDoubleQuoteChunk,
@@ -113,6 +100,9 @@ pub struct YamlDoubleQuoteChunk {
 
     /// Bitmask indicating the starts of double quotes.
     pub quote_starts: u64,
+
+    /// Bitmask indicating error in double quotes
+    pub error_mask: u64,
 }
 
 #[derive(Default)]
@@ -203,51 +193,48 @@ pub struct YamlCharacterChunk {
 
 #[test]
 fn test_single_quotes1() {
-    let mut block_state = YamlChunkState::default();
     let mut prev_iter_state = YamlParserState::default();
 
     let chunk = b" ' ''  '''                                                      ";
     let scanner = NativeScanner::from_chunk(chunk);
-    scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
     let expected =
         0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011_1000_0010;
     assert_eq!(
-        expected, block_state.single_quote.quote_bits,
+        expected, single_quote.quote_bits,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, block_state.single_quote.quote_bits
+        expected, single_quote.quote_bits
     );
 }
 
 #[test]
 fn test_single_quotes2() {
-    let mut block_state = YamlChunkState::default();
     let mut prev_iter_state = YamlParserState::default();
 
     let chunk = b" ' ''  '' '                                                     ";
     let scanner = NativeScanner::from_chunk(chunk);
-    scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
+    let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
     let expected =
         0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100_0000_0010;
 
     assert_eq!(
-        expected, block_state.single_quote.quote_bits,
+        expected, single_quote.quote_bits,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, block_state.single_quote.quote_bits
+        expected, single_quote.quote_bits
     );
 }
 
 #[test]
 fn test_structurals() {
-    let mut block_state = YamlChunkState::default();
     let chunk = b" -                                                              ";
     let scanner = NativeScanner::from_chunk(chunk);
-    scanner.classify_yaml_characters(&mut block_state);
+    let characters = scanner.classify_yaml_characters();
     let expected =
         0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0010;
     assert_eq!(
-        block_state.characters.block_structurals, expected,
+        characters.block_structurals, expected,
         "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, block_state.single_quote.escaped_quotes
+        expected, characters.block_structurals
     );
 }
 

@@ -1,4 +1,4 @@
-use crate::{Stage1Scanner, YamlChunkState, YamlParserState};
+use crate::{Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
 
 use crate::tokenizer::stage2::YamlIndentInfo;
 
@@ -40,7 +40,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn classify_yaml_characters(&self, _chunk_state: &mut YamlChunkState) {
+    fn classify_yaml_characters(&self) -> YamlCharacterChunk {
         todo!()
     }
 

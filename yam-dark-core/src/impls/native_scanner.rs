@@ -9,7 +9,7 @@ use crate::tokenizer::stage1::Stage1Scanner;
 use crate::tokenizer::stage2::YamlIndentInfo;
 use crate::util::NoopValidator;
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
-use crate::{util, YamlChunkState, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
+use crate::{util, YamlCharacterChunk, YamlChunkState, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
 
 #[doc(hidden)]
 pub struct NativeScanner {
@@ -42,7 +42,8 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn classify_yaml_characters(&self, block_state: &mut YamlChunkState) {
+    fn classify_yaml_characters(&self) -> YamlCharacterChunk {
+        let mut characters = YamlCharacterChunk::default();
         // Setup swizzle table
         //
         // Step 1: Setup swizzle mask
@@ -78,8 +79,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         let spaces_2 = tmp_sp2.to_bitmask64();
         let spaces_3 = tmp_sp3.to_bitmask64();
 
-        block_state.characters.spaces =
-            !(spaces_0 | (spaces_1 << 16) | (spaces_2 << 32) | (spaces_3 << 48));
+        characters.spaces = !(spaces_0 | (spaces_1 << 16) | (spaces_2 << 32) | (spaces_3 << 48));
 
         // Extract whitespaces using simple mask and compare.
         let tmp_ws0 = (v_v0 & 0x60).comp_all(0);
@@ -92,7 +92,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         let ws_res_2 = tmp_ws2.to_bitmask64();
         let ws_res_3 = tmp_ws3.to_bitmask64();
 
-        block_state.characters.whitespace =
+        characters.whitespace =
             !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48));
 
         // Extract block structurals
@@ -113,8 +113,7 @@ unsafe impl Stage1Scanner for NativeScanner {
 
         // YAML block structurals like `? `, `- ` and `:` are only valid if followed by a WHITESPACE
         // character or end of line
-        block_state.characters.block_structurals =
-            block_structurals_candidates & (block_state.characters.whitespace << 1);
+        characters.block_structurals = block_structurals_candidates & (characters.whitespace << 1);
 
         // Extract block structurals
         let tmp_flow0 = (v_v0 & 0x18).comp_all(0);
@@ -127,12 +126,14 @@ unsafe impl Stage1Scanner for NativeScanner {
         let flow_structural_res_2 = tmp_flow2.to_bitmask64();
         let flow_structural_res_3 = tmp_flow3.to_bitmask64();
 
-        block_state.characters.flow_structurals = !(flow_structural_res_0
+        characters.flow_structurals = !(flow_structural_res_0
             | (flow_structural_res_1 << 16)
             | (flow_structural_res_2 << 32)
             | (flow_structural_res_3 << 48));
 
-        block_state.characters.line_feeds = self.cmp_ascii_to_input(b'\n');
+        characters.line_feeds = self.cmp_ascii_to_input(b'\n');
+
+        characters
     }
 
     fn flatten_bits_yaml(
