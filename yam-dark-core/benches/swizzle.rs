@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughpu
 use rand::prelude::*;
 
 use yam_dark_core::util::U8X16;
-use yam_dark_core::YamlChunkState;
+use yam_dark_core::YamlCharacterChunk;
 use yam_dark_core::{util, NativeScanner, Stage1Scanner, HIGH_NIBBLE, LOW_NIBBLE};
 
 unsafe fn find_whitespace_and_structurals(
@@ -315,7 +315,7 @@ unsafe fn from_slice(input: &[u8]) -> [u8; 16] {
 fn bench_simd_json(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-swizzle");
     let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).random();
-    let mut chunk = YamlChunkState::default();
+    let mut characters = YamlCharacterChunk::default();
 
     group.significance_level(0.05).sample_size(200);
     group.throughput(Throughput::Bytes(64));
@@ -323,10 +323,10 @@ fn bench_simd_json(c: &mut Criterion) {
         b.iter(|| unsafe {
             find_whitespace_and_structurals(
                 rand_bytes,
-                &mut chunk.characters.whitespace,
-                &mut chunk.characters.block_structurals,
+                &mut characters.whitespace,
+                &mut characters.block_structurals,
             );
-            black_box(chunk.characters.whitespace | chunk.characters.block_structurals);
+            black_box(characters.whitespace | characters.block_structurals);
         });
     });
     group.finish();
@@ -335,7 +335,7 @@ fn bench_simd_json(c: &mut Criterion) {
 fn bench_yam_u8x16(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-swizzle");
     let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).random();
-    let mut chunk = YamlChunkState::default();
+    let mut characters = YamlCharacterChunk::default();
 
     group.significance_level(0.05).sample_size(200);
     group.throughput(Throughput::Bytes(64));
@@ -343,10 +343,10 @@ fn bench_yam_u8x16(c: &mut Criterion) {
         b.iter(|| unsafe {
             find_whitespace_and_structurals_u8x16(
                 rand_bytes,
-                &mut chunk.characters.whitespace,
-                &mut chunk.characters.block_structurals,
+                &mut characters.whitespace,
+                &mut characters.block_structurals,
             );
-            black_box(chunk.characters.whitespace | chunk.characters.block_structurals);
+            black_box(characters.whitespace | characters.block_structurals);
         });
     });
     group.finish();
@@ -356,14 +356,13 @@ fn bench_yam(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-swizzle");
     let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).random();
     let scanner = NativeScanner::from_chunk(&rand_bytes);
-    let chunk = &mut Default::default();
 
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(rand_bytes.len() as u64));
     group.bench_function("bench-dark-yam", |b| {
         b.iter(|| {
-            scanner.classify_yaml_characters(chunk);
-            black_box(chunk.characters.whitespace | chunk.characters.block_structurals);
+            let characters = scanner.classify_yaml_characters();
+            black_box(characters.whitespace | characters.block_structurals);
         });
     });
     group.finish();
