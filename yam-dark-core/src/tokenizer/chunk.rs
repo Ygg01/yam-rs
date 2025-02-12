@@ -34,11 +34,52 @@ pub struct YamlChunkState {
 }
 
 impl YamlChunkState {
+    /// Basic `YamlChunkState` constructor, takes all important values
+    /// and return a valid `YamlChunkState`
+    ///
+    /// # Arguments
+    ///
+    /// * `single_quote`: Single quotes bitmask [`YamlSingleQuoteChunk`]
+    /// * `double_quote`: Double quotes bitmask [`YamlDoubleQuoteChunk`]
+    /// * `characters`: Other character bitmask [`YamlCharacterChunk`]
+    ///
+    /// returns: `YamlChunkState`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use yam_dark_core::{YamlCharacterChunk, YamlChunkState, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
+    ///
+    /// let single_quote = YamlSingleQuoteChunk::default();
+    /// let double_quote = YamlDoubleQuoteChunk::default();
+    /// let characters = YamlCharacterChunk::default();
+    ///
+    /// let yaml_chunk_state = YamlChunkState::new_from_parts(single_quote, double_quote, characters);
+    /// ```
+    #[must_use]
+    pub fn new_from_parts(
+        single_quote: YamlSingleQuoteChunk,
+        double_quote: YamlDoubleQuoteChunk,
+        characters: YamlCharacterChunk,
+    ) -> Self {
+        YamlChunkState {
+            double_quote,
+            single_quote,
+            characters,
+            error_mask: 0,
+        }
+    }
+}
+
+impl YamlChunkState {
     /// Returns a [`u64`] where 1-bit, at given position, represents either flow or block
     /// structurals in the `[u8; 64]` chunk at corresponding position.
     #[must_use]
     pub const fn all_structurals(&self) -> u64 {
-        self.characters.flow_structurals | self.characters.block_structurals | self.double_quote.quote_starts | self.single_quote.quote_starts
+        self.characters.flow_structurals
+            | self.characters.block_structurals
+            | self.double_quote.quote_starts
+            | self.single_quote.quote_starts
     }
 }
 #[derive(Default)]
@@ -149,7 +190,7 @@ pub struct YamlCharacterChunk {
 
     /// LINE_FEED (`0x0A`) bitmask
     pub line_feeds: u64,
-    
+
     /// Block operators used in YAML
     pub block_structurals: u64,
 
@@ -159,7 +200,6 @@ pub struct YamlCharacterChunk {
     /// Bitmask showing if chunk character is in_comment
     pub in_comment: u64,
 }
-
 
 #[test]
 fn test_single_quotes1() {

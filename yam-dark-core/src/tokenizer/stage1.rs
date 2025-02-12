@@ -96,7 +96,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// use yam_dark_core::{Stage1Scanner, SIMD_CHUNK_LENGTH};
     /// use yam_dark_core::NativeScanner;
     ///
@@ -148,7 +148,7 @@ pub unsafe trait Stage1Scanner {
     ///     block_state.characters.block_structurals,
     ///     expected,
     ///     "Expected:    {:#066b} \nGot instead: {:#066b} ",
-    ///     expected, block_state.single_quote.odd_quotes
+    ///     expected, block_state.single_quote.quote_starts
     ///  );
     /// ```
     fn classify_yaml_characters(&self, chunk_state: &mut YamlChunkState);
