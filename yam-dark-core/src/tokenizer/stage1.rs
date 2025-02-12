@@ -449,7 +449,7 @@ pub unsafe trait Stage1Scanner {
     ///  let scanner = NativeScanner::from_chunk(chunk);
     ///  scanner.scan_single_quote_bitmask(&mut block_state, &mut prev_iter_state);
     ///  let expected = 0b0000000000000000000000000000000000000000000000000000010000010;
-    ///  assert_eq!(block_state.single_quote.odd_quotes, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.odd_quotes);
+    ///  assert_eq!(block_state.single_quote.quote_bits, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, block_state.single_quote.quote_bits);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(

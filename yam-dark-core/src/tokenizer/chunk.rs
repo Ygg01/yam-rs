@@ -96,7 +96,7 @@ pub struct YamlDoubleQuoteChunk {
 /// ```rust
 /// use yam_dark_core::YamlSingleQuoteChunk;
 /// let y = YamlSingleQuoteChunk::default();
-/// assert_eq!(y.odd_quotes, 0);
+/// assert_eq!(y.quote_starts, 0);
 /// assert_eq!(y.escaped_quotes, 0);
 /// assert_eq!(y.in_string, 0);
 /// ```
