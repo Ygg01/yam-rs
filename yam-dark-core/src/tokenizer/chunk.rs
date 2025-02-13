@@ -3,7 +3,7 @@ use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 
 /// Represents the state of YAML chunk processing.
 ///
-/// `YamlChunkState` is used to track the state of various chunks of YAML content,
+/// `YamlChunkState` is used to track the state of various byte chunks,
 /// including double-quoted strings, single-quoted strings, and character classifications
 /// such as whitespace and structural characters.
 ///
@@ -21,8 +21,7 @@ pub struct YamlChunkState {
 }
 
 impl YamlChunkState {
-    /// Basic `YamlChunkState` constructor, takes all important values
-    /// and return a valid `YamlChunkState`
+    /// Basic `YamlChunkState` constructor, takes all important values and returns a valid `YamlChunkState`
     ///
     /// # Arguments
     ///
@@ -30,7 +29,6 @@ impl YamlChunkState {
     /// * `double_quote`: Double quotes bitmask [`YamlDoubleQuoteChunk`]
     /// * `characters`: Other character bitmask [`YamlCharacterChunk`]
     ///
-    /// returns: `YamlChunkState`
     ///
     /// # Examples
     ///
@@ -132,10 +130,10 @@ pub struct YamlDoubleQuoteChunk {
 /// assert_eq!(y.in_string, 0);
 /// ```
 pub struct YamlSingleQuoteChunk {
-    /// Finds group of paired quotes
+    /// Finds groups of start and end quotes
     pub quote_bits: u64,
 
-    /// Finds group of paired quotes like `''` or `''''` that are escaped.
+    /// Finds groups of paired quotes like `''` or `''''` that are escaped.
     pub escaped_quotes: u64,
 
     /// Bitmask showing which characters are in string
@@ -246,5 +244,26 @@ fn test_lteq() {
     assert_eq!(
         result,
         0b1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111
+    );
+}
+
+#[test]
+fn test_double_quote() {
+    let bin_str = b" \"text with \\\"quote\\\" inside \"                                  ";
+    let scanner = NativeScanner::from_chunk(bin_str);
+    let double_quote = scanner.scan_double_quote_bitmask(&mut YamlParserState::default());
+
+    assert_eq!(double_quote.quote_starts, 0b10);
+    assert_eq!(
+        double_quote.quote_bits,
+        0b10_0000_0000_0000_0000_0000_0000_0010
+    );
+    assert_eq!(
+        double_quote.in_string,
+        0b01_1111_1111_1111_1111_1111_1111_1110
+    );
+    assert_eq!(
+        double_quote.escaped,
+        0b00_0000_0001_0000_0010_0000_0000_0000
     );
 }

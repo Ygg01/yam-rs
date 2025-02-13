@@ -551,8 +551,10 @@ pub unsafe trait Stage1Scanner {
         // compliant as of C++20,
         // John Regher from Utah U. says this is fine code
         prev_iter_state.prev_iter_inside_quote = quote_mask >> 63;
+
         double_quote.in_string = quote_mask;
         double_quote.quote_starts = quote_mask & !(quote_mask << 1);
+        double_quote.escaped = odds_ends;
 
         double_quote
     }
