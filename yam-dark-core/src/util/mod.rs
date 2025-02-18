@@ -1,6 +1,11 @@
 //! Various utility methods that are straightforward to auto vectorize.
 
-use core::ptr;
+use alloc::collections::VecDeque;
+use alloc::format;
+use alloc::string::{String, ToString};
+use core::cmp::max;
+use core::fmt::Write;
+use core::{mem, ptr};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub(crate) use chunked_iter::ChunkyIterator;
@@ -223,6 +228,63 @@ pub fn calculate_cols(cols: [u8; 8], rows: [u8; 8], prev_col: &u32) -> [u32; 8] 
     ]
 }
 
+#[must_use]
+/// Print bytes for comparison
+pub(crate) fn print_bin_diff(left: u64, right: u64) -> String {
+    fn print_bin_till(number: u64, max: usize) -> String {
+        let number_str = format!("{number:b}");
+        let mut double_buf = VecDeque::with_capacity(128);
+        let mut reverse_str_chunker = number_str.as_bytes().rchunks(4);
+        let mut chunk = [b'0'; 4];
+
+        for i in 0..max {
+            if let Some(rev) = reverse_str_chunker.next() {
+                let len = rev.len();
+                for i in 0..len {
+                    chunk[i] = rev[len - i - 1];
+                }
+            };
+            let temp = mem::replace(&mut chunk, *b"0000");
+            double_buf.push_front(temp[0]);
+            double_buf.push_front(temp[1]);
+            double_buf.push_front(temp[2]);
+            double_buf.push_front(temp[3]);
+
+            if i == max - 1 {
+                continue;
+            }
+            double_buf.push_front(b' ');
+        }
+        let buf = String::from_utf8(double_buf.make_contiguous().to_vec()).unwrap();
+        buf.to_string()
+    }
+
+    let mut buf = String::new();
+
+    let max_len = usize::try_from(max(left, right).ilog2() / 4 + 1)
+        .unwrap_or_else(|_| panic!("Expected log2 of {left} or {right} to fit in pointer size"));
+
+    let left_str = print_bin_till(left, max_len);
+    let right_str = print_bin_till(right, max_len);
+
+    write!(buf, "Expected:\n{left_str}\nActual:\n{right_str}",).expect("Can't write to buffer");
+    buf
+}
+
+#[macro_export]
+macro_rules! assert_bin_eq {
+    ($left:expr, $right:expr) => {
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                use $crate::util::print_bin_diff;
+                if !(*left_val == *right_val) {
+                    panic!("{}", print_bin_diff(*left_val, *right_val));
+                }
+            }
+        }
+    };
+}
+
 #[test]
 fn test_branch_less_right1() {
     let actual = select_left_bits_branch_less(
@@ -231,22 +293,14 @@ fn test_branch_less_right1() {
     );
     let expected =
         0b1111_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0110;
-    assert_eq!(
-        actual, expected,
-        "\nExpected: {:#018b}\n  Actual: {:#018b}",
-        expected, actual
-    );
+    assert_bin_eq!(actual, expected);
 }
 
 #[test]
 fn test_branch_less_right2() {
     let actual = select_left_bits_branch_less(0b1100_1100, 0b1010_1010);
     let expected = 0b1100_1100;
-    assert_eq!(
-        actual, expected,
-        "\nExpected: {:#018b}\n  Actual: {:#018b}",
-        expected, actual
-    );
+    assert_bin_eq!(actual, expected);
 }
 
 #[test]
@@ -258,9 +312,5 @@ fn test_branch_less_left() {
 
     let expected =
         0b1110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1100_0110;
-    assert_eq!(
-        actual, expected,
-        "\nExpected: {:#066b}\n  Actual: {:#066b}",
-        expected, actual
-    );
+    assert_bin_eq!(actual, expected);
 }

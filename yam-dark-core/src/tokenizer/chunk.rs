@@ -189,81 +189,77 @@ pub struct YamlCharacterChunk {
     pub in_comment: u64,
 }
 
-#[test]
-fn test_single_quotes1() {
-    let mut prev_iter_state = YamlParserState::default();
+#[cfg(test)]
+mod test {
+    use crate::tokenizer::stage1::Stage1Scanner;
+    use crate::{assert_bin_eq, NativeScanner, YamlParserState};
+    use rstest::rstest;
 
-    let chunk = b" ' ''  '''                                                      ";
-    let scanner = NativeScanner::from_chunk(chunk);
-    let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
-    let expected =
-        0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011_1000_0010;
-    assert_eq!(
-        expected, single_quote.quote_bits,
-        "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, single_quote.quote_bits
-    );
-}
+    #[rstest]
+    fn test_double_quote() {
+        let bin_str = b" \"text with \\\"quote\\\" inside \"                                  ";
+        let scanner = NativeScanner::from_chunk(bin_str);
+        let double_quote = scanner.scan_double_quote_bitmask(&mut YamlParserState::default());
 
-#[test]
-fn test_single_quotes2() {
-    let mut prev_iter_state = YamlParserState::default();
+        assert_eq!(double_quote.quote_starts, 0b10);
+        assert_bin_eq!(
+            double_quote.quote_bits,
+            0b10_0000_0000_0000_0000_0000_0000_0010
+        );
+        assert_bin_eq!(
+            double_quote.in_string,
+            0b01_1111_1111_1111_1111_1111_1111_1110
+        );
+        assert_bin_eq!(
+            double_quote.escaped,
+            0b00_0000_0001_0000_0010_0000_0000_0000
+        );
+    }
 
-    let chunk = b" ' ''  '' '                                                     ";
-    let scanner = NativeScanner::from_chunk(chunk);
-    let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
-    let expected =
-        0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100_0000_0010;
+    #[rstest]
+    fn test_lteq() {
+        let bin_str = b"                                                                ";
+        let scanner = NativeScanner::from_chunk(bin_str);
+        let result = scanner.unsigned_lteq_against_splat(0x20);
+        assert_bin_eq!(
+            result,
+            0b1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111
+        );
+    }
 
-    assert_eq!(
-        expected, single_quote.quote_bits,
-        "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, single_quote.quote_bits
-    );
-}
+    #[rstest]
+    fn test_structurals() {
+        let chunk = b" -                                                              ";
+        let scanner = NativeScanner::from_chunk(chunk);
+        let characters = scanner.classify_yaml_characters();
+        let expected =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0010;
 
-#[test]
-fn test_structurals() {
-    let chunk = b" -                                                              ";
-    let scanner = NativeScanner::from_chunk(chunk);
-    let characters = scanner.classify_yaml_characters();
-    let expected =
-        0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0010;
-    assert_eq!(
-        characters.block_structurals, expected,
-        "Expected:    {:#066b} \nGot instead: {:#066b} ",
-        expected, characters.block_structurals
-    );
-}
+        assert_bin_eq!(characters.block_structurals, expected);
+    }
 
-#[test]
-fn test_lteq() {
-    let bin_str = b"                                                                ";
-    let scanner = NativeScanner::from_chunk(bin_str);
-    let result = scanner.unsigned_lteq_against_splat(0x20);
-    assert_eq!(
-        result,
-        0b1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111
-    );
-}
+    #[rstest]
+    fn test_single_quotes1() {
+        let mut prev_iter_state = YamlParserState::default();
 
-#[test]
-fn test_double_quote() {
-    let bin_str = b" \"text with \\\"quote\\\" inside \"                                  ";
-    let scanner = NativeScanner::from_chunk(bin_str);
-    let double_quote = scanner.scan_double_quote_bitmask(&mut YamlParserState::default());
+        let chunk = b" ' ''  '''                                                      ";
+        let scanner = NativeScanner::from_chunk(chunk);
+        let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
+        let expected =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011_1000_0010;
+        assert_bin_eq!(single_quote.quote_bits, expected);
+    }
 
-    assert_eq!(double_quote.quote_starts, 0b10);
-    assert_eq!(
-        double_quote.quote_bits,
-        0b10_0000_0000_0000_0000_0000_0000_0010
-    );
-    assert_eq!(
-        double_quote.in_string,
-        0b01_1111_1111_1111_1111_1111_1111_1110
-    );
-    assert_eq!(
-        double_quote.escaped,
-        0b00_0000_0001_0000_0010_0000_0000_0000
-    );
+    #[rstest]
+    fn test_single_quotes2() {
+        let mut prev_iter_state = YamlParserState::default();
+
+        let chunk = b" ' ''  '' '                                                     ";
+        let scanner = NativeScanner::from_chunk(chunk);
+        let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
+        let expected =
+            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100_0000_0010;
+
+        assert_bin_eq!(single_quote.quote_bits, expected);
+    }
 }
