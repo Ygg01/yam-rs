@@ -259,7 +259,6 @@ mod test {
         let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
         let expected =
             0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100_0000_0010;
-
         assert_bin_eq!(single_quote.quote_bits, expected);
     }
 }

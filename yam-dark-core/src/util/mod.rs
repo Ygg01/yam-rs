@@ -39,7 +39,7 @@ impl ChunkedUtf8Validator for NoopValidator {
 
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
 ///
-/// This function takes two `u64` values as input: `input` and `mask`. It selects sequence of ones from
+/// This function takes two `u64` values as input: `input` and `mask`. It selects a sequence of 1-bits from
 /// `input` if the leftmost (largest) bit in mask corresponds to a bit in mask. It essentially
 /// selects all groups bits left of a 1-bit in mask.
 ///   
@@ -92,14 +92,14 @@ pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
 
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
 ///
-/// This function takes two `u64` values as input: `input` and `mask`. It selects sequence of ones from
+/// This function takes two `u64` values as input: `input` and `mask`. It selects a sequence of 1-bits from
 /// `input` if the rightmost (smallest) bit in mask corresponds to a bit in mask. It essentially
 /// selects all groups bits right of a 1-bit in mask.
 ///
 /// # Parameters
 ///
-/// - `input`: The input `u64` value from which bits will be selected.
-/// - `mask`:  The mask `u64` value that determines which bits in the `input` will be selected.
+/// * `input`: The input `u64` value from which bits will be selected.
+/// *  `mask`: The mask `u64` value that determines which bits in the `input` will be selected.
 ///
 /// # Returns
 ///
@@ -229,8 +229,20 @@ pub fn calculate_cols(cols: [u8; 8], rows: [u8; 8], prev_col: &u32) -> [u32; 8] 
 }
 
 #[must_use]
-/// Print bytes for comparison
-pub(crate) fn print_bin_diff(left: u64, right: u64) -> String {
+#[allow(unused)]
+#[doc(hidden)]
+/// Pretty print diff between two u64
+///
+/// Prints difference between two `u64`. Separates numbers into four-bit chunk, printed to
+/// the highest 1-bit.
+///
+/// # Arguments
+/// * `left` - left number for comparison.
+/// * `right` - right number for comparison.
+///
+/// # Panics
+/// - If it fails `from_utf8` conversion.
+pub fn print_bin_diff(left: u64, right: u64) -> String {
     fn print_bin_till(number: u64, max: usize) -> String {
         let number_str = format!("{number:b}");
         let mut double_buf = VecDeque::with_capacity(128);
@@ -271,6 +283,25 @@ pub(crate) fn print_bin_diff(left: u64, right: u64) -> String {
     buf
 }
 
+/// Asserts that two `u64` are binary equal to each other.
+///
+/// On panic, this macro will print the quartet of bits, separated by
+/// a whitespace character, and printed to the highest common 1-bit.
+///
+/// # Examples
+/// ```
+/// use yam_dark_core::assert_bin_eq;
+/// let a = 3;
+/// let b = 1 + 2;
+///
+/// assert_bin_eq!(a, b);
+/// // If it was assert_bin_eq!(3, 5)
+/// // The output would be
+/// // Expected:
+/// // 0011
+/// // Actual:
+/// // 0101
+/// ```
 #[macro_export]
 macro_rules! assert_bin_eq {
     ($left:expr, $right:expr) => {
