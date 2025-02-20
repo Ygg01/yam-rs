@@ -465,8 +465,10 @@ pub unsafe trait Stage1Scanner {
 
         let even_mask = Self::calculate_mask_from_end(quotes, even_ends >> 1);
 
-        single_quote.quote_bits = quotes & !even_mask;
+        let quotes_bits = quotes & !even_mask;
+        single_quote.quote_bits = quotes_bits;
         single_quote.escaped_quotes = even_mask;
+        single_quote.quote_starts = quotes_bits & !(quotes_bits << 1);
 
         single_quote
     }
