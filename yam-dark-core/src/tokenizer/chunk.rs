@@ -196,24 +196,58 @@ mod test {
     use rstest::rstest;
 
     #[rstest]
-    fn test_double_quote() {
-        let bin_str = b" \"text with \\\"quote\\\" inside \"                                  ";
+    #[case(
+        b" ' ''  '''                                                      ",
+        0b10,
+        0b0010_0000_0010,
+        0b1111_1111_1110,
+        0b0000_0000_0000
+    )]
+    #[case(
+        b" ' ''  '' '                                                     ",
+        0b10,
+        0b0100_0000_0010,
+        0b0111_1111_1110,
+        0b0001_1001_1000
+    )]
+    fn test_single_quote(
+        #[case] bin_str: &[u8; 64],
+        #[case] quote_starts: u64,
+        #[case] quote_bits: u64,
+        #[case] in_string: u64,
+        #[case] escaped: u64,
+    ) {
+        let scanner = NativeScanner::from_chunk(bin_str);
+        let single_quote = scanner.scan_single_quote_bitmask(&mut YamlParserState::default());
+
+        assert_bin_eq!(single_quote.quote_starts, quote_starts);
+        assert_bin_eq!(single_quote.quote_bits, quote_bits);
+        assert_bin_eq!(single_quote.in_string, in_string);
+        assert_bin_eq!(single_quote.escaped_quotes, escaped);
+    }
+
+    #[rstest]
+    #[case(
+        b" \"text with \\\"quote\\\" inside \"                                  ",
+        0b10,
+        0b10_0000_0000_0000_0000_0000_0000_0010,
+        0b01_1111_1111_1111_1111_1111_1111_1110,
+        0b00_0000_0001_0000_0010_0000_0000_0000
+    )]
+    fn test_double_quote(
+        #[case] bin_str: &[u8; 64],
+        #[case] quote_starts: u64,
+        #[case] quote_bits: u64,
+        #[case] in_string: u64,
+        #[case] escaped: u64,
+    ) {
         let scanner = NativeScanner::from_chunk(bin_str);
         let double_quote = scanner.scan_double_quote_bitmask(&mut YamlParserState::default());
 
-        assert_eq!(double_quote.quote_starts, 0b10);
-        assert_bin_eq!(
-            double_quote.quote_bits,
-            0b10_0000_0000_0000_0000_0000_0000_0010
-        );
-        assert_bin_eq!(
-            double_quote.in_string,
-            0b01_1111_1111_1111_1111_1111_1111_1110
-        );
-        assert_bin_eq!(
-            double_quote.escaped,
-            0b00_0000_0001_0000_0010_0000_0000_0000
-        );
+        assert_bin_eq!(quote_starts, double_quote.quote_starts);
+        assert_bin_eq!(quote_bits, double_quote.quote_bits);
+        assert_bin_eq!(in_string, double_quote.in_string);
+        assert_bin_eq!(escaped, double_quote.escaped);
     }
 
     #[rstest]
@@ -236,29 +270,5 @@ mod test {
             0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0010;
 
         assert_bin_eq!(characters.block_structurals, expected);
-    }
-
-    #[rstest]
-    fn test_single_quotes1() {
-        let mut prev_iter_state = YamlParserState::default();
-
-        let chunk = b" ' ''  '''                                                      ";
-        let scanner = NativeScanner::from_chunk(chunk);
-        let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
-        let expected =
-            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011_1000_0010;
-        assert_bin_eq!(single_quote.quote_bits, expected);
-    }
-
-    #[rstest]
-    fn test_single_quotes2() {
-        let mut prev_iter_state = YamlParserState::default();
-
-        let chunk = b" ' ''  '' '                                                     ";
-        let scanner = NativeScanner::from_chunk(chunk);
-        let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
-        let expected =
-            0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100_0000_0010;
-        assert_bin_eq!(single_quote.quote_bits, expected);
     }
 }
