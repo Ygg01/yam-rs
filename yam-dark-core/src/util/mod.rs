@@ -37,6 +37,14 @@ impl ChunkedUtf8Validator for NoopValidator {
     }
 }
 
+#[cfg(test)]
+/// Used for tests
+pub(crate) fn str_to_chunk(s: &str) -> [u8; 64] {
+    let mut chunk = [b' '; 64];
+    chunk[0..s.as_bytes().len()].copy_from_slice(s.as_bytes());
+    chunk
+}
+
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
 ///
 /// This function takes two `u64` values as input: `input` and `mask`. It selects a sequence of 1-bits from

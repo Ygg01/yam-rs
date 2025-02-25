@@ -398,7 +398,7 @@ pub unsafe trait Stage1Scanner {
     /// let result = NativeScanner::scan_for_mask(scanner.cmp_ascii_to_input(b'\\'), &mut prev_iteration_odd, OddBits);
     /// assert_eq!(result, 0b1000000000010000010000000000000100000000000001000010000000100);
     /// ```
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    // #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_for_mask(bits: u64, prev_iteration_result: &mut bool, mask: EvenOrOddBits) -> u64 {
         let start_edges = bits & !(bits << 1);
         let prev_iter_odd = u64::from(*prev_iteration_result);
@@ -448,7 +448,7 @@ pub unsafe trait Stage1Scanner {
     ///  let expected = 0b0000000000000000000000000000000000000000000000000000010000010;
     ///  assert_eq!(single_quote.quote_bits, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, single_quote.quote_bits);
     /// ```
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    // #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
         &self,
         prev_iter_state: &mut YamlParserState,
@@ -463,12 +463,21 @@ pub unsafe trait Stage1Scanner {
             EvenOrOddBits::EvenBits,
         );
 
-        let even_mask = Self::calculate_mask_from_end(quotes, even_ends >> 1);
+        let odd_quotes = quotes ^ even_ends;
+        let odd_starts = odd_quotes & !(odd_quotes << 1);
+        let odd_ends = odd_quotes & !(odd_quotes >> 1);
 
-        let quotes_bits = quotes & !even_mask;
-        single_quote.quote_bits = quotes_bits;
-        single_quote.escaped_quotes = even_mask;
-        single_quote.quote_starts = quotes_bits & !(quotes_bits << 1);
+        let odd_end_mask = Self::compute_quote_mask(odd_ends);
+        let odd_start_mask = Self::compute_quote_mask(odd_starts);
+        let in_string = odd_end_mask | odd_start_mask;
+
+        let quote_starts = in_string & !(in_string << 1);
+        let quote_ends = in_string & !(in_string >> 1);
+
+        single_quote.in_string = in_string;
+        single_quote.quote_bits = quote_starts | quote_ends << 1;
+        single_quote.quote_starts = quote_starts;
+        single_quote.escaped_quotes = quotes ^ single_quote.quote_bits;
 
         single_quote
     }
