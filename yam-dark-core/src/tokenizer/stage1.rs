@@ -26,7 +26,10 @@
 
 use crate::tokenizer::chunk::YamlChunkState;
 use crate::tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
-use crate::util::{add_cols_unchecked, add_rows_unchecked, select_right_bits_branch_less};
+use crate::util::{
+    add_cols_unchecked, add_rows_unchecked, select_left_bits_branch_less,
+    select_right_bits_branch_less,
+};
 use crate::{util, EvenOrOddBits, YamlCharacterChunk, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -463,7 +466,9 @@ pub unsafe trait Stage1Scanner {
             EvenOrOddBits::EvenBits,
         );
 
-        let odd_quotes = quotes ^ even_ends;
+        let exclude_even = select_left_bits_branch_less(quotes, even_ends >> 1);
+
+        let odd_quotes = quotes ^ exclude_even;
         let odd_starts = odd_quotes & !(odd_quotes << 1);
         let odd_ends = odd_quotes & !(odd_quotes >> 1);
 
