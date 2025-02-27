@@ -317,7 +317,7 @@ impl U8X16 {
     ///
     /// # Arguments
     ///
-    /// * `input` - A slice of `u8` values from which to create the `U8X16` instance. Input must be at last 16 bytes long.
+    /// * `input` - A slice of `u8` values from which to create the `U8X16` instance. Input must be at least 16 bytes long.
     ///
     /// # Returns
     ///

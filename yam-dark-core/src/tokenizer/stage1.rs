@@ -180,7 +180,7 @@ pub unsafe trait Stage1Scanner {
                 };
             };
         }
-        info.row_indent_mask = state.last_row | !63;
+        info.row_indent_mask = state.last_row & 63;
 
         add_cols_rows_unchecked!(0);
         add_cols_rows_unchecked!(8);
@@ -203,6 +203,11 @@ pub unsafe trait Stage1Scanner {
             (chunk_state.characters.line_feeds << 1) ^ u64::from(state.is_indent_running),
         );
         neg_indents_mask &= !(neg_indents_mask >> 1);
+
+        if neg_indents_mask == 0 {
+            return;
+        }
+
         let count = neg_indents_mask.count_ones();
         let last_bit = (neg_indents_mask | chunk_state.characters.line_feeds) & (1 << 63) != 0;
 
@@ -210,10 +215,6 @@ pub unsafe trait Stage1Scanner {
         let mut i = 0;
 
         state.is_indent_running = last_bit;
-
-        if neg_indents_mask == 0 {
-            return;
-        }
 
         while neg_indents_mask != 0 {
             let part0 = neg_indents_mask.trailing_zeros();
@@ -229,6 +230,7 @@ pub unsafe trait Stage1Scanner {
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
 
             let v = [part0, part1, part2, part3];
+            // TODO SAFETY
             unsafe {
                 core::ptr::write(compressed_indents.as_mut_ptr().add(i).cast::<[u32; 4]>(), v);
             };
@@ -236,8 +238,10 @@ pub unsafe trait Stage1Scanner {
         }
 
         // SAFETY:
-        // `set_len` is safe iff `count` < `compressed_indents.capacity` and `count` doesn't see uninitialized.
-        // `get_unchecked_mut` is safe iff `index` is a valid value. There is a presumption there will be a count
+        // - `set_len` is safe iff `count` < 64 this must be true because
+        //    count is enumerating bits in u64
+        // - `get_unchecked_mut` is safe iff `index` is a valid value.
+        // Even though we count
         unsafe {
             // Snip the size of compressed only interesting ones
             compressed_indents.set_len(count as usize);
@@ -245,10 +249,12 @@ pub unsafe trait Stage1Scanner {
             *compressed_indents.get_unchecked_mut(0) += state.last_indent;
         }
 
-        for index in 0..63 {
+        for index in 0..64 {
             // SAFETY:
-            // Unchecked access will be safe as long as info.indents, info.rows size is below 64
-            // Row Pos is less than 63 (which should be fixed with `info.last_row_mask`)
+            // - `info.rows.get_unchecked` is safe because index goes from 0..<64
+            // - `row_pos` must be less than 63 because a `info.row_indent_mask` is applied.
+            // - `info.indents.get_unchecked_mut` access will be safe as long as row_pos is below 0..<64
+            // - `compressed_indents.get_unchecked` is safe because row_pos is below 0..<64
             unsafe {
                 let row_pos = *info.rows.get_unchecked(index) & info.row_indent_mask;
                 *info.indents.get_unchecked_mut(index) =
@@ -256,9 +262,11 @@ pub unsafe trait Stage1Scanner {
             }
         }
 
+        // SAFETY:
+        // - safe as long as `count.saturating_sub(1)` is 0..<64
         unsafe {
-            state.last_indent =
-                compressed_indents.get_unchecked(count as usize - 1) * u32::from(last_bit);
+            state.last_indent = compressed_indents.get_unchecked(count.saturating_sub(1) as usize)
+                * u32::from(last_bit);
         }
     }
 
