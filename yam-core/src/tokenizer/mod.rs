@@ -78,7 +78,7 @@ pub enum ErrorType {
     YamlMustHaveOnePart,
 }
 
-pub trait Slicer<'a> {
+pub unsafe trait Slicer<'a> {
     fn slice(&self, start: usize, end: usize) -> &'a [u8];
     fn slice_str(&self, start: usize, end: usize) -> &'a str {
         from_utf8(self.slice(start, end)).unwrap_or("")

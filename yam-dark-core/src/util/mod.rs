@@ -167,7 +167,22 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
 }
 
 #[doc(hidden)]
-// TODO SAFETY
+/// Utility function that for given `newlines` mask will calculate eight rows at once
+///
+/// The function uses particular access and format to achieve auto-vectorization even without any
+/// SIMD enhancements.
+///
+/// # Arguments:
+/// * `dst` - An array or vector to which the row data will be written. It's expected to be at
+///   least `idx + 8` long.
+/// * `newlines` - Bit mask of an 8-bit chunk that determines which precomputed hash we should use.
+/// * `prev_row` - Value of previous row, which tells us how much to adjust the row value.
+///    After running, it will be updated to reflect the newest row.
+/// * `idx` - Index offset
+///
+/// # Safety:
+/// * This function is safe assuming that `U8_ROW_TABLE` must be correct (entries less than 8).
+/// * That `dst` must be at least `idx + 8` long.
 pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mut u32, idx: usize) {
     let src = U8_ROW_TABLE[newlines];
     *dst.get_unchecked_mut(idx) = *prev_row;
@@ -182,7 +197,22 @@ pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mu
 }
 
 #[doc(hidden)]
-// TODO SAFETY
+/// Utility function that for given `newlines` mask will calculate eight cols at once
+///
+/// The function uses particular access and format to achieve auto-vectorization even without any
+/// SIMD enhancements.
+///
+/// # Arguments:
+/// * `dst` - An array or vector to which the row data will be written. It's expected to be at
+///   least `idx + 8` long.
+/// * `newlines` - Bit mask of an 8-bit chunk that determines which precomputed hash we should use.
+/// * `prev_col` - Value of previous column, which tells us how much to adjust the column value.
+///    After running, it will be updated to reflect the newest column.
+/// * `idx` - Index offset
+///
+/// # Safety:
+/// * This function is safe assuming that `U8_ROW_TABLE` and `U8_BYTE_COL_TABLE` must be correct (entries less than 8).
+/// * That `dst` must be at least `idx + 8` long.
 pub unsafe fn add_cols_unchecked(dst: &mut [u32], newlines: usize, prev_col: &mut u32, idx: usize) {
     let cols = U8_BYTE_COL_TABLE[newlines];
     let rows = U8_ROW_TABLE[newlines];
