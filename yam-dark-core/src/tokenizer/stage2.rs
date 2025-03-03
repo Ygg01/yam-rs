@@ -164,14 +164,9 @@ impl<'de> Deserializer<'de> {
 
         let result = loop {
             //early bailout
-            match parser_state.state {
-                State::PreDocStart => {
-                    chr = update_char!();
-                    match chr {
-                        _ => {}
-                    }
-                }
-                _ => {}
+            if let State::PreDocStart = parser_state.state {
+                chr = update_char!();
+                {}
             }
         };
 
@@ -194,15 +189,15 @@ impl<'de> Deserializer<'de> {
 /// # Fields (for internal use only)
 ///
 /// ## State fields:
-/// - `state`: current state of the Parser
+/// * `state`: current state of the Parser
 ///
 /// ## Structural fields:
-/// - `structurals`: A vector of position indices marking structural elements
+/// * `structurals`: A vector of position indices marking structural elements
 ///   like start and end positions of nodes in the YAML document.
-/// - `byte_cols`: For each structurals byte this its corresponding byte column.
-/// - `byte_rows`: For each structurals byte this its corresponding byte row.
-/// - `indents`: For each structurals byte this its corresponding indentation.
-/// - `pos`: The current  position in the structural array.
+/// * `byte_cols`: For each structurals, byte this its corresponding byte column.
+/// * `byte_rows`: For each structurals, byte this its corresponding byte row.
+/// * `indents`: For each structurals, byte this its corresponding indentation.
+/// * `pos`: The current position in the structural array.
 ///
 /// ## Sparse fields:
 /// - `open_close_tag`: A list of all structurals that start or end YAML
@@ -213,11 +208,11 @@ impl<'de> Deserializer<'de> {
 /// - `last_col`: The column position of the last chunk processed.
 /// - `last_row`: The row position of the last chunk processed.
 /// - `previous_indent`: The indentation level before the current chunk.
-/// - `prev_iter_inside_quote`: Tracks the quoting state of the previous iteration
+/// - `Prev_iter_inside_quote`: Tracks the quoting state of the previous iteration
 ///   to determine the continuation of strings across lines.
 /// - `is_indent_running`: A flag indicating if the parser is currently processing
 ///   an indentation level.
-/// - `is_previous_white_space`: Indicates if the last processed character was a whitespace.
+/// - `is_previous_white_space`: Indicates if the last processed character was whitespace.
 /// - `is_prev_iter_odd_single_quote`: Tracks if there's an odd number of single quotes
 ///   up to the previous iteration, affecting string parsing.
 /// - `is_prev_double_quotes`: Indicates if the string being parsed is inside double quotes.
@@ -296,7 +291,7 @@ impl YamlParserState {
         // And based on rows/cols for structurals, we calculate indents
         S::calculate_relative_indents(self, chunk_state, indent_info);
 
-        // First we find all interesting structural bits
+        // First, we find all interesting structural bits
         S::flatten_bits_yaml(self, chunk_state, indent_info);
 
         if chunk_state.error_mask == 0 {
@@ -312,14 +307,14 @@ impl YamlParserState {
     }
 }
 
-/// Function that returns right validator for the right architecture
+/// Function that returns a right validator for the right architecture
 ///
 /// # Arguments
 ///
-/// * `pre_checked`: `true` when working with [`core::str`] thus not requiring any validation, `false`
-///   otherwise. **Note:** if your [`core::str`] isn't UTF-8 formatted this will cause Undefined behavior.
+/// * `pre_checked`: `true` When working with [`core::str`] thus not requiring any validation, `false`
+///   otherwise. **Note:** if your [`core::str`] isn't UTF-8 formatted, this will cause Undefined behavior.
 ///
-/// returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
+/// Returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
 /// is guaranteed to be correct for your CPU architecture.
 ///
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -333,7 +328,7 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
     }
 
     /// Safety: Only unsafe thing here is from calling right Scanner for right CPU architecture
-    /// i.e. don't call Neon on x86 architecture
+    /// i.e., don't call Neon on x86 architecture
     unsafe {
         if core_detect::is_x86_feature_detected!("avx2") {
             Box::new(AvxScanner::validator())
