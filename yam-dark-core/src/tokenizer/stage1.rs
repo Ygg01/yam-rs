@@ -230,7 +230,16 @@ pub unsafe trait Stage1Scanner {
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
 
             let v = [part0, part1, part2, part3];
-            // TODO SAFETY
+
+            // SAFETY:
+            // We need to maintain guarantee safety of `ptr::write` (*dst must be valid
+            // and properly aligned) and `ptr::add` safety (*dst pointer must be in bounds,
+            // count must not overflow `isize` and must not overflow `usize` on add).
+            //
+            // IFF compressed_indent is a Vec<u32> that's 64 elements wide:
+            // - `ptr::write` is aligned and ptr is valid
+            // - `ptr::add` can't overflow isize or usize because it's only adding 64 elements.
+            // - `ptr::add` pointer is valid
             unsafe {
                 core::ptr::write(compressed_indents.as_mut_ptr().add(i).cast::<[u32; 4]>(), v);
             };
