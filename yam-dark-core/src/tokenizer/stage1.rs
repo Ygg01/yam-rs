@@ -50,6 +50,10 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
 ///
 /// This trait MUST ALWAYS return valid positions in given stream in bytes. They will be used for unchecked
 /// access to the underlying bytes.
+///
+/// # Dyn compatibility
+///
+/// This trait isn't `dyn` compatible.
 pub unsafe trait Stage1Scanner {
     /// Type [`Stage1Scanner`] uses to perform SIMD accelerated actions.
     type SimdType;
