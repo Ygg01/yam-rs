@@ -137,11 +137,11 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     fn flatten_bits_yaml(
+        chunk_state: &YamlChunkState,
         base: &mut YamlParserState,
-        yaml_chunk_state: &YamlChunkState,
         indent_info: &mut YamlIndentInfo,
     ) {
-        let mut bits = yaml_chunk_state.all_structurals();
+        let mut bits = chunk_state.all_structurals();
         let count_ones: usize = bits.count_ones() as usize;
         let mut old_len = base.structurals.len();
 

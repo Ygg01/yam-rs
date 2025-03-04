@@ -138,9 +138,7 @@ pub unsafe trait Stage1Scanner {
     /// Scans the whitespace and structurals in the given YAML chunk state.
     /// This method sets [`YamlCharacterChunk`] part of [`YamlChunkState`].
     ///
-    /// # Arguments:
-    ///
-    /// - `block_state` - A mutable reference to the [`YamlChunkState`] for scanning.
+    /// # Returns: A mutable reference to the [`YamlChunkState`] for scanning.
     ///
     /// # Example
     /// ```rust
@@ -162,29 +160,44 @@ pub unsafe trait Stage1Scanner {
     /// Combines all structurals and pseudo structurals into a single flat structure and stores it
     /// in [`YamlParserState::structurals`]. For every entry in `structurals` there will be
     /// corresponding fields in called `cols`, `rows` and `indents`.
+    ///
+    /// # Arguments:
+    ///
+    /// * `chunk` - A [`YamlChunkState`] that contains the current chunk info.
+    /// * `parser_state` - A mutable [`YamlParserState`] that contains the current parser state and will be
+    /// updated with new chunk state.
+    /// * `indent_info` - A mutable [`YamlIndentInfo`] that will be updated with info.
+    ///
     fn flatten_bits_yaml(
-        base: &mut YamlParserState,
-        chunk_state: &YamlChunkState,
+        chunk: &YamlChunkState,
+        parser_state: &mut YamlParserState,
         indent_info: &mut YamlIndentInfo,
     );
 
     /// Calculates rows and cols part of the [`YamlIndentInfo`]
+    ///
+    /// Arguments:
+    ///
+    /// * `chunk` - A u64 bitmask that contains position of Line feed characters.
+    /// * `parser_state` - A [`YamlParserState`] which will update `last_row` and `last_col` with the
+    /// chunk info.
+    /// * `info` - A [`YamlIndentInfo`] that will be updated from chunk with `cols`/`rows`/`rows_indent_mask`.
     fn calculate_row_col_info(
-        state: &mut YamlParserState,
-        chunk_state: &YamlChunkState,
+        line_feeds: u64,
+        parser_state: &mut YamlParserState,
         info: &mut YamlIndentInfo,
     ) {
         // Avoid copy/paste with this inline macro
         macro_rules! add_cols_rows_unchecked {
             ($e:expr) => {
-                let nl_ind = ((chunk_state.characters.line_feeds >> $e) & 0xFF) as usize;
+                let nl_ind = ((line_feeds >> $e) & 0xFF) as usize;
                 unsafe {
-                    add_rows_unchecked(&mut info.rows, nl_ind, &mut state.last_row, state.pos + $e);
-                    add_cols_unchecked(&mut info.cols, nl_ind, &mut state.last_col, state.pos + $e);
+                    add_rows_unchecked(&mut info.rows, nl_ind, &mut parser_state.last_row, parser_state.pos + $e);
+                    add_cols_unchecked(&mut info.cols, nl_ind, &mut parser_state.last_col, parser_state.pos + $e);
                 };
             };
         }
-        info.row_indent_mask = state.last_row & 63;
+        info.row_indent_mask = parser_state.last_row & 63;
 
         add_cols_rows_unchecked!(0);
         add_cols_rows_unchecked!(8);
@@ -196,15 +209,21 @@ pub unsafe trait Stage1Scanner {
         add_cols_rows_unchecked!(56);
     }
 
-    /// Calculates [`indents`](YamlIndentInfo::indents) part of [`YamlIndentInfo`] based on previous newlines and spaces position
+    /// Calculates `indents` part of [`YamlIndentInfo`] based on previous newlines and spaces position
+    ///
+    /// # Arguments:
+    ///
+    /// * `characters` - Current [`YamlChunkState`], from which relative indents are calculated.
+    /// * `parser_state` - [`YamlParserState`] being updated with indent, and related data.
+    /// * `info` - Current [`YamlIndentInfo`] being updated with indent, and related data.
     fn calculate_relative_indents(
-        state: &mut YamlParserState,
-        chunk_state: &YamlChunkState,
+        chunk: &YamlChunkState,
+        parser_state: &mut YamlParserState,
         info: &mut YamlIndentInfo,
     ) {
         let mut neg_indents_mask = select_right_bits_branch_less(
-            chunk_state.characters.spaces,
-            (chunk_state.characters.line_feeds << 1) ^ u64::from(state.is_indent_running),
+            chunk.characters.spaces,
+            (chunk.characters.line_feeds << 1) ^ u64::from(parser_state.is_indent_running),
         );
         neg_indents_mask &= !(neg_indents_mask >> 1);
 
@@ -213,12 +232,12 @@ pub unsafe trait Stage1Scanner {
         }
 
         let count = neg_indents_mask.count_ones();
-        let last_bit = (neg_indents_mask | chunk_state.characters.line_feeds) & (1 << 63) != 0;
+        let last_bit = (neg_indents_mask | chunk.characters.line_feeds) & (1 << 63) != 0;
 
         let mut compressed_indents: Vec<u32> = Vec::with_capacity(64);
         let mut i = 0;
 
-        state.is_indent_running = last_bit;
+        parser_state.is_indent_running = last_bit;
 
         while neg_indents_mask != 0 {
             let part0 = neg_indents_mask.trailing_zeros();
@@ -265,7 +284,7 @@ pub unsafe trait Stage1Scanner {
             // Snip the size of compressed only interesting ones
             compressed_indents.set_len(count as usize);
             // First indent of compressed will always take the previous chunk into account
-            *compressed_indents.get_unchecked_mut(0) += state.last_indent;
+            *compressed_indents.get_unchecked_mut(0) += parser_state.last_indent;
         }
 
         for index in 0..64 {
@@ -291,7 +310,8 @@ pub unsafe trait Stage1Scanner {
         // - safe as long as `count.saturating_sub(1)` is 0..<64 (the size of `compressed_indents`,
         // count can be 64 (on 64-bit platforms)
         unsafe {
-            state.last_indent = compressed_indents.get_unchecked(count.saturating_sub(1) as usize)
+            parser_state.last_indent = compressed_indents
+                .get_unchecked(count.saturating_sub(1) as usize)
                 * u32::from(last_bit);
         }
     }
@@ -381,27 +401,26 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `chunk_state` - A mutable reference to a [`YamlChunkState`] object that contains current chunk data.
+    /// * `chunk` - A mutable reference to a [`YamlChunkState`] object that contains current chunk data.
     /// * `parser_state` - A mutable reference to a [`YamlParserState`] object that stores parser's state information.
     ///
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_for_comments(
         &self,
-        characters: &mut YamlCharacterChunk,
+        chunk: &mut YamlCharacterChunk,
         parser_state: &mut YamlParserState,
     ) {
         let character = self.cmp_ascii_to_input(b'#');
-        let shifted_spaces =
-            (characters.spaces << 1) ^ u64::from(parser_state.is_previous_white_space);
+        let shifted_spaces = (chunk.spaces << 1) ^ u64::from(parser_state.is_previous_white_space);
 
         let comment_start = (character & shifted_spaces) | u64::from(parser_state.is_in_comment);
-        let not_whitespace = !characters.line_feeds;
+        let not_whitespace = !chunk.line_feeds;
 
-        characters.in_comment = select_right_bits_branch_less(not_whitespace, comment_start);
+        chunk.in_comment = select_right_bits_branch_less(not_whitespace, comment_start);
 
         // Update values for the next iteration.
-        parser_state.is_in_comment = characters.in_comment >> 63 == 1;
-        parser_state.is_previous_white_space = (characters.spaces >> 63) == 1;
+        parser_state.is_in_comment = chunk.in_comment >> 63 == 1;
+        parser_state.is_previous_white_space = (chunk.spaces >> 63) == 1;
     }
 
     /// Returns a bitmask indicating where there are characters that end an odd-length sequence
