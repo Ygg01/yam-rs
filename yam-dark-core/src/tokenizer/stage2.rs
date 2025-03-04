@@ -121,14 +121,17 @@ impl<'de> Deserializer<'de> {
         let next_fn = get_stage1_next::<B>();
 
         for chunk in iter {
-            // SAFETY: The get_validator function should return the correct validator for any given
-            // CPU architecture.
-            // PANIC safe: the chunk is always 64 characters long
+            // SAFETY:
+            // The `update_from_chunks` function is safe if called on with correct CPU features.
+            // It's panic-free if chunk is 64 long array.
+            //
+            // Invariants:
+            // - The chunk is always 64 characters long.
+            // - `get_validator` must return the correct function.
             unsafe {
                 validator.update_from_chunks(chunk);
             }
 
-            // SAFETY: The next_fn should return the correct function for any given CPU
             let chunk_state: YamlChunkState = S::next(chunk, buffer, &mut state);
             state.process_chunk::<B, S>(buffer, &chunk_state, &mut indent_info)?;
         }
@@ -147,7 +150,8 @@ impl<'de> Deserializer<'de> {
         macro_rules! update_char {
             () => {
                 if parser_state.pos < parser_state.structurals.len() {
-                    // SAFETY: this method will be safe if YamlParserState structurals are safe
+                    // SAFETY:
+                    // This method will be safe iff YamlParserState structurals are safe
                     let chr = unsafe {
                         buffer.get_byte_unsafely(
                             *parser_state.structurals.get_unchecked(parser_state.pos),
@@ -320,15 +324,16 @@ impl YamlParserState {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
     if pre_checked {
-        /// Safety: Always safe for preformatted utf8
+        // SAFETY:
+        // [`core::str`] are always safe, if not, that's already unsound.
         unsafe {
-            // Is always safe for preformatted utf8
             return Box::new(NoopValidator::new());
         }
     }
 
-    /// Safety: Only unsafe thing here is from calling right Scanner for right CPU architecture
-    /// i.e., don't call Neon on x86 architecture
+    // SAFETY:
+    // Must call right Scanner for right CPU architecture
+    // i.e., don't call `AvxScanner` on CPU that doesn't support AVX features.
     unsafe {
         if core_detect::is_x86_feature_detected!("avx2") {
             Box::new(AvxScanner::validator())

@@ -30,7 +30,7 @@ use crate::util::{
     add_cols_unchecked, add_rows_unchecked, select_left_bits_branch_less,
     select_right_bits_branch_less,
 };
-use crate::{util, EvenOrOddBits, YamlCharacterChunk, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
+use crate::{EvenOrOddBits, YamlCharacterChunk, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
@@ -234,9 +234,10 @@ pub unsafe trait Stage1Scanner {
             // SAFETY:
             // We need to maintain guarantee safety of `ptr::write` (*dst must be valid
             // and properly aligned) and `ptr::add` safety (*dst pointer must be in bounds,
-            // count must not overflow `isize` and must not overflow `usize` on add).
+            // count must not overflow `isize` and must not overflow `usize`).
             //
-            // IFF compressed_indent is a Vec<u32> that's 64 elements wide:
+            // Invariants:
+            // If compressed_indent is a `Vec<u32>` that's 64 elements wide
             // - `ptr::write` is aligned and ptr is valid
             // - `ptr::add` can't overflow isize or usize because it's only adding 64 elements.
             // - `ptr::add` pointer is valid
@@ -247,10 +248,15 @@ pub unsafe trait Stage1Scanner {
         }
 
         // SAFETY:
-        // - `set_len` is safe iff `count` < 64 this must be true because
-        //    count is enumerating bits in u64
-        // - `get_unchecked_mut` is safe iff `index` is a valid value.
-        // Even though we count
+        // We need to maintain guarantee safety of `vec::set_len` (`new_len <= capacity`
+        // and elements `old_len..new_len` must be initialized) and `slice::get_unchecked_mut`
+        // safety (index must not be out of bounds).
+        //
+        // Invariants:
+        // - If `count` < 64 then `new_len <= capacity` must hold
+        // - Since loop initializes more chunks than length, there `old_len..new_len` will be true
+        // - loop runs once which compressed_indent will have one first element, which is guaranteed
+        // by if neg_indents_mask == 0 early return.
         unsafe {
             // Snip the size of compressed only interesting ones
             compressed_indents.set_len(count as usize);
@@ -260,10 +266,13 @@ pub unsafe trait Stage1Scanner {
 
         for index in 0..64 {
             // SAFETY:
-            // - `info.rows.get_unchecked` is safe because index goes from 0..<64
+            // Block will be safe if `get_unchecked_mut`/`get_unchecked` index is within bounds.
+            //
+            // Invariants:
+            // - `info.rows.get_unchecked` must be safe because index goes from 0..<64
             // - `row_pos` must be less than 63 because a `info.row_indent_mask` is applied.
-            // - `info.indents.get_unchecked_mut` access will be safe as long as row_pos is below 0..<64
-            // - `compressed_indents.get_unchecked` is safe because row_pos is below 0..<64
+            // - `info.indents.get_unchecked_mut` access must be safe as long as row_pos is below 0..<64
+            // - `compressed_indents.get_unchecked` must be safe because row_pos is below 0..<64
             unsafe {
                 let row_pos = *info.rows.get_unchecked(index) & info.row_indent_mask;
                 *info.indents.get_unchecked_mut(index) =
@@ -272,7 +281,11 @@ pub unsafe trait Stage1Scanner {
         }
 
         // SAFETY:
-        // - safe as long as `count.saturating_sub(1)` is 0..<64
+        // Block is safe if `get_unchecked` is within bounds of `compressed_indents`
+        //
+        // Invariants:
+        // - safe as long as `count.saturating_sub(1)` is 0..<64 (the size of `compressed_indents`,
+        // count can be 64 (on 64-bit platforms)
         unsafe {
             state.last_indent = compressed_indents.get_unchecked(count.saturating_sub(1) as usize)
                 * u32::from(last_bit);
@@ -534,7 +547,7 @@ pub unsafe trait Stage1Scanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
-        util::select_left_bits_branch_less(quote_bits, even_ends)
+        select_left_bits_branch_less(quote_bits, even_ends)
     }
 
     /// Scans the input for double quote bitmask.

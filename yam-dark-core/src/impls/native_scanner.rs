@@ -143,19 +143,19 @@ unsafe impl Stage1Scanner for NativeScanner {
     ) {
         let mut bits = yaml_chunk_state.all_structurals();
         let count_ones: usize = bits.count_ones() as usize;
-        let mut base_len = base.structurals.len();
+        let mut old_len = base.structurals.len();
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
-        // then we truncate the base to the next base (that we calculated above)
-        // We later indiscriminately write over the len we set but that's OK
-        // since we ensure we reserve the needed space
+        // then we truncate the base to the next base (that we calculated above).
+        // We later indiscriminately write over the len we set, but that's OK
+        // since we ensure we reserve the necessary space.
         base.structurals.reserve(64);
         base.byte_cols.reserve(64);
         base.byte_rows.reserve(64);
         base.indents.reserve(64);
 
-        let final_len = base_len + count_ones;
+        let final_len = old_len + count_ones;
 
         macro_rules! u32x4 {
             ($field:expr, $data:ident, $pos:expr) => {
@@ -222,20 +222,24 @@ unsafe impl Stage1Scanner for NativeScanner {
                 write(
                     base.structurals
                         .as_mut_ptr()
-                        .add(base_len)
+                        .add(old_len)
                         .cast::<[usize; 4]>(),
                     v,
                 );
-                u32x4!(&mut base.byte_cols, cols, base_len);
-                u32x4!(&mut base.byte_rows, rows, base_len);
-                u32x4!(&mut base.byte_rows, indents, base_len);
+                u32x4!(&mut base.byte_cols, cols, old_len);
+                u32x4!(&mut base.byte_rows, rows, old_len);
+                u32x4!(&mut base.byte_rows, indents, old_len);
             }
 
-            base_len += 4;
+            old_len += 4;
         }
-        // Safety:
-        //  1. We have reserved 64 entries
-        //  2. We have written only `count_len` entries (maximum number is 64)
+        // SAFETY:
+        // `set_len` is safe if `new_len` <= `capacity` and `old_len..new_len` is initialized.
+        // INVARIANTS:
+        // - all four vectors have reserved 64 fields
+        // - `final_len` must be less than `old_len + 64`
+        // - `old_len..new_len` is initialized by the loop.
+        debug_assert!(final_len <= old_len + 64);
         unsafe {
             base.structurals.set_len(final_len);
             base.byte_cols.set_len(final_len);

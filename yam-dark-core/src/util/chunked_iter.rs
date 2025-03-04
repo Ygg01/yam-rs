@@ -20,7 +20,9 @@ impl<'a> Iterator for ChunkyIterator<'a> {
             i if i >= 64 => {
                 let len = self.bytes.len();
                 let ptr = self.bytes.as_ptr();
-                // SAFETY: We manually verified the bounds of the split.
+                // SAFETY:
+                // From raw parts is safe
+                // We manually verified the bounds of the split.
                 let (first, tail) = unsafe {
                     (
                         from_raw_parts(ptr, 64),
