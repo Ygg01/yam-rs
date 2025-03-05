@@ -125,27 +125,7 @@ pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[must_use]
 pub fn fast_select_high_bits(input: u64, mask: u64) -> u64 {
-    let mut result = input & mask;
-
-    let mut a = input;
-    result |= (result << 1) & a;
-
-    a &= a << 1;
-    result |= (result << 2) & a;
-
-    a &= a << 2;
-    result |= (result << 4) & a;
-
-    a &= a << 4;
-    result |= (result << 8) & a;
-
-    a &= a << 8;
-    result |= (result << 16) & a;
-
-    a &= a << 16;
-    result |= (result << 32) & a;
-
-    result
+    input & (mask | !input.wrapping_add(input & mask))
 }
 
 #[doc(hidden)]
