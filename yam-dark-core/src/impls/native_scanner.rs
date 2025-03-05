@@ -42,6 +42,7 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
     fn classify_yaml_characters(&self) -> YamlCharacterChunk {
         let mut characters = YamlCharacterChunk::default();
         // Setup swizzle table
@@ -111,7 +112,7 @@ unsafe impl Stage1Scanner for NativeScanner {
             | (block_structural_res_2 << 32)
             | (block_structural_res_3 << 48));
 
-        // YAML block structurals like `? `, `- ` and `:` are only valid if followed by a WHITESPACE
+        // YAML block structurals like `? `, `- ` and `: ` are only valid if followed by a WHITESPACE
         // character or end of line
         characters.block_structurals = block_structurals_candidates & (characters.whitespace << 1);
 
@@ -133,6 +134,9 @@ unsafe impl Stage1Scanner for NativeScanner {
 
         characters.line_feeds = self.cmp_ascii_to_input(b'\n');
 
+        // Unquoted possible start
+        characters.unquoted_scalars = !characters.whitespace & (characters.whitespace << 1);
+
         characters
     }
 
@@ -141,7 +145,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         base: &mut YamlParserState,
         indent_info: &mut YamlIndentInfo,
     ) {
-        let mut bits = chunk_state.all_structurals();
+        let mut bits = chunk_state.substructure();
         let count_ones: usize = bits.count_ones() as usize;
         let mut old_len = base.structurals.len();
 
