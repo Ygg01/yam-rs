@@ -66,13 +66,13 @@ pub(crate) fn str_to_chunk(s: &str) -> [u8; 64] {
 /// ```rust
 /// let input = 0b1100_1100;
 /// let mask  = 0b1010_1010;
-/// let result = yam_dark_core::util::select_left_bits_branch_less(input, mask);
+/// let result = yam_dark_core::util::fast_select_low_bits(input, mask);
 /// assert_eq!(result, 0b1100_1100);
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[must_use]
-pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
+pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
     let mut result = 0;
 
     result |= input & mask;
@@ -118,13 +118,13 @@ pub fn select_left_bits_branch_less(input: u64, mask: u64) -> u64 {
 /// ```rust
 /// let input = 0b1100_1110;
 /// let mask  = 0b0100_0100;
-/// let result = yam_dark_core::util::select_right_bits_branch_less(input, mask);
+/// let result = yam_dark_core::util::fast_select_high_bits(input, mask);
 /// assert_eq!(result, 0b1100_1100);
 /// ```
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[must_use]
-pub fn select_right_bits_branch_less(input: u64, mask: u64) -> u64 {
+pub fn fast_select_high_bits(input: u64, mask: u64) -> u64 {
     let mut result = input & mask;
 
     let mut a = input;
@@ -356,7 +356,7 @@ macro_rules! assert_bin_eq {
 
 #[test]
 fn test_branch_less_right1() {
-    let actual = select_left_bits_branch_less(
+    let actual = fast_select_low_bits(
         0b1111_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_0000_0110,
         0b1000_0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100,
     );
@@ -367,14 +367,14 @@ fn test_branch_less_right1() {
 
 #[test]
 fn test_branch_less_right2() {
-    let actual = select_left_bits_branch_less(0b1100_1100, 0b1010_1010);
+    let actual = fast_select_low_bits(0b1100_1100, 0b1010_1010);
     let expected = 0b1100_1100;
     assert_bin_eq!(actual, expected);
 }
 
 #[test]
 fn test_branch_less_left() {
-    let actual = select_right_bits_branch_less(
+    let actual = fast_select_high_bits(
         0b1110_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_1110_0110,
         0b0010_0010_0000_0000_0000_1100_0000_0000_0000_0000_0000_0000_0000_0000_0100_0010,
     );

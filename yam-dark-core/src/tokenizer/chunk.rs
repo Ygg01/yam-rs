@@ -184,8 +184,11 @@ pub struct YamlCharacterChunk {
     /// Flow operators used in YAML
     pub flow_structurals: u64,
 
-    /// Possible unquoted scalars
-    pub unquoted_scalars: u64,
+    /// Possible unquoted scalars starts
+    pub unquoted_scalars_starts: u64,
+
+    /// Bits showing which bytes are in unquoted scalars.
+    pub in_unquoted_scalars: u64,
 
     /// Bitmask showing if chunk character is in_comment
     pub in_comment: u64,
@@ -197,7 +200,7 @@ impl YamlCharacterChunk {
     /// or an unquoted start structurals character (a character) in the `[u8; 64]` chunk
     /// at corresponding position.
     pub const fn substructure(&self) -> u64 {
-        self.unquoted_scalars | self.block_structurals | self.flow_structurals
+        self.unquoted_scalars_starts | self.block_structurals | self.flow_structurals
     }
 }
 
@@ -307,12 +310,13 @@ mod test {
 
     #[test]
     fn test_unquoted_start() {
-        let string = " - test \n - test";
+        let string = " - a  b \n - a  b ";
         let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
 
         let character_chunk = scanner.classify_yaml_characters();
         let structure_bit = character_chunk.substructure();
 
-        assert_bin_eq!(0b0010_1000_0000_1010, structure_bit);
+        assert_bin_eq!(0b0001_0100_0000_1010, structure_bit);
+        assert_bin_eq!(0b1111_0000_0111_1000, character_chunk.in_unquoted_scalars);
     }
 }

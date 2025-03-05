@@ -27,8 +27,7 @@
 use crate::tokenizer::chunk::YamlChunkState;
 use crate::tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
 use crate::util::{
-    add_cols_unchecked, add_rows_unchecked, select_left_bits_branch_less,
-    select_right_bits_branch_less,
+    add_cols_unchecked, add_rows_unchecked, fast_select_high_bits, fast_select_low_bits,
 };
 use crate::{EvenOrOddBits, YamlCharacterChunk, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
 use alloc::vec::Vec;
@@ -221,7 +220,7 @@ pub unsafe trait Stage1Scanner {
         parser_state: &mut YamlParserState,
         info: &mut YamlIndentInfo,
     ) {
-        let mut neg_indents_mask = select_right_bits_branch_less(
+        let mut neg_indents_mask = fast_select_high_bits(
             chunk.characters.spaces,
             (chunk.characters.line_feeds << 1) ^ u64::from(parser_state.is_indent_running),
         );
@@ -416,7 +415,7 @@ pub unsafe trait Stage1Scanner {
         let comment_start = (character & shifted_spaces) | u64::from(parser_state.is_in_comment);
         let not_whitespace = !chunk.line_feeds;
 
-        chunk.in_comment = select_right_bits_branch_less(not_whitespace, comment_start);
+        chunk.in_comment = fast_select_high_bits(not_whitespace, comment_start);
 
         // Update values for the next iteration.
         parser_state.is_in_comment = chunk.in_comment >> 63 == 1;
@@ -519,7 +518,7 @@ pub unsafe trait Stage1Scanner {
             EvenOrOddBits::EvenBits,
         );
 
-        let exclude_even = select_left_bits_branch_less(quotes, even_ends >> 1);
+        let exclude_even = fast_select_low_bits(quotes, even_ends >> 1);
 
         let odd_quotes = quotes ^ exclude_even;
         let odd_starts = odd_quotes & !(odd_quotes << 1);
@@ -570,7 +569,7 @@ pub unsafe trait Stage1Scanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
-        select_left_bits_branch_less(quote_bits, even_ends)
+        fast_select_low_bits(quote_bits, even_ends)
     }
 
     /// Scans the input for double quote bitmask.

@@ -7,7 +7,7 @@ use util::u8x16_swizzle;
 
 use crate::tokenizer::stage1::Stage1Scanner;
 use crate::tokenizer::stage2::YamlIndentInfo;
-use crate::util::NoopValidator;
+use crate::util::{fast_select_high_bits, fast_select_low_bits, NoopValidator};
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
 use crate::{util, YamlCharacterChunk, YamlChunkState, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
 
@@ -135,7 +135,13 @@ unsafe impl Stage1Scanner for NativeScanner {
         characters.line_feeds = self.cmp_ascii_to_input(b'\n');
 
         // Unquoted possible start
-        characters.unquoted_scalars = !characters.whitespace & (characters.whitespace << 1);
+        let non_white_space_starts = !characters.whitespace & (characters.whitespace << 1);
+        let non_structurals = !(characters.flow_structurals | characters.block_structurals);
+        let possible_blocks = fast_select_low_bits(non_structurals, non_white_space_starts);
+        characters.in_unquoted_scalars =
+            fast_select_high_bits(possible_blocks, non_white_space_starts);
+        characters.unquoted_scalars_starts =
+            characters.in_unquoted_scalars & !(characters.in_unquoted_scalars << 1);
 
         characters
     }
