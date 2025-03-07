@@ -77,7 +77,7 @@ pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
     let x = input & !mask;
 
     let s = input & !(input << 1);
-    let mx = x.wrapping_add(s) ^ mask;
+    let mx = input.wrapping_add(s) ^ mask;
     let m2 = mx.wrapping_sub(s) & s;
     let z = mask.wrapping_sub(m2) & input;
 

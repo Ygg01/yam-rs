@@ -45,18 +45,20 @@ fn print2(input: u8) {
 }
 
 fn main() {
-    let x = true;
-    let input = 0b1100_1100;
-    let mask = 0b1010_1010;
-
-    println!("final:      {}", select_left_input(input, mask, 2));
+    // let input = 0b1100_1100;
+    // let mask = 0b1010_1010;
+    let input = 0b1111_0000_1110_0000_0110;
+    let mask = 0b1000_0010_0000_0000_0100;
+    let max_size = 5;
+    let fin = select_left_input(input, mask, max_size);
+    println!("x:          {} ({fin})", print_bin_till(fin, max_size));
 }
 
 fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
     let mask = mask & input;
     let x = input & !mask;
     let start = input & !(input << 1);
-    let mx = x.wrapping_add(start) ^ mask;
+    let mx = input.wrapping_add(start) ^ mask;
     let ms = mx.wrapping_sub(start);
     let m2 = ms & start;
     let z = mask.wrapping_sub(m2) & input;
@@ -69,7 +71,7 @@ fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
     println!("m2:         {} ({m2})", print_bin_till(m2, max_size));
     println!("z:          {} ({z})", print_bin_till(z, max_size));
 
-    mask
+    mask | z
 }
 
 //
