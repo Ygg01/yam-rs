@@ -47,30 +47,57 @@ fn print2(input: u8) {
 fn main() {
     // let input = 0b1100_1100;
     // let mask = 0b1010_1010;
+    // let input = 1434;
+    // let mask = 272;
+    // let max_size = 4;
     let input = 0b1111_0000_1110_0000_0110;
     let mask = 0b1000_0010_0000_0000_0100;
     let max_size = 5;
     let fin = select_left_input(input, mask, max_size);
-    println!("x:          {} ({fin})", print_bin_till(fin, max_size));
+    println!("fin:            {} ({fin})", print_bin_till(fin, max_size));
 }
 
 fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
     let mask = mask & input;
-    let x = input & !mask;
-    let start = input & !(input << 1);
-    let mx = input.wrapping_add(start) ^ mask;
-    let ms = mx.wrapping_sub(start);
-    let m2 = ms & start;
-    let z = mask.wrapping_sub(m2) & input;
-    println!("input:      {} ({input})", print_bin_till(input, max_size));
-    println!("mask:       {} ({mask})", print_bin_till(mask, max_size));
-    println!("x:          {} ({x})", print_bin_till(x, max_size));
-    println!("start:      {} ({start})", print_bin_till(start, max_size));
-    println!("mx:         {} ({mx})", print_bin_till(mx, max_size));
-    println!("ms:         {} ({ms})", print_bin_till(ms, max_size));
-    println!("m2:         {} ({m2})", print_bin_till(m2, max_size));
-    println!("z:          {} ({z})", print_bin_till(z, max_size));
+    let ones = input & !(input << 1) & !(input >> 1);
+    let m_input = !mask & input & !ones;
+    let start = m_input & !(m_input << 1);
+    let end = m_input & !(m_input >> 1);
+    // -------------
+    let se = end.wrapping_sub(start);
+    let m_se = mask.wrapping_sub(start);
+    let carry = (se ^ m_se) & start;
+    let z = mask.wrapping_sub(carry) & input;
 
+    println!(
+        "input:          {} ({input})",
+        print_bin_till(input, max_size)
+    );
+
+    println!(
+        "mask input:     {} ({m_input})",
+        print_bin_till(m_input, max_size)
+    );
+    println!(
+        "mask:           {} ({mask})",
+        print_bin_till(mask, max_size)
+    );
+    println!(
+        "start:          {} ({start})",
+        print_bin_till(start, max_size)
+    );
+    println!("end:            {} ({end})", print_bin_till(end, max_size));
+    println!("--------------------------");
+    println!("se:             {} ({se})", print_bin_till(se, max_size));
+    println!(
+        "m_se:           {} ({m_se})",
+        print_bin_till(m_se, max_size)
+    );
+    println!(
+        "carry:          {} ({carry})",
+        print_bin_till(carry, max_size)
+    );
+    println!("z:              {} ({z})", print_bin_till(z, max_size));
     mask | z
 }
 

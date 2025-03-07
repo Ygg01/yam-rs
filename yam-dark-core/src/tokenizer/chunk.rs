@@ -299,8 +299,8 @@ mod test {
     fn test_scan_single_quote_bitmask() {
         let mut prev_iter_state = YamlParserState::default();
 
-        let chunk = b" ' ''  '' '                                                     ";
-        let scanner = NativeScanner::from_chunk(chunk);
+        let chunk = "''' ''''' ";
+        let scanner = NativeScanner::from_chunk(&str_to_chunk(chunk));
         let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
         assert_bin_eq!(0b0000_0000_0010, single_quote.quote_starts);
         assert_bin_eq!(0b0100_0000_0010, single_quote.quote_bits);

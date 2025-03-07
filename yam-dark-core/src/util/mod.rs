@@ -74,14 +74,17 @@ pub(crate) fn str_to_chunk(s: &str) -> [u8; 64] {
 #[must_use]
 pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
     let mask = mask & input;
-    let x = input & !mask;
+    let ones = input & !(input << 1) & !(input >> 1);
+    let m_input = !mask & input & !ones;
+    let start = m_input & !(m_input << 1);
+    let end = m_input & !(m_input >> 1);
+    // -------------
+    let se = end.wrapping_sub(start);
+    let m_se = mask.wrapping_sub(start);
+    let carry = (se ^ m_se) & start;
+    let z = mask.saturating_sub(carry) & input;
 
-    let s = input & !(input << 1);
-    let mx = input.wrapping_add(s) ^ mask;
-    let m2 = mx.wrapping_sub(s) & s;
-    let z = mask.wrapping_sub(m2) & input;
-
-    z | mask
+    mask | z
 }
 
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
@@ -324,12 +327,8 @@ macro_rules! assert_bin_eq {
 
 #[test]
 fn test_branch_less_right1() {
-    let actual = fast_select_low_bits(
-        0b1111_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_0000_0110,
-        0b1000_0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100,
-    );
-    let expected =
-        0b1111_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0110;
+    let actual = fast_select_low_bits(0b1111_0000_1110_0000_0110, 0b1000_0010_0000_0000_0100);
+    let expected = 0b1111_0000_0000_0000_0110;
     assert_bin_eq!(expected, actual);
 }
 
@@ -349,5 +348,19 @@ fn test_branch_less_left() {
 
     let expected =
         0b1110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1100_0110;
+    assert_bin_eq!(actual, expected);
+}
+
+#[test]
+fn test_fast_low_bits() {
+    let actual = fast_select_low_bits(1434, 272);
+    let expected = 0b1_1001_1000;
+    assert_bin_eq!(actual, expected);
+}
+
+#[test]
+fn test_fast_low_bits2() {
+    let actual = fast_select_low_bits(1434, 0);
+    let expected = 0;
     assert_bin_eq!(actual, expected);
 }
