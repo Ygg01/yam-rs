@@ -14,6 +14,8 @@
 //     Ok(())
 // }
 
+use yam_dark_core::util::print_bin_till;
+
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
 enum Test {
@@ -43,24 +45,33 @@ fn print2(input: u8) {
 }
 
 fn main() {
-    // print3(0b1111);
-    // print3(0b1111000);
-    // print3(0b0011);
-    // print3(0b01111101);
-    // print3(0b010111101);
-    // print3(0b0111100);
-    // print3(0b1111101);
-    // let x = 0b10111;
-    // print3(x);
-    // print3(0b1011);
-    // find_even_end(0b11011);
-    // print3(0b11101);
-    // print3(0b1011010);
-    // print3(0b1011101);
-    // print3(0b110);
     let x = true;
-    println!("{}", u64::from(x));
+    let input = 0b1100_1100;
+    let mask = 0b1010_1010;
+
+    println!("final:      {}", select_left_input(input, mask, 2));
 }
+
+fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
+    let mask = mask & input;
+    let x = input & !mask;
+    let start = input & !(input << 1);
+    let mx = x.wrapping_add(start) ^ mask;
+    let ms = mx.wrapping_sub(start);
+    let m2 = ms & start;
+    let z = mask.wrapping_sub(m2) & input;
+    println!("input:      {} ({input})", print_bin_till(input, max_size));
+    println!("mask:       {} ({mask})", print_bin_till(mask, max_size));
+    println!("x:          {} ({x})", print_bin_till(x, max_size));
+    println!("start:      {} ({start})", print_bin_till(start, max_size));
+    println!("mx:         {} ({mx})", print_bin_till(mx, max_size));
+    println!("ms:         {} ({ms})", print_bin_till(ms, max_size));
+    println!("m2:         {} ({m2})", print_bin_till(m2, max_size));
+    println!("z:          {} ({z})", print_bin_till(z, max_size));
+
+    mask
+}
+
 //
 // #[allow(dead_code)]
 // fn find_even_end(bits: u8) -> u8 {

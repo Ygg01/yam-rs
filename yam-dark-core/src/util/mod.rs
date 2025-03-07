@@ -73,29 +73,15 @@ pub(crate) fn str_to_chunk(s: &str) -> [u8; 64] {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[must_use]
 pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
-    let mut result = 0;
+    let mask = mask & input;
+    let x = input & !mask;
 
-    result |= input & mask;
+    let s = input & !(input << 1);
+    let mx = x.wrapping_add(s) ^ mask;
+    let m2 = mx.wrapping_sub(s) & s;
+    let z = mask.wrapping_sub(m2) & input;
 
-    let mut a = input & 0x7FFF_FFFF_FFFF_FFFF;
-    result |= (result >> 1) & a;
-
-    a &= a << 1;
-    result |= ((result >> 1) & a) >> 1;
-
-    a &= a << 2;
-    result |= ((result >> 1) & a) >> 3;
-
-    a &= a << 4;
-    result |= ((result >> 1) & a) >> 7;
-
-    a &= a << 8;
-    result |= ((result >> 1) & a) >> 15;
-
-    a &= a << 16;
-    result |= ((result >> 1) & a) >> 31;
-
-    result
+    z | mask
 }
 
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
@@ -261,34 +247,6 @@ pub fn calculate_cols(cols: [u8; 8], rows: [u8; 8], prev_col: &u32) -> [u32; 8] 
 /// # Panics
 /// - If it fails `from_utf8` conversion.
 pub fn print_bin_diff(left: u64, right: u64) -> String {
-    fn print_bin_till(number: u64, max: usize) -> String {
-        let number_str = format!("{number:b}");
-        let mut double_buf = VecDeque::with_capacity(128);
-        let mut reverse_str_chunker = number_str.as_bytes().rchunks(4);
-        let mut chunk = [b'0'; 4];
-
-        for i in 0..max {
-            if let Some(rev) = reverse_str_chunker.next() {
-                let len = rev.len();
-                for i in 0..len {
-                    chunk[i] = rev[len - i - 1];
-                }
-            };
-            let temp = mem::replace(&mut chunk, *b"0000");
-            double_buf.push_front(temp[0]);
-            double_buf.push_front(temp[1]);
-            double_buf.push_front(temp[2]);
-            double_buf.push_front(temp[3]);
-
-            if i == max - 1 {
-                continue;
-            }
-            double_buf.push_front(b' ');
-        }
-        let buf = String::from_utf8(double_buf.make_contiguous().to_vec()).unwrap();
-        buf.to_string()
-    }
-
     let mut buf = String::new();
 
     let max_len = usize::try_from(max(left, right).ilog2() / 4 + 1)
@@ -299,6 +257,36 @@ pub fn print_bin_diff(left: u64, right: u64) -> String {
 
     write!(buf, "Expected:\n{left_str}\nActual:\n{right_str}",).expect("Can't write to buffer");
     buf
+}
+
+#[doc(hidden)]
+#[must_use]
+pub fn print_bin_till(number: u64, max: usize) -> String {
+    let number_str = format!("{number:b}");
+    let mut double_buf = VecDeque::with_capacity(128);
+    let mut reverse_str_chunker = number_str.as_bytes().rchunks(4);
+    let mut chunk = [b'0'; 4];
+
+    for i in 0..max {
+        if let Some(rev) = reverse_str_chunker.next() {
+            let len = rev.len();
+            for i in 0..len {
+                chunk[i] = rev[len - i - 1];
+            }
+        };
+        let temp = mem::replace(&mut chunk, *b"0000");
+        double_buf.push_front(temp[0]);
+        double_buf.push_front(temp[1]);
+        double_buf.push_front(temp[2]);
+        double_buf.push_front(temp[3]);
+
+        if i == max - 1 {
+            continue;
+        }
+        double_buf.push_front(b' ');
+    }
+    let buf = String::from_utf8(double_buf.make_contiguous().to_vec()).unwrap();
+    buf.to_string()
 }
 
 /// Asserts that two `u64` are binary equal to each other.
@@ -342,14 +330,14 @@ fn test_branch_less_right1() {
     );
     let expected =
         0b1111_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0110;
-    assert_bin_eq!(actual, expected);
+    assert_bin_eq!(expected, actual);
 }
 
 #[test]
 fn test_branch_less_right2() {
     let actual = fast_select_low_bits(0b1100_1100, 0b1010_1010);
     let expected = 0b1100_1100;
-    assert_bin_eq!(actual, expected);
+    assert_bin_eq!(expected, actual);
 }
 
 #[test]
