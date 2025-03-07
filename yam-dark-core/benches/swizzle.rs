@@ -314,7 +314,8 @@ unsafe fn from_slice(input: &[u8]) -> [u8; 16] {
 
 fn bench_simd_json(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-swizzle");
-    let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).random();
+    let mut rand_bytes = [0u8; 64];
+    StdRng::seed_from_u64(42).fill_bytes(&mut rand_bytes);
     let mut characters = YamlCharacterChunk::default();
 
     group.significance_level(0.05).sample_size(200);
@@ -334,7 +335,8 @@ fn bench_simd_json(c: &mut Criterion) {
 
 fn bench_yam_u8x16(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-swizzle");
-    let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).random();
+    let mut rand_bytes = [0u8; 64];
+    StdRng::seed_from_u64(42).fill_bytes(&mut rand_bytes);
     let mut characters = YamlCharacterChunk::default();
 
     group.significance_level(0.05).sample_size(200);
@@ -354,7 +356,8 @@ fn bench_yam_u8x16(c: &mut Criterion) {
 
 fn bench_yam(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-swizzle");
-    let rand_bytes: [u8; 64] = StdRng::seed_from_u64(42).random();
+    let mut rand_bytes = [0u8; 64];
+    StdRng::seed_from_u64(42).fill_bytes(&mut rand_bytes);
     let scanner = NativeScanner::from_chunk(&rand_bytes);
 
     group.significance_level(0.05).sample_size(100);
