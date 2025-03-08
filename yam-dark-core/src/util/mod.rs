@@ -73,18 +73,35 @@ pub(crate) fn str_to_chunk(s: &str) -> [u8; 64] {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[must_use]
 pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
-    let mask = mask & input;
-    let ones = input & !(input << 1) & !(input >> 1);
-    let m_input = !mask & input & !ones;
-    let start = m_input & !(m_input << 1);
-    let end = m_input & !(m_input >> 1);
-    // -------------
-    let se = end.wrapping_sub(start);
-    let m_se = mask.wrapping_sub(start);
-    let carry = (se ^ m_se) & start;
-    let z = mask.saturating_sub(carry) & input;
+    let mut result = 0;
 
-    mask | z
+    result |= input & mask;
+
+    let mut a = input & 0x7FFF_FFFF_FFFF_FFFF;
+    result |= (result >> 1) & a;
+
+    a &= a << 1;
+    result |= ((result >> 1) & a) >> 1;
+
+    a &= a << 2;
+    result |= ((result >> 1) & a) >> 3;
+    let mask = mask & input;
+    let x = input & !mask;
+
+    a &= a << 4;
+    result |= ((result >> 1) & a) >> 7;
+    let s = input & !(input << 1);
+    let mx = x.wrapping_add(s) ^ mask;
+    let m2 = mx.wrapping_sub(s) & s;
+    let z = mask.wrapping_sub(m2) & input;
+
+    a &= a << 8;
+    result |= ((result >> 1) & a) >> 15;
+
+    a &= a << 16;
+    result |= ((result >> 1) & a) >> 31;
+
+    result
 }
 
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
@@ -343,7 +360,7 @@ fn test_branch_less_right2() {
 fn test_branch_less_left() {
     let actual = fast_select_high_bits(
         0b1110_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_1110_0110,
-        0b0010_0010_0000_0000_0000_1100_0000_0000_0000_0000_0000_0000_0000_0000_0100_0010,
+        0b0110_0010_0000_0000_0000_1100_0000_0000_0000_0000_0000_0000_0000_0000_0100_0010,
     );
 
     let expected =
