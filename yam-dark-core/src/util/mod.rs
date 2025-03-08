@@ -85,15 +85,9 @@ pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
 
     a &= a << 2;
     result |= ((result >> 1) & a) >> 3;
-    let mask = mask & input;
-    let x = input & !mask;
 
     a &= a << 4;
     result |= ((result >> 1) & a) >> 7;
-    let s = input & !(input << 1);
-    let mx = x.wrapping_add(s) ^ mask;
-    let m2 = mx.wrapping_sub(s) & s;
-    let z = mask.wrapping_sub(m2) & input;
 
     a &= a << 8;
     result |= ((result >> 1) & a) >> 15;
@@ -342,42 +336,33 @@ macro_rules! assert_bin_eq {
     };
 }
 
-#[test]
-fn test_branch_less_right1() {
-    let actual = fast_select_low_bits(0b1111_0000_1110_0000_0110, 0b1000_0010_0000_0000_0100);
-    let expected = 0b1111_0000_0000_0000_0110;
-    assert_bin_eq!(expected, actual);
-}
+#[cfg(test)]
+mod test {
+    use crate::util::{fast_select_high_bits, fast_select_low_bits};
+    use rstest::rstest;
 
-#[test]
-fn test_branch_less_right2() {
-    let actual = fast_select_low_bits(0b1100_1100, 0b1010_1010);
-    let expected = 0b1100_1100;
-    assert_bin_eq!(expected, actual);
-}
+    #[rstest]
+    #[case(
+        0b1111_0000_1110_0000_0110,
+        0b1000_0010_0000_0000_0100,
+        0b1111_0000_0000_0000_0110
+    )]
+    #[case(0b1100_1100, 0b1010_1010, 0b1100_1100)]
+    #[case(1434, 272, 0b1_1001_1000)]
+    #[case(1434, 0, 0)]
+    fn test_select_low(#[case] input: u64, #[case] mask: u64, #[case] expected: u64) {
+        let actual = fast_select_low_bits(input, mask);
+        assert_bin_eq!(expected, actual);
+    }
 
-#[test]
-fn test_branch_less_left() {
-    let actual = fast_select_high_bits(
+    #[rstest]
+    #[case(
         0b1110_0000_0000_0000_0000_0000_0000_1110_0000_0000_0000_0000_0000_0000_1110_0110,
         0b0110_0010_0000_0000_0000_1100_0000_0000_0000_0000_0000_0000_0000_0000_0100_0010,
-    );
-
-    let expected =
-        0b1110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1100_0110;
-    assert_bin_eq!(actual, expected);
-}
-
-#[test]
-fn test_fast_low_bits() {
-    let actual = fast_select_low_bits(1434, 272);
-    let expected = 0b1_1001_1000;
-    assert_bin_eq!(actual, expected);
-}
-
-#[test]
-fn test_fast_low_bits2() {
-    let actual = fast_select_low_bits(1434, 0);
-    let expected = 0;
-    assert_bin_eq!(actual, expected);
+        0b1110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1100_0110
+    )]
+    fn test_select_high(#[case] input: u64, #[case] mask: u64, #[case] expected: u64) {
+        let actual = fast_select_high_bits(input, mask);
+        assert_bin_eq!(actual, expected);
+    }
 }

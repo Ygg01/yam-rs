@@ -42,7 +42,6 @@ unsafe impl Stage1Scanner for NativeScanner {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn classify_yaml_characters(&self) -> YamlCharacterChunk {
         let mut characters = YamlCharacterChunk::default();
         // Setup swizzle table

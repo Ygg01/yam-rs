@@ -1,4 +1,4 @@
-use yam_dark_core::util::{fast_select_low_bits, print_bin_till};
+use yam_dark_core::util::{fast_select_high_bits, print_bin_till};
 
 fn main() {
     // let input = 0b1100_1100;
@@ -17,22 +17,12 @@ fn main() {
 }
 
 fn select_reverse(input: u64, mask: u64, _u: usize) -> u64 {
-    fast_select_low_bits(input.reverse_bits(), mask.reverse_bits()).reverse_bits()
+    fast_select_high_bits(input.reverse_bits(), mask.reverse_bits()).reverse_bits()
 }
 
 fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
     let mask = mask & input;
-    let m_input = !mask & input;
     let start = input & !(input << 1);
-    let end = input & !(input >> 1);
-    let m_start = m_input & !(m_input << 1);
-    let m_end = m_input & !(m_input >> 1);
-    let m_xor = m_start ^ m_end;
-    let m_se = m_end - m_start;
-
-    // -------------
-    let se = end.wrapping_sub(start);
-    let z = se & m_xor;
 
     println!(
         "input:          {} ({input})",
@@ -43,32 +33,38 @@ fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
         print_bin_till(mask, max_size)
     );
     println!(
-        "mask input:     {} ({m_input})",
-        print_bin_till(m_input, max_size)
+        "start:          {} ({start})",
+        print_bin_till(start, max_size)
     );
-    println!("--------------------------");
-    // println!("start:          {} ({start})", print_bin_till(start, max_size));
-    println!("end:            {} ({end})", print_bin_till(end, max_size));
-    println!("se:             {} ({se})", print_bin_till(se, max_size));
 
     println!("--------------------------");
-    println!(
-        "m_start:        {} ({m_start})",
-        print_bin_till(m_start, max_size)
-    );
-    println!(
-        "m_end:          {} ({m_end})",
-        print_bin_till(m_end, max_size)
-    );
-    // println!("m_xor:          {} ({m_xor})", print_bin_till(m_xor, max_size));
-    println!(
-        "m_se:           {} ({m_se})",
-        print_bin_till(m_se, max_size)
-    );
-    println!("---------------------------");
-    let sse = m_se & se;
-    println!("sse:            {} ({sse})", print_bin_till(sse, max_size));
-    println!("z:              {} ({z})", print_bin_till(z, max_size));
 
-    mask | z
+    let im = input.wrapping_add(mask);
+    let is = input.wrapping_add(start);
+    let imx = im ^ input;
+    let imxs = imx.wrapping_sub(is);
+    println!("im:             {} ({im})", print_bin_till(im, max_size));
+    println!("imx:            {} ({imx})", print_bin_till(imx, max_size));
+    println!("is:             {} ({is})", print_bin_till(is, max_size));
+    println!(
+        "imxs:           {} ({imxs})",
+        print_bin_till(imxs, max_size)
+    );
+
+    println!("--------------------------");
+    let ime = im & !(im >> 1);
+    let imes = ime.wrapping_sub(start);
+    let imex = ime & start;
+
+    println!("ime:            {} ({ime})", print_bin_till(ime, max_size));
+    println!(
+        "imes:           {} ({imes})",
+        print_bin_till(imes, max_size)
+    );
+    println!(
+        "imex:           {} ({imex})",
+        print_bin_till(imex, max_size)
+    );
+
+    mask
 }
