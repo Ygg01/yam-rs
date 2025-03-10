@@ -361,6 +361,7 @@ mod test {
         0b0110_0010_0000_0000_0000_1100_0000_0000_0000_0000_0000_0000_0000_0000_0100_0010,
         0b1110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1100_0110
     )]
+    #[case(0b1111_1110, 0b0100_0100, 0b1111_1100)]
     fn test_select_high(#[case] input: u64, #[case] mask: u64, #[case] expected: u64) {
         let actual = fast_select_high_bits(input, mask);
         assert_bin_eq!(actual, expected);
