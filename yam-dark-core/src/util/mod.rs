@@ -367,6 +367,19 @@ mod test {
     use crate::util::{fast_select_high_bits, fast_select_low_bits};
     use rstest::rstest;
 
+    fn fake_low(input: u64, mask: u64) -> u64 {
+        let mask = mask & input;
+        let start = input & !(input << 1);
+        let diff = mask.abs_diff(start);
+        let carried = diff ^ start;
+        let carry = carried & !(carried << 1);
+
+        let ms = (diff + (carry >> 1)) & start;
+        let md = mask.saturating_sub(ms) & input;
+
+        md | mask
+    }
+
     #[rstest]
     #[case(
         0b1111_0000_1110_0000_0110,
