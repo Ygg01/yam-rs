@@ -316,7 +316,7 @@ mod test {
         let character_chunk = scanner.classify_yaml_characters();
         let structure_bit = character_chunk.substructure();
 
-        // assert_bin_eq!(0b0001_0100_0000_1010, structure_bit);
-        assert_bin_eq!(0b111_1000, character_chunk.in_unquoted_scalars);
+        assert_bin_eq!(0b0000_1010, structure_bit);
+        assert_bin_eq!(0b0111_1000, character_chunk.in_unquoted_scalars);
     }
 }
