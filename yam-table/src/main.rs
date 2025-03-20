@@ -2,8 +2,8 @@ use yam_dark_core::util::print_bin_till;
 
 fn main() {
     let input = 0b1111_0000_0110_0000_0110;
-    let maska = 0b1001_0000_0000_0000_0100;
-    let max_size = 5;
+    let maska = 0b0101_0000_0000_0000_0100;
+    let max_size = 6;
 
     // let input = 0b1_1111;
     // let maska = 0b0_1010;
@@ -12,7 +12,6 @@ fn main() {
     let mask = maska & input;
     println!("input:     {} ({input})", print_bin_till(input, max_size));
     println!("mask:      {} ({mask})", print_bin_till(mask, max_size));
-
     let fin = select_left_input4(input, mask, max_size);
     println!("fin:       {} ({fin})", print_bin_till(fin, max_size));
 }
@@ -21,11 +20,13 @@ fn select_left_input4(input: u64, mask: u64, max_size: usize) -> u64 {
     let mask = mask & input;
     let start = input & !(input << 1);
     // DO NOT TOUCH
-    let hm = input.wrapping_add(mask) & mask;
+    let im = input.wrapping_add(mask);
+    let sh = (im >> 1) & mask;
 
     let start_fin = 0;
     println!("--------------------------");
-    println!("hm:        {} ({hm})", print_bin_till(hm, max_size));
+    println!("im:        {} ({im})", print_bin_till(im, max_size));
+    println!("sh:        {} ({sh})", print_bin_till(sh, max_size));
 
     println!(
         "sf:        {} ({start_fin})",
