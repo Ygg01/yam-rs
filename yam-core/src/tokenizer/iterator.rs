@@ -110,7 +110,7 @@ pub enum Event<'a> {
     ErrorEvent,
 }
 
-impl<'a> Display for Event<'a> {
+impl Display for Event<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             Event::DocStart { explicit } => {
@@ -233,7 +233,7 @@ impl<'a> Display for Event<'a> {
     }
 }
 
-unsafe impl<'a> Slicer<'a> for &'a [u8] {
+impl<'a> Slicer<'a> for &'a [u8] {
     fn slice(&self, start: usize, end: usize) -> &'a [u8] {
         unsafe { self.get_unchecked(start..end) }
     }
@@ -246,6 +246,7 @@ where
 {
     type Item = Event<'a>;
 
+    #[allow(clippy::too_many_lines)]
     fn next(&mut self) -> Option<Self::Item> {
         pub use crate::tokenizer::iterator::Event::*;
         pub use crate::tokenizer::LexerToken::*;
@@ -424,15 +425,22 @@ where
     }
 }
 
-pub fn assert_eq_event(input: &str, events: &str) {
+///
+/// Assert that in for given input, the parser generates expected set of events
+///
+/// # Panics
+///
+///    Function panics if there is a difference between expected events string and one generated
+///    from the input.
+pub fn assert_eq_event(input: &str, expected_events: &str) {
     use core::fmt::Write;
 
-    let mut line = String::with_capacity(events.as_bytes().len());
+    let mut line = String::with_capacity(expected_events.len());
     let scan: EventIterator<'_, StrReader, _> = EventIterator::from(input);
     scan.for_each(|ev| {
         line.push('\n');
         write!(line, "{ev:}").unwrap();
     });
 
-    assert_eq!(line, events, "Error in {input}");
+    assert_eq!(line, expected_events, "Error in {input}");
 }

@@ -169,13 +169,13 @@ pub struct YamlSingleQuoteChunk {
 /// assert_eq!(y.block_structurals, 0);
 /// ```
 pub struct YamlCharacterChunk {
-    /// Whitespace bitmask SPACE  (`0x20`) , TABS (`0x09`), LINE_FEED (`0x0A`) or CARRIAGE_RETURN (`0x0D`)
+    /// Whitespace bitmask `SPACE` (`0x20`) , `TABS` (`0x09`), `LINE_FEED` (`0x0A`) or `CARRIAGE_RETURN` (`0x0D`)
     pub whitespace: u64,
 
-    /// SPACE (`0x20`) bitmask
+    /// `SPACE` (`0x20`) bitmask
     pub spaces: u64,
 
-    /// LINE_FEED (`0x0A`) bitmask
+    /// `LINE_FEED` (`0x0A`) bitmask
     pub line_feeds: u64,
 
     /// Block operators used in YAML
@@ -190,7 +190,7 @@ pub struct YamlCharacterChunk {
     /// Bits showing which bytes are in unquoted scalars.
     pub in_unquoted_scalars: u64,
 
-    /// Bitmask showing if chunk character is in_comment
+    /// Bitmask showing if chunk character is `in_comment`
     pub in_comment: u64,
 }
 

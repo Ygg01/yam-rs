@@ -54,7 +54,7 @@ impl<'a> Iterator for ChunkyIterator<'a> {
     }
 }
 
-impl<'a> ChunkyIterator<'a> {
+impl ChunkyIterator<'_> {
     pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
         ChunkyIterator {
             bytes,

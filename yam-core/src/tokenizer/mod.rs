@@ -78,7 +78,8 @@ pub enum ErrorType {
     YamlMustHaveOnePart,
 }
 
-pub unsafe trait Slicer<'a> {
+/// Trait that will for given start and end index cut a slice
+pub trait Slicer<'a> {
     fn slice(&self, start: usize, end: usize) -> &'a [u8];
     fn slice_str(&self, start: usize, end: usize) -> &'a str {
         from_utf8(self.slice(start, end)).unwrap_or("")

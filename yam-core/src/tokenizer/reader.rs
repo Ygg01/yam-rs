@@ -19,7 +19,7 @@ impl<'a> LookAroundBytes<'a> {
     }
 }
 
-impl<'a> Iterator for LookAroundBytes<'a> {
+impl Iterator for LookAroundBytes<'_> {
     type Item = (u8, u8, u8, usize);
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

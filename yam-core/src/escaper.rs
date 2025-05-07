@@ -32,7 +32,7 @@ pub struct NewPos {
     bytes: [u8; 6],
 }
 
-impl<'a, F, M> Iterator for Escape<'a, F, M>
+impl<F, M> Iterator for Escape<'_, F, M>
 where
     F: Fn(&u8) -> bool,
     M: Fn(&[u8]) -> EscapeControl,
@@ -69,7 +69,7 @@ where
 
 #[must_use]
 pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
-    _escape(
+    escape(
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n',
         |input| match input {
@@ -85,7 +85,7 @@ pub fn escape_plain(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
 
 #[must_use]
 pub fn escape_double_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
-    _escape(
+    escape(
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n' || chr == b'\r',
         |input: &[u8]| match input {
@@ -105,7 +105,7 @@ pub fn escape_double_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
 
 #[must_use]
 pub fn escape_single_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
-    _escape(
+    escape(
         input,
         |&chr| chr == b'\t' || chr == b'\\' || chr == b'\n' || chr == b'\r',
         |input| match input {
@@ -119,7 +119,7 @@ pub fn escape_single_quotes(input: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     )
 }
 
-fn _escape<F, M>(input: Cow<[u8]>, find_fn: F, match_fn: M) -> Cow<[u8]>
+fn escape<F, M>(input: Cow<[u8]>, find_fn: F, match_fn: M) -> Cow<[u8]>
 where
     F: Fn(&u8) -> bool,
     M: Fn(&[u8]) -> EscapeControl,
@@ -155,6 +155,7 @@ where
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn decode_hex(input: &[u8], size: u8) -> EscapeControl {
     // Manually encoded U+FFFD (Replacement characters)
     let replacement_char = [size + 2, 3, 239, 191, 189, 0, 0, 0];
@@ -170,7 +171,7 @@ fn decode_hex(input: &[u8], size: u8) -> EscapeControl {
             a @ b'A'..=b'F' => a - b'A' + 10,
             _ => 0u8,
         })
-        .fold(0u32, |acc, digit| (acc << 4) + digit as u32);
+        .fold(0u32, |acc, digit| (acc << 4) + u32::from(digit));
     match code_point {
         // YAML has special escape rules for certain values
         // See more in https://yaml.org/spec/1.2.2/#57-escaped-characters
@@ -197,7 +198,8 @@ fn decode_hex(input: &[u8], size: u8) -> EscapeControl {
     if let Some(chr) = encode_char {
         let mut ret_bytes = [size + 2, 0, 0, 0, 0, 0, 0, 0];
         let str = chr.encode_utf8(&mut ret_bytes[2..]);
-        ret_bytes[1] = str.as_bytes().len() as u8;
+        // This cast will always work because str shouldn't be bigger than 6 bytes
+        ret_bytes[1] = str.len() as u8;
         return EscapeControl::Append(ret_bytes);
     }
 

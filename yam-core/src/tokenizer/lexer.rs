@@ -11,14 +11,33 @@ use hashbrown::HashMap;
 
 use LexerState::PreDocStart;
 
-use crate::tokenizer::lexer::LexerState::*;
-use crate::tokenizer::lexer::LexerToken::*;
-use crate::tokenizer::lexer::MapState::*;
-use crate::tokenizer::lexer::PropType::*;
-use crate::tokenizer::lexer::SeqState::*;
+use crate::tokenizer::lexer::LexerState::{
+    AfterDocBlock, BlockMap, BlockSeq, DocBlock, FlowMap, FlowSeq, InDocEnd,
+};
+use crate::tokenizer::lexer::LexerToken::{
+    DirectiveReserved, DirectiveTag, DirectiveYaml, Mark, NewLine, ScalarDoubleQuote, ScalarEnd,
+    ScalarFold, ScalarLit, ScalarPlain, ScalarSingleQuote,
+};
+use crate::tokenizer::lexer::MapState::{
+    BeforeFirstKey, BeforeFlowComplexKey, ExpectComplexColon, ExpectComplexKey, ExpectComplexValue,
+    ExpectKey, ExpectValue,
+};
+use crate::tokenizer::lexer::PropType::{Anchor, Tag, TagAndAnchor, Unset};
+use crate::tokenizer::lexer::SeqState::{BeforeElem, BeforeFirst, InSeqElem};
 use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::ErrorType;
-use crate::tokenizer::ErrorType::*;
+use crate::tokenizer::ErrorType::{
+    ColonMustBeOnSameLineAsKey, ExpectedChompBetween1and9, ExpectedDocumentEnd,
+    ExpectedDocumentEndOrContents, ExpectedDocumentStartOrContents, ExpectedIndent,
+    ExpectedNodeButFound, ExpectedWhiteSpaceAfterProperty, ImplicitKeysNeedToBeInline,
+    InvalidAnchorDeclaration, InvalidCommentInScalar, InvalidEscapeCharacter, InvalidMapItemIndent,
+    InvalidScalarAtNodeEnd, InvalidScalarStart, MissingFlowClosingBracket,
+    MissingWhitespaceBeforeComment, NestedMappingsNotAllowed, NodeWithTwoProperties,
+    SequenceOnSameLineAsKey, SpacesFoundAfterIndent, TabsNotAllowedAsIndentation,
+    TwoDirectivesFound, UnexpectedComment, UnexpectedDirective, UnexpectedEndOfDocument,
+    UnexpectedEndOfStream, UnexpectedIndentDocEnd, UnexpectedScalarAtNodeEnd,
+    UnexpectedSeqAtNodeEnd, UnexpectedSymbol,
+};
 
 use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{
@@ -293,10 +312,8 @@ pub enum LexerState {
 pub(crate) enum ChompIndicator {
     /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
     Strip,
-    ///  `` final line break character is preserved in the scalar’s content
+    ///  ` ` final line break character is preserved in the scalar’s content
     Clip,
-    ///  `` final line break character is preserved in the scalar’s content but only containing whitespaces
-    // ClipEmpty,
     /// `+` final line break and any trailing empty lines are considered to be part of the scalar’s content
     Keep,
 }
@@ -483,16 +500,13 @@ impl Lexer {
         }
 
         let mut prop_node = PropSpans::from_reader(reader);
-        let mut curr_node = match self.get_node(reader, tokens, &mut prop_node) {
-            Some(value) => value,
-            None => {
-                if !self.prev_prop.is_empty() && self.curr_state() == DocBlock {
-                    push_empty(tokens, &mut self.prev_prop);
-                } else {
-                    tokens.extend(take(&mut prop_node).spans);
-                }
-                return;
+        let Some(mut curr_node) = self.get_node(reader, tokens, &mut prop_node) else {
+            if !self.prev_prop.is_empty() && self.curr_state() == DocBlock {
+                push_empty(tokens, &mut self.prev_prop);
+            } else {
+                tokens.extend(take(&mut prop_node).spans);
             }
+            return;
         };
 
         let merge = self.merge_prop_with(&mut curr_node, prop_node);
@@ -762,6 +776,7 @@ impl Lexer {
         is_new_exp_map
     }
 
+    #[allow(clippy::too_many_lines)]
     fn process_colon_block<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -852,21 +867,19 @@ impl Lexer {
                 curr_node.col_start > ind && is_inline_key
             }
             BlockMap(ind, ExpectComplexColon) => {
-                if ind != col_pos {
-                    if curr_node.col_start == ind {
-                        is_empty = true;
-                    } else {
-                        push_error(
-                            ErrorType::ExpectedIndent {
-                                actual: col_pos,
-                                expected: ind,
-                            },
-                            tokens,
-                            &mut self.errors,
-                        );
-                        is_empty = false;
-                    }
+                if ind == col_pos {
+                    is_empty = false;
+                } else if curr_node.col_start == ind {
+                    is_empty = true;
                 } else {
+                    push_error(
+                        ErrorType::ExpectedIndent {
+                            actual: col_pos,
+                            expected: ind,
+                        },
+                        tokens,
+                        &mut self.errors,
+                    );
                     is_empty = false;
                 }
                 false
@@ -888,9 +901,7 @@ impl Lexer {
                     &mut self.errors,
                 );
             }
-            if self
-                .last_map_line
-                .map_or(false, |c| c == curr_node.line_start)
+            if self.last_map_line == Some(curr_node.line_start)
                 && !matches!(curr_state, BlockMap(_, ExpectComplexKey))
             {
                 push_error(NestedMappingsNotAllowed, tokens, &mut self.errors);
@@ -1021,9 +1032,12 @@ impl Lexer {
         amount as usize
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn consume_spaces<B, R: Reader<B>>(&mut self, reader: &mut R, indent: u32) -> bool {
         let x = reader.count_spaces_till(indent);
         if self.space_indent.is_none() {
+            // This is a limitation of the parser, on 64-bit system it will cause problem if there
+            // is 4GiB of spaces
             self.space_indent = Some(x as u32);
         }
         reader.consume_bytes(x);
@@ -1115,7 +1129,7 @@ impl Lexer {
         };
 
         let ws_offset = reader.count_whitespace();
-        if reader.peek_byte_at(ws_offset).map_or(false, |c| c == b':')
+        if reader.peek_byte_at(ws_offset) == Some(b':')
             && !matches!(self.curr_state(), FlowMap(_) | BlockMap(_, _) | DocBlock)
         {
             self.skip_sep_spaces(reader);
@@ -1247,6 +1261,7 @@ impl Lexer {
         node
     }
 
+    #[allow(clippy::too_many_lines)]
     fn get_flow_seq<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
@@ -1273,7 +1288,7 @@ impl Lexer {
                     self.stream_end = true;
                     break;
                 }
-                Some(b'-') | Some(b'.') if reader.peek_stream_ending() => {
+                Some(b'-' | b'.') if reader.peek_stream_ending() => {
                     reader.consume_bytes(3);
                     push_error(UnexpectedEndOfDocument, &mut node.spans, &mut self.errors);
                     continue;
@@ -1309,14 +1324,14 @@ impl Lexer {
             } else if chr == b',' {
                 reader.consume_bytes(1);
                 if matches!(seq_state, BeforeElem | BeforeFirst) {
-                    if !prop.is_empty() {
-                        push_empty(&mut node.spans, &mut prop);
-                    } else {
+                    if prop.is_empty() {
                         push_error(
                             ExpectedNodeButFound { found: ',' },
                             &mut node.spans,
                             &mut self.errors,
                         );
+                    } else {
+                        push_empty(&mut node.spans, &mut prop);
                     }
                 }
                 seq_state = BeforeElem;
@@ -1407,7 +1422,7 @@ impl Lexer {
                     self.stream_end = true;
                     break;
                 }
-                Some(b'-') | Some(b'.') if reader.peek_stream_ending() => {
+                Some(b'-' | b'.') if reader.peek_stream_ending() => {
                     reader.consume_bytes(3);
                     push_error(UnexpectedEndOfDocument, &mut node.spans, &mut self.errors);
                     continue;
@@ -1457,7 +1472,7 @@ impl Lexer {
                     .peek_byte_at(ws_offset)
                     .map_or(false, |c| c != b',' && c != b'}' && c != b']')
             {
-                push_error(ErrorType::InvalidMapEnd, &mut node.spans, &mut self.errors)
+                push_error(ErrorType::InvalidMapEnd, &mut node.spans, &mut self.errors);
             }
             skip_colon_space = is_skip_colon_space(&scalar_spans);
             if scalar_spans.is_empty() {
@@ -1608,9 +1623,7 @@ impl Lexer {
             space_indent = sep.0;
             let amount = sep.1;
             has_tab = space_indent != amount;
-            let is_comment = reader
-                .peek_byte_at(amount as usize)
-                .map_or(false, |c| c == b'#');
+            let is_comment = (reader.peek_byte_at(amount as usize)) == Some(b'#');
 
             if has_comment && !is_comment {
                 break;
@@ -1771,11 +1784,10 @@ impl Lexer {
             if chr == b'-' && matches!(curr_state, BlockSeq(indent, _) if curr_indent > indent)
                 || chr == b'?' && matches!(curr_state, BlockMap(indent, ExpectComplexKey) if curr_indent > indent ) {
                 offset_start = Some(reader.offset());
-
             } else if end_of_stream || chr == b'?' || chr == b':' || chr == b'-'
                 || (in_flow_collection && is_flow_indicator(chr))
                 || self.find_matching_state(|state| matches!(state, BlockMap(ind_col, _)| BlockSeq(ind_col, _) if ind_col >= curr_indent)
-                ).is_some()
+            ).is_some()
             {
                 break;
             }
@@ -1806,11 +1818,13 @@ impl Lexer {
         }
     }
 
+    #[must_use]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn curr_state(&self) -> LexerState {
         *self.stack.last().unwrap_or(&LexerState::default())
     }
 
+    #[must_use]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn prev_state(&self) -> LexerState {
         *self
@@ -1869,6 +1883,7 @@ impl Lexer {
         self.tokens.pop_front()
     }
 
+    #[must_use]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn indent(&self) -> u32 {
         match self.last_block_indent {
@@ -1878,11 +1893,13 @@ impl Lexer {
         }
     }
 
+    #[must_use]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn tokens(self) -> VecDeque<usize> {
         self.tokens
     }
 
+    #[must_use]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn peek_token(&mut self) -> Option<usize> {
         self.tokens.front().copied()
@@ -1893,6 +1910,7 @@ impl Lexer {
         self.tokens.get(1).copied()
     }
 
+    #[must_use]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn is_empty(&self) -> bool {
         self.tokens.is_empty()
@@ -2213,6 +2231,7 @@ impl Lexer {
         next_state
     }
 
+    #[allow(clippy::too_many_lines)]
     fn fetch_pre_doc<B, R: Reader<B>>(&mut self, reader: &mut R) {
         use DirectiveState::NoDirective;
         use HeaderState::{Bare, Directive, HeaderEnd, HeaderStart};
@@ -2710,10 +2729,10 @@ const NEWLINE: usize = usize::MAX - 32;
 ///
 /// [`LexerToken`] used to Lex YAML files
 pub enum LexerToken {
-    /// Denotes that value is a [usize] less than [NewLine] and thus its meaning decided by previous Tokens
+    /// Denotes that value is a [usize] less than [`NewLine`] and thus its meaning decided by previous Tokens
     /// usually marks a start/end token.
     Mark,
-    /// Denotes a newline and must be followed by a [Mark]. If next Mark is 0, it's space otherwise it's a `n`
+    /// Denotes a newline and must be followed by a [`Mark`]. If next Mark is 0, it's space otherwise it's a `n`
     /// number of newlines `\n`
     NewLine = NEWLINE,
     /// Error in stream, check [Lexer.errors] for details

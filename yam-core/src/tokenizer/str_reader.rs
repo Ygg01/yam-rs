@@ -41,7 +41,7 @@ impl<'a> From<&'a [u8]> for StrReader<'a> {
     }
 }
 
-impl<'a> StrReader<'a> {
+impl StrReader<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn eof_or_pos(&self, pos: usize) -> usize {
         pos.min(self.slice.len() - 1)
@@ -80,7 +80,7 @@ impl<'a> StrReader<'a> {
     }
 }
 
-impl<'r> Reader<()> for StrReader<'r> {
+impl Reader<()> for StrReader<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn eof(&self) -> bool {
         self.pos >= self.slice.len()

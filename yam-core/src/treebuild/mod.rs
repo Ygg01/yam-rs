@@ -21,7 +21,7 @@ pub enum YamlToken<'a, TAG = ()> {
     Mapping(Vec<Entry<'a, TAG>>, TAG),
 }
 
-impl<'a, TAG> Display for YamlToken<'a, TAG> {
+impl<TAG> Display for YamlToken<'_, TAG> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Scalar(val, _) => write!(f, "SCAL: {val:?}"),
@@ -43,7 +43,7 @@ impl<'a, TAG> Display for YamlToken<'a, TAG> {
     }
 }
 
-impl<'a, TAG: Default> Default for YamlToken<'a, TAG> {
+impl<TAG: Default> Default for YamlToken<'_, TAG> {
     fn default() -> Self {
         Scalar(Cow::default(), TAG::default())
     }
@@ -54,7 +54,7 @@ pub struct Entry<'a, TAG> {
     value: YamlToken<'a, TAG>,
 }
 
-impl<'a, TAG: Default> Default for Entry<'a, TAG> {
+impl<TAG: Default> Default for Entry<'_, TAG> {
     fn default() -> Self {
         Entry {
             key: YamlToken::default(),

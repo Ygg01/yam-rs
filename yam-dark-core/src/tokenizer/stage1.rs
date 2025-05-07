@@ -164,7 +164,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// * `chunk` - A [`YamlChunkState`] that contains the current chunk info.
     /// * `parser_state` - A mutable [`YamlParserState`] that contains the current parser state and will be
-    /// updated with new chunk state.
+    ///    updated with new chunk state.
     /// * `indent_info` - A mutable [`YamlIndentInfo`] that will be updated with info.
     ///
     fn flatten_bits_yaml(
@@ -179,7 +179,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// * `chunk` - A u64 bitmask that contains position of Line feed characters.
     /// * `parser_state` - A [`YamlParserState`] which will update `last_row` and `last_col` with the
-    /// chunk info.
+    ///    chunk info.
     /// * `info` - A [`YamlIndentInfo`] that will be updated from chunk with `cols`/`rows`/`rows_indent_mask`.
     fn calculate_row_col_info(
         line_feeds: u64,
@@ -361,9 +361,9 @@ pub unsafe trait Stage1Scanner {
     ///
     /// * `chunk` - A reference to a byte slice `chunk` containing the next 64 bytes of input data.
     /// * `buffers` - A mutable reference to a `buffers`
-    /// object implementing the [`YamlBuffer`] trait.
+    ///   object implementing the [`YamlBuffer`] trait.
     /// * `prev_state` -
-    /// A mutable reference to a [`YamlParserState`] object that stores previous iteration state information.
+    ///   A mutable reference to a [`YamlParserState`] object that stores previous iteration state information.
     ///
     /// # Returns
     ///
@@ -431,7 +431,7 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments
     ///
     /// * `prev_iteration_result` - A mutable reference to a `u64` representing the previous
-    /// iteration's result of backslashes. It will be updated with post-result info.
+    ///    iteration's result of backslashes. It will be updated with post-result info.
     /// * `mask` - A bitmask determining ODD or Even Mask to be used.
     ///
     /// # Returns
@@ -486,7 +486,7 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments
     ///
     /// * `block_state`: A mutable reference to a current [`YamlChunkState`].
-    /// It will update the
+    ///   It will update the
     ///   [`YamlSingleQuoteChunk`] with data for scanned single quotes.
     /// * `prev_iter_state`: A mutable reference to previous iteration [`YamlParserState`].
     ///

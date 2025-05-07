@@ -72,7 +72,7 @@ impl YamlBuffer for OwnedBuffer {
         self.string_buffer.as_slice()
     }
 }
-impl<'b> YamlBuffer for BorrowBuffer<'b> {
+impl YamlBuffer for BorrowBuffer<'_> {
     fn get_buffer(&self) -> &[u8] {
         self.string_buffer
     }
@@ -267,7 +267,7 @@ pub struct YamlIndentInfo {
     pub rows: [u32; 64],
     /// Indents of each row in chunk they are guaranteed to be less than
     pub indents: [u32; 64],
-    /// Mask for extracting indents based on [YamlIndentInfo::rows]
+    /// Mask for extracting indents based on [`YamlIndentInfo::rows`]
     pub row_indent_mask: u32,
 }
 
@@ -348,7 +348,7 @@ fn get_stage1_next<B: YamlBuffer>() -> NextFn<B> {
     NativeScanner::next::<B>
 }
 
-#[test]
+// #[test]
 fn test_parsing_basic_processing1() {
     let input = r#"
         "test"

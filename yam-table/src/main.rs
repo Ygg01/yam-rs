@@ -12,14 +12,14 @@ fn main() {
     // let input = 0b0111_1110;
     // let mask = 0b0100_1000;
     // let max_size = 2;
-    let fin = select_left_input(input, mask, max_size);
+    let fin = select_reverse(input, mask, max_size);
     println!("fin:            {} ({fin})", print_bin_till(fin, max_size));
 }
 
 fn select_reverse(input: u64, mask: u64, _u: usize) -> u64 {
     fast_select_high_bits(input.reverse_bits(), mask.reverse_bits()).reverse_bits()
 }
-
+/*
 fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
     let mask = mask & input;
     let start = input & !(input << 1);
@@ -67,4 +67,4 @@ fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
     );
 
     mask
-}
+}*/
