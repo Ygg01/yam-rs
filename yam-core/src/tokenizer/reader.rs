@@ -101,6 +101,13 @@ pub trait Reader<B> {
     fn count_space_then_tab(&mut self) -> (u32, u32);
     fn consume_anchor_alias(&mut self) -> (usize, usize);
     fn read_tag(&mut self) -> (Option<ErrorType>, usize, usize, usize);
+    /// Read tags handle
+    ///
+    /// # Errors
+    ///
+    ///  `TagNotTerminated` - Tags is not terminated.
+    ///  `InvalidTagHandleCharacter` - Tags contains invalid character.
+    ///  `UnexpectedEndOfFile` - Tags interrupted by end of file.
     fn read_tag_handle(&mut self) -> Result<Vec<u8>, ErrorType>;
     fn read_tag_uri(&mut self) -> Option<(usize, usize)>;
     fn read_break(&mut self) -> Option<(usize, usize)>;

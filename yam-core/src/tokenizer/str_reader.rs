@@ -176,6 +176,7 @@ impl Reader<()> for StrReader<'_> {
         (start, end)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn count_spaces(&self) -> u32 {
         match self.slice[self.pos..].iter().try_fold(0usize, |pos, chr| {
@@ -185,6 +186,7 @@ impl Reader<()> for StrReader<'_> {
                 Break(pos)
             }
         }) {
+            // NOTE: the parser has the limit of 4GiB in number of spaces
             Continue(x) | Break(x) => x as u32,
         }
     }

@@ -126,10 +126,10 @@ pub enum PropType {
 }
 
 impl PropType {
-    pub(crate) fn merge_prop_type(&self, other: PropType) -> Result<PropType, PropType> {
+    pub(crate) fn merge_prop_type(self, other: PropType) -> Result<PropType, PropType> {
         match (&self, &other) {
             (Unset, _) => Ok(other),
-            (_, Unset) => Ok(*self),
+            (_, Unset) => Ok(self),
             (Tag, Anchor) | (Anchor, Tag) => Ok(TagAndAnchor),
             (Tag, Tag | TagAndAnchor) | (TagAndAnchor, Tag) => Err(Tag),
             (Anchor, Anchor | TagAndAnchor) | (TagAndAnchor, Anchor) => Err(Anchor),
@@ -1494,6 +1494,8 @@ impl Lexer {
 
     impl_quote!(process_single_quote(SCALAR_QUOTE), single_quote_trim(get_single_quote_trim, b'\''), single_quote_start(get_single_quote) => single_quote_match);
 
+    // Note: allow unused self because of macro usages
+    #[allow(clippy::unused_self)]
     fn single_quote_match<B, R: Reader<B>>(
         &mut self,
         reader: &mut R,
