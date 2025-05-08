@@ -349,7 +349,7 @@ fn get_stage1_next<B: YamlBuffer>() -> NextFn<B> {
 }
 
 // TODO Fix the UB in test
-// #[test]
+#[test]
 fn test_parsing_basic_processing1() {
     let input = r#"
         "test"

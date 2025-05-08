@@ -173,13 +173,13 @@ unsafe impl Stage1Scanner for NativeScanner {
         }
 
         while bits != 0 {
-            let v0 = bits.trailing_zeros();
+            let v0 = bits.trailing_zeros() & 63;
             bits &= bits.saturating_sub(1);
-            let v1 = bits.trailing_zeros();
+            let v1 = bits.trailing_zeros() & 63;
             bits &= bits.saturating_sub(1);
-            let v2 = bits.trailing_zeros();
+            let v2 = bits.trailing_zeros() & 63;
             bits &= bits.saturating_sub(1);
-            let v3 = bits.trailing_zeros();
+            let v3 = bits.trailing_zeros() & 63;
             bits &= bits.saturating_sub(1);
 
             let v: [usize; 4] = [
