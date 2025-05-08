@@ -129,14 +129,12 @@ impl Display for Event<'_> {
                 if let Some(cow) = anchor {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.
-                    // TODO Parsing errors may cause UB?
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
                     write!(f, " &{string}")?;
                 };
                 if let Some(cow) = tag {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.
-                    // TODO Parsing errors may cause UB?
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
                     write!(f, " <{string}>")?;
                 };
@@ -153,14 +151,12 @@ impl Display for Event<'_> {
                 if let Some(cow) = anchor {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.
-                    // TODO Parsing errors may cause UB?
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
                     write!(f, " &{string}")?;
                 };
                 if let Some(cow) = tag {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.
-                    // TODO Parsing errors may cause UB?
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
                     write!(f, " <{string}>")?;
                 };
@@ -175,7 +171,6 @@ impl Display for Event<'_> {
             } => {
                 // SAFETY:
                 // SAFE as long as the slice is valid UTF8.
-                // TODO Parsing errors may cause UB?
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 match directive_type {
                     DirectiveType::Yaml => write!(f, "%YAML {val_str}"),
@@ -190,21 +185,18 @@ impl Display for Event<'_> {
             } => {
                 // SAFETY:
                 // SAFE as long as the slice is valid UTF8.
-                // TODO Parsing errors may cause UB?
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 write!(f, "=VAL")?;
 
                 if let Some(cow) = anchor {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.
-                    // TODO Parsing errors may cause UB?
                     let string: &str = unsafe { from_utf8_unchecked(cow.as_ref()) };
                     write!(f, " &{string}")?;
                 };
                 if let Some(cow) = tag {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.
-                    // TODO Parsing errors may cause UB?
                     let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
                     write!(f, " <{string}>")?;
                 };
@@ -225,7 +217,6 @@ impl Display for Event<'_> {
             Event::Alias(value) => {
                 // SAFETY:
                 // SAFE as long as the slice is valid UTF8.
-                // TODO Parsing errors may cause UB?
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
                 write!(f, "=ALI *{val_str}")
             }
