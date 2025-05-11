@@ -313,7 +313,7 @@ pub fn print_bin_till(number: u64, max: usize) -> String {
             for i in 0..len {
                 chunk[i] = rev[len - i - 1];
             }
-        };
+        }
         let temp = mem::replace(&mut chunk, *b"0000");
         double_buf.push_front(temp[0]);
         double_buf.push_front(temp[1]);

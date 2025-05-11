@@ -1,7 +1,7 @@
 // MIT License
 //
 // Copyright (c) [2024] [simd-json.rs developers]
-// Copyright (c) [2024] Ygg One
+// Copyright (c) [2025] Ygg One
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -164,7 +164,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// * `chunk` - A [`YamlChunkState`] that contains the current chunk info.
     /// * `parser_state` - A mutable [`YamlParserState`] that contains the current parser state and will be
-    ///    updated with new chunk state.
+    ///   updated with a new chunk state.
     /// * `indent_info` - A mutable [`YamlIndentInfo`] that will be updated with info.
     ///
     fn flatten_bits_yaml(
@@ -179,7 +179,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// * `chunk` - A u64 bitmask that contains position of Line feed characters.
     /// * `parser_state` - A [`YamlParserState`] which will update `last_row` and `last_col` with the
-    ///    chunk info.
+    ///   chunk info.
     /// * `info` - A [`YamlIndentInfo`] that will be updated from chunk with `cols`/`rows`/`rows_indent_mask`.
     fn calculate_row_col_info(
         line_feeds: u64,
@@ -431,7 +431,7 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments
     ///
     /// * `prev_iteration_result` - A mutable reference to a `u64` representing the previous
-    ///    iteration's result of backslashes. It will be updated with post-result info.
+    ///   iteration's result of backslashes. It will be updated with post-result info.
     /// * `mask` - A bitmask determining ODD or Even Mask to be used.
     ///
     /// # Returns
