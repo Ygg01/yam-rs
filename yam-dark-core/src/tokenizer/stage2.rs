@@ -343,7 +343,6 @@ fn get_stage1_next<B: YamlBuffer>() -> NextFn<B> {
     NativeScanner::next::<B>
 }
 
-// TODO Fix the UB in test
 #[test]
 fn test_parsing_basic_processing1() {
     let input = r#"
