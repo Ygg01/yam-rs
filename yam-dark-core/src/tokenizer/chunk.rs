@@ -57,8 +57,8 @@ impl YamlChunkState {
 }
 
 impl YamlChunkState {
-    /// Returns a [`u64`] where 1-bit, at given position, represents either flow or block
-    /// structurals in the `[u8; 64]` chunk at corresponding position.
+    /// Returns a [`u64`] where 1-bit, at a given position, represents either flow or block
+    /// structurals in the `[u8; 64]` chunk at a corresponding position.
     #[must_use]
     pub const fn substructure(&self) -> u64 {
         self.characters.substructure()
@@ -196,9 +196,9 @@ pub struct YamlCharacterChunk {
 
 impl YamlCharacterChunk {
     #[must_use]
-    /// Returns a [`u64`] where 1-bit, at given position, represents possible flow, block,
+    /// Returns a [`u64`] where 1-bit, at a given position, represents possible flow, block,
     /// or an unquoted start structurals character (a character) in the `[u8; 64]` chunk
-    /// at corresponding position.
+    /// at a corresponding position.
     pub const fn substructure(&self) -> u64 {
         self.unquoted_scalars_starts | self.block_structurals | self.flow_structurals
     }

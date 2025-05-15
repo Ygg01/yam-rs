@@ -67,7 +67,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         let v_v3 = u8x16_swizzle(LOW_NIBBLE, v3 & low_nib_and_mask)
             & u8x16_swizzle(HIGH_NIBBLE, (v3 >> 4) & high_nib_and_mask);
 
-        // Extract spaces using simple mask and compare.
+        // Extract spaces using a simple mask and compare.
         let tmp_sp0 = (v_v0 & 0x40).comp_all(0);
         let tmp_sp1 = (v_v1 & 0x40).comp_all(0);
         let tmp_sp2 = (v_v2 & 0x40).comp_all(0);
@@ -81,7 +81,7 @@ unsafe impl Stage1Scanner for NativeScanner {
 
         characters.spaces = !(spaces_0 | (spaces_1 << 16) | (spaces_2 << 32) | (spaces_3 << 48));
 
-        // Extract whitespaces using simple mask and compare.
+        // Extract whitespaces using a simple mask and compare.
         let tmp_ws0 = (v_v0 & 0x60).comp_all(0);
         let tmp_ws1 = (v_v1 & 0x60).comp_all(0);
         let tmp_ws2 = (v_v2 & 0x60).comp_all(0);
