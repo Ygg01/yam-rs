@@ -311,7 +311,7 @@ impl YamlParserState {
     }
 }
 
-/// Function that returns a right validator for the right architecture
+/// Function that returns the right validator for the right architecture
 ///
 /// # Arguments
 ///
