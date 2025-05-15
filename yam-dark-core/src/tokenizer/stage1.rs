@@ -66,7 +66,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Safety
     /// Method implementers need to make sure they are calling the right implementation for the correct architecture.
-    unsafe fn validator() -> Self::Validator;
+    unsafe fn validator() -> impl ChunkedUtf8Validator;
 
     /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
     ///

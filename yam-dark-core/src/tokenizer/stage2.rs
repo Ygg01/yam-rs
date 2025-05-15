@@ -25,13 +25,13 @@
 use crate::impls::{AvxScanner, NativeScanner};
 use crate::tape::Node;
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
-use crate::util::NoopValidator;
 use crate::{ChunkyIterator, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub type ParseResult<T> = Result<T, YamlError>;
@@ -323,24 +323,19 @@ impl YamlParserState {
 ///
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
-    if pre_checked {
-        // SAFETY:
-        // [`core::str`] are always safe, if not, that's already unsound.
-        unsafe {
-            return Box::new(NoopValidator::new());
+    if !pre_checked {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: We have detected the feature is enabled at runtime,
+                // so it's safe to call this function.
+                return unsafe { Box::new(AvxScanner::validator()) };
+            }
         }
     }
 
-    // SAFETY:
-    // Must call right Scanner for right CPU architecture
-    // i.e., don't call `AvxScanner` on CPU that doesn't support AVX features.
-    unsafe {
-        if core_detect::is_x86_feature_detected!("avx2") {
-            Box::new(AvxScanner::validator())
-        } else {
-            Box::new(NativeScanner::validator())
-        }
-    }
+    // SAFETY: We assume that the string is pre-validated and invoke the NoopValidator.
+    unsafe { Box::new(NativeScanner::validator()) }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]

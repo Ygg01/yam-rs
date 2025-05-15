@@ -3,6 +3,7 @@ use alloc::vec;
 #[allow(unused_imports)]
 use alloc::vec::Vec;
 use core::ptr::write;
+use simdutf8::basic::imp::ChunkedUtf8Validator;
 use util::u8x16_swizzle;
 
 use crate::tokenizer::stage1::Stage1Scanner;
@@ -20,7 +21,7 @@ unsafe impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
 
-    unsafe fn validator() -> Self::Validator {
+    unsafe fn validator() -> impl ChunkedUtf8Validator {
         NoopValidator {}
     }
 
