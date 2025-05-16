@@ -174,6 +174,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         }
 
         while bits != 0 {
+            // Applying mask to ensure that
             let v0 = bits.trailing_zeros() & 63;
             bits &= bits.saturating_sub(1);
             let v1 = bits.trailing_zeros() & 63;
@@ -191,7 +192,7 @@ unsafe impl Stage1Scanner for NativeScanner {
             ];
 
             // SAFETY:
-            // Get unchecked will be less than 64, because trailing zeros of u64 can't be greater than 64
+            // Get unchecked will be less than 64, because of a mask applied to v0..v3
             // these values will be added to base.last_row. Adding a value to base.last_row might panic but
             // shouldn't be a SAFETY problem.
             let cols: [u32; 4] = unsafe {
@@ -203,7 +204,7 @@ unsafe impl Stage1Scanner for NativeScanner {
                 ]
             };
             // SAFETY:
-            // Get unchecked will be less than 64, because trailing zeros of u64 can't be greater than 64
+            // Get unchecked will be less than 64, because of a mask applied to v0..v3
             // these values will be added to base.last_row. Adding a value to base.last_row might panic but
             // shouldn't be a SAFETY problem.
             let rows = unsafe {
@@ -216,7 +217,7 @@ unsafe impl Stage1Scanner for NativeScanner {
             };
 
             // SAFETY:
-            // Get unchecked will be less than 64, because trailing zeroes of u64 can't be greater than 64
+            // Get unchecked will be less than 64, because of a mask applied to v0..v3
             let indents = unsafe {
                 [
                     *indent_info.indents.get_unchecked(v0 as usize),
