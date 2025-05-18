@@ -1,4 +1,4 @@
-//! Various utility methods that are straightforward to auto vectorize.
+//! Various utility methods that are straightforward to auto-vectorize.
 
 use alloc::collections::VecDeque;
 use alloc::format;
@@ -41,14 +41,14 @@ impl ChunkedUtf8Validator for NoopValidator {
 /// Used for tests
 pub(crate) fn str_to_chunk(s: &str) -> [u8; 64] {
     let mut chunk = [b' '; 64];
-    chunk[0..s.as_bytes().len()].copy_from_slice(s.as_bytes());
+    chunk[0..s.len()].copy_from_slice(s.as_bytes());
     chunk
 }
 
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
 ///
 /// This function takes two `u64` values as input: `input` and `mask`. It selects a sequence of 1-bits from
-/// `input` if the leftmost (largest) bit in mask corresponds to a bit in mask. It essentially
+/// `input` if the leftmost (largest) bit in the mask corresponds to a bit in the mask. It essentially
 /// selects all groups bits left of a 1-bit in mask.
 ///   
 ///
@@ -101,7 +101,7 @@ pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
 ///
 /// This function takes two `u64` values as input: `input` and `mask`. It selects a sequence of 1-bits from
-/// `input` if the rightmost (smallest) bit in mask corresponds to a bit in mask. It essentially
+/// `input` if the rightmost (smallest) bit in the mask corresponds to a bit in the mask. It essentially
 /// selects all groups bits right of a 1-bit in mask.
 ///
 /// # Parameters
@@ -173,7 +173,7 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
 }
 
 #[doc(hidden)]
-/// Utility function that for given `newlines` mask will calculate eight rows at once
+/// Utility function that for given a `newlines` mask will calculate eight rows at once
 ///
 /// The function uses particular access and format to achieve auto-vectorization even without any
 /// SIMD enhancements.
@@ -182,7 +182,7 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
 /// * `dst` - An array or vector to which the row data will be written. It's expected to be at
 ///   least `idx + 8` long.
 /// * `newlines` - Bit mask of an 8-bit chunk that determines which precomputed hash we should use.
-/// * `prev_row` - Value of previous row, which tells us how much to adjust the row value.
+/// * `prev_row` - Value of the previous row, which tells us how much to adjust the row value.
 ///    After running, it will be updated to reflect the newest row.
 /// * `idx` - Index offset
 ///
@@ -203,7 +203,7 @@ pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mu
 }
 
 #[doc(hidden)]
-/// Utility function that for given `newlines` mask will calculate eight cols at once
+/// Utility function that for a given ` newlines ` mask will calculate eight cols at once
 ///
 /// The function uses particular access and format to achieve auto-vectorization even without any
 /// SIMD enhancements.
@@ -212,7 +212,7 @@ pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mu
 /// * `dst` - An array or vector to which the row data will be written. It's expected to be at
 ///   least `idx + 8` long.
 /// * `newlines` - Bit mask of an 8-bit chunk that determines which precomputed hash we should use.
-/// * `prev_col` - Value of previous column, which tells us how much to adjust the column value.
+/// * `prev_col` - Value of the previous column, which tells us how much to adjust the column value.
 ///    After running, it will be updated to reflect the newest column.
 /// * `idx` - Index offset
 ///
@@ -277,7 +277,7 @@ pub fn calculate_cols(cols: [u8; 8], rows: [u8; 8], prev_col: &u32) -> [u32; 8] 
 #[doc(hidden)]
 /// Pretty print diff between two u64
 ///
-/// Prints difference between two `u64`. Separates numbers into four-bit chunk, printed to
+/// Prints difference between two `u64`. Separates numbers into four-bit chunks, printed to
 /// the highest 1-bit.
 ///
 /// # Arguments
@@ -341,7 +341,7 @@ pub fn print_bin_till(number: u64, max: usize) -> String {
 /// let b = 1 + 2;
 ///
 /// assert_bin_eq!(a, b);
-/// // If it was assert_bin_eq!(3, 5)
+/// // If it was assert_bin_eq!(3, 5);
 /// // The output would be
 /// // Expected:
 /// // 0011

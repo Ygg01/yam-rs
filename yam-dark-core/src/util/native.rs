@@ -224,7 +224,7 @@ impl U8X16 {
     ///
     /// * `input`: array of sixteen bytes (`u8`).
     ///
-    /// returns: [U8X16]
+    /// Returns: [U8X16]
     #[inline]
     #[must_use]
     pub fn from_array(input: [u8; 16]) -> Self {
@@ -275,14 +275,14 @@ impl U8X16 {
         ])
     }
 
-    /// Converts [`self::U8X16`] into a 16-bit unsigned integer bitmask.
+    /// Converts [`U8X16`] into a 16-bit unsigned integer bitmask.
     /// The most significant bit of each byte is used to form the 16-bit bitmask.
     /// The resulting bitmask will have its bits set according to the most significant bit
     /// of each byte in the byte array, starting from the least significant bit.
     ///
     /// # Arguments
     ///
-    /// * `self` - The [`self::U8X16`] structure to convert to bitmask.
+    /// * `self` - The [`U8X16`] structure to convert to bitmask.
     ///
     /// # Returns
     ///
@@ -313,7 +313,7 @@ impl U8X16 {
     /// # Safety
     ///
     /// This function is marked as `unsafe` because it dereferences raw pointers and
-    /// may result in undefined behavior if the input slice *MUST BE AT LEAST 16*  bytes long.
+    /// may result in undefined behavior if the input slice *MUST BE AT LEAST 16* bytes long.
     ///
     /// # Arguments
     ///
@@ -321,7 +321,7 @@ impl U8X16 {
     ///
     /// # Returns
     ///
-    /// A new `U8X16` instance created from the input slice.
+    /// A new `U8X16` instance is created from the input slice.
     ///
     /// # Example
     ///

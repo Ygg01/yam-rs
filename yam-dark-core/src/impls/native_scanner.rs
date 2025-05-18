@@ -113,7 +113,7 @@ unsafe impl Stage1Scanner for NativeScanner {
             | (block_structural_res_3 << 48));
 
         // YAML block structurals like `? `, `- ` and `: ` are only valid if followed by a WHITESPACE
-        // character or end of line
+        // character or end of the line
         characters.block_structurals = block_structurals_candidates & (characters.whitespace << 1);
 
         // Extract block structurals
@@ -156,7 +156,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         let mut old_len = base.structurals.len();
 
         // We're doing some trickery here.
-        // We reserve 64 extra entries, because we've at most 64 bit to set
+        // We reserve 64 extra entries, because we've at most 64 bits to set,
         // then we truncate the base to the next base (that we calculated above).
         // We later indiscriminately write over the len we set, but that's OK
         // since we ensure we reserve the necessary space.
@@ -192,7 +192,7 @@ unsafe impl Stage1Scanner for NativeScanner {
             ];
 
             // SAFETY:
-            // Get unchecked will be less than 64, because of a mask applied to v0..v3
+            // Get unchecked will be less than 64, because of a mask applied from v0 to v3
             // these values will be added to base.last_row. Adding a value to base.last_row might panic but
             // shouldn't be a SAFETY problem.
             let cols: [u32; 4] = unsafe {
@@ -204,7 +204,7 @@ unsafe impl Stage1Scanner for NativeScanner {
                 ]
             };
             // SAFETY:
-            // Get unchecked will be less than 64, because of a mask applied to v0..v3
+            // Get unchecked will be less than 64, because of a mask applied from v0 to v3
             // these values will be added to base.last_row. Adding a value to base.last_row might panic but
             // shouldn't be a SAFETY problem.
             let rows = unsafe {
@@ -217,7 +217,7 @@ unsafe impl Stage1Scanner for NativeScanner {
             };
 
             // SAFETY:
-            // Get unchecked will be less than 64, because of a mask applied to v0..v3
+            // Get unchecked will be less than 64, because of a mask applied from v0 to v3
             let indents = unsafe {
                 [
                     *indent_info.indents.get_unchecked(v0 as usize),

@@ -123,7 +123,7 @@ impl<'de> Deserializer<'de> {
         for chunk in iter {
             // SAFETY:
             // The `update_from_chunks` function is safe if called on with correct CPU features.
-            // It's panic-free if chunk is 64 long array.
+            // It's panic-free if a chunk is a 64-element long array.
             //
             // Invariants:
             // - The chunk is always 64 characters long.
@@ -198,9 +198,9 @@ impl<'de> Deserializer<'de> {
 /// ## Structural fields:
 /// * `structurals`: A vector of position indices marking structural elements
 ///   like start and end positions of nodes in the YAML document.
-/// * `byte_cols`: For each structurals, byte this its corresponding byte column.
-/// * `byte_rows`: For each structurals, byte this its corresponding byte row.
-/// * `indents`: For each structurals, byte this its corresponding indentation.
+/// * `byte_cols`: For each structural, a byte has its corresponding byte column.
+/// * `byte_rows`: For each structural, a byte has its corresponding byte row.
+/// * `indents`: For each structural, a byte has its corresponding indentation.
 /// * `pos`: The current position in the structural array.
 ///
 /// ## Sparse fields:
@@ -315,8 +315,8 @@ impl YamlParserState {
 ///
 /// # Arguments
 ///
-/// * `pre_checked`: `true` When working with [`core::str`] thus not requiring any validation, `false`
-///   otherwise. **Note:** if your [`core::str`] isn't UTF-8 formatted, this will cause Undefined behavior.
+/// * `pre_checked`: `true` When working with a [`core::str`] thus not requiring any validation, `false`
+///   otherwise. **Note: ** if your [`core::str`] isn't UTF-8 formatted, this will cause Undefined behavior.
 ///
 /// Returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
 /// is guaranteed to be correct for your CPU architecture.

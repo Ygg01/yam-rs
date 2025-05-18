@@ -21,7 +21,7 @@ impl<'a> Iterator for ChunkyIterator<'a> {
                 let len = self.bytes.len();
                 let ptr = self.bytes.as_ptr();
                 // SAFETY:
-                // From raw parts is safe
+                // From raw parts it is safe
                 // We manually verified the bounds of the split.
                 let (first, tail) = unsafe {
                     (

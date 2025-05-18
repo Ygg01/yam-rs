@@ -18,6 +18,7 @@ pub use impls::NativeScanner;
 pub use tokenizer::stage1::Stage1Scanner;
 pub use tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
 
+mod events;
 pub mod impls;
 mod tape;
 mod tokenizer;
@@ -27,7 +28,7 @@ pub mod util;
 pub const SIMD_CHUNK_LENGTH: usize = 64;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-/// Enum representing erros in `yam.rs` during parsing
+/// Enum representing errors in `yam.rs` during parsing
 pub enum YamlError {
     /// UTF8 decoding error
     Utf8(Utf8Error),
@@ -35,7 +36,7 @@ pub enum YamlError {
     Io(String),
     /// Unexpected End-of-File
     UnexpectedEof,
-    /// Input decoding error. If `encoding` feature is disabled, contains `None`,
+    /// Input decoding error. If the ` encoding ` feature is disabled, it contains `None`,
     /// otherwise contains the UTF-8 decoding error
     NonDecodable(Option<Utf8Error>),
 }
@@ -54,7 +55,7 @@ pub const LOW_NIBBLE: [u8; 16] = [64, 0, 0, 0, 0, 0, 0, 0, 0, 32, 40, 16, 4, 50,
 #[doc(hidden)]
 pub const HIGH_NIBBLE: [u8; 16] = [32, 0, 70, 9, 0, 16, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0];
 
-/// Convenience type for result of parsing YAML.
+/// Convenience type for the result of parsing YAML.
 pub type YamlResult<T> = Result<T, YamlError>;
 
 /// Iterator used to iterate over 64 byte chunks

@@ -42,12 +42,12 @@ pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
 
 /// A trait representing a stage 1 scanner for parsing `YAML` input.
 ///
-/// This trait provides methods for validating and scanning chunks of data, and finding important
+/// This trait provides methods for validating and scanning chunks of data and finding important
 /// parts like structural starts and so on.
 ///
 /// # Safety
 ///
-/// This trait MUST ALWAYS return valid positions in given stream in bytes. They will be used for unchecked
+/// This trait MUST ALWAYS return valid positions in a given stream in bytes. They will be used for unchecked
 /// access to the underlying bytes.
 ///
 /// # Dyn compatibility
@@ -65,7 +65,7 @@ pub unsafe trait Stage1Scanner {
     /// The `validator` function is a generic method that returns the validator for the type it is called on.
     ///
     /// # Safety
-    /// Method implementers need to make sure they are calling the right implementation for the correct architecture.
+    /// Method implementers need to make sure they are calling the right implementation.
     unsafe fn validator() -> impl ChunkedUtf8Validator;
 
     /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
@@ -262,7 +262,7 @@ pub unsafe trait Stage1Scanner {
             // If compressed_indent is a `Vec<u32>` that's 64 elements wide
             // - `ptr::write` is aligned and ptr is valid
             // - `ptr::add` can't overflow isize or usize because it's only adding 64 elements.
-            // - `ptr::add` pointer is valid
+            // - `ptr::add` a pointer is valid
             unsafe {
                 core::ptr::write(compressed_indents.as_mut_ptr().add(i).cast::<[u32; 4]>(), v);
             };
@@ -275,7 +275,7 @@ pub unsafe trait Stage1Scanner {
         // safety (index must not be out of bounds).
         //
         // Invariants:
-        // - If `count` < 64 then `new_len <= capacity` must hold
+        // - If `count < 64` then `new_len <= capacity` must hold
         // - Since loop initializes more chunks than length, there `old_len..new_len` will be true
         // - loop runs once which compressed_indent will have one first element, which is guaranteed
         // by if neg_indents_mask == 0 early return.
@@ -288,7 +288,7 @@ pub unsafe trait Stage1Scanner {
 
         for index in 0..64 {
             // SAFETY:
-            // Block will be safe if `get_unchecked_mut`/`get_unchecked` index is within bounds.
+            // Block will be safe if the `get_unchecked_mut`/`get_unchecked` index is within bounds.
             //
             // Invariants:
             // - `info.rows.get_unchecked` must be safe because index goes from 0..<64
@@ -328,7 +328,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Returns
     ///
-    /// The computed quote mask of type `u64`.
+    /// The computed quote mask of a type `u64`.
     ///
     /// # Examples
     ///
@@ -464,7 +464,7 @@ pub unsafe trait Stage1Scanner {
         let odd_starts = start_edges & !even_start_mask;
         let even_carries = bits.wrapping_add(even_starts);
 
-        // must record the carry-out of our odd-carries out of bit 63; this
+        // must record the carry-out of odd-carries, from bit 63; this
         // indicates whether the sense of any edge going to the next iteration
         // should be flipped
         let (mut odd_carries, iter_ends_odd_backslash) = bits.overflowing_add(odd_starts);
@@ -481,14 +481,14 @@ pub unsafe trait Stage1Scanner {
         even_start_odd_end | odd_start_even_end
     }
 
-    /// Scans for single quote bitmask.
+    /// Scans for a single quote bitmask.
     ///
     /// # Arguments
     ///
     /// * `block_state`: A mutable reference to a current [`YamlChunkState`].
     ///   It will update the
     ///   [`YamlSingleQuoteChunk`] with data for scanned single quotes.
-    /// * `prev_iter_state`: A mutable reference to previous iteration [`YamlParserState`].
+    /// * `prev_iter_state`: A mutable reference to the previous iteration [`YamlParserState`].
     ///
     /// # Example
     ///
@@ -540,7 +540,7 @@ pub unsafe trait Stage1Scanner {
     }
 
     /// Calculates a mask from the provided quote bits and an even boundary value.
-    /// Given a set of bitmask and highest bits in consecutive group of `1` it will select all neighboring ones to the right (using big endian number notation)
+    /// Given a set of bitmask and highest bits in a consecutive group of ones, it will select all neighboring ones to the right (using big endian number notation)
     ///
     /// # Arguments
     ///

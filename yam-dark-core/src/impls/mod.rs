@@ -1,4 +1,4 @@
-//! Module containing platform specific implementations
+//! Module containing platform-specific implementations
 pub use avx_scanner::AvxScanner;
 pub use native_scanner::NativeScanner;
 
