@@ -5,16 +5,16 @@ pub enum Node<'input> {
     /// A `Map` given the `size` starts here.
     /// The values are keys and value, alternating.
     Map {
-        /// Numbers of keys in object
+        /// Numbers of keys in the map
         len: usize,
-        /// Total number of nodes in object, including sub-elements
+        /// Total number of nodes in the map, including sub-elements
         count: usize,
     },
     /// A `Sequence` given size starts here
     Sequence {
         /// The number of elements in the array
         len: usize,
-        /// Total number of nodes in object, including sub-elements.
+        /// Total number of nodes in the array, including sub-elements.
         count: usize,
     },
     /// A static node that is interned into the tape. It can be directly taken a

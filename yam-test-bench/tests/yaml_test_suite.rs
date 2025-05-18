@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::fmt::Write;
-use yam_core::tokenizer::{Event, EventIterator};
+use yam_common::Event;
+use yam_core::tokenizer::EventIterator;
 
 const TEST_SIZE: usize = 440;
 

@@ -1,5 +1,4 @@
 use core::str::from_utf8;
-pub use iterator::Event;
 pub use iterator::EventIterator;
 pub use lexer::Lexer;
 pub use lexer::LexerToken;

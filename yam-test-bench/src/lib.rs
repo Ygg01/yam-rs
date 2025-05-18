@@ -1,6 +1,6 @@
 use std::fmt::Write;
-
-use yam_core::tokenizer::{Event, EventIterator, StrReader};
+use yam_common::Event;
+use yam_core::tokenizer::{EventIterator, StrReader};
 
 ///
 /// Assert that in for given input, the parser generates expected set of events

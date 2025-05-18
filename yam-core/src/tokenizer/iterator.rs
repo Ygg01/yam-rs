@@ -1,17 +1,13 @@
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 
-use core::str::from_utf8_unchecked;
-
-use urlencoding::decode_binary;
-
 use crate::escaper::{escape_double_quotes, escape_plain, escape_single_quotes};
-use crate::tokenizer::iterator::Event::ErrorEvent;
 use crate::tokenizer::{Reader, Slicer};
 use crate::Lexer;
+use urlencoding::decode_binary;
+use yam_common::{Event, ScalarType};
 
 use super::StrReader;
 
@@ -56,170 +52,6 @@ impl<'a> From<&'a [u8]> for EventIterator<'a, StrReader<'a>, &'a [u8]> {
             tag: None,
             anchor: None,
             phantom: PhantomData,
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum ScalarType {
-    Plain,
-    Folded,
-    Literal,
-    SingleQuote,
-    DoubleQuote,
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum DirectiveType {
-    Yaml,
-    Tag,
-    Reserved,
-}
-
-#[derive(Clone, PartialEq)]
-pub enum Event<'a> {
-    DocStart {
-        explicit: bool,
-    },
-    DocEnd {
-        explicit: bool,
-    },
-    SeqStart {
-        tag: Option<Cow<'a, [u8]>>,
-        anchor: Option<Cow<'a, [u8]>>,
-        flow: bool,
-    },
-    SeqEnd,
-    MapStart {
-        tag: Option<Cow<'a, [u8]>>,
-        anchor: Option<Cow<'a, [u8]>>,
-        flow: bool,
-    },
-    MapEnd,
-    Directive {
-        directive_type: DirectiveType,
-        value: Cow<'a, [u8]>,
-    },
-    Scalar {
-        tag: Option<Cow<'a, [u8]>>,
-        anchor: Option<Cow<'a, [u8]>>,
-        scalar_type: ScalarType,
-        value: Cow<'a, [u8]>,
-    },
-    Alias(Cow<'a, [u8]>),
-    ErrorEvent,
-}
-
-impl Display for Event<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Event::DocStart { explicit } => {
-                let exp_str = if *explicit { " ---" } else { "" };
-                write!(f, "+DOC{exp_str}")
-            }
-            Event::DocEnd { explicit } => {
-                let exp_str = if *explicit { " ..." } else { "" };
-                write!(f, "-DOC{exp_str}")
-            }
-            Event::SeqStart { flow, tag, anchor } => {
-                write!(f, "+SEQ",)?;
-                if *flow {
-                    write!(f, " []")?;
-                }
-                if let Some(cow) = anchor {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{string}")?;
-                };
-                if let Some(cow) = tag {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{string}>")?;
-                };
-                Ok(())
-            }
-            Event::SeqEnd => {
-                write!(f, "-SEQ")
-            }
-            Event::MapStart { flow, tag, anchor } => {
-                write!(f, "+MAP")?;
-                if *flow {
-                    write!(f, " {{}}")?;
-                }
-                if let Some(cow) = anchor {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{string}")?;
-                };
-                if let Some(cow) = tag {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{string}>")?;
-                };
-                Ok(())
-            }
-            Event::MapEnd => {
-                write!(f, "-MAP")
-            }
-            Event::Directive {
-                directive_type,
-                value,
-            } => {
-                // SAFETY:
-                // SAFE as long as the slice is valid UTF8.
-                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                match directive_type {
-                    DirectiveType::Yaml => write!(f, "%YAML {val_str}"),
-                    _ => write!(f, "{val_str}"),
-                }
-            }
-            Event::Scalar {
-                scalar_type,
-                value,
-                tag,
-                anchor,
-            } => {
-                // SAFETY:
-                // SAFE as long as the slice is valid UTF8.
-                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                write!(f, "=VAL")?;
-
-                if let Some(cow) = anchor {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string: &str = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{string}")?;
-                };
-                if let Some(cow) = tag {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{string}>")?;
-                };
-                match *scalar_type {
-                    ScalarType::Plain => write!(f, " :"),
-                    ScalarType::Folded => write!(f, " >"),
-                    ScalarType::Literal => write!(f, " |"),
-                    ScalarType::SingleQuote => write!(f, " \'"),
-                    ScalarType::DoubleQuote => write!(f, " \""),
-                }?;
-                write!(f, "{val_str}")?;
-
-                Ok(())
-            }
-            ErrorEvent => {
-                write!(f, "ERR")
-            }
-            Event::Alias(value) => {
-                // SAFETY:
-                // SAFE as long as the slice is valid UTF8.
-                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                write!(f, "=ALI *{val_str}")
-            }
         }
     }
 }

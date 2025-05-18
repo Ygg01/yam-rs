@@ -6,6 +6,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::hint::unreachable_unchecked;
 use core::mem::take;
+use yam_common::DirectiveType;
+use yam_common::ScalarType;
 
 use hashbrown::HashMap;
 
@@ -39,7 +41,6 @@ use crate::tokenizer::ErrorType::{
     UnexpectedSeqAtNodeEnd, UnexpectedSymbol,
 };
 
-use super::iterator::{DirectiveType, ScalarType};
 use super::reader::{
     is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
 };

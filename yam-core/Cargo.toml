@@ -28,7 +28,8 @@ memchr = "2.5.0"
 urlencoding = "2.1.2"
 # `no_std` map
 # Keep until https://github.com/rust-lang/rust/issues/27242 is resolved
-hashbrown = "0.14.0"
+hashbrown = "0.15.3"
+yam-common = { path = "../yam-common" }
 
 [features]
 no-inline = []

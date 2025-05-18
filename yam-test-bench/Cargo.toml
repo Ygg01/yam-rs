@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 yam-core = {path = "../yam-core"}
+yam-common = { path = "../yam-common" }
 
 [dev-dependencies]
 criterion = "0.5.1"

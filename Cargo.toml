@@ -6,7 +6,7 @@ members = [
     "yam",
     "yam-dark-core",
     "yam-test-bench",
-    "yam-table",
+    "yam-table", "yam-common",
 ]
 resolver = "2"
 
