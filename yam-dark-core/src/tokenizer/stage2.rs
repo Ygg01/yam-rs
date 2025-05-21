@@ -108,7 +108,13 @@ struct VecTape<'de, B> {
     buffer: &'de B,
 }
 
-unsafe impl<'de, B: YamlBuffer> YamlEventsListener for VecTape<'de, B> {
+impl<'de, B: YamlBuffer> VecTape<'de, B> {
+    fn new(tape: &'de mut Vec<Node<'de>>, buffer: &'de B) -> Self {
+        Self { tape, buffer }
+    }
+}
+
+unsafe impl<B: YamlBuffer> YamlEventsListener for VecTape<'_, B> {
     fn on_scalar(&mut self, start: usize, end: usize, scalar_type: ScalarType) {
         self.tape.push(Node::String(unsafe {
             from_utf8_unchecked(self.buffer.get_span_unsafely(start, end))
@@ -122,7 +128,7 @@ impl YamlBuffer for VecTape<'_, BorrowBuffer<'_>> {
     }
 }
 
-fn fill_tape<'de>(input: &'de str, tape: &mut VecTape<'de, BorrowBuffer>) -> ParseResult<()> {
+fn fill_tape<'de>(input: &str, tape: &mut VecTape<'de, BorrowBuffer>) -> ParseResult<()> {
     Deserializer::fill_tape::<NativeScanner, VecTape<'de, BorrowBuffer>>(input, tape)
 }
 
