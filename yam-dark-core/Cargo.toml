@@ -12,7 +12,7 @@ rust-version = "1.74.1"
 
 [dependencies]
 simdutf8 = { version = "0.1.4", features = ["aarch64_neon", "public_imp"] }
-#yam-core = { path = "../yam-core" }
+yam-common = { path = "../yam-common" }
 core_detect = "1.0.0"
 
 

@@ -1,3 +1,7 @@
+mod events;
+
+pub(crate) use events::YamlEventsListener;
+
 #[allow(dead_code)]
 pub enum Node<'input> {
     /// A string, located inside the input slice
