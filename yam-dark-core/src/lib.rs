@@ -16,8 +16,9 @@ pub use crate::util::u8x64_eq;
 use alloc::string::String;
 use core::str::Utf8Error;
 pub use impls::NativeScanner;
+pub use tokenizer::buffers::YamlBuffer;
 pub use tokenizer::stage1::Stage1Scanner;
-pub use tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
+pub use tokenizer::stage2::{YamlIndentInfo, YamlParserState};
 
 pub mod impls;
 mod tape;

@@ -11,6 +11,18 @@ pub enum ScalarType {
     DoubleQuote,
 }
 
+impl Display for ScalarType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScalarType::Plain => write!(f, ":"),
+            ScalarType::Folded => write!(f, ">"),
+            ScalarType::Literal => write!(f, "|"),
+            ScalarType::SingleQuote => write!(f, "'"),
+            ScalarType::DoubleQuote => write!(f, "\""),
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum DirectiveType {
     Yaml,

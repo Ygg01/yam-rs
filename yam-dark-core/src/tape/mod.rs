@@ -1,4 +1,6 @@
 mod events;
+
+use alloc::string::String;
 pub use events::EventListener;
 
 #[allow(dead_code)]
@@ -35,4 +37,8 @@ pub enum StaticNode {
     F64(f64),
     /// A signed 64-bit integer.
     I64(i64),
+}
+
+pub struct StringTape {
+    pub buff: String,
 }

@@ -23,17 +23,20 @@
 // SOFTWARE.
 
 use crate::impls::{AvxScanner, NativeScanner};
-use crate::tape::{EventListener, Node};
+use crate::tape::{EventListener, Node, StringTape};
+use crate::tokenizer::buffers::{BorrowBuffer, YamlBuffer};
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
 use crate::util::NoopValidator;
 use crate::{ChunkyIterator, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::slice::SliceIndex;
 use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
+use yam_common::ScalarType;
 
 pub type ParseResult<T> = Result<T, YamlError>;
 
@@ -42,58 +45,20 @@ pub struct Deserializer<'de> {
     tape: Vec<Node<'de>>,
 }
 
-impl<'de> EventListener for Deserializer<'de> {
+impl<'de> EventListener<'de> for Deserializer<'de> {
     type ScalarValue = &'de str;
 
-    fn on_scalar(&mut self, scalar_value: Self::ScalarValue) {
+    fn on_scalar(&mut self, scalar_value: Self::ScalarValue, scalar_type: ScalarType) {
         self.tape.push(Node::String(scalar_value));
     }
 }
 
-/// Trait for buffers used in yam.rs
-///
-/// It allows abstracting over owned or borrowed buffers, and operations like moving stuff into it.
-pub trait YamlBuffer<'de> {
-    /// Get the underlying buffer.
-    fn get_mut_buffer(&mut self) -> &mut Self {
-        self
-    }
+impl<'a> EventListener<'a> for StringTape {
+    type ScalarValue = &'a str;
 
-    /// Get the representation of the buffer as a slice.
-    fn get_bytes(&self) -> &[u8];
-    /// Access position in a buffer without overhead of access
-    ///
-    /// # Safety
-    /// The `pos` argument must be within bound, or this is Undefined Behavior.
-    unsafe fn get_byte_unsafely<I: SliceIndex<[u8]>>(&self, pos: usize) -> u8 {
-        *self.get_bytes().get_unchecked(pos)
-    }
-
-    /// Access position in a buffer without overhead of access
-    ///
-    /// # Safety
-    /// The `start` and `end` arguments must be within bounds, or this is Undefined Behavior.
-    unsafe fn get_span_unsafely(&self, start: usize, end: usize) -> &[u8] {
-        self.get_bytes().get_unchecked(start..end)
-    }
-}
-
-#[derive(Default)]
-pub struct BorrowBuffer<'buff> {
-    string_buffer: &'buff [u8],
-}
-
-impl<'de> YamlBuffer<'de> for BorrowBuffer<'de> {
-    fn get_bytes(&self) -> &[u8] {
-        self.string_buffer
-    }
-}
-
-impl<'a> BorrowBuffer<'a> {
-    fn new(string_buffer: &'a str) -> Self {
-        Self {
-            string_buffer: string_buffer.as_bytes(),
-        }
+    fn on_scalar(&mut self, scalar_value: Self::ScalarValue, scalar_type: ScalarType) {
+        self.buff.push_str(&scalar_type.to_string());
+        self.buff.push_str(scalar_value);
     }
 }
 
@@ -123,7 +88,11 @@ fn fill_tape<'de>(input: &'de str, deserializer: &mut Deserializer<'de>) -> Yaml
 }
 
 impl<'de> Deserializer<'de> {
-    fn fill_tape<S: Stage1Scanner, B: YamlBuffer<'de>, E: EventListener<ScalarValue = &'de str>>(
+    fn fill_tape<
+        S: Stage1Scanner,
+        B: YamlBuffer<'de>,
+        E: EventListener<'de, ScalarValue = &'de str>,
+    >(
         input: &'de [u8],
         tape: &mut E,
         buffer: &mut B,
@@ -156,7 +125,7 @@ impl<'de> Deserializer<'de> {
         Self::build_tape(&mut state, tape, buffer)
     }
 
-    fn build_tape<E: EventListener, B: YamlBuffer<'de>>(
+    fn build_tape<E: EventListener<'de>, B: YamlBuffer<'de>>(
         parser_state: &mut YamlParserState,
         event_listener: &mut E,
         buffer: &mut B,

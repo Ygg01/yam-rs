@@ -24,8 +24,9 @@
 #![allow(unused)]
 #![allow(clippy::module_name_repetitions)]
 
+use crate::tokenizer::buffers::YamlBuffer;
 use crate::tokenizer::chunk::YamlChunkState;
-use crate::tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
+use crate::tokenizer::stage2::{YamlIndentInfo, YamlParserState};
 use crate::util::{
     add_cols_unchecked, add_rows_unchecked, fast_select_high_bits, fast_select_low_bits,
 };
