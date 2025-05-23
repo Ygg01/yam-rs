@@ -22,8 +22,8 @@ unsafe impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
 
-    unsafe fn validator() -> Box<dyn ChunkedUtf8Validator> {
-        Box::new(NoopValidator::new())
+    fn validator() -> Box<dyn ChunkedUtf8Validator> {
+        unsafe { Box::new(NoopValidator::new()) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

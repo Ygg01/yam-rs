@@ -64,10 +64,7 @@ pub unsafe trait Stage1Scanner {
     /// Returns the [`Self::Validator`] for the given trait implementor.
     ///
     /// The `validator` function is a generic method that returns the validator for the type it is called on.
-    ///
-    /// # Safety
-    /// Method implementers need to make sure they are calling the right implementation.
-    unsafe fn validator() -> Box<dyn ChunkedUtf8Validator>;
+    fn validator() -> Box<dyn ChunkedUtf8Validator>;
 
     /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
     ///

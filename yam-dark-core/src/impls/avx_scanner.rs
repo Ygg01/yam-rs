@@ -25,8 +25,8 @@ unsafe impl Stage1Scanner for AvxScanner {
     type SimdType = __m256i;
     type Validator = ChunkedUtf8ValidatorImp;
 
-    unsafe fn validator() -> Box<dyn ChunkedUtf8Validator> {
-        Box::new(ChunkedUtf8ValidatorImp::new())
+    fn validator() -> Box<dyn ChunkedUtf8Validator> {
+        unsafe { Box::new(ChunkedUtf8ValidatorImp::new()) }
     }
 
     fn from_chunk(_values: &[u8; 64]) -> Self {
