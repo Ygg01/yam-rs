@@ -24,7 +24,7 @@ unsafe impl Stage1Scanner for AvxScanner {
     type SimdType = __m256i;
     type Validator = ChunkedUtf8ValidatorImp;
 
-    unsafe fn validator() -> impl ChunkedUtf8Validator {
+    unsafe fn validator() -> impl ChunkedUtf8Validator + 'static {
         ChunkedUtf8ValidatorImp::new()
     }
 

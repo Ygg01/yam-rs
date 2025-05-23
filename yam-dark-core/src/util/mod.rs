@@ -20,6 +20,11 @@ mod table;
 pub struct NoopValidator();
 
 impl ChunkedUtf8Validator for NoopValidator {
+    /// Creates a NOOP validator that trusts the input, and avoids checks.
+    ///
+    /// SAFETY:
+    /// - It's safe on all architectures
+    /// - It's not safe to call on non &str inputs!
     unsafe fn new() -> Self
     where
         Self: Sized,

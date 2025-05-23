@@ -21,7 +21,7 @@ unsafe impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
 
-    unsafe fn validator() -> impl ChunkedUtf8Validator {
+    unsafe fn validator() -> impl ChunkedUtf8Validator + 'static {
         NoopValidator {}
     }
 

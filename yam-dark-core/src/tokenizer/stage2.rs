@@ -25,6 +25,7 @@
 use crate::impls::{AvxScanner, NativeScanner};
 use crate::tape::{EventListener, Node};
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
+use crate::util::NoopValidator;
 use crate::{ChunkyIterator, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::boxed::Box;
@@ -130,7 +131,7 @@ impl<'de> Deserializer<'de> {
     ) -> YamlResult<()> {
         let mut iter = ChunkyIterator::from_bytes(input);
         let mut state = YamlParserState::default();
-        let mut validator = get_validator(pre_checked);
+        let mut validator = get_validator::<S>(pre_checked);
         let mut indent_info = YamlIndentInfo::default();
 
         let next_fn = get_stage1_next::<B>();
@@ -185,6 +186,7 @@ impl<'de> Deserializer<'de> {
         result
     }
 
+    /// Method for cleaning up after the parser has finished.
     fn cleanup() {
         todo!()
     }
@@ -341,20 +343,15 @@ impl YamlParserState {
 /// is guaranteed to be correct for your CPU architecture.
 ///
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
-    if !pre_checked {
-        #[cfg(target_arch = "x86_64")]
-        {
-            if is_x86_feature_detected!("avx2") {
-                // SAFETY: We have detected the feature is enabled at runtime,
-                // so it's safe to call this function.
-                return unsafe { Box::new(AvxScanner::validator()) };
-            }
+fn get_validator<S: Stage1Scanner>(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator + 'static> {
+    if pre_checked {
+        unsafe {
+            // We need to ensure the validator has a 'static lifetime
+            Box::new(S::validator())
         }
+    } else {
+        Box::new(unsafe { NoopValidator::new() })
     }
-
-    // SAFETY: We assume that the string is pre-validated and invoke the NoopValidator.
-    unsafe { Box::new(NativeScanner::validator()) }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -369,7 +366,7 @@ fn test_parsing_basic_processing1() {
     "#;
     let mut buffer = BorrowBuffer::new(input);
     let mut state = YamlParserState::default();
-    let mut validator = get_validator(false);
+    let mut validator = get_validator::<NativeScanner>(false);
     let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
     let mut info = YamlIndentInfo::default();
 
