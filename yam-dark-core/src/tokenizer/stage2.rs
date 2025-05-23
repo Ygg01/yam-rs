@@ -62,7 +62,7 @@ impl<'a> EventListener<'a> for StringTape {
     }
 }
 
-fn fill_tape<'de>(input: &'de str, deserializer: &mut Deserializer<'de>) -> YamlResult<()> {
+fn fill_tape<'de, T: EventListener<'de>>(input: &'de str, mut deserializer: T) -> YamlResult<()> {
     let mut buffer = BorrowBuffer::new(input);
 
     #[cfg(target_arch = "x86_64")]
@@ -70,96 +70,80 @@ fn fill_tape<'de>(input: &'de str, deserializer: &mut Deserializer<'de>) -> Yaml
         if is_x86_feature_detected!("avx2") {
             // SAFETY: We have detected the feature is enabled at runtime,
             // so it's safe to call this function.
-            return Deserializer::fill_tape::<AvxScanner, BorrowBuffer, Deserializer>(
+            return fill_tape_inner::<AvxScanner, T>(
                 input.as_bytes(),
-                deserializer,
+                &mut deserializer,
                 &mut buffer,
                 true,
             );
         }
     }
 
-    Deserializer::fill_tape::<NativeScanner, BorrowBuffer, Deserializer>(
-        input.as_bytes(),
-        deserializer,
-        &mut buffer,
-        true,
-    )
+    fill_tape_inner::<NativeScanner, T>(input.as_bytes(), &mut deserializer, &mut buffer, true)
 }
 
-impl<'de> Deserializer<'de> {
-    fn fill_tape<
-        S: Stage1Scanner,
-        B: YamlBuffer<'de>,
-        E: EventListener<'de, ScalarValue = &'de str>,
-    >(
-        input: &'de [u8],
-        tape: &mut E,
-        buffer: &mut B,
-        pre_checked: bool,
-    ) -> YamlResult<()> {
-        let mut iter = ChunkyIterator::from_bytes(input);
-        let mut state = YamlParserState::default();
-        let mut validator = get_validator::<S>(pre_checked);
-        let mut indent_info = YamlIndentInfo::default();
+fn fill_tape_inner<'de, S: Stage1Scanner, E: EventListener<'de>>(
+    input: &'de [u8],
+    tape: &mut E,
+    buffer: &mut BorrowBuffer<'de>,
+    pre_checked: bool,
+) -> YamlResult<()> {
+    let mut iter = ChunkyIterator::from_bytes(input);
+    let mut state = YamlParserState::default();
+    let mut validator = get_validator::<S>(pre_checked);
+    let mut indent_info = YamlIndentInfo::default();
 
-        let next_fn = get_stage1_next::<B>();
+    let next_fn = get_stage1_next::<BorrowBuffer<'de>>();
 
-        for chunk in iter {
-            // Invariants:
-            // 0. The chunk is always 64 characters long.
-            // 1. `validator` is correct for given architecture and parameters
-            // 1.1 `validator` can be Noop for &str
-            //
-            // SAFETY:
-            // The `update_from_chunks` function is safe if called on with correct CPU features.
-            // It's panic-free if a chunk is a 64-element long array.
-            unsafe {
-                validator.update_from_chunks(chunk);
-            }
-
-            let chunk_state: YamlChunkState = S::next(chunk, buffer, &mut state);
-            state.process_chunk::<B, S>(buffer, &chunk_state, &mut indent_info)?;
+    for chunk in iter {
+        // Invariants:
+        // 0. The chunk is always 64 characters long.
+        // 1. `validator` is correct for given architecture and parameters
+        // 1.1 `validator` can be Noop for &str
+        //
+        // SAFETY:
+        // The `update_from_chunks` function is safe if called on with correct CPU features.
+        // It's panic-free if a chunk is a 64-element long array.
+        unsafe {
+            validator.update_from_chunks(chunk);
         }
 
-        Self::build_tape(&mut state, tape, buffer)
+        let chunk_state: YamlChunkState = S::next(chunk, buffer, &mut state);
+        state.process_chunk::<BorrowBuffer<'de>, S>(buffer, &chunk_state, &mut indent_info)?;
     }
 
-    fn build_tape<E: EventListener<'de>, B: YamlBuffer<'de>>(
-        parser_state: &mut YamlParserState,
-        event_listener: &mut E,
-        buffer: &mut B,
-    ) -> YamlResult<()> {
-        let mut idx = 0;
-        let mut chr = b' ';
+    build_tape(&mut state, tape, buffer)
+}
 
-        let result = loop {
-            //early bailout
-            if let State::PreDocStart = parser_state.state {
-                if parser_state.pos < parser_state.structurals.len() {
-                    // SAFETY:
-                    // This method will be safe IFF YamlParserState structurals are safe
-                    chr = unsafe {
-                        let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
-                        buffer.get_byte_unsafely::<usize>(pos)
-                    };
-                    parser_state.pos += 1;
-                } else {
-                    // Return error and defer to clean up.
-                    break Err(YamlError::UnexpectedEof);
-                }
+fn build_tape<'de, E: EventListener<'de>, B: YamlBuffer<'de>>(
+    parser_state: &mut YamlParserState,
+    event_listener: &mut E,
+    buffer: &mut B,
+) -> YamlResult<()> {
+    let mut idx = 0;
+    let mut chr = b' ';
+
+    let result = loop {
+        //early bailout
+        if let State::PreDocStart = parser_state.state {
+            if parser_state.pos < parser_state.structurals.len() {
+                // SAFETY:
+                // This method will be safe IFF YamlParserState structurals are safe
+                chr = unsafe {
+                    let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
+                    buffer.get_byte_unsafely::<usize>(pos)
+                };
+                parser_state.pos += 1;
+            } else {
+                // Return error and defer to clean up.
+                break Err(YamlError::UnexpectedEof);
             }
-        };
+        }
+    };
 
-        Self::cleanup();
+    // Self::cleanup();
 
-        result
-    }
-
-    /// Method for cleaning up after the parser has finished.
-    fn cleanup() {
-        todo!()
-    }
+    result
 }
 
 /// Represents the internal state of a YAML parser.
