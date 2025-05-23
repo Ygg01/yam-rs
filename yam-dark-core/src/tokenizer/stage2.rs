@@ -137,13 +137,14 @@ impl<'de> Deserializer<'de> {
         let next_fn = get_stage1_next::<B>();
 
         for chunk in iter {
+            // Invariants:
+            // 0. The chunk is always 64 characters long.
+            // 1. `validator` is correct for given architecture and parameters
+            // 1.1 `validator` can be Noop for &str
+            //
             // SAFETY:
             // The `update_from_chunks` function is safe if called on with correct CPU features.
             // It's panic-free if a chunk is a 64-element long array.
-            //
-            // Invariants:
-            // - The chunk is always 64 characters long.
-            // - `get_validator` must return the correct function.
             unsafe {
                 validator.update_from_chunks(chunk);
             }
@@ -339,19 +340,40 @@ impl YamlParserState {
 /// * `pre_checked`: `true` When working with a [`core::str`] thus not requiring any validation, `false`
 ///   otherwise. **Note: ** if your [`core::str`] isn't UTF-8 formatted, this will cause Undefined behavior.
 ///
-/// Returns: `Box<dyn ChunkedUtf8Validator, Global>` a heap allocated [`ChunkedUtf8Validator`] that
+/// Returns: `Box<dyn ChunkedUtf8Validator + 'static, Global>` a heap allocated [`ChunkedUtf8Validator`] that
 /// is guaranteed to be correct for your CPU architecture.
+///
+/// # Intended use
+/// It works on 64-byte arrays, so we use [`ChunkyIterator`] on stable, until
+/// [rust#74985](https://github.com/rust-lang/rust/issues/74985) lands.
 ///
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn get_validator<S: Stage1Scanner>(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator + 'static> {
+    // Getting val
     if pre_checked {
-        unsafe {
-            // We need to ensure the validator has a 'static lifetime
-            Box::new(S::validator())
-        }
-    } else {
-        Box::new(unsafe { NoopValidator::new() })
+        return Box::new(
+            // # Invariants:
+            //
+            // 1. It's correct for currently invoked architecture
+            // 2. It will check the bytes for UTF8 validity
+            //
+            // SAFETY:
+            // 1. Doing nothing is safe on every architecture
+            // 2. It assumes that bytes are **already** valid UTF8
+            unsafe { NoopValidator::new() },
+        );
     }
+    Box::new(
+        // # Invariants:
+        //
+        // 1. It's correct for currently invoked architecture
+        // 2. It will check the bytes for UTF8 validity
+        //
+        // SAFETY:
+        // 1. It assumes that Stage1Scanner is already for correct architecture
+        // 2. It relies on checking in simdutf8.
+        unsafe { S::validator() },
+    )
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
