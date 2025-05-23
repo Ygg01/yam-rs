@@ -30,6 +30,7 @@ use crate::util::{
     add_cols_unchecked, add_rows_unchecked, fast_select_high_bits, fast_select_low_bits,
 };
 use crate::{EvenOrOddBits, YamlCharacterChunk, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
@@ -66,7 +67,7 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Safety
     /// Method implementers need to make sure they are calling the right implementation.
-    unsafe fn validator() -> impl ChunkedUtf8Validator + 'static;
+    unsafe fn validator() -> Box<dyn ChunkedUtf8Validator>;
 
     /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
     ///

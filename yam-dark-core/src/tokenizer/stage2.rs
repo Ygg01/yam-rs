@@ -348,7 +348,7 @@ impl YamlParserState {
 /// [rust#74985](https://github.com/rust-lang/rust/issues/74985) lands.
 ///
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn get_validator<S: Stage1Scanner>(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator + 'static> {
+fn get_validator<S: Stage1Scanner>(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
     // Getting val
     if pre_checked {
         return Box::new(
@@ -363,17 +363,15 @@ fn get_validator<S: Stage1Scanner>(pre_checked: bool) -> Box<dyn ChunkedUtf8Vali
             unsafe { NoopValidator::new() },
         );
     }
-    Box::new(
-        // # Invariants:
-        //
-        // 1. It's correct for currently invoked architecture
-        // 2. It will check the bytes for UTF8 validity
-        //
-        // SAFETY:
-        // 1. It assumes that Stage1Scanner is already for correct architecture
-        // 2. It relies on checking in simdutf8.
-        unsafe { S::validator() },
-    )
+    // # Invariants:
+    //
+    // 1. It's correct for currently invoked architecture
+    // 2. It will check the bytes for UTF8 validity
+    //
+    // SAFETY:
+    // 1. It assumes that Stage1Scanner is already for correct architecture
+    // 2. It relies on checking in simdutf8.
+    unsafe { S::validator() }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
