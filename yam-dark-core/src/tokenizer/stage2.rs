@@ -167,15 +167,15 @@ impl<'de> Deserializer<'de> {
             if let State::PreDocStart = parser_state.state {
                 if parser_state.pos < parser_state.structurals.len() {
                     // SAFETY:
-                    // This method will be safe iff YamlParserState structurals are safe
+                    // This method will be safe IFF YamlParserState structurals are safe
                     chr = unsafe {
                         let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
                         buffer.get_byte_unsafely::<usize>(pos)
                     };
                     parser_state.pos += 1;
                 } else {
-                    // Return error and defer to cleanup.
-                    break YamlResult::Err(YamlError::UnexpectedEof);
+                    // Return error and defer to clean up.
+                    break Err(YamlError::UnexpectedEof);
                 }
             }
         };

@@ -19,7 +19,6 @@ pub use impls::NativeScanner;
 pub use tokenizer::stage1::Stage1Scanner;
 pub use tokenizer::stage2::{YamlBuffer, YamlIndentInfo, YamlParserState};
 
-mod events;
 pub mod impls;
 mod tape;
 mod tokenizer;
