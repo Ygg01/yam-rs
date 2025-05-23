@@ -23,33 +23,36 @@
 // SOFTWARE.
 
 use crate::impls::{AvxScanner, NativeScanner};
-use crate::tape::Node;
-use crate::tape::YamlEventsListener;
+use crate::tape::{EventListener, Node};
 use crate::tokenizer::stage1::{NextFn, Stage1Scanner};
 use crate::{ChunkyIterator, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 use core::slice::SliceIndex;
-use core::str::from_utf8_unchecked;
 use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
-use yam_common::ScalarType;
 
 pub type ParseResult<T> = Result<T, YamlError>;
 
 pub struct Deserializer<'de> {
     idx: usize,
     tape: Vec<Node<'de>>,
-    _data: &'de PhantomData<()>,
+}
+
+impl<'de> EventListener for Deserializer<'de> {
+    type ScalarValue = &'de str;
+
+    fn on_scalar(&mut self, scalar_value: Self::ScalarValue) {
+        self.tape.push(Node::String(scalar_value));
+    }
 }
 
 /// Trait for buffers used in yam.rs
 ///
 /// It allows abstracting over owned or borrowed buffers, and operations like moving stuff into it.
-pub trait YamlBuffer {
+pub trait YamlBuffer<'de> {
     /// Get the underlying buffer.
     fn get_mut_buffer(&mut self) -> &mut Self {
         self
@@ -75,21 +78,11 @@ pub trait YamlBuffer {
 }
 
 #[derive(Default)]
-pub struct OwnedBuffer {
-    string_buffer: Vec<u8>,
-}
-
-#[derive(Default)]
 pub struct BorrowBuffer<'buff> {
     string_buffer: &'buff [u8],
 }
 
-impl YamlBuffer for OwnedBuffer {
-    fn get_bytes(&self) -> &[u8] {
-        self.string_buffer.as_slice()
-    }
-}
-impl YamlBuffer for BorrowBuffer<'_> {
+impl<'de> YamlBuffer<'de> for BorrowBuffer<'de> {
     fn get_bytes(&self) -> &[u8] {
         self.string_buffer
     }
@@ -103,59 +96,44 @@ impl<'a> BorrowBuffer<'a> {
     }
 }
 
-struct VecTape<'de, B> {
-    tape: &'de mut Vec<Node<'de>>,
-    buffer: &'de B,
-}
+fn fill_tape<'de>(input: &'de str, deserializer: &mut Deserializer<'de>) -> YamlResult<()> {
+    let mut buffer = BorrowBuffer::new(input);
 
-impl<'de, B: YamlBuffer> VecTape<'de, B> {
-    fn new(tape: &'de mut Vec<Node<'de>>, buffer: &'de B) -> Self {
-        Self { tape, buffer }
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("avx2") {
+            // SAFETY: We have detected the feature is enabled at runtime,
+            // so it's safe to call this function.
+            return Deserializer::fill_tape::<AvxScanner, BorrowBuffer, Deserializer>(
+                input.as_bytes(),
+                deserializer,
+                &mut buffer,
+                true,
+            );
+        }
     }
-}
 
-unsafe impl<B: YamlBuffer> YamlEventsListener for VecTape<'_, B> {
-    fn on_scalar(&mut self, start: usize, end: usize, scalar_type: ScalarType) {
-        self.tape.push(Node::String(unsafe {
-            from_utf8_unchecked(self.buffer.get_span_unsafely(start, end))
-        }));
-    }
-}
-
-impl YamlBuffer for VecTape<'_, BorrowBuffer<'_>> {
-    fn get_bytes(&self) -> &[u8] {
-        self.buffer.get_bytes()
-    }
-}
-
-fn fill_tape<'de>(input: &str, tape: &mut VecTape<'de, BorrowBuffer>) -> ParseResult<()> {
-    Deserializer::fill_tape::<NativeScanner, VecTape<'de, BorrowBuffer>>(input, tape)
-}
-
-#[derive(Debug, Default)]
-pub(crate) enum State {
-    #[default]
-    PreDocStart,
-    AfterDocBlock,
-    InDocEnd,
-    FlowSeq,
-    FlowMap,
-    DocBlock,
-    BlockSeq,
-    BlockMap,
+    Deserializer::fill_tape::<NativeScanner, BorrowBuffer, Deserializer>(
+        input.as_bytes(),
+        deserializer,
+        &mut buffer,
+        true,
+    )
 }
 
 impl<'de> Deserializer<'de> {
-    fn fill_tape<S: Stage1Scanner, E: YamlEventsListener + YamlBuffer>(
-        input: &'de str,
+    fn fill_tape<S: Stage1Scanner, B: YamlBuffer<'de>, E: EventListener<ScalarValue = &'de str>>(
+        input: &'de [u8],
         tape: &mut E,
+        buffer: &mut B,
+        pre_checked: bool,
     ) -> YamlResult<()> {
-        let mut iter = ChunkyIterator::from_bytes(input.as_bytes());
+        let mut iter = ChunkyIterator::from_bytes(input);
         let mut state = YamlParserState::default();
-        let mut validator = get_validator(true);
+        let mut validator = get_validator(pre_checked);
         let mut indent_info = YamlIndentInfo::default();
 
-        let next_fn = get_stage1_next::<E>();
+        let next_fn = get_stage1_next::<B>();
 
         for chunk in iter {
             // SAFETY:
@@ -169,44 +147,36 @@ impl<'de> Deserializer<'de> {
                 validator.update_from_chunks(chunk);
             }
 
-            let chunk_state: YamlChunkState = S::next(chunk, tape.get_mut_buffer(), &mut state);
-            state.process_chunk::<E, S>(tape.get_mut_buffer(), &chunk_state, &mut indent_info)?;
+            let chunk_state: YamlChunkState = S::next(chunk, buffer, &mut state);
+            state.process_chunk::<B, S>(buffer, &chunk_state, &mut indent_info)?;
         }
 
-        Self::build_tape(&mut state, tape)
+        Self::build_tape(&mut state, tape, buffer)
     }
 
-    fn build_tape<E: YamlEventsListener + YamlBuffer>(
+    fn build_tape<E: EventListener, B: YamlBuffer<'de>>(
         parser_state: &mut YamlParserState,
-        tape: &mut E,
+        event_listener: &mut E,
+        buffer: &mut B,
     ) -> YamlResult<()> {
         let mut idx = 0;
         let mut chr = b' ';
 
-        macro_rules! update_char {
-            () => {
+        let result = loop {
+            //early bailout
+            if let State::PreDocStart = parser_state.state {
                 if parser_state.pos < parser_state.structurals.len() {
                     // SAFETY:
                     // This method will be safe iff YamlParserState structurals are safe
-                    let chr = unsafe {
-                        buffer.get_byte_unsafely(
-                            *parser_state.structurals.get_unchecked(parser_state.pos),
-                        )
+                    chr = unsafe {
+                        let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
+                        buffer.get_byte_unsafely::<usize>(pos)
                     };
                     parser_state.pos += 1;
-                    chr
                 } else {
                     // Return error and defer to cleanup.
                     break YamlResult::Err(YamlError::UnexpectedEof);
                 }
-            };
-        }
-
-        let result = loop {
-            //early bailout
-            if let State::PreDocStart = parser_state.state {
-                // chr = update_char!();
-                {}
             }
         };
 
@@ -292,6 +262,19 @@ pub struct YamlParserState {
     pub(crate) is_in_comment: bool,
 }
 
+#[derive(Debug, Default)]
+pub(crate) enum State {
+    #[default]
+    PreDocStart,
+    AfterDocBlock,
+    InDocEnd,
+    FlowSeq,
+    FlowMap,
+    DocBlock,
+    BlockSeq,
+    BlockMap,
+}
+
 #[doc(hidden)]
 /// Transient data about cols, rows and indents that is valid per chunk
 ///
@@ -319,7 +302,7 @@ impl Default for YamlIndentInfo {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<B: YamlBuffer, S: Stage1Scanner>(
+    pub(crate) fn process_chunk<'de, B: YamlBuffer<'de>, S: Stage1Scanner>(
         &mut self,
         buffer: &mut B,
         chunk_state: &YamlChunkState,
@@ -375,7 +358,7 @@ fn get_validator(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn get_stage1_next<B: YamlBuffer>() -> NextFn<B> {
+fn get_stage1_next<'a, B: YamlBuffer<'a>>() -> NextFn<B> {
     NativeScanner::next::<B>
 }
 

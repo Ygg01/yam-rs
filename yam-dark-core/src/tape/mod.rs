@@ -1,6 +1,5 @@
 mod events;
-
-pub(crate) use events::YamlEventsListener;
+pub use events::EventListener;
 
 #[allow(dead_code)]
 pub enum Node<'input> {
