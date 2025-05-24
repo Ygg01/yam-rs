@@ -1,7 +1,8 @@
 mod events;
 
-use alloc::string::String;
+use alloc::string::{String, ToString};
 pub use events::EventListener;
+use yam_common::ScalarType;
 
 #[allow(dead_code)]
 pub enum Node<'input> {
@@ -41,4 +42,13 @@ pub enum StaticNode {
 
 pub struct StringTape {
     pub buff: String,
+}
+
+impl<'a> EventListener<'a> for StringTape {
+    type ScalarValue = &'a str;
+
+    fn on_scalar(&mut self, scalar_value: Self::ScalarValue, scalar_type: ScalarType) {
+        self.buff.push_str(&scalar_type.to_string());
+        self.buff.push_str(scalar_value);
+    }
 }
