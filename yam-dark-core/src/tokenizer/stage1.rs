@@ -369,7 +369,11 @@ pub unsafe trait Stage1Scanner {
     /// Returns the Result that returns an error if it encounters a parse error or [`YamlChunkState`].
     /// [`YamlChunkState`] stores current iteration information and is merged on each [`Stage1Scanner::next`]
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next<'de>(chunk: &[u8; 64], prev_iter_state: &mut YamlParserState) -> YamlChunkState
+    fn next<'de>(
+        chunk: &[u8; 64],
+        prev_iter_state: &mut YamlParserState,
+        error_mask: &mut u64,
+    ) -> YamlChunkState
     where
         Self: Sized,
     {

@@ -146,10 +146,10 @@ impl Default for YamlIndentInfo {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<'de, S: Stage1Scanner>(
-        &mut self,
-        chunk_state: &YamlChunkState,
-    ) -> YamlResult<()> {
+    pub(crate) fn process_chunk<'de, S>(&mut self, chunk_state: &YamlChunkState)
+    where
+        S: Stage1Scanner,
+    {
         // Then we calculate rows, cols for structurals
         let mut indent_info = YamlIndentInfo::default();
         S::calculate_row_col_info(chunk_state.characters.line_feeds, self, &mut indent_info);
@@ -159,13 +159,6 @@ impl YamlParserState {
 
         // First, we find all interesting structural bits
         S::flatten_bits_yaml(chunk_state, self, &mut indent_info);
-
-        if chunk_state.error_mask == 0 {
-            Ok(())
-        } else {
-            // TODO: Deal with errors
-            Err(YamlError::UnexpectedEof)
-        }
     }
 
     pub(crate) fn next_state() -> YamlResult<()> {
@@ -184,7 +177,7 @@ fn test_parsing_basic_processing1() {
     let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
 
     let chunk = chunk_iter.next().expect("Missing chunk!");
-    let chunk_state = NativeScanner::next(chunk, &mut state);
+    let chunk_state = NativeScanner::next(chunk, &mut state, &mut 0);
     let res = state.process_chunk::<NativeScanner>(&chunk_state);
 
     let expected_structurals = vec![9usize];

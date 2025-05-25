@@ -16,8 +16,6 @@ pub struct YamlChunkState {
     pub single_quote: YamlSingleQuoteChunk,
     /// [`YamlCharacterChunk`] struct containing info for characters (e.g., whitespace, operators).
     pub characters: YamlCharacterChunk,
-    /// Bitmask indicating positions with errors
-    pub(crate) error_mask: u64,
 }
 
 impl YamlChunkState {
@@ -51,7 +49,6 @@ impl YamlChunkState {
             double_quote,
             single_quote,
             characters,
-            error_mask: 0,
         }
     }
 }

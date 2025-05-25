@@ -40,6 +40,8 @@ pub enum YamlError {
     /// Input decoding error. If the ` encoding ` feature is disabled, it contains `None`,
     /// otherwise contains the UTF-8 decoding error
     NonDecodable(Option<Utf8Error>),
+    /// Generic syntax error
+    Syntax,
 }
 
 #[repr(u64)]

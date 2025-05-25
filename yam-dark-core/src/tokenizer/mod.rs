@@ -39,6 +39,7 @@ fn fill_tape(input: &str) -> YamlResult<()> {
         pre_checked: bool,
     ) -> YamlResult<()> {
         let mut validator = get_validator::<S>(pre_checked);
+        let mut error_mask = 0;
 
         for chunk in ChunkyIterator::from_bytes(input) {
             // Invariants:
@@ -53,8 +54,12 @@ fn fill_tape(input: &str) -> YamlResult<()> {
                 validator.update_from_chunks(chunk);
             }
 
-            let chunk_state: YamlChunkState = S::next(chunk, state);
-            state.process_chunk::<S>(&chunk_state)?;
+            let chunk_state: YamlChunkState = S::next(chunk, state, &mut error_mask);
+            state.process_chunk::<S>(&chunk_state);
+        }
+
+        if error_mask != 0 {
+            return Err(YamlError::Syntax);
         }
 
         Ok(())
