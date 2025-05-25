@@ -23,7 +23,7 @@
 // SOFTWARE.
 
 use crate::impls::NativeScanner;
-use crate::tokenizer::buffers::{BorrowBuffer, YamlBuffer};
+use crate::tokenizer::buffers::BorrowBuffer;
 use crate::tokenizer::get_validator;
 use crate::tokenizer::stage1::Stage1Scanner;
 use crate::{ChunkyIterator, YamlChunkState};
@@ -146,20 +146,19 @@ impl Default for YamlIndentInfo {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<'de, B: YamlBuffer<'de>, S: Stage1Scanner>(
+    pub(crate) fn process_chunk<'de, S: Stage1Scanner>(
         &mut self,
-        buffer: &mut B,
         chunk_state: &YamlChunkState,
-        indent_info: &mut YamlIndentInfo,
     ) -> YamlResult<()> {
         // Then we calculate rows, cols for structurals
-        S::calculate_row_col_info(chunk_state.characters.line_feeds, self, indent_info);
+        let mut indent_info = YamlIndentInfo::default();
+        S::calculate_row_col_info(chunk_state.characters.line_feeds, self, &mut indent_info);
 
         // And based on rows/cols for structurals, we calculate indents
-        S::calculate_relative_indents(chunk_state, self, indent_info);
+        S::calculate_relative_indents(chunk_state, self, &mut indent_info);
 
         // First, we find all interesting structural bits
-        S::flatten_bits_yaml(chunk_state, self, indent_info);
+        S::flatten_bits_yaml(chunk_state, self, &mut indent_info);
 
         if chunk_state.error_mask == 0 {
             Ok(())
@@ -183,12 +182,10 @@ fn test_parsing_basic_processing1() {
     let mut state = YamlParserState::default();
     let mut validator = get_validator::<NativeScanner>(false);
     let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
-    let mut info = YamlIndentInfo::default();
 
     let chunk = chunk_iter.next().expect("Missing chunk!");
-    let chunk_state = NativeScanner::next(chunk, &mut buffer, &mut state);
-    let res =
-        state.process_chunk::<BorrowBuffer, NativeScanner>(&mut buffer, &chunk_state, &mut info);
+    let chunk_state = NativeScanner::next(chunk, &mut state);
+    let res = state.process_chunk::<NativeScanner>(&chunk_state);
 
     let expected_structurals = vec![9usize];
     assert_eq!(expected_structurals, state.structurals);

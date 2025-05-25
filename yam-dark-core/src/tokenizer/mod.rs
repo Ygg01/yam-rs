@@ -1,16 +1,15 @@
-use crate::impls::AvxScanner;
 use crate::tape::{EventListener, Node};
 use crate::tokenizer::buffers::BorrowBuffer;
-use crate::tokenizer::stage1::NextFn;
 use crate::tokenizer::stage2::State;
 use crate::util::NoopValidator;
 use crate::{
     ChunkyIterator, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
-    YamlIndentInfo, YamlParserState, YamlResult,
+    YamlParserState, YamlResult,
 };
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use alloc::vec::Vec;
-use core_detect::is_x86_feature_detected;
+use core::str::from_utf8_unchecked;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use yam_common::ScalarType;
 
@@ -19,76 +18,62 @@ pub(crate) mod chunk;
 pub(crate) mod stage1;
 pub(crate) mod stage2;
 
-pub struct Deserializer<'de> {
+pub struct Deserializer<'de, B> {
     idx: usize,
     tape: Vec<Node<'de>>,
+    source: B,
 }
 
-impl<'de> EventListener<'de> for Deserializer<'de> {
+impl<'de> EventListener<'de> for Vec<Node<'de>> {
     type ScalarValue = &'de str;
 
-    fn on_scalar(&mut self, scalar_value: Self::ScalarValue, scalar_type: ScalarType) {
-        self.tape.push(Node::String(scalar_value));
+    fn on_scalar(&mut self, scalar_value: Self::ScalarValue, _scalar_type: ScalarType) {
+        self.push(Node::String(scalar_value));
     }
 }
 
-fn fill_tape<'de, T: EventListener<'de>>(input: &'de str, mut deserializer: T) -> YamlResult<()> {
-    let mut buffer = BorrowBuffer::new(input);
+fn fill_tape(input: &str) -> YamlResult<()> {
+    fn fill_tape_inner<S: Stage1Scanner>(
+        input: &[u8],
+        state: &mut YamlParserState,
+        pre_checked: bool,
+    ) -> YamlResult<()> {
+        let mut validator = get_validator::<S>(pre_checked);
 
-    #[cfg(target_arch = "x86_64")]
-    {
-        if is_x86_feature_detected!("avx2") {
-            // SAFETY: We have detected the feature is enabled at runtime,
-            // so it's safe to call this function.
-            return fill_tape_inner::<AvxScanner, T>(
-                input.as_bytes(),
-                &mut deserializer,
-                &mut buffer,
-                true,
-            );
+        for chunk in ChunkyIterator::from_bytes(input) {
+            // Invariants:
+            // 0. The chunk is always 64 characters long.
+            // 1. `validator` is correct for given architecture and parameters
+            // 1.1 `validator` can be Noop for &str
+            //
+            // SAFETY:
+            // The `update_from_chunks` function is safe if called on with correct CPU features.
+            // It's panic-free if a chunk is a 64-element long array.
+            unsafe {
+                validator.update_from_chunks(chunk);
+            }
+
+            let chunk_state: YamlChunkState = S::next(chunk, state);
+            state.process_chunk::<S>(&chunk_state)?;
         }
+
+        Ok(())
     }
-
-    fill_tape_inner::<NativeScanner, T>(input.as_bytes(), &mut deserializer, &mut buffer, true)
-}
-
-fn fill_tape_inner<'de, S: Stage1Scanner, E: EventListener<'de>>(
-    input: &'de [u8],
-    tape: &mut E,
-    buffer: &mut BorrowBuffer<'de>,
-    pre_checked: bool,
-) -> YamlResult<()> {
-    let mut iter = ChunkyIterator::from_bytes(input);
     let mut state = YamlParserState::default();
-    let mut validator = get_validator::<S>(pre_checked);
-    let mut indent_info = YamlIndentInfo::default();
+    fill_tape_inner::<NativeScanner>(input.as_bytes(), &mut state, true)?;
 
-    let next_fn = get_stage1_next::<BorrowBuffer<'de>>();
-
-    for chunk in iter {
-        // Invariants:
-        // 0. The chunk is always 64 characters long.
-        // 1. `validator` is correct for given architecture and parameters
-        // 1.1 `validator` can be Noop for &str
-        //
-        // SAFETY:
-        // The `update_from_chunks` function is safe if called on with correct CPU features.
-        // It's panic-free if a chunk is a 64-element long array.
-        unsafe {
-            validator.update_from_chunks(chunk);
-        }
-
-        let chunk_state: YamlChunkState = S::next(chunk, buffer, &mut state);
-        state.process_chunk::<BorrowBuffer<'de>, S>(buffer, &chunk_state, &mut indent_info)?;
-    }
-
-    build_tape(&mut state, tape, buffer)
+    let mut deserialize = Deserializer {
+        idx: 0,
+        tape: Vec::new(),
+        source: BorrowBuffer::new(input),
+    };
+    run_state_machine(&mut state, &mut deserialize.tape, &mut deserialize.source)
 }
 
-fn build_tape<'de, E: EventListener<'de>, B: YamlBuffer<'de>>(
+fn run_state_machine<'de, E: EventListener<'de, ScalarValue = &'de str>, B: YamlBuffer<'de>>(
     parser_state: &mut YamlParserState,
     event_listener: &mut E,
-    buffer: &mut B,
+    buffer: &'de mut B,
 ) -> YamlResult<()> {
     let mut idx = 0;
     let mut chr = b' ';
@@ -100,8 +85,12 @@ fn build_tape<'de, E: EventListener<'de>, B: YamlBuffer<'de>>(
                 // SAFETY:
                 // This method will be safe IFF YamlParserState structurals are safe
                 chr = unsafe {
-                    let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
-                    buffer.get_byte_unsafely::<usize>(pos)
+                    // let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
+                    // buffer.get_byte_unsafely::<usize>(pos)
+                    // TODO Remove this
+                    let x = from_utf8_unchecked(buffer.get_span_unsafely(0, 3));
+                    event_listener.on_scalar(x, ScalarType::Plain);
+                    b'3'
                 };
                 parser_state.pos += 1;
             } else {
@@ -111,14 +100,7 @@ fn build_tape<'de, E: EventListener<'de>, B: YamlBuffer<'de>>(
         }
     };
 
-    // Self::cleanup();
-
     result
-}
-
-#[cfg_attr(not(feature = "no-inline"), inline)]
-fn get_stage1_next<'a, B: YamlBuffer<'a>>() -> NextFn<B> {
-    NativeScanner::next::<B>
 }
 
 /// Function that returns the right validator for the right architecture
