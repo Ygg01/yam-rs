@@ -1,5 +1,6 @@
 use crate::impls::AvxScanner;
 use crate::tape::{EventListener, Node};
+use crate::tokenizer::buffers::YamlSource;
 use crate::tokenizer::stage2::State;
 use crate::util::NoopValidator;
 use crate::{
@@ -27,26 +28,6 @@ impl<'de> EventListener<'de> for Vec<Node<'de>> {
 
     fn on_scalar(&mut self, scalar_value: Self::ScalarValue, _scalar_type: ScalarType) {
         self.push(Node::String(scalar_value));
-    }
-}
-
-trait Source<'s> {
-    fn get_span_unsafely(&self, start: usize, end: usize) -> &'s [u8];
-}
-
-pub trait Buffer<'b> {
-    fn append<'src: 'b>(&mut self, src: &'src [u8]) -> &'b [u8];
-}
-
-impl<'b> Buffer<'b> for () {
-    fn append<'src: 'b>(&mut self, src: &'src [u8]) -> &'b [u8] {
-        src
-    }
-}
-
-impl<'s> Source<'s> for &'s [u8] {
-    fn get_span_unsafely(&self, start: usize, end: usize) -> &'s [u8] {
-        unsafe { self.get_unchecked(start..end) }
     }
 }
 
@@ -94,19 +75,17 @@ impl<'de> Deserializer<'de> {
         Ok(deserialize)
     }
 
-    fn run_fill_tape_fastest(input: &str, mut state: &mut YamlParserState) -> YamlResult<()> {
+    #[inline]
+    fn run_fill_tape_fastest(input: &str, state: &mut YamlParserState) -> YamlResult<()> {
         #[cfg(target_arch = "x86_64")]
         {
             if is_x86_feature_detected!("avx2") {
                 // SAFETY: We have detected the feature is enabled at runtime,
                 // so it's safe to call this function.
-                return Self::fill_tape_inner::<AvxScanner, NoopValidator>(
-                    input.as_bytes(),
-                    &mut state,
-                );
+                return Self::fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
             }
         }
-        Self::fill_tape_inner::<NativeScanner, NoopValidator>(input.as_bytes(), &mut state)
+        Self::fill_tape_inner::<NativeScanner, NoopValidator>(input.as_bytes(), state)
     }
 }
 
@@ -118,8 +97,8 @@ fn run_state_machine<'de, 's: 'de, E, S, B>(
 ) -> YamlResult<()>
 where
     E: EventListener<'de, ScalarValue = &'de str>,
-    S: Source<'s>,
-    B: Buffer<'de>,
+    S: YamlSource<'s>,
+    B: YamlBuffer<'de>,
 {
     let mut idx = 0;
     let mut chr = b' ';
@@ -147,27 +126,4 @@ where
     };
 
     result
-}
-
-/// Function that returns the right validator for the right architecture
-///
-/// # Arguments
-///
-/// * `pre_checked`: `true` When working with a [`core::str`] thus not requiring any validation, `false`
-///   otherwise. **Note: ** if your [`core::str`] isn't UTF-8 formatted, this will cause Undefined behavior.
-///
-/// Returns: `Box<dyn ChunkedUtf8Validator + 'static, Global>` a heap allocated [`ChunkedUtf8Validator`] that
-/// is guaranteed to be correct for your CPU architecture.
-///
-/// # Intended use
-/// It works on 64-byte arrays, so we use [`ChunkyIterator`] on stable, until
-/// [rust#74985](https://github.com/rust-lang/rust/issues/74985) lands.
-///
-#[cfg_attr(not(feature = "no-inline"), inline)]
-fn get_validator<S: Stage1Scanner>() -> impl ChunkedUtf8Validator {
-    S::validator()
-}
-
-fn get_noop_validator() -> impl ChunkedUtf8Validator {
-    NoopValidator()
 }

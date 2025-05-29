@@ -23,14 +23,11 @@
 // SOFTWARE.
 
 use crate::impls::NativeScanner;
-use crate::tokenizer::buffers::BorrowBuffer;
-use crate::tokenizer::get_validator;
 use crate::tokenizer::stage1::Stage1Scanner;
 use crate::{ChunkyIterator, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
 use alloc::vec::Vec;
-use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 pub type ParseResult<T> = Result<T, YamlError>;
 
@@ -171,14 +168,12 @@ fn test_parsing_basic_processing1() {
     let input = r#"
         "test"
     "#;
-    let mut buffer = BorrowBuffer::new(input);
     let mut state = YamlParserState::default();
-    let mut validator = get_validator::<NativeScanner>();
     let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
 
     let chunk = chunk_iter.next().expect("Missing chunk!");
     let chunk_state = NativeScanner::next(chunk, &mut state, &mut 0);
-    let res = state.process_chunk::<NativeScanner>(&chunk_state);
+    state.process_chunk::<NativeScanner>(&chunk_state);
 
     let expected_structurals = vec![9usize];
     assert_eq!(expected_structurals, state.structurals);
