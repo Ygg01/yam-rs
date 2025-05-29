@@ -173,7 +173,7 @@ fn test_parsing_basic_processing1() {
     "#;
     let mut buffer = BorrowBuffer::new(input);
     let mut state = YamlParserState::default();
-    let mut validator = get_validator::<NativeScanner>(false);
+    let mut validator = get_validator::<NativeScanner>();
     let mut chunk_iter = ChunkyIterator::from_bytes(input.as_bytes());
 
     let chunk = chunk_iter.next().expect("Missing chunk!");

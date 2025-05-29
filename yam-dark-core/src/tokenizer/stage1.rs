@@ -31,7 +31,6 @@ use crate::util::{
     add_cols_unchecked, add_rows_unchecked, fast_select_high_bits, fast_select_low_bits,
 };
 use crate::{EvenOrOddBits, YamlCharacterChunk, YamlDoubleQuoteChunk, YamlSingleQuoteChunk};
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
@@ -65,7 +64,7 @@ pub unsafe trait Stage1Scanner {
     /// Returns the [`Self::Validator`] for the given trait implementor.
     ///
     /// The `validator` function is a generic method that returns the validator for the type it is called on.
-    fn validator() -> Box<dyn ChunkedUtf8Validator>;
+    fn validator() -> impl ChunkedUtf8Validator;
 
     /// Constructs a new instance of `Self` by converting a slice of 64 `u8` values.
     ///

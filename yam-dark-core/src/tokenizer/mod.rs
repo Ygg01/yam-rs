@@ -1,15 +1,14 @@
+use crate::impls::AvxScanner;
 use crate::tape::{EventListener, Node};
-use crate::tokenizer::buffers::BorrowBuffer;
 use crate::tokenizer::stage2::State;
 use crate::util::NoopValidator;
 use crate::{
     ChunkyIterator, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
     YamlParserState, YamlResult,
 };
-use alloc::boxed::Box;
-use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::str::from_utf8_unchecked;
+use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use yam_common::ScalarType;
 
@@ -18,10 +17,9 @@ pub(crate) mod chunk;
 pub(crate) mod stage1;
 pub(crate) mod stage2;
 
-pub struct Deserializer<'de, B> {
+pub struct Deserializer<'de> {
     idx: usize,
     tape: Vec<Node<'de>>,
-    source: B,
 }
 
 impl<'de> EventListener<'de> for Vec<Node<'de>> {
@@ -32,13 +30,32 @@ impl<'de> EventListener<'de> for Vec<Node<'de>> {
     }
 }
 
-fn fill_tape(input: &str) -> YamlResult<()> {
-    fn fill_tape_inner<S: Stage1Scanner>(
+trait Source<'s> {
+    fn get_span_unsafely(&self, start: usize, end: usize) -> &'s [u8];
+}
+
+pub trait Buffer<'b> {
+    fn append<'src: 'b>(&mut self, src: &'src [u8]) -> &'b [u8];
+}
+
+impl<'b> Buffer<'b> for () {
+    fn append<'src: 'b>(&mut self, src: &'src [u8]) -> &'b [u8] {
+        src
+    }
+}
+
+impl<'s> Source<'s> for &'s [u8] {
+    fn get_span_unsafely(&self, start: usize, end: usize) -> &'s [u8] {
+        unsafe { self.get_unchecked(start..end) }
+    }
+}
+
+impl<'de> Deserializer<'de> {
+    fn fill_tape_inner<S: Stage1Scanner, V: ChunkedUtf8Validator>(
         input: &[u8],
         state: &mut YamlParserState,
-        pre_checked: bool,
     ) -> YamlResult<()> {
-        let mut validator = get_validator::<S>(pre_checked);
+        let mut validator = unsafe { V::new() };
         let mut error_mask = 0;
 
         for chunk in ChunkyIterator::from_bytes(input) {
@@ -64,22 +81,46 @@ fn fill_tape(input: &str) -> YamlResult<()> {
 
         Ok(())
     }
-    let mut state = YamlParserState::default();
-    fill_tape_inner::<NativeScanner>(input.as_bytes(), &mut state, true)?;
 
-    let mut deserialize = Deserializer {
-        idx: 0,
-        tape: Vec::new(),
-        source: BorrowBuffer::new(input),
-    };
-    run_state_machine(&mut state, &mut deserialize.tape, &mut deserialize.source)
+    pub fn fill_tape(input: &'de str) -> YamlResult<Self> {
+        let mut state = YamlParserState::default();
+        let mut deserialize = Deserializer {
+            idx: 0,
+            tape: Vec::new(),
+        };
+
+        Self::run_fill_tape_fastest(input, &mut state)?;
+        run_state_machine(&mut state, &mut deserialize.tape, input.as_bytes(), ())?;
+        Ok(deserialize)
+    }
+
+    fn run_fill_tape_fastest(input: &str, mut state: &mut YamlParserState) -> YamlResult<()> {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: We have detected the feature is enabled at runtime,
+                // so it's safe to call this function.
+                return Self::fill_tape_inner::<AvxScanner, NoopValidator>(
+                    input.as_bytes(),
+                    &mut state,
+                );
+            }
+        }
+        Self::fill_tape_inner::<NativeScanner, NoopValidator>(input.as_bytes(), &mut state)
+    }
 }
 
-fn run_state_machine<'de, E: EventListener<'de, ScalarValue = &'de str>, B: YamlBuffer<'de>>(
+fn run_state_machine<'de, 's: 'de, E, S, B>(
     parser_state: &mut YamlParserState,
     event_listener: &mut E,
-    buffer: &'de mut B,
-) -> YamlResult<()> {
+    source: S,
+    mut buffer: B,
+) -> YamlResult<()>
+where
+    E: EventListener<'de, ScalarValue = &'de str>,
+    S: Source<'s>,
+    B: Buffer<'de>,
+{
     let mut idx = 0;
     let mut chr = b' ';
 
@@ -93,7 +134,7 @@ fn run_state_machine<'de, E: EventListener<'de, ScalarValue = &'de str>, B: Yaml
                     // let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
                     // buffer.get_byte_unsafely::<usize>(pos)
                     // TODO Remove this
-                    let x = from_utf8_unchecked(buffer.get_span_unsafely(0, 3));
+                    let x = from_utf8_unchecked(buffer.append(source.get_span_unsafely(0, 3)));
                     event_listener.on_scalar(x, ScalarType::Plain);
                     b'3'
                 };
@@ -123,20 +164,10 @@ fn run_state_machine<'de, E: EventListener<'de, ScalarValue = &'de str>, B: Yaml
 /// [rust#74985](https://github.com/rust-lang/rust/issues/74985) lands.
 ///
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn get_validator<S: Stage1Scanner>(pre_checked: bool) -> Box<dyn ChunkedUtf8Validator> {
-    if pre_checked {
-        return Box::new(
-            // # Invariants:
-            //
-            // 1. It's correct for currently invoked architecture
-            // 2. It will check the bytes for UTF8 validity
-            //
-            // SAFETY:
-            // 1. Doing nothing is safe on every architecture
-            // 2. It assumes that bytes are **already** valid UTF8
-            unsafe { NoopValidator::new() },
-        );
-    }
-
+fn get_validator<S: Stage1Scanner>() -> impl ChunkedUtf8Validator {
     S::validator()
+}
+
+fn get_noop_validator() -> impl ChunkedUtf8Validator {
+    NoopValidator()
 }

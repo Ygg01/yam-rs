@@ -1,5 +1,4 @@
 use crate::{Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
-use alloc::boxed::Box;
 
 use crate::tokenizer::stage2::YamlIndentInfo;
 
@@ -25,8 +24,8 @@ unsafe impl Stage1Scanner for AvxScanner {
     type SimdType = __m256i;
     type Validator = ChunkedUtf8ValidatorImp;
 
-    fn validator() -> Box<dyn ChunkedUtf8Validator> {
-        unsafe { Box::new(ChunkedUtf8ValidatorImp::new()) }
+    fn validator() -> impl ChunkedUtf8Validator {
+        unsafe { ChunkedUtf8ValidatorImp::new() }
     }
 
     fn from_chunk(_values: &[u8; 64]) -> Self {

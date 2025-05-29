@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 #[allow(unused_imports)]
 use alloc::vec;
 #[allow(unused_imports)]
@@ -22,8 +21,8 @@ unsafe impl Stage1Scanner for NativeScanner {
     type SimdType = [u8; 64];
     type Validator = NoopValidator;
 
-    fn validator() -> Box<dyn ChunkedUtf8Validator> {
-        unsafe { Box::new(NoopValidator::new()) }
+    fn validator() -> impl ChunkedUtf8Validator {
+        unsafe { NoopValidator::new() }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
