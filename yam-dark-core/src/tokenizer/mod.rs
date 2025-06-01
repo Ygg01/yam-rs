@@ -1,5 +1,5 @@
 use crate::impls::AvxScanner;
-use crate::tape::{EventListener, Node};
+use crate::tape::{EventListener, Mark, Node};
 use crate::tokenizer::buffers::YamlSource;
 use crate::tokenizer::stage2::State;
 use crate::util::NoopValidator;
@@ -8,10 +8,8 @@ use crate::{
     YamlParserState, YamlResult,
 };
 use alloc::vec::Vec;
-use core::str::from_utf8_unchecked;
 use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
-use yam_common::ScalarType;
 
 pub(crate) mod buffers;
 pub(crate) mod chunk;
@@ -21,14 +19,6 @@ pub(crate) mod stage2;
 pub struct Deserializer<'de> {
     idx: usize,
     tape: Vec<Node<'de>>,
-}
-
-impl<'de> EventListener<'de> for Vec<Node<'de>> {
-    type ScalarValue = &'de str;
-
-    fn on_scalar(&mut self, scalar_value: Self::ScalarValue, _scalar_type: ScalarType) {
-        self.push(Node::String(scalar_value));
-    }
 }
 
 impl<'de> Deserializer<'de> {
@@ -71,7 +61,7 @@ impl<'de> Deserializer<'de> {
         };
 
         Self::run_fill_tape_fastest(input, &mut state)?;
-        run_state_machine(&mut state, &mut deserialize.tape, input.as_bytes(), ())?;
+        // run_state_machine(&mut state, &mut deserialize.tape, input.as_bytes(), ())?;
         Ok(deserialize)
     }
 
@@ -96,9 +86,9 @@ fn run_state_machine<'de, 's: 'de, E, S, B>(
     mut buffer: B,
 ) -> YamlResult<()>
 where
-    E: EventListener<'de, ScalarValue = &'de str>,
+    E: EventListener,
     S: YamlSource<'s>,
-    B: YamlBuffer<'de>,
+    B: YamlBuffer,
 {
     let mut idx = 0;
     let mut chr = b' ';
@@ -113,8 +103,8 @@ where
                     // let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
                     // buffer.get_byte_unsafely::<usize>(pos)
                     // TODO Remove this
-                    let x = from_utf8_unchecked(buffer.append(source.get_span_unsafely(0, 3)));
-                    event_listener.on_scalar(x, ScalarType::Plain);
+                    let x = buffer.append(source.get_span_unsafely(Mark::new(0, 3)));
+                    // event_listener.on_scalar(x, ScalarType::Plain);
                     b'3'
                 };
                 parser_state.pos += 1;
