@@ -5,7 +5,7 @@ use crate::tape::Mark;
 /// It allows abstracting over owned or borrowed buffers, and operations like moving stuff into it.
 pub trait YamlBuffer {
     /// Get the underlying buffer.
-    fn append(&mut self, src: &[u8]) -> Mark;
+    fn append<S>(&mut self, src: &S, mark: &mut Mark);
 }
 
 pub trait YamlSource<'s> {
@@ -18,12 +18,6 @@ impl<'s> YamlSource<'s> for &'s [u8] {
     }
 }
 
-pub struct DummyBuffer(usize);
-
-impl YamlBuffer for DummyBuffer {
-    fn append(&mut self, src: &[u8]) -> Mark {
-        let mark = Mark::new(self.0, self.0 + src.len());
-        self.0 += src.len();
-        mark
-    }
+impl YamlBuffer for () {
+    fn append<'s, S>(&mut self, _src: &'s S, _mark: &mut Mark) {}
 }

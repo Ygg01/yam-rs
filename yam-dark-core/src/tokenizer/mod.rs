@@ -1,5 +1,5 @@
 use crate::impls::AvxScanner;
-use crate::tape::{EventListener, Mark, Node};
+use crate::tape::{EventListener, Mark, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
 use crate::tokenizer::stage2::State;
 use crate::util::NoopValidator;
@@ -7,9 +7,11 @@ use crate::{
     ChunkyIterator, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
     YamlParserState, YamlResult,
 };
+use alloc::vec;
 use alloc::vec::Vec;
 use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
+use yam_common::ScalarType;
 
 pub(crate) mod buffers;
 pub(crate) mod chunk;
@@ -19,6 +21,16 @@ pub(crate) mod stage2;
 pub struct Deserializer<'de> {
     idx: usize,
     tape: Vec<Node<'de>>,
+}
+
+impl EventListener for Vec<MarkedNode> {
+    fn on_scalar(&mut self, value: &[u8], _scalar_type: ScalarType) -> Mark {
+        todo!()
+    }
+
+    fn on_scalar_continued(&mut self, value: &[u8], _scalar_type: ScalarType) -> Mark {
+        todo!()
+    }
 }
 
 impl<'de> Deserializer<'de> {
@@ -55,14 +67,19 @@ impl<'de> Deserializer<'de> {
 
     pub fn fill_tape(input: &'de str) -> YamlResult<Self> {
         let mut state = YamlParserState::default();
-        let mut deserialize = Deserializer {
-            idx: 0,
-            tape: Vec::new(),
-        };
+        let mut mark_tape: Vec<MarkedNode> = Vec::new();
 
         Self::run_fill_tape_fastest(input, &mut state)?;
-        // run_state_machine(&mut state, &mut deserialize.tape, input.as_bytes(), ())?;
-        Ok(deserialize)
+        run_state_machine(&mut state, &mut mark_tape, input.as_bytes(), ())?;
+
+        Ok(Self::slice_into_tape(input, mark_tape))
+    }
+
+    fn slice_into_tape(input: &'de str, vec: Vec<MarkedNode>) -> Deserializer<'de> {
+        Deserializer {
+            idx: 0,
+            tape: vec![],
+        }
     }
 
     #[inline]
@@ -103,7 +120,8 @@ where
                     // let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
                     // buffer.get_byte_unsafely::<usize>(pos)
                     // TODO Remove this
-                    let x = buffer.append(source.get_span_unsafely(Mark::new(0, 3)));
+                    let mut mark = Mark::new(0, 3);
+                    buffer.append(&source, &mut mark);
                     // event_listener.on_scalar(x, ScalarType::Plain);
                     b'3'
                 };

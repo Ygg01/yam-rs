@@ -2,13 +2,40 @@ mod events;
 
 use alloc::borrow::Cow;
 use alloc::string::String;
+use alloc::vec::Vec;
 pub use events::EventListener;
+use yam_common::ScalarType;
 
 #[allow(dead_code)]
 pub enum Node<'input> {
     /// A string, located inside the input slice
     String(Cow<'input, str>),
-    /// String
+    /// A `Map` given the `size` starts here.
+    /// The values are keys and value, alternating.
+    Map {
+        /// Numbers of keys in the map
+        len: usize,
+        /// Total number of nodes in the map, including sub-elements
+        count: usize,
+    },
+    /// A `Sequence` given size starts here
+    Sequence {
+        /// The number of elements in the array
+        len: usize,
+        /// Total number of nodes in the array, including sub-elements.
+        count: usize,
+    },
+    /// A static node that is interned into the tape. It can be directly taken a
+    /// and isn't nested.
+    Static(StaticNode),
+}
+
+pub enum MarkedNode {
+    /// A string, located inside the input slice
+    SingleLine(Mark, ScalarType),
+    /// A string, from several input slices, spanning several lines
+    MultiLine(Vec<Mark>, ScalarType),
+
     /// A `Map` given the `size` starts here.
     /// The values are keys and value, alternating.
     Map {
@@ -45,9 +72,9 @@ pub struct StringTape {
     pub buff: String,
 }
 
-pub(crate) struct Mark {
-    pub(crate) start: usize,
-    pub(crate) end: usize,
+pub struct Mark {
+    pub start: usize,
+    pub end: usize,
 }
 
 impl Mark {
