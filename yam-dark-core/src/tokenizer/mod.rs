@@ -24,12 +24,16 @@ pub struct Deserializer<'de> {
 }
 
 impl EventListener for Vec<MarkedNode> {
-    fn on_scalar(&mut self, value: &[u8], _scalar_type: ScalarType) -> Mark {
-        todo!()
+    type Value<'a> = &'a [u8];
+
+    fn on_scalar(&mut self, _: &[u8], scalar_type: ScalarType, mark: Mark) {
+        self.push(MarkedNode::String(scalar_type, vec![mark]));
     }
 
-    fn on_scalar_continued(&mut self, value: &[u8], _scalar_type: ScalarType) -> Mark {
-        todo!()
+    fn on_scalar_continued(&mut self, _: &[u8], _: ScalarType, mark: Mark) {
+        if let Some(MarkedNode::String(_, vec)) = self.last_mut() {
+            vec.push(mark);
+        }
     }
 }
 
@@ -75,7 +79,7 @@ impl<'de> Deserializer<'de> {
         Ok(Self::slice_into_tape(input, mark_tape))
     }
 
-    fn slice_into_tape(input: &'de str, vec: Vec<MarkedNode>) -> Deserializer<'de> {
+    fn slice_into_tape(_input: &'de str, _vec: Vec<MarkedNode>) -> Deserializer<'de> {
         Deserializer {
             idx: 0,
             tape: vec![],
@@ -116,7 +120,7 @@ where
             if parser_state.pos < parser_state.structurals.len() {
                 // SAFETY:
                 // This method will be safe IFF YamlParserState structurals are safe
-                chr = unsafe {
+                chr = {
                     // let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
                     // buffer.get_byte_unsafely::<usize>(pos)
                     // TODO Remove this

@@ -31,10 +31,8 @@ pub enum Node<'input> {
 }
 
 pub enum MarkedNode {
-    /// A string, located inside the input slice
-    SingleLine(Mark, ScalarType),
     /// A string, from several input slices, spanning several lines
-    MultiLine(Vec<Mark>, ScalarType),
+    String(ScalarType, Vec<Mark>),
 
     /// A `Map` given the `size` starts here.
     /// The values are keys and value, alternating.
@@ -72,6 +70,7 @@ pub struct StringTape {
     pub buff: String,
 }
 
+#[derive(Clone, Copy)]
 pub struct Mark {
     pub start: usize,
     pub end: usize,
