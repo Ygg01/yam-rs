@@ -9,12 +9,17 @@ pub trait YamlBuffer {
 }
 
 pub trait YamlSource<'s> {
-    fn get_span_unsafely(&self, span: Mark) -> &'s [u8];
+    unsafe fn get_span_unsafely(&self, span: Mark) -> &'s [u8];
+    unsafe fn get_u8_unchecked(&self, pos: usize) -> u8;
 }
 
 impl<'s> YamlSource<'s> for &'s [u8] {
-    fn get_span_unsafely(&self, span: Mark) -> &'s [u8] {
-        unsafe { self.get_unchecked(span.start..span.end) }
+    unsafe fn get_span_unsafely(&self, span: Mark) -> &'s [u8] {
+        self.get_unchecked(span.start..span.end)
+    }
+
+    unsafe fn get_u8_unchecked(&self, pos: usize) -> u8 {
+        *self.get_unchecked(pos)
     }
 }
 

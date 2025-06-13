@@ -45,9 +45,6 @@ pub type ParseResult<T> = Result<T, YamlError>;
 /// ## Structural fields:
 /// * `structurals`: A vector of position indices marking structural elements
 ///   like start and end positions of nodes in the YAML document.
-/// * `byte_cols`: For each structural, a byte has its corresponding byte column.
-/// * `byte_rows`: For each structural, a byte has its corresponding byte row.
-/// * `indents`: For each structural, a byte has its corresponding indentation.
 /// * `pos`: The current position in the structural array.
 ///
 /// ## Sparse fields:

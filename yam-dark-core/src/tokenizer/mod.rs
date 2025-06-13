@@ -1,7 +1,6 @@
 use crate::impls::AvxScanner;
 use crate::tape::{EventListener, Mark, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
-use crate::tokenizer::stage2::State;
 use crate::util::NoopValidator;
 use crate::{
     ChunkyIterator, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
@@ -113,29 +112,20 @@ where
 {
     let mut idx = 0;
     let mut chr = b' ';
-
-    let result = loop {
-        //early bailout
-        if let State::PreDocStart = parser_state.state {
-            if parser_state.pos < parser_state.structurals.len() {
-                // SAFETY:
-                // This method will be safe IFF YamlParserState structurals are safe
-                chr = {
-                    // let pos = *parser_state.structurals.get_unchecked(parser_state.pos);
-                    // buffer.get_byte_unsafely::<usize>(pos)
-                    // TODO Remove this
-                    let mut mark = Mark::new(0, 3);
-                    buffer.append(&source, &mut mark);
-                    // event_listener.on_scalar(x, ScalarType::Plain);
-                    b'3'
-                };
-                parser_state.pos += 1;
+    let mut i = 0;
+    macro_rules! update_char {
+        () => {
+            if i < parser_state.structurals.len() {
+                idx = unsafe { *parser_state.structurals.get_unchecked(i) };
+                i += 1;
+                chr = unsafe { source.get_u8_unchecked(idx) }
             } else {
-                // Return error and defer to clean up.
-                break Err(YamlError::UnexpectedEof);
+                return Err(YamlError::Syntax);
             }
-        }
-    };
+        };
+    }
 
-    result
+    update_char!();
+
+    Ok(())
 }
