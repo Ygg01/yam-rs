@@ -1,7 +1,5 @@
 use crate::{Stage1Scanner, YamlCharacterChunk, YamlChunkState, YamlParserState};
 
-use crate::tokenizer::stage2::YamlIndentInfo;
-
 #[cfg(target_arch = "x86")]
 use core::arch::x86::{
     __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
@@ -44,11 +42,7 @@ unsafe impl Stage1Scanner for AvxScanner {
         todo!()
     }
 
-    fn flatten_bits_yaml(
-        _chunk_state: &YamlChunkState,
-        _base: &mut YamlParserState,
-        _indent_info: &mut YamlIndentInfo,
-    ) {
+    fn flatten_bits_yaml(_chunk_state: &YamlChunkState, _base: &mut YamlParserState) {
         todo!()
     }
 }

@@ -81,9 +81,6 @@ pub struct YamlParserState {
 
     /// Structural fields
     pub structurals: Vec<usize>,
-    pub(crate) byte_cols: Vec<u32>,
-    pub(crate) byte_rows: Vec<u32>,
-    pub(crate) indents: Vec<u32>,
     pub(crate) pos: usize,
 
     // Sparse fields
@@ -143,19 +140,12 @@ impl Default for YamlIndentInfo {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<'de, S>(&mut self, chunk_state: &YamlChunkState)
+    pub(crate) fn process_chunk<S>(&mut self, chunk_state: &YamlChunkState)
     where
         S: Stage1Scanner,
     {
-        // Then we calculate rows, cols for structurals
-        let mut indent_info = YamlIndentInfo::default();
-        S::calculate_row_col_info(chunk_state.characters.line_feeds, self, &mut indent_info);
-
-        // And based on rows/cols for structurals, we calculate indents
-        S::calculate_relative_indents(chunk_state, self, &mut indent_info);
-
         // First, we find all interesting structural bits
-        S::flatten_bits_yaml(chunk_state, self, &mut indent_info);
+        S::flatten_bits_yaml(chunk_state, self);
     }
 
     pub(crate) fn next_state() -> YamlResult<()> {

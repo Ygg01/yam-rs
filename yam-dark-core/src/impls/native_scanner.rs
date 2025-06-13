@@ -7,7 +7,6 @@ use simdutf8::basic::imp::ChunkedUtf8Validator;
 use util::u8x16_swizzle;
 
 use crate::tokenizer::stage1::Stage1Scanner;
-use crate::tokenizer::stage2::YamlIndentInfo;
 use crate::util::{fast_select_high_bits, fast_select_low_bits, NoopValidator};
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
 use crate::{util, YamlCharacterChunk, YamlChunkState, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
@@ -146,11 +145,7 @@ unsafe impl Stage1Scanner for NativeScanner {
         characters
     }
 
-    fn flatten_bits_yaml(
-        chunk_state: &YamlChunkState,
-        base: &mut YamlParserState,
-        indent_info: &mut YamlIndentInfo,
-    ) {
+    fn flatten_bits_yaml(chunk_state: &YamlChunkState, base: &mut YamlParserState) {
         let mut bits = chunk_state.substructure();
         let count_ones: usize = bits.count_ones() as usize;
         let mut old_len = base.structurals.len();
@@ -161,17 +156,8 @@ unsafe impl Stage1Scanner for NativeScanner {
         // We later indiscriminately write over the len we set, but that's OK
         // since we ensure we reserve the necessary space.
         base.structurals.reserve(64);
-        base.byte_cols.reserve(64);
-        base.byte_rows.reserve(64);
-        base.indents.reserve(64);
 
         let final_len = old_len + count_ones;
-
-        macro_rules! u32x4 {
-            ($field:expr, $data:ident, $pos:expr) => {
-                core::ptr::write($field.as_mut_ptr().add($pos).cast::<[u32; 4]>(), $data);
-            };
-        }
 
         while bits != 0 {
             // Applying mask to ensure that
@@ -192,42 +178,6 @@ unsafe impl Stage1Scanner for NativeScanner {
             ];
 
             // SAFETY:
-            // Get unchecked will be less than 64, because of a mask applied from v0 to v3
-            // these values will be added to base.last_row. Adding a value to base.last_row might panic but
-            // shouldn't be a SAFETY problem.
-            let cols: [u32; 4] = unsafe {
-                [
-                    *indent_info.cols.get_unchecked(v0 as usize),
-                    *indent_info.cols.get_unchecked(v1 as usize),
-                    *indent_info.cols.get_unchecked(v2 as usize),
-                    *indent_info.cols.get_unchecked(v3 as usize),
-                ]
-            };
-            // SAFETY:
-            // Get unchecked will be less than 64, because of a mask applied from v0 to v3
-            // these values will be added to base.last_row. Adding a value to base.last_row might panic but
-            // shouldn't be a SAFETY problem.
-            let rows = unsafe {
-                [
-                    *indent_info.rows.get_unchecked(v0 as usize),
-                    *indent_info.rows.get_unchecked(v1 as usize),
-                    *indent_info.rows.get_unchecked(v2 as usize),
-                    *indent_info.rows.get_unchecked(v3 as usize),
-                ]
-            };
-
-            // SAFETY:
-            // Get unchecked will be less than 64, because of a mask applied from v0 to v3
-            let indents = unsafe {
-                [
-                    *indent_info.indents.get_unchecked(v0 as usize),
-                    *indent_info.indents.get_unchecked(v1 as usize),
-                    *indent_info.indents.get_unchecked(v2 as usize),
-                    *indent_info.indents.get_unchecked(v3 as usize),
-                ]
-            };
-
-            // SAFETY:
             // Writing arrays into vec will always be aligned.
             unsafe {
                 write(
@@ -237,9 +187,6 @@ unsafe impl Stage1Scanner for NativeScanner {
                         .cast::<[usize; 4]>(),
                     v,
                 );
-                u32x4!(&mut base.byte_cols, cols, old_len);
-                u32x4!(&mut base.byte_rows, rows, old_len);
-                u32x4!(&mut base.byte_rows, indents, old_len);
             }
 
             old_len += 4;
@@ -253,9 +200,6 @@ unsafe impl Stage1Scanner for NativeScanner {
         debug_assert!(final_len <= old_len + 64);
         unsafe {
             base.structurals.set_len(final_len);
-            base.byte_cols.set_len(final_len);
-            base.byte_rows.set_len(final_len);
-            base.indents.set_len(final_len);
         }
     }
 }

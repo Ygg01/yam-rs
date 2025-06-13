@@ -165,11 +165,7 @@ pub unsafe trait Stage1Scanner {
     ///   updated with a new chunk state.
     /// * `indent_info` - A mutable [`YamlIndentInfo`] that will be updated with info.
     ///
-    fn flatten_bits_yaml(
-        chunk: &YamlChunkState,
-        parser_state: &mut YamlParserState,
-        indent_info: &mut YamlIndentInfo,
-    );
+    fn flatten_bits_yaml(chunk: &YamlChunkState, parser_state: &mut YamlParserState);
 
     /// Calculates rows and cols part of the [`YamlIndentInfo`]
     ///
