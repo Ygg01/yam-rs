@@ -24,5 +24,5 @@ impl<'s> YamlSource<'s> for &'s [u8] {
 }
 
 impl YamlBuffer for () {
-    fn append<'s, S>(&mut self, _src: &'s S, _mark: &mut Mark) {}
+    fn append<'s, S>(&mut self, _src: &S, _mark: &mut Mark) {}
 }
