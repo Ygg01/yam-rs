@@ -6,9 +6,6 @@ use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
 /// `YamlChunkState` is used to track the state of various byte chunks,
 /// including double-quoted strings, single-quoted strings, and character classifications
 /// such as whitespace and structural characters.
-///
-/// This struct also maintains vectors for row and column positions and
-/// indent levels, which are updated as the YAML content is processed.
 pub struct YamlChunkState {
     /// [`YamlDoubleQuoteChunk`] struct containing double-quoted YAML strings information.
     pub double_quote: YamlDoubleQuoteChunk,
@@ -16,6 +13,8 @@ pub struct YamlChunkState {
     pub single_quote: YamlSingleQuoteChunk,
     /// [`YamlCharacterChunk`] struct containing info for characters (e.g., whitespace, operators).
     pub characters: YamlCharacterChunk,
+    /// Last character
+    pub last_char: u8,
 }
 
 impl YamlChunkState {
@@ -49,6 +48,7 @@ impl YamlChunkState {
             double_quote,
             single_quote,
             characters,
+            last_char: 0,
         }
     }
 }
