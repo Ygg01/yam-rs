@@ -4,10 +4,39 @@ use std::str::{Utf8Error, from_utf8_unchecked};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ScalarType {
+    /// Unquoted string type like:
+    /// ```yaml
+    ///   multiline
+    ///   string
+    /// ```
     Plain,
+    /// Folded string type like:
+    /// ```yaml
+    ///   |
+    ///     folded
+    ///     string
+    /// ```
     Folded,
+    /// Folded string type like:
+    /// ```yaml
+    ///   >
+    ///     folded
+    ///     string
+    /// ```
     Literal,
+    /// Single quote string which permits any symbol inside
+    /// E.g. :
+    /// ```yaml
+    /// ' This is a quoted string
+    ///    with ''quoted'' string within.'
+    /// ```
     SingleQuote,
+    /// Single quote string which permits any symbol inside
+    /// E.g. :
+    /// ```yaml
+    /// "This is a quoted string
+    ///    with \"double quoted\" string within."
+    /// ```
     DoubleQuote,
 }
 
