@@ -110,9 +110,9 @@ where
     S: YamlSource<'s>,
     B: YamlBuffer,
 {
-    let mut idx = 0;
+    let mut idx = 0usize;
     let mut chr = b' ';
-    let mut i = 0;
+    let mut i = 0usize;
     macro_rules! update_char {
         () => {
             if i < parser_state.structurals.len() {
@@ -126,6 +126,17 @@ where
     }
 
     update_char!();
+    match chr {
+        b'-' => {}
+        b'[' => {}
+        b'{' => {}
+        b'?' => {}
+        b':' => {}
+        b'>' | b'|' => {}
+        b'\'' => {}
+        b'"' => {}
+        _ => {}
+    }
 
     Ok(())
 }
