@@ -12,14 +12,14 @@ pub enum ScalarType {
     Plain,
     /// Folded string type like:
     /// ```yaml
-    ///   |
+    ///   >
     ///     folded
     ///     string
     /// ```
     Folded,
     /// Folded string type like:
     /// ```yaml
-    ///   >
+    ///   |
     ///     folded
     ///     string
     /// ```
