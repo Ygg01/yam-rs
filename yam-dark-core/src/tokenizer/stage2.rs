@@ -73,16 +73,20 @@ pub type ParseResult<T> = Result<T, YamlError>;
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct YamlParserState {
-    // State field
+    /// State field
     pub(crate) state: State,
 
     /// Structural fields
     pub structurals: Vec<usize>,
-    pub(crate) pos: usize,
 
-    // Sparse fields
-    pub(crate) open_close_tag: Vec<usize>,
-    pub(crate) potential_block: Vec<usize>,
+    /// Indent of each structural
+    pub structural_rows: Vec<usize>,
+
+    /// Position of head in the parser state
+    pub pos: usize,
+
+    /// Sparse fields
+    pub(crate) col_count: u32,
 
     // Previous chunk fields
     pub(crate) last_indent: u32,
