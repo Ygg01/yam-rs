@@ -206,17 +206,17 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments:
     ///
-    /// * `characters` - Current [`YamlChunkState`], from which relative indents are calculated.
+    /// * `characters` - Current [`YamlCharacterChunk`], from which relative indents are calculated.
     /// * `parser_state` - [`YamlParserState`] being updated with indent, and related data.
     /// * `info` - Current [`YamlIndentInfo`] being updated with indent, and related data.
     fn calculate_relative_indents(
-        chunk: &YamlChunkState,
+        characters: &YamlCharacterChunk,
         parser_state: &mut YamlParserState,
         info: &mut YamlIndentInfo,
     ) {
         let mut neg_indents_mask = fast_select_high_bits(
-            chunk.characters.spaces,
-            (chunk.characters.line_feeds << 1) ^ u64::from(parser_state.is_indent_running),
+            characters.spaces,
+            (characters.line_feeds << 1) ^ u64::from(parser_state.is_indent_running),
         );
         neg_indents_mask &= !(neg_indents_mask >> 1);
 
@@ -225,7 +225,7 @@ pub unsafe trait Stage1Scanner {
         }
 
         let count = neg_indents_mask.count_ones();
-        let last_bit = (neg_indents_mask | chunk.characters.line_feeds) & (1 << 63) != 0;
+        let last_bit = (neg_indents_mask | characters.line_feeds) & (1 << 63) != 0;
 
         let mut compressed_indents: Vec<u32> = Vec::with_capacity(64);
         let mut i = 0;
