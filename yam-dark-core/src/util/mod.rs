@@ -192,9 +192,12 @@ pub fn calculate_byte_rows(index_mask: usize, prev_row: &mut u32) -> [u32; 8] {
 /// * `idx` - Index offset
 ///
 /// # Safety:
-/// * This function is safe assuming that `U8_ROW_TABLE` must be correct (entries less than 8).
+/// * This function is safe assuming that `U8_ROW_TABLE` is `[u8 x 8] x 256`
 /// * That `dst` must be at least `idx + 8` long.
+/// * That `newlines` is between 0 and 255.
 pub unsafe fn add_rows_unchecked(dst: &mut [u32], newlines: usize, prev_row: &mut u32, idx: usize) {
+    debug_assert!(newlines <= 255);
+    debug_assert!(dst.len() >= 8);
     let src = U8_ROW_TABLE[newlines];
     *dst.get_unchecked_mut(idx) = *prev_row;
     *dst.get_unchecked_mut(idx + 1) = u32::from(*src.get_unchecked(0)) + *prev_row;
