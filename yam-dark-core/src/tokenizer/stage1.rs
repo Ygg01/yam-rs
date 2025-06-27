@@ -218,6 +218,7 @@ pub unsafe trait Stage1Scanner {
             characters.spaces,
             (characters.line_feeds << 1) ^ u64::from(parser_state.is_indent_running),
         );
+        let mut line_feeds = characters.line_feeds;
         neg_indents_mask &= !(neg_indents_mask >> 1);
 
         if neg_indents_mask == 0 {
@@ -227,25 +228,34 @@ pub unsafe trait Stage1Scanner {
         let count = neg_indents_mask.count_ones();
         let last_bit = (neg_indents_mask | characters.line_feeds) & (1 << 63) != 0;
 
-        let mut compressed_indents: Vec<u32> = Vec::with_capacity(64);
+        let mut compressed_indents = Vec::<(u32, u32)>::with_capacity(64);
         let mut i = 0;
 
         parser_state.is_indent_running = last_bit;
 
         while neg_indents_mask != 0 {
-            let part0 = neg_indents_mask.trailing_zeros();
+            let ind0 = neg_indents_mask.trailing_zeros();
+            let len0 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            line_feeds &= line_feeds.saturating_sub(1);
 
-            let part1 = neg_indents_mask.trailing_zeros();
+            let ind1 = neg_indents_mask.trailing_zeros();
+            let len1 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            line_feeds &= line_feeds.saturating_sub(1);
 
-            let part2 = neg_indents_mask.trailing_zeros();
+            let ind2 = neg_indents_mask.trailing_zeros();
+            let len2 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            line_feeds &= line_feeds.saturating_sub(1);
 
-            let part3 = neg_indents_mask.trailing_zeros();
+            let ind3 = neg_indents_mask.trailing_zeros();
+            let len3 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            line_feeds &= line_feeds.saturating_sub(1);
 
-            let v = [part0, part1, part2, part3];
+            let v = [(ind0, len0), (ind1, len1), (ind2, len2), (ind3, len3)];
+
 
             // SAFETY:
             // We need to maintain guarantee safety of `ptr::write` (*dst must be valid
@@ -258,7 +268,10 @@ pub unsafe trait Stage1Scanner {
             // - `ptr::add` can't overflow isize or usize because it's only adding 64 elements.
             // - `ptr::add` a pointer is valid
             unsafe {
-                core::ptr::write(compressed_indents.as_mut_ptr().add(i).cast::<[u32; 4]>(), v);
+                core::ptr::write(compressed_indents
+                                     .as_mut_ptr()
+                                     .add(i)
+                                     .cast::<[(u32, u32); 4]>(), (v));
             };
             i += 4;
         }
@@ -277,10 +290,10 @@ pub unsafe trait Stage1Scanner {
             // Snip the size of compressed only interesting ones
             compressed_indents.set_len(count as usize);
             // First indent of compressed will always take the previous chunk into account
-            *compressed_indents.get_unchecked_mut(0) += parser_state.last_indent;
+            compressed_indents.get_unchecked_mut(0).0 += parser_state.last_indent;
         }
 
-        for index in 0..64 {
+        for index in 0..count {
             // SAFETY:
             // Block will be safe if the `get_unchecked_mut`/`get_unchecked` index is within bounds.
             //
@@ -289,11 +302,13 @@ pub unsafe trait Stage1Scanner {
             // - `row_pos` must be less than 63 because a `info.row_indent_mask` is applied.
             // - `info.indents.get_unchecked_mut` access must be safe as long as row_pos is below 0..<64
             // - `compressed_indents.get_unchecked` must be safe because row_pos is below 0..<64
-            unsafe {
-                let row_pos = *info.rows.get_unchecked(index) & info.row_indent_mask;
-                *info.indents.get_unchecked_mut(index) =
-                    *compressed_indents.get_unchecked(row_pos as usize);
-            }
+            // unsafe {
+            //     let row_pos = *info.rows.get_unchecked(index) & info.row_indent_mask;
+            //     *info.indents.get_unchecked_mut(index) =
+            //         *compressed_indents.get_unchecked(row_pos as usize);
+            // }
+            info.indents
+            []
         }
 
         // SAFETY:
