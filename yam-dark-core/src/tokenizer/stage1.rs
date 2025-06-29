@@ -212,7 +212,7 @@ pub unsafe trait Stage1Scanner {
     fn calculate_relative_indents(
         characters: &YamlCharacterChunk,
         parser_state: &mut YamlParserState,
-        info: &mut YamlIndentInfo,
+        info: &mut [u32; 64],
     ) {
         let mut neg_indents_mask = fast_select_high_bits(
             characters.spaces,
@@ -226,36 +226,40 @@ pub unsafe trait Stage1Scanner {
         }
 
         let count = neg_indents_mask.count_ones();
+        if count == 0 {
+            *info = [parser_state.previous_indent; 64];
+            return;
+        }
+
         let last_bit = (neg_indents_mask | characters.line_feeds) & (1 << 63) != 0;
 
-        let mut compressed_indents = Vec::<(u32, u32)>::with_capacity(64);
+        let mut compressed_indents = Vec::<(u8, u32)>::with_capacity(64);
         let mut i = 0;
 
         parser_state.is_indent_running = last_bit;
 
         while neg_indents_mask != 0 {
-            let ind0 = neg_indents_mask.trailing_zeros();
+            let ind0 = neg_indents_mask.trailing_zeros() as u8;
             let len0 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
-            let ind1 = neg_indents_mask.trailing_zeros();
+            let ind1 = neg_indents_mask.trailing_zeros() as u8;
             let len1 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
-            let ind2 = neg_indents_mask.trailing_zeros();
+            let ind2 = neg_indents_mask.trailing_zeros() as u8;
             let len2 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
-            let ind3 = neg_indents_mask.trailing_zeros();
+            let ind3 = neg_indents_mask.trailing_zeros() as u8;
             let len3 = line_feeds.trailing_zeros();
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
             let v = [(ind0, len0), (ind1, len1), (ind2, len2), (ind3, len3)];
-
 
             // SAFETY:
             // We need to maintain guarantee safety of `ptr::write` (*dst must be valid
@@ -268,10 +272,13 @@ pub unsafe trait Stage1Scanner {
             // - `ptr::add` can't overflow isize or usize because it's only adding 64 elements.
             // - `ptr::add` a pointer is valid
             unsafe {
-                core::ptr::write(compressed_indents
-                                     .as_mut_ptr()
-                                     .add(i)
-                                     .cast::<[(u32, u32); 4]>(), (v));
+                core::ptr::write(
+                    compressed_indents
+                        .as_mut_ptr()
+                        .add(i)
+                        .cast::<[(u8, u32); 4]>(),
+                    (v),
+                );
             };
             i += 4;
         }
@@ -282,46 +289,64 @@ pub unsafe trait Stage1Scanner {
         // safety (index must not be out of bounds).
         //
         // Invariants:
-        // - If `count < 64` then `new_len <= capacity` must hold
-        // - Since loop initializes more chunks than length, there `old_len..new_len` will be true
-        // - loop runs once which compressed_indent will have one first element, which is guaranteed
+        // 0. If `count < 64` then `new_len <= capacity` must hold
+        // 1. Since loop initializes more chunks than length, there `old_len..new_len` will be true
+        // 2. loop runs once which compressed_indent will have one first element, which is guaranteed
         // by if neg_indents_mask == 0 early return.
         unsafe {
             // Snip the size of compressed only interesting ones
             compressed_indents.set_len(count as usize);
-            // First indent of compressed will always take the previous chunk into account
-            compressed_indents.get_unchecked_mut(0).0 += parser_state.last_indent;
         }
 
-        for index in 0..count {
+        let mut indents_array = [0u8; 64];
+        let mut pos = 0;
+        // This is safe because count
+        let first_row_len = unsafe {
             // SAFETY:
-            // Block will be safe if the `get_unchecked_mut`/`get_unchecked` index is within bounds.
+            // Invariants: Out of bounds access
             //
-            // Invariants:
-            // - `info.rows.get_unchecked` must be safe because index goes from 0..<64
-            // - `row_pos` must be less than 63 because a `info.row_indent_mask` is applied.
-            // - `info.indents.get_unchecked_mut` access must be safe as long as row_pos is below 0..<64
-            // - `compressed_indents.get_unchecked` must be safe because row_pos is below 0..<64
-            // unsafe {
-            //     let row_pos = *info.rows.get_unchecked(index) & info.row_indent_mask;
-            //     *info.indents.get_unchecked_mut(index) =
-            //         *compressed_indents.get_unchecked(row_pos as usize);
-            // }
-            info.indents
-            []
+            // Satisfied: the count variable which corresponds to compressed_indents len is
+            // due to early `if count == 0 {... return}` clause
+            compressed_indents.get_unchecked(0).1
+        };
+        for (indent, len) in compressed_indents {
+            debug_assert!((pos + len as usize) < 64);
+            unsafe {
+                // SAFETY:
+                // Invariants:
+                // 0. `indents.as_mut_ptr()` must be valid for `writes_bytes` of up to len size
+                // 1. `indents.as_mut_ptr()` must be correctly aligned
+                // 2. the bytes written are correctly interpeted elsewhere (they will be casted to u32 which is safe).
+                // 3. `add` will not wrap around.
+                // 4. `self` must be derived from a provenance pointer.
+                //
+                // Are correct:
+                // - since pos + len < 64, it will be valid for up to 64 len
+                // - u8 is aligned correctly
+                // - it will casted from u8 to u32 (safe)
+                // - since it's only 64 max it will not wrap around
+                // - ??? (TODO understand)
+                core::ptr::write_bytes(indents_array.as_mut_ptr().add(pos), indent, len as usize);
+            };
+            pos += len as usize;
         }
 
-        // SAFETY:
-        // Block is safe if `get_unchecked` is within bounds of `compressed_indents`
-        //
-        // Invariants:
-        // - safe as long as `count.saturating_sub(1)` is 0..<64 (the size of `compressed_indents`,
-        // count can be 64 (on 64-bit platforms)
-        unsafe {
-            parser_state.last_indent = compressed_indents
-                .get_unchecked(count.saturating_sub(1) as usize)
-                * u32::from(last_bit);
+        let mut indents = [0u32; 64];
+
+        for i in 0..first_row_len {
+            unsafe {
+                *indents.get_unchecked_mut(i as usize) = parser_state.previous_indent;
+            }
         }
+
+        // TODO Check this autovectorizes properly
+        indents_array
+            .iter()
+            .enumerate()
+            .for_each(|(i, &indent)| unsafe {
+                *indents.get_unchecked_mut(i) += u32::from(indent);
+            });
+        //
     }
 
     /// Computes a quote mask based on the given quote bit mask.
