@@ -233,29 +233,37 @@ pub unsafe trait Stage1Scanner {
 
         let last_bit = (neg_indents_mask | characters.line_feeds) & (1 << 63) != 0;
 
-        let mut compressed_indents = Vec::<(u8, u32)>::with_capacity(64);
+        let mut compressed_indents = Vec::<(u8, u8)>::with_capacity(64);
         let mut i = 0;
 
         parser_state.is_indent_running = last_bit;
 
         while neg_indents_mask != 0 {
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let ind0 = neg_indents_mask.trailing_zeros() as u8;
-            let len0 = line_feeds.trailing_zeros();
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
+            let len0 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let ind1 = neg_indents_mask.trailing_zeros() as u8;
-            let len1 = line_feeds.trailing_zeros();
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
+            let len1 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let ind2 = neg_indents_mask.trailing_zeros() as u8;
-            let len2 = line_feeds.trailing_zeros();
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
+            let len2 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let ind3 = neg_indents_mask.trailing_zeros() as u8;
-            let len3 = line_feeds.trailing_zeros();
+            #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
+            let len3 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
@@ -276,7 +284,7 @@ pub unsafe trait Stage1Scanner {
                     compressed_indents
                         .as_mut_ptr()
                         .add(i)
-                        .cast::<[(u8, u32); 4]>(),
+                        .cast::<[(u8, u8); 4]>(),
                     (v),
                 );
             };
@@ -306,7 +314,7 @@ pub unsafe trait Stage1Scanner {
             // Invariants: Out of bounds access
             //
             // Satisfied: the count variable which corresponds to compressed_indents len is
-            // due to early `if count == 0 {... return}` clause
+            // due to early `if count == 0 { return}` clause
             compressed_indents.get_unchecked(0).1
         };
         for (indent, len) in compressed_indents {
@@ -317,15 +325,15 @@ pub unsafe trait Stage1Scanner {
                 // 0. `indents.as_mut_ptr()` must be valid for `writes_bytes` of up to len size
                 // 1. `indents.as_mut_ptr()` must be correctly aligned
                 // 2. the bytes written are correctly interpeted elsewhere (they will be casted to u32 which is safe).
-                // 3. `add` will not wrap around.
-                // 4. `self` must be derived from a provenance pointer.
+                // 3. `pos` must fit in `isize`.
+                // 4. `self` must be derived from a provenance pointer, and all ranges must be in bounds.
                 //
                 // Are correct:
-                // - since pos + len < 64, it will be valid for up to 64 len
-                // - u8 is aligned correctly
-                // - it will casted from u8 to u32 (safe)
-                // - since it's only 64 max it will not wrap around
-                // - ??? (TODO understand)
+                // 0. since pos + len < 64, `write_bytes` will be valid for up to 64 len
+                // 1. both indents and indents_array are u8 arrays
+                // 2. no cast is made
+                // 3. `pos` parameter is between 8*1 and 8*63. It will fit.
+                // 4. assuming that `indents_array` is correctly allocated, all values between 1 and 63 will be in bounds.
                 core::ptr::write_bytes(indents_array.as_mut_ptr().add(pos), indent, len as usize);
             };
             pos += len as usize;
@@ -339,7 +347,6 @@ pub unsafe trait Stage1Scanner {
             }
         }
 
-        // TODO Check this autovectorizes properly
         indents_array
             .iter()
             .enumerate()
