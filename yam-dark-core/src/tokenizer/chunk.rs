@@ -316,4 +316,26 @@ mod test {
         assert_bin_eq!(0b0000_1010, structure_bit);
         assert_bin_eq!(0b0111_1000, character_chunk.in_unquoted_scalars);
     }
+
+    #[test]
+    fn test_calculate_relative() {
+        let string = "     a ";
+        let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
+        let mut prev_iter_state = YamlParserState {
+            is_indent_running: true,
+            previous_indent: 64,
+            ..Default::default()
+        };
+
+        let character_chunk = scanner.classify_yaml_characters();
+        let mut indents = [0; 64];
+        NativeScanner::calculate_relative_indents(
+            &character_chunk,
+            &mut prev_iter_state,
+            &mut indents,
+        );
+
+        let expected = [69; 64];
+        assert_eq!(indents, expected);
+    }
 }

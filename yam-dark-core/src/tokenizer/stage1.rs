@@ -208,11 +208,11 @@ pub unsafe trait Stage1Scanner {
     ///
     /// * `characters` - Current [`YamlCharacterChunk`], from which relative indents are calculated.
     /// * `parser_state` - [`YamlParserState`] being updated with indent, and related data.
-    /// * `info` - Current [`YamlIndentInfo`] being updated with indent, and related data.
+    /// * `indents` - Current [`indents`] being updated.
     fn calculate_relative_indents(
         characters: &YamlCharacterChunk,
         parser_state: &mut YamlParserState,
-        info: &mut [u32; 64],
+        indents: &mut [u32; 64],
     ) {
         let mut neg_indents_mask = fast_select_high_bits(
             characters.spaces,
@@ -227,7 +227,7 @@ pub unsafe trait Stage1Scanner {
 
         let count = neg_indents_mask.count_ones();
         if count == 0 {
-            *info = [parser_state.previous_indent; 64];
+            *indents = [parser_state.previous_indent; 64];
             return;
         }
 
@@ -236,32 +236,30 @@ pub unsafe trait Stage1Scanner {
         let mut compressed_indents = Vec::<(u8, u8)>::with_capacity(64);
         let mut i = 0;
 
-        parser_state.is_indent_running = last_bit;
-
         while neg_indents_mask != 0 {
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind0 = neg_indents_mask.trailing_zeros() as u8;
+            let ind0 = neg_indents_mask.trailing_zeros() as u8 + 1;
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let len0 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind1 = neg_indents_mask.trailing_zeros() as u8;
+            let ind1 = neg_indents_mask.trailing_zeros() as u8 + 1;
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let len1 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind2 = neg_indents_mask.trailing_zeros() as u8;
+            let ind2 = neg_indents_mask.trailing_zeros() as u8 + 1;
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let len2 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
             line_feeds &= line_feeds.saturating_sub(1);
 
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind3 = neg_indents_mask.trailing_zeros() as u8;
+            let ind3 = neg_indents_mask.trailing_zeros() as u8 + 1;
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let len3 = line_feeds.trailing_zeros() as u8;
             neg_indents_mask &= neg_indents_mask.saturating_sub(1);
@@ -318,7 +316,7 @@ pub unsafe trait Stage1Scanner {
             compressed_indents.get_unchecked(0).1
         };
         for (indent, len) in compressed_indents {
-            debug_assert!((pos + len as usize) < 64);
+            debug_assert!((pos + len as usize) <= 64);
             unsafe {
                 // SAFETY:
                 // Invariants:
@@ -339,13 +337,13 @@ pub unsafe trait Stage1Scanner {
             pos += len as usize;
         }
 
-        let mut indents = [0u32; 64];
-
         for i in 0..first_row_len {
             unsafe {
                 *indents.get_unchecked_mut(i as usize) = parser_state.previous_indent;
             }
         }
+
+        parser_state.is_indent_running = last_bit;
 
         indents_array
             .iter()
