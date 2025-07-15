@@ -206,6 +206,7 @@ mod test {
     use crate::tokenizer::stage1::Stage1Scanner;
     use crate::util::str_to_chunk;
     use crate::{assert_bin_eq, NativeScanner, YamlParserState};
+    use alloc::vec;
     use rstest::rstest;
 
     #[rstest]
@@ -319,7 +320,7 @@ mod test {
 
     #[test]
     fn test_calculate_relative() {
-        let string = "     a ";
+        let string = "     a \n  b";
         let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
         let mut prev_iter_state = YamlParserState {
             is_indent_running: true,
@@ -335,7 +336,8 @@ mod test {
             &mut indents,
         );
 
-        let expected = [69; 64];
-        assert_eq!(indents, expected);
+        let mut expected = vec![69; 8];
+        expected.extend_from_slice(&[10; 56]);
+        assert_eq!(indents, expected.as_slice());
     }
 }
