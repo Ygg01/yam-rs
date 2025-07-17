@@ -214,18 +214,15 @@ pub unsafe trait Stage1Scanner {
         parser_state: &mut YamlParserState,
         indents: &mut [u32; 64],
     ) {
-        let mut neg_indents_mask = fast_select_high_bits(
-            characters.spaces,
-            (characters.line_feeds << 1) ^ u64::from(parser_state.is_indent_running),
-        );
+        let select_mask = (characters.line_feeds << 1) | u64::from(parser_state.is_indent_running);
+        let mut neg_indents_mask = fast_select_high_bits(characters.spaces, select_mask);
         let mut line_feeds = characters.line_feeds | 1 << 63;
-        neg_indents_mask &= !(neg_indents_mask >> 1);
 
         if neg_indents_mask == 0 {
             return;
         }
 
-        let count = neg_indents_mask.count_ones();
+        let count = line_feeds.count_ones();
         if count == 0 {
             *indents = [parser_state.previous_indent; 64];
             return;
@@ -238,35 +235,35 @@ pub unsafe trait Stage1Scanner {
 
         while neg_indents_mask != 0 {
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind0 = neg_indents_mask.trailing_zeros() as u8 + 1;
+            let ind0 = neg_indents_mask.trailing_ones();
             let len0 = line_feeds.trailing_zeros() + 1;
-            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            neg_indents_mask = neg_indents_mask.wrapping_shr(len0);
             line_feeds = line_feeds.wrapping_shr(len0);
 
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind1 = neg_indents_mask.trailing_zeros() as u8 + 1;
+            let ind1 = neg_indents_mask.trailing_ones();
             let len1 = line_feeds.trailing_zeros() + 1;
-            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            neg_indents_mask = neg_indents_mask.wrapping_shr(len1);
             line_feeds = line_feeds.wrapping_shr(len1);
 
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind2 = neg_indents_mask.trailing_zeros() as u8 + 1;
+            let ind2 = neg_indents_mask.trailing_ones();
             let len2 = line_feeds.trailing_zeros() + 1;
-            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            neg_indents_mask = neg_indents_mask.wrapping_shr(len2);
             line_feeds = line_feeds.wrapping_shr(len2);
 
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
-            let ind3 = neg_indents_mask.trailing_zeros() as u8 + 1;
+            let ind3 = neg_indents_mask.trailing_ones();
             let len3 = line_feeds.trailing_zeros() + 1;
-            neg_indents_mask &= neg_indents_mask.saturating_sub(1);
+            neg_indents_mask = neg_indents_mask.wrapping_shr(len3);
             line_feeds = line_feeds.wrapping_shr(len3);
 
             #[allow(clippy::cast_possible_truncation)] // this value will never exceed 64.
             let v = [
-                (ind0, len0 as u8),
-                (ind1, len1 as u8),
-                (ind2, len2 as u8),
-                (ind3, len3 as u8),
+                (ind0 as u8, len0 as u8),
+                (ind1 as u8, len1 as u8),
+                (ind2 as u8, len2 as u8),
+                (ind3 as u8, len3 as u8),
             ];
 
             // SAFETY:

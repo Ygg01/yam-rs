@@ -206,7 +206,6 @@ mod test {
     use crate::tokenizer::stage1::Stage1Scanner;
     use crate::util::str_to_chunk;
     use crate::{assert_bin_eq, NativeScanner, YamlParserState};
-    use alloc::vec;
     use rstest::rstest;
 
     #[rstest]
@@ -318,13 +317,38 @@ mod test {
         assert_bin_eq!(0b0111_1000, character_chunk.in_unquoted_scalars);
     }
 
-    #[test]
-    fn test_calculate_relative() {
-        let string = "     a \n  b";
+    const CASE_AB_CONT: [u32; 64] = [
+        69, 69, 69, 69, 69, 69, 69, 69, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2,
+    ];
+
+    const CASE_AB: [u32; 64] = [
+        5, 5, 5, 5, 5, 5, 5, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2,
+    ];
+
+    const NO_INDENT: [u32; 64] = [
+        0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2,
+    ];
+
+    #[rstest]
+    #[case("     a \n  b", true, 0, CASE_AB)]
+    #[case("     a \n  b", true, 64, CASE_AB_CONT)]
+    #[case("a \n  b", true, 0, NO_INDENT)]
+    fn test_calculate_relative(
+        #[case] string: &str,
+        #[case] is_indent_running: bool,
+        #[case] previous_indent: u32,
+        #[case] expected: [u32; 64],
+    ) {
         let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
         let mut prev_iter_state = YamlParserState {
-            is_indent_running: true,
-            previous_indent: 64,
+            previous_indent,
+            is_indent_running,
             ..Default::default()
         };
 
@@ -336,8 +360,31 @@ mod test {
             &mut indents,
         );
 
-        let mut expected = vec![69; 8];
-        expected.extend_from_slice(&[10; 56]);
-        assert_eq!(indents, expected.as_slice());
+        assert_eq!(indents, expected);
+    }
+
+    #[test]
+    fn test_calculate_relative_individual() {
+        let string = "a \n  b";
+        let is_indent_running = true;
+        let previous_indent = 0;
+        let expected = NO_INDENT;
+
+        let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
+        let mut prev_iter_state = YamlParserState {
+            previous_indent,
+            is_indent_running,
+            ..Default::default()
+        };
+
+        let character_chunk = scanner.classify_yaml_characters();
+        let mut indents = [0; 64];
+        NativeScanner::calculate_relative_indents(
+            &character_chunk,
+            &mut prev_iter_state,
+            &mut indents,
+        );
+
+        assert_eq!(indents, expected);
     }
 }
