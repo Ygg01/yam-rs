@@ -206,6 +206,8 @@ mod test {
     use crate::tokenizer::stage1::Stage1Scanner;
     use crate::util::str_to_chunk;
     use crate::{assert_bin_eq, NativeScanner, YamlParserState};
+    use alloc::vec;
+    use alloc::vec::Vec;
     use rstest::rstest;
 
     #[rstest]
@@ -317,33 +319,43 @@ mod test {
         assert_bin_eq!(0b0111_1000, character_chunk.in_unquoted_scalars);
     }
 
-    const CASE_AB_CONT: [u32; 64] = [
-        69, 69, 69, 69, 69, 69, 69, 69, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2,
-    ];
+    struct ArrayPattern {
+        pub patterns: &'static [(u32, u8)],
+    }
 
-    const CASE_AB: [u32; 64] = [
-        5, 5, 5, 5, 5, 5, 5, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2,
-    ];
+    impl ArrayPattern {
+        fn into_array(self) -> [u32; 64] {
+            let mut vec = Vec::with_capacity(64);
+            for pattern in self.patterns {
+                let patter_vec = vec![pattern.0; pattern.1 as usize];
+                vec.extend(patter_vec);
+            }
+            assert_eq!(vec.len(), 64, "Expected 64 elements, got: {}", vec.len());
+            vec.as_slice().try_into().unwrap()
+        }
+    }
 
-    const NO_INDENT: [u32; 64] = [
-        0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2,
-    ];
+    const CASE_AB_PATTERN: ArrayPattern = ArrayPattern {
+        patterns: &[(69, 8), (2, 56)],
+    };
+
+    const CASE_AB_NO_CONT_PATTERN: ArrayPattern = ArrayPattern {
+        patterns: &[(5, 8), (2, 56)],
+    };
+
+    const NO_INDENT_PATTERN: ArrayPattern = ArrayPattern {
+        patterns: &[(0, 3), (2, 61)],
+    };
 
     #[rstest]
-    #[case("     a \n  b", true, 0, CASE_AB)]
-    #[case("     a \n  b", true, 64, CASE_AB_CONT)]
-    #[case("a \n  b", true, 0, NO_INDENT)]
+    #[case("     a \n  b", true, 0, CASE_AB_NO_CONT_PATTERN)]
+    #[case("     a \n  b", true, 64, CASE_AB_PATTERN)]
+    #[case("a \n  b", true, 0, NO_INDENT_PATTERN)]
     fn test_calculate_relative(
         #[case] string: &str,
         #[case] is_indent_running: bool,
         #[case] previous_indent: u32,
-        #[case] expected: [u32; 64],
+        #[case] expected: ArrayPattern,
     ) {
         let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
         let mut prev_iter_state = YamlParserState {
@@ -359,8 +371,7 @@ mod test {
             &mut prev_iter_state,
             &mut indents,
         );
-
-        assert_eq!(indents, expected);
+        assert_eq!(indents, expected.into_array());
     }
 
     #[test]
@@ -368,7 +379,7 @@ mod test {
         let string = "a \n  b";
         let is_indent_running = true;
         let previous_indent = 0;
-        let expected = NO_INDENT;
+        let expected = NO_INDENT_PATTERN.into_array();
 
         let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
         let mut prev_iter_state = YamlParserState {
