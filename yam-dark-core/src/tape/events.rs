@@ -38,7 +38,10 @@ use yam_common::{Mark, ScalarType};
 /// correctly reflects the logic for processing the scalar values in their context, and that they appropriately
 /// use the metadata provided by the `mark` parameter.
 pub trait EventListener {
-    type Value<'a> = &'a [u8];
+    /// The type of scalar value to be handled.
+    type Value<'a>;
+    /// Event handler called when a scalar value is first encountered.
     fn on_scalar(&mut self, value: Self::Value<'_>, _scalar_type: ScalarType, mark: Mark);
+    /// Event handler called when a scalar value is continued, indicating a multi-line scalar
     fn on_scalar_continued(&mut self, value: Self::Value<'_>, _scalar_type: ScalarType, mark: Mark);
 }
