@@ -1,4 +1,3 @@
-#![feature(associated_type_defaults)]
 #![warn(clippy::pedantic, missing_docs)]
 #![allow(clippy::too_many_arguments, clippy::module_name_repetitions)]
 #![no_std]
