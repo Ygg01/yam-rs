@@ -55,7 +55,7 @@ impl<'a> Iterator for ChunkyIterator<'a> {
 }
 
 impl ChunkyIterator<'_> {
-    pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
+    pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator<'_> {
         ChunkyIterator {
             bytes,
             extra_bytes: Vec::with_capacity(64),

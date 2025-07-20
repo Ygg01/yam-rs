@@ -2,9 +2,8 @@ mod events;
 
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
-use core::fmt::{Debug, Write};
 pub use events::EventListener;
-use yam_common::ScalarType;
+use yam_common::{Mark, ScalarType};
 
 #[allow(dead_code)]
 pub enum Node<'input> {
@@ -65,8 +64,3 @@ pub enum StaticNode {
     /// A signed 64-bit integer.
     I64(i64),
 }
-
-
-
-
-

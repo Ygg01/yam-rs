@@ -48,7 +48,7 @@ impl StrReader<'_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn get_lookahead_iterator(&self, range: Range<usize>) -> LookAroundBytes {
+    fn get_lookahead_iterator(&self, range: Range<usize>) -> LookAroundBytes<'_> {
         LookAroundBytes::new(self.slice, range)
     }
 

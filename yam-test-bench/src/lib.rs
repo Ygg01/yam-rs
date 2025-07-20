@@ -1,3 +1,5 @@
+mod test_dark_core;
+
 use std::fmt::Write;
 use yam_common::Event;
 use yam_core::tokenizer::{EventIterator, StrReader};
