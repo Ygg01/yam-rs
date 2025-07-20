@@ -206,6 +206,14 @@ impl Display for Event<'_> {
         }
     }
 }
+/// Mark struct showing the start and end of a span in the input
+#[derive(Clone, Copy)]
+pub struct Mark {
+    /// Start position of the span
+    pub start: usize,
+    /// End position of the span
+    pub end: usize,
+}
 
 /// A specialized `Result` type where the error is hard-wired to [`Error`].
 ///

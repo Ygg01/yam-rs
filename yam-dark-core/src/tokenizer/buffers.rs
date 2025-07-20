@@ -1,4 +1,4 @@
-use crate::tape::Mark;
+use yam_common::Mark;
 
 /// Trait for buffers used in yam.rs
 ///

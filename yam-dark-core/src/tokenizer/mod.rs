@@ -1,5 +1,5 @@
 use crate::impls::AvxScanner;
-use crate::tape::{EventListener, Mark, MarkedNode, Node};
+use crate::tape::{EventListener, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
 use crate::util::NoopValidator;
 use crate::{
@@ -10,7 +10,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
-use yam_common::ScalarType;
+use yam_common::{Mark, ScalarType};
 
 pub(crate) mod buffers;
 pub(crate) mod chunk;

@@ -1,3 +1,4 @@
+#![feature(associated_type_defaults)]
 #![warn(clippy::pedantic, missing_docs)]
 #![allow(clippy::too_many_arguments, clippy::module_name_repetitions)]
 #![no_std]
@@ -16,6 +17,7 @@ pub use crate::util::u8x64_eq;
 use alloc::string::String;
 use core::str::Utf8Error;
 pub use impls::NativeScanner;
+pub use tape::EventListener;
 pub(crate) use tokenizer::buffers::YamlBuffer;
 pub use tokenizer::stage1::Stage1Scanner;
 pub use tokenizer::stage2::{YamlIndentInfo, YamlParserState};

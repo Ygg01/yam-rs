@@ -1,7 +1,6 @@
 mod events;
 
 use alloc::borrow::Cow;
-use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Write};
 pub use events::EventListener;
@@ -67,42 +66,7 @@ pub enum StaticNode {
     I64(i64),
 }
 
-#[derive(Clone, Copy)]
-pub struct Mark {
-    pub start: usize,
-    pub end: usize,
-}
 
-impl Mark {
-    pub(crate) fn new(start: usize, end: usize) -> Mark {
-        Mark { start, end }
-    }
-}
 
-pub struct StringTape {
-    pub buff: String,
-}
 
-impl EventListener for StringTape {
-    type Value<'a> = &'a str;
 
-    fn on_scalar(&mut self, value: Self::Value<'_>, scalar_type: ScalarType, mark: Mark) {
-        match scalar_type {
-            ScalarType::DoubleQuote => self.buff.push('"'),
-            ScalarType::SingleQuote => self.buff.push('\''),
-            ScalarType::Folded => self.buff.push('>'),
-            ScalarType::Literal => self.buff.push('|'),
-            ScalarType::Plain => self.buff.push(':'),
-        }
-        self.buff.push_str(value);
-    }
-
-    fn on_scalar_continued(
-        &mut self,
-        value: Self::Value<'_>,
-        _scalar_type: ScalarType,
-        mark: Mark,
-    ) {
-        self.buff.push_str(value);
-    }
-}
