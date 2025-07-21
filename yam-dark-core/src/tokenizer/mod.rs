@@ -54,13 +54,27 @@ impl<'de> Deserializer<'de> {
     }
 }
 
+/// For a given input string, runs the [`YamlParserState`] to end, populating the [`EventListener`].
+///
+/// # Arguments
+///
+/// * `input`: input strings
+/// * `state`: [`YamlParserState`] that is updated as parser
+/// * `event_listener`: event listener to where the events will merge into.
+///
+/// Returns: [`Result`]<(), `YamlError`> which ends prematurely [`YamlError`] but updates the [`EventListener`] for every successful element reached.
+///
+/// # Errors
+///
+/// This function will return an error if there is a YAML parsing error. There are many to list.
+#[inline]
 pub fn run_tape_to_end<E: EventListener>(
     input: &str,
     state: &mut YamlParserState,
-    mark_tape: &mut E,
+    event_listener: &mut E,
 ) -> Result<(), YamlError> {
     get_fastest_impl(input, state)?;
-    run_state_machine(state, mark_tape, input.as_bytes(), ())?;
+    run_state_machine(state, event_listener, input.as_bytes(), ())?;
     Ok(())
 }
 
@@ -136,6 +150,7 @@ where
 
     update_char!();
     match chr {
+        b'"' => {}
         b'-' => {}
         b'[' => {}
         b'{' => {}
@@ -143,7 +158,6 @@ where
         b':' => {}
         b'>' | b'|' => {}
         b'\'' => {}
-        b'"' => {}
         _ => {}
     }
 
