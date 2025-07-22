@@ -16,9 +16,9 @@ Let's look at the analysis of a fragment below:
 | Indent              |     | 1   | 1   | 1   | 1   |     |      |     |     | 2   |
 
 - First structural is `[` at position `1`. It is at the start of a list. It has an indent `1`.
-- Second structural is `a` at position `2`. It is a unquoted scalar.
+- Second structural is `a` at position `2`. It is an unquoted scalar.
 - Third structural is `]` at position `3`. It is the end of a list.
-- The interesting one is `:` at position `4`. It is has an indent `1`. It is a start of a block mapping, which means that parser will scan
+- The interesting one is `:` at position `4`. It has an indent `1`. It is a start of a block mapping, which means that parser will scan
   the structurals to find an
   element that has greater indent than the `1`. In this case it's the next structural `b` at position `9`.
 
@@ -26,7 +26,7 @@ Let's look at the analysis of a fragment below:
 
 The scan for indent structurals is necessary mostly in block scalars to be able to find starts of a block scalars while avoiding false
 positives.
-Take, for example, following YAML:
+Take, for example, the following YAML:
 
 ```yaml
 a: >
