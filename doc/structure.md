@@ -146,3 +146,35 @@ This way we can extract simultaneously:
 - Flow structurals with `0b1_1000` (`0x18`)
 - Spaces with `0b0100_0000` (`0x40`)
 - Whitespaces with `0b0110_0000` (`0x60`)
+
+# Strings overlapping
+
+The problem with strings is that they can overlap - you can have double-quoted, single-quoted, comments and unquoted strings side by side.
+
+| Input              | `'` | ` ` | `"` | ` ` | `#` | `"` | ` ` | `'` |     |
+|--------------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|
+| Double-quotes (DQ) |     |     | 1   | 1   | 1   | 1   |     |     | 60  |
+| Single-quotes (SQ) | 1   | 1   | 1   | 1   | 1   | 1   | 1   | 1   | 255 |
+| Comments (CM)      |     |     |     |     | 1   | 1   | 1   | 1   | 240 |
+
+To get the first string, we need some sort of find first byte.
+
+# Approach number one - do it in Stage 2 Scanner
+
+Most correct approach. In Stage 2, one can skip any number of pseudo structurals. When encountering SQ at position 0, we fast-forward to
+position 7. Pro would be useful for other string types.
+
+# Approach number two - do it in Stage 1 Scanner.
+
+`OR` all other quotes types (e.g. for single quotes `240 | 60`), and then negate it with `NOT` (e.g. `!( 240 | 60) & 1`) and check start
+values.
+
+Calulate for DQ: `255 | 240 = 255` -> `!255 & 4 = 0`
+
+Calulate for SQ: `240 | 60  = 252` -> `!252 & 1` = `1`
+
+Calulate for CM: `255 | 240 = 255` -> `!255 & 16` = `0`
+
+# Approach number three - ???
+
+`XOR` all quotes types (e.g. `255 ^ 240 ^ 60 = 51`) and then and them with their original value
