@@ -1,3 +1,4 @@
+pub mod consts;
 mod test_dark_core;
 
 use std::fmt::Write;
