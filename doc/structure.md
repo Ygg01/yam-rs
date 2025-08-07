@@ -169,11 +169,13 @@ position 7. Pro would be useful for other string types.
 `OR` all other quotes types (e.g. for single quotes `240 | 60`), and then negate it with `NOT` (e.g. `!( 240 | 60) & 1`) and check start
 values.
 
-Calulate for DQ: `255 | 240 = 255` -> `!255 & 4 = 0`
+Calculate for DQ: `255 | 240 = 255` -> `!255 & 4 = 0`
 
-Calulate for SQ: `240 | 60  = 252` -> `!252 & 1` = `1`
+Calculate for SQ: `240 | 60  = 252` -> `!252 & 1` = `1`
 
-Calulate for CM: `255 | 240 = 255` -> `!255 & 16` = `0`
+Calculate for CM: `255 | 240 = 255` -> `!255 & 16` = `0`
+
+Problems: what happens if there is a `>` or `|`?
 
 # Approach number three - ???
 
