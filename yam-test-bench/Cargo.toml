@@ -8,6 +8,7 @@ edition = "2021"
 yam-core = {path = "../yam-core"}
 yam-dark-core = { path = "../yam-dark-core" }
 yam-common = { path = "../yam-common" }
+rstest = "0.26.1"
 
 [dev-dependencies]
 criterion = "0.5.1"
