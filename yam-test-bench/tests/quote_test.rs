@@ -38,6 +38,6 @@ use yam_test_bench::consts::*;
 #[case::test_escape1(DQUOTE_ESC1_INPUT, DQUOTE_ESC1_EVENTS)]
 #[case::test_escape2(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS)]
 #[case::test_escape3(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS)]
-fn run_tests(#[case] input: &str, #[case] expected_events: &str) {
+fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event(input, expected_events);
 }
