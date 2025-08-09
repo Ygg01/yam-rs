@@ -1,376 +1,198 @@
+use rstest::rstest;
 use yam_test_bench::consts::*;
 use yam_test_bench::{assert_eq_event, assert_eq_event_exact};
 
-#[test]
-fn block_seq() {
-    assert_eq_event(X1_33X3_INPUT, X1_33X3_EVENTS);
-    assert_eq_event(BLOCK1_INPUT, BLOCK_EVENTS);
-    assert_eq_event(BLOCK2_INPUT, BLOCK_EVENTS);
-    assert_eq_event(SEQ_PLAIN_INPUT, SEQ_PLAIN_EVENTS);
-    assert_eq_event(SEQ_PLAIN2_INPUT, SEQ_PLAIN_EVENTS);
-}
-
-#[test]
-fn block_seq_err() {
-    assert_eq_event(X1_P2EQ_INPUT, X1_P2EQ_EVENTS);
-    assert_eq_event(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS);
-    assert_eq_event(X_BD7L_INPUT, X_BD7L_EVENTS);
-    assert_eq_event(X_9CWY_INPUT, X_9CWY_EVENTS);
-    assert_eq_event(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS);
-    assert_eq_event(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS);
-}
-
-#[test]
-fn seq_block_nested() {
-    assert_eq_event(X1_3ALJ_INPUT, X_3ALJ_EVENTS);
-    assert_eq_event(X2_3ALJ_INPUT, X_3ALJ_EVENTS);
-    assert_eq_event(BLOCK_NESTED_SEQ2_INPUT, BLOCK_NESTED_SEQ2_EVENTS);
-}
-
-#[test]
-fn block_fold() {
-    assert_eq_event(FOLD_STR1_INPUT, FOLD_STR1_EVENTS);
-    assert_eq_event(FOLD_STR2_INPUT, FOLD_STR2_EVENTS);
-    assert_eq_event(FOLD_ERR_INPUT, FOLD_ERR_EVENTS);
-}
-
-#[test]
-fn block_plain_scalar() {
-    assert_eq_event(BLOCK_MULTI_INPUT, BLOCK_MULTI_EVENTS);
-    assert_eq_event(BLOCK_PLAIN_INPUT, BLOCK_PLAIN_EVENTS);
-    assert_eq_event(BLOCK_PLAIN2_INPUT, BLOCK_PLAIN2_EVENTS);
-}
-
-#[test]
-fn block_fold_literal() {
-    assert_eq_event(X1_X4QW_INPUT, X1_X4QW_EVENTS);
-    assert_eq_event(X2_X4QW_INPUT, X2_X4QW_EVENTS);
-    assert_eq_event(BLOCK_FOLD_INPUT, BLOCK_FOLD_EVENTS);
-    assert_eq_event(SIMPLE_FOLD1_INPUT, SIMPLE_FOLD_EVENTS);
-    assert_eq_event(SIMPLE_FOLD2_INPUT, SIMPLE_FOLD_EVENTS);
-}
-
-#[test]
-fn block_literal() {
-    assert_eq_event(LITERAL_ESCAPE_INPUT, LITERAL_ESCAPE_EVENTS);
-    assert_eq_event(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS);
-    assert_eq_event(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS);
-    assert_eq_event(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS);
-    assert_eq_event(LITERAL_CHOMP_INPUT, LITERAL_CHOMP_EVENTS);
-    assert_eq_event(LITERAL3_INPUT, LITERAL3_EVENTS);
-    assert_eq_event(LIT_STR2_INPUT, LIT_STR2_EVENTS);
-    assert_eq_event(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS);
-}
-
-#[test]
-fn block_literal_indents() {
-    assert_eq_event(X1_Y79Y_000_INPUT, X1_Y79Y_000_EVENTS);
-    assert_eq_event(X2_Y79Y_000_INPUT, X2_Y79Y_000_EVENTS);
-    assert_eq_event(X3_Y79Y_000_INPUT, X3_Y79Y_000_EVENTS);
-    assert_eq_event(X4_Y79Y_000_INPUT, X4_Y79Y_000_EVENTS);
-}
-
-#[test]
-fn block_literal_err() {
-    assert_eq_event(LITERAL_ERR_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
-    assert_eq_event(LITERAL_ERR2_INPUT, SIMPLE_FOLDED_ERR_EVENTS);
-}
-
-#[test]
-fn block_indent_lit_fold() {
-    assert_eq_event(X2_7T8X_INPUT, X2_7T8X_EVENTS);
-    assert_eq_event(X1_7T8X_INPUT, X1_7T8X_EVENTS);
-    assert_eq_event(X1_6VJK_INPUT, X1_6VJK_EVENTS);
-    assert_eq_event(X2_6VJK_INPUT, X2_6VJK_EVENTS);
-    assert_eq_event(X1_JEF9_INPUT, X1_JEF9_EVENTS);
-    assert_eq_event(X1_F6MC_INPUT, X1_F6MC_EVENTS);
-    assert_eq_event(X2_F6MC_INPUT, X2_F6MC_EVENTS);
-}
-
-#[test]
-fn block_plain_multiline() {
-    assert_eq_event(PLAIN_MULTI_INPUT, PLAIN_MULTI_EVENTS);
-    assert_eq_event(X_8XDJ_INPUT, X_8XDJ_EVENTS);
-}
-
-#[test]
-fn block_map() {
-    assert_eq_event(X1_1_SYW4_INPUT, X1_SYW4_EVENTS);
-    assert_eq_event(X1_2_SYW4_INPUT, X1_SYW4_EVENTS);
-
-    assert_eq_event(MAP_SIMPLE_INPUT, MAP_SIMPLE_EVENTS);
-    assert_eq_event(MAP_SIMPLE2_INPUT, MAP_SIMPLE_EVENTS);
-}
-
-#[test]
-fn block_quote_map() {
-    assert_eq_event(DQUOTE_MAP_INPUT, DQUOTE_MAP_EVENTS);
-    assert_eq_event(DQUOTE_MUL_INPUT, DQUOTE_MUL_EVENTS);
-}
-
-#[test]
-fn block_empty_map() {
-    assert_eq_event_exact(X1_NKF9_INPUT, X1_NKF9_EVENTS);
-    assert_eq_event(X1_6KGN_INPUT, X1_6KGN_EVENTS);
-    assert_eq_event(NESTED_EMPTY_INPUT, NESTED_EMPTY_EVENTS);
-
-    assert_eq_event(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS);
-    assert_eq_event(MULTI_EMPTY_INPUT, MULTI_EMPTY_EVENTS);
-
-    assert_eq_event(EMPTY_KEY_MAP2_INPUT, EMPTY_KEY_MAP2_EVENTS);
-    assert_eq_event(EMPTY_KEY_MAP2_1_INPUT, EMPTY_KEY_MAP2_EVENTS);
-    assert_eq_event(MIX_EMPTY_MAP_INPUT, MIX_EMPTY_MAP_EVENTS);
-    assert_eq_event(MAP2_INPUT, MAP2_EVENTS);
-}
-
-#[test]
-fn block_multiline_comment() {
-    assert_eq_event(MULTILINE_COMMENT1_INPUT, MULTILINE_COMMENT1_EVENTS);
-    assert_eq_event(MULTILINE_COMMENT1_2_INPUT, MULTILINE_COMMENT1_EVENTS);
-    assert_eq_event(MULTILINE_COMMENT2_INPUT, MULTILINE_COMMENT2_EVENTS);
-    assert_eq_event(MULTILINE_COMMENT3_INPUT, MULTILINE_COMMENT3_EVENTS);
-}
-
-#[test]
-fn block_exp_map() {
-    assert_eq_event(X1_V9D5_INPUT, X1_V9D5_EVENTS);
-    assert_eq_event(X1_2XXW_INPUT, X1_2XXW_EVENTS);
-    assert_eq_event(X1_A2M4_INPUT, X1_A2M4_EVENTS);
-    assert_eq_event(X_7W2P_INPUT, X_7W2P_EVENTS);
-    assert_eq_event(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS);
-    assert_eq_event(X_5WE3_INPUT, X_5WE3_EVENTS);
-    assert_eq_event(EXP_MAP_INPUT, EXP_MAP_EVENTS);
-    assert_eq_event(EXP_BLOCK_MAP_MIX_INPUT, EXP_BLOCK_MAP_MIX_EVENTS);
-    assert_eq_event(EXP_MAP_COMP_INPUT, EXP_MAP_COMP_EVENTS);
-}
-
-#[test]
-fn block_empty_node_exp_map() {
-    assert_eq_event(EXP_MAP_EMPTY_INPUT, EXP_MAP_EMPTY_INPUT_EVENTS);
-    assert_eq_event(EXP_MAP_FAKE_EMPTY_INPUT, EXP_MAP_FAKE_EMPTY_EVENTS);
-}
-
-#[test]
-fn block_empty_node_map() {
-    assert_eq_event(EMPTY_KEY_MAP_INPUT, EMPTY_KEY_MAP_EVENTS);
-}
-
-#[test]
-fn block_exp_map_err() {
-    assert_eq_event(EXP_BLOCK_MAP_ERR1, EXP_BLOCK_MAP_ERR1_EVENTS);
-    assert_eq_event(EXP_BLOCK_MAP_ERR2, EXP_BLOCK_MAP_ERR2_EVENTS);
-}
-
-#[test]
-fn block_map_inline_err() {
-    assert_eq_event(INLINE_ERR_INPUT, INLINE_ERR_EVENTS);
-}
-
-#[test]
-fn block_map_err() {
-    assert_eq_event(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS);
-    assert_eq_event(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS);
-    assert_eq_event(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS);
-    assert_eq_event(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS);
-    assert_eq_event(ERR_INVALID_KEY3_INPUT, ERR_INVALID_KEY3_EVENTS);
-}
-
-#[test]
-fn block_map_complex() {
-    assert_eq_event(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS);
-    assert_eq_event(NESTED_INPUT, NESTED_EVENTS);
-    assert_eq_event(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS);
-    assert_eq_event(X1_9C9N_INPUT, X1_9C9N_EVENTS);
-    assert_eq_event(MAP_AND_COMMENT_INPUT, MAP_AND_COMMENT_EVENTS);
-}
-
-#[test]
-fn block_flow_mix() {
-    assert_eq_event(X1_4AW9_INPUT, X1_4AW9_EVENTS);
-    assert_eq_event(X1_87E4_INPUT, X_87E4_EVENTS);
-    assert_eq_event(X1_6HB6_INPUT, X1_6HB6_EVENTS);
-    assert_eq_event(X_7ZZ5_INPUT, X_7ZZ5_EVENTS);
-    assert_eq_event(X2_87E4_INPUT, X_87E4_EVENTS);
-    assert_eq_event(X_8KB6_INPUT, X_8KB6_EVENTS);
-}
-
-#[test]
-fn block_map_scalar_and_ws() {
-    assert_eq_event(MAPS_WITH_QUOTES_INPUT, MAPS_WITH_QUOTES_EVENTS);
-}
-
-#[test]
-fn block_nested_maps() {
-    assert_eq_event(X1_Q9WF_INPUT, X1_Q9WF_EVENTS);
-    assert_eq_event(NESTED_MAPS_INPUT, NESTED_MAPS_EVENTS);
-}
-
-#[test]
-fn block_map_anchor_alias() {
-    assert_eq_event(ALIAS_N_MAPS_INPUT, ALIAS_N_MAPS_EVENTS);
-    assert_eq_event(ALIAS_N_MAPS2_INPUT, ALIAS_N_MAPS2_EVENTS);
-    assert_eq_event(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS);
-}
-
-#[test]
-fn block_seq_anchor_alias_err() {
-    assert_eq_event(X1_SR86_INPUT, X1_SR86_EVENTS);
-}
-
-#[test]
-fn block_exp_map_alias() {
-    assert_eq_event(X3_PW8X_INPUT, X3_PW8X_EVENTS);
-    assert_eq_event(X2_PW8X_INPUT, X2_PW8X_EVENTS);
-    assert_eq_event(X1_PW8X_INPUT, X1_PW8X_EVENTS);
-}
-
-#[test]
-fn block_seq_anchor_alias() {
-    assert_eq_event(X1_HMQ5_INPUT, X1_HMQ5_EVENTS);
-
-    assert_eq_event(X1_G9HC_INPUT, X1_G9HC_EVENTS);
-    assert_eq_event(X2_1_G9HC_INPUT, X2_G9HC_EVENTS);
-    assert_eq_event(X2_2_G9HC_INPUT, X2_G9HC_EVENTS);
-
-    assert_eq_event(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS);
-    assert_eq_event(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS);
-    assert_eq_event(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS);
-}
-
-#[test]
-fn block_col_tags() {
-    assert_eq_event(X3_57H4_INPUT, X3_57H4_EVENTS);
-    assert_eq_event(X2_57H4_INPUT, X2_57H4_EVENTS);
-    assert_eq_event(X1_57H4_INPUT, X1_57H4_EVENTS);
-    assert_eq_event(TAG_DEF_INPUT, TAG_DEF_EVENTS);
-    assert_eq_event(EXP_TAG_INPUT, EXP_TAG_EVENTS);
-}
-
-#[test]
-fn block_anchor() {
-    assert_eq_event(X1_735Y_INPUT, X1_735Y_EVENTS);
-    assert_eq_event(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS);
-    assert_eq_event(ANCHOR_MULTI_2_INPUT, ANCHOR_MULTI_2_EVENTS);
-    assert_eq_event(ANCHOR_MULTI_INPUT, ANCHOR_MULTI_EVENTS);
-    assert_eq_event(ANCHOR_ERR_INPUT, ANCHOR_ERR_EVENTS);
-}
-
-#[test]
-fn block_mix_seq() {
-    assert_eq_event(MIX_BLOCK_INPUT, MIX_BLOCK_EVENTS);
-    assert_eq_event(MIX2_BLOCK_INPUT, MIX2_BLOCK_EVENTS);
-}
-
-#[test]
-fn block_tag() {
-    assert_eq_event(TAG1_1_INPUT, TAG1_EVENTS);
-    assert_eq_event(TAG1_2_INPUT, TAG1_EVENTS);
-    assert_eq_event(COMPLEX_TAG2_INPUT, COMPLEX_TAG2_EVENTS);
-    assert_eq_event(X_74H7_INPUT, X_74H7_EVENTS);
-}
-
-#[test]
-fn block_multi_line() {
-    assert_eq_event(MULTI_LINE_INPUT, MULTI_LINE_EVENTS);
-    assert_eq_event(MULTI_LINE_SEQ_INPUT, MULTI_LINE_SEQ_EVENTS);
-    assert_eq_event(X_BF9H_INPUT, X_BF9H_EVENTS);
-    assert_eq_event(X_BS4K_INPUT, X_BS4K_EVENTS);
-}
-
-#[test]
-fn block_seq_and_map() {
-    assert_eq_event(X1_S7BG_INPUT, X1_S7BG_EVENTS);
-    assert_eq_event(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS);
-}
-
-#[test]
-fn block_tag_short() {
-    assert_eq_event(X1_U99R_INPUT, X1_U99R_EVENTS);
-    assert_eq_event(X2_U99R_INPUT, X2_U99R_EVENTS);
-
-    assert_eq_event(X1_QLJ7_INPUT, X1_QLJ7_EVENTS);
-    assert_eq_event(X1_TAG_SHORT_INPUT, X1_TAG_SHORT_EVENTS);
-    assert_eq_event(TAG_SHORT_INPUT, TAG_SHORT_EVENTS);
-}
-
-#[test]
-fn block_tag_anchor() {
-    assert_eq_event(X5_9KAX_INPUT, X5_9KAX_EVENTS);
-    assert_eq_event(X4_9KAX_INPUT, X4_9KAX_EVENTS);
-    assert_eq_event(X1_9KAX_INPUT, X1_9KAX_EVENTS);
-    assert_eq_event(X2_9KAX_INPUT, X1_9KAX_EVENTS);
-    assert_eq_event(X3_9KAX_INPUT, X3_9KAX_EVENTS);
-
-    assert_eq_event(X1_6JWB_INPUT, X1_6JWB_EVENTS);
-}
-
-#[test]
-fn block_map_tab() {
-    assert_eq_event(X1_DK95_INPUT, X1_DK95_EVENTS);
-    assert_eq_event(X2_DK95_INPUT, X2_DK95_EVENTS);
-    assert_eq_event(X3_DK95_INPUT, X3_DK95_EVENTS);
-}
-
-#[test]
-fn block_map_err_indent() {
-    assert_eq_event(X1_U44R_INPUT, X1_U44R_EVENTS);
-    assert_eq_event(X1_EW3V_INPUT, X1_EW3V_EVENTS);
-    assert_eq_event(X1_DMG6_INPUT, X1_DMG6_EVENTS);
-    assert_eq_event(X1_7LBH_INPUT, X1_7LBH_EVENTS);
-}
-
-#[test]
-fn block_seq_empty() {
-    assert_eq_event(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS);
-    assert_eq_event(SEQ_EMPTY2_INPUT, SEQ_EMPTY2_EVENTS);
-}
-
-#[test]
-fn block_tab_indents() {
-    assert_eq_event(X1_DC7X_INPUT, X1_DC7X_EVENTS);
-
-    assert_eq_event(X1_Y79Y_001_INPUT, X1_Y79Y_001_EVENTS);
-
-    assert_eq_event(X1_Y79Y_004_INPUT, X1_Y79Y_004_EVENTS);
-    assert_eq_event(X2_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
-    assert_eq_event(X3_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS);
-
-    assert_eq_event(X1_Y79Y_006_INPUT, X1_Y79Y_006_EVENTS);
-    assert_eq_event(X2_Y79Y_006_INPUT, X2_Y79Y_006_EVENTS);
-    assert_eq_event(X3_Y79Y_006_INPUT, X3_Y79Y_006_EVENTS);
-
-    assert_eq_event(X1_Y79Y_007_INPUT, X1_Y79Y_007_EVENTS);
-
-    assert_eq_event(X1_Y79Y_009_INPUT, X1_Y79Y_009_EVENTS);
-    assert_eq_event(X2_Y79Y_009_INPUT, X2_Y79Y_009_EVENTS);
-    assert_eq_event(X3_Y79Y_009_INPUT, X3_Y79Y_009_EVENTS);
-}
-
-#[test]
-fn block_tags_empty() {
-    assert_eq_event(X1_UKK6_02_INPUT, X1_UKK6_02_EVENTS);
-    assert_eq_event(X4_FH7J_INPUT, X4_FH7J_EVENTS);
-    assert_eq_event(X3_FH7J_INPUT, X3_FH7J_EVENTS);
-    assert_eq_event(X1_FH7J_INPUT, X1_FH7J_EVENTS);
-    assert_eq_event(X2_FH7J_INPUT, X2_FH7J_EVENTS);
-}
-
-#[test]
-fn block_chomp() {
-    assert_eq_event(X1_MJS9_INPUT, X1_MJS9_EVENTS);
-    assert_eq_event(X1_K858_INPUT, X1_K858_EVENTS);
-}
-
-#[test]
-fn block_complex_exp_mix() {
-    assert_eq_event(X1_M5DY_INPUT, X1_M5DY_EVENTS);
-    assert_eq_event(X2_M5DY_INPUT, X2_M5DY_EVENTS);
-
-    assert_eq_event(X2_KK5P_INPUT, X2_KK5P_EVENTS);
-    assert_eq_event(X1_KK5P_INPUT, X1_KK5P_EVENTS);
+#[rstest]
+// Scalar
+#[case::block_lit_multi(BLOCK_MULTI_INPUT, BLOCK_MULTI_EVENTS)]
+#[case::block_lit_plain1(BLOCK_PLAIN_INPUT, BLOCK_PLAIN_EVENTS)]
+#[case::block_lit_plain2(BLOCK_PLAIN2_INPUT, BLOCK_PLAIN2_EVENTS)]
+#[case::block_lit_plain_escape(LITERAL_ESCAPE_INPUT, LITERAL_ESCAPE_EVENTS)]
+#[case::block_lit_plain1(LITERAL1_INPUT, SIMPLE_FOLDED_EVENTS)]
+#[case::block_lit_plain2(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS)]
+#[case::block_lit_plain3(LITERAL3_INPUT, LITERAL3_EVENTS)]
+#[case::block_lit_fold_block(BLOCK_FOLD_INPUT, BLOCK_FOLD_EVENTS)]
+#[case::block_lit_fold_simple1(SIMPLE_FOLD1_INPUT, SIMPLE_FOLD_EVENTS)]
+#[case::block_lit_fold_simple2(SIMPLE_FOLD2_INPUT, SIMPLE_FOLD_EVENTS)]
+#[case::block_lit_fold1(FOLD_STR1_INPUT, FOLD_STR1_EVENTS)]
+#[case::block_lit_fold2(FOLD_STR2_INPUT, FOLD_STR2_EVENTS)]
+#[case::block_lit_fold_err(FOLD_ERR_INPUT, FOLD_ERR_EVENTS)]
+#[case::block_lit_plain_block(BLOCK_QUOTE_INPUT, BLOCK_QUOTE_EVENTS)]
+#[case::block_lit_plain_chomp(LITERAL_CHOMP_INPUT, LITERAL_CHOMP_EVENTS)]
+#[case::block_lit_plain_str(LIT_STR2_INPUT, LIT_STR2_EVENTS)]
+#[case::block_lit_plain_multiline(MULTILINE_PLAIN_INPUT, MULTILINE_PLAIN_EVENTS)]
+#[case::block_lit_err1(LITERAL_ERR_INPUT, SIMPLE_FOLDED_ERR_EVENTS)]
+#[case::block_lit_err2(LITERAL_ERR2_INPUT, SIMPLE_FOLDED_ERR_EVENTS)]
+#[case::block_multi(PLAIN_MULTI_INPUT, PLAIN_MULTI_EVENTS)]
+#[case::block_tag(TAG_SHORT_INPUT, TAG_SHORT_EVENTS)]
+#[case::block_short_tag(X1_TAG_SHORT_INPUT, X1_TAG_SHORT_EVENTS)]
+#[case::block_tag1_1(TAG1_1_INPUT, TAG1_EVENTS)]
+#[case::block_tag1_2(TAG1_2_INPUT, TAG1_EVENTS)]
+#[case::block_tag_def(TAG_DEF_INPUT, TAG_DEF_EVENTS)]
+#[case::block_tag_exp(EXP_TAG_INPUT, EXP_TAG_EVENTS)]
+#[case::block_complex_tag(COMPLEX_TAG2_INPUT, COMPLEX_TAG2_EVENTS)]
+#[case::block_anchor_colon(ANCHOR_COLON_INPUT, ANCHOR_COLON_EVENTS)]
+#[case::block_anchor_multi1(ANCHOR_MULTI_INPUT, ANCHOR_MULTI_EVENTS)]
+#[case::block_anchor_multi2(ANCHOR_MULTI_2_INPUT, ANCHOR_MULTI_2_EVENTS)]
+#[case::block_anchor_error(ANCHOR_ERR_INPUT, ANCHOR_ERR_EVENTS)]
+#[case::block_multiline_comment1(MULTILINE_COMMENT1_INPUT, MULTILINE_COMMENT1_EVENTS)]
+#[case::block_multiline_comment1_2(MULTILINE_COMMENT1_2_INPUT, MULTILINE_COMMENT1_EVENTS)]
+#[case::block_multiline_comment2(MULTILINE_COMMENT2_INPUT, MULTILINE_COMMENT2_EVENTS)]
+#[case::block_multiline_comment3(MULTILINE_COMMENT3_INPUT, MULTILINE_COMMENT3_EVENTS)]
+// Block seq
+#[case::block_seq_empty1(SEQ_EMPTY1_INPUT, SEQ_EMPTY1_EVENTS)]
+#[case::block_seq_empty2(SEQ_EMPTY2_INPUT, SEQ_EMPTY2_EVENTS)]
+#[case::block_seq_same_line(SEQ_SAME_LINE_INPUT, SEQ_SAME_LINE_EVENTS)]
+#[case::block_seq_multi(MULTI_LINE_SEQ_INPUT, MULTI_LINE_SEQ_EVENTS)]
+#[case::block_seq_alias_seq1(ALIAS_N_SEQ1_INPUT, ALIAS_N_SEQ1_EVENTS)]
+#[case::block_seq_alias_seq2(ALIAS_N_SEQ2_INPUT, ALIAS_N_SEQ2_EVENTS)]
+#[case::block_seq_alias_seq3(ALIAS_N_SEQ3_INPUT, ALIAS_N_SEQ3_EVENTS)]
+#[case::block_seq_nested(BLOCK_NESTED_SEQ2_INPUT, BLOCK_NESTED_SEQ2_EVENTS)]
+#[case::block_seq_block1(BLOCK1_INPUT, BLOCK_EVENTS)]
+#[case::block_seq_block2(BLOCK2_INPUT, BLOCK_EVENTS)]
+#[case::block_seq_plain1(SEQ_PLAIN_INPUT, SEQ_PLAIN_EVENTS)]
+#[case::block_seq_plain2(SEQ_PLAIN2_INPUT, SEQ_PLAIN_EVENTS)]
+#[case::block_seq_no_minus(SEQ_NO_MINUS_INPUT, SEQ_NO_MINUS_EVENTS)]
+#[case::block_seq_block_err(BLOCK_ERR_INPUT, BLOCK_ERR_EVENTS)]
+#[case::block_seq_wrong_seq(WRONG_SEQ_INDENT_INPUT, WRONG_SEQ_INDENT_EVENTS)]
+// Block map
+#[case::block_map_simple1(MAP_SIMPLE_INPUT, MAP_SIMPLE_EVENTS)]
+#[case::block_map_simple2(MAP_SIMPLE2_INPUT, MAP_SIMPLE_EVENTS)]
+#[case::block_map_multi(MULTI_LINE_INPUT, MULTI_LINE_EVENTS)]
+#[case::block_map_alias1(ALIAS_N_MAPS_INPUT, ALIAS_N_MAPS_EVENTS)]
+#[case::block_map_alias2(ALIAS_N_MAPS2_INPUT, ALIAS_N_MAPS2_EVENTS)]
+#[case::block_map_alias_comp(ALIAS_N_COMP_MAP_INPUT, ALIAS_N_COMP_MAP_EVENTS)]
+#[case::block_map_quotes(MAPS_WITH_QUOTES_INPUT, MAPS_WITH_QUOTES_EVENTS)]
+#[case::block_map_double_quotes(DQUOTE_MAP_INPUT, DQUOTE_MAP_EVENTS)]
+#[case::block_map_double_quotes_mul(DQUOTE_MUL_INPUT, DQUOTE_MUL_EVENTS)]
+#[case::block_map_empty(EMPTY_KEY_MAP_INPUT, EMPTY_KEY_MAP_EVENTS)]
+#[case::block_map_empty_nested(NESTED_EMPTY_INPUT, NESTED_EMPTY_EVENTS)]
+#[case::block_map_empty_input(EMPTY_MAP_INPUT, EMPTY_MAP_EVENTS)]
+#[case::block_map_empty_multi(MULTI_EMPTY_INPUT, MULTI_EMPTY_EVENTS)]
+#[case::block_map_empty_key1(EMPTY_KEY_MAP2_INPUT, EMPTY_KEY_MAP2_EVENTS)]
+#[case::block_map_empty_key2(EMPTY_KEY_MAP2_1_INPUT, EMPTY_KEY_MAP2_EVENTS)]
+#[case::block_map_empty_input_mixed(MIX_EMPTY_MAP_INPUT, MIX_EMPTY_MAP_EVENTS)]
+#[case::block_map_empty_map2_input(MAP2_INPUT, MAP2_EVENTS)]
+#[case::block_map_explicit_key(EXP_MAP_EMPTY_INPUT, EXP_MAP_EMPTY_INPUT_EVENTS)]
+#[case::block_map_explicit_key(EXP_MAP_FAKE_EMPTY_INPUT, EXP_MAP_FAKE_EMPTY_EVENTS)]
+#[case::block_map_explicit_fold(EXP_MAP_FOLD_INPUT, EXP_MAP_FOLD_EVENTS)]
+#[case::block_map_explicit_input(EXP_MAP_INPUT, EXP_MAP_EVENTS)]
+#[case::block_map_explicit_mix_input(EXP_BLOCK_MAP_MIX_INPUT, EXP_BLOCK_MAP_MIX_EVENTS)]
+#[case::block_map_explicit_complex(EXP_MAP_COMP_INPUT, EXP_MAP_COMP_EVENTS)]
+#[case::block_map_err_multiline(ERR_MULTILINE_KEY_INPUT, ERR_MULTILINE_KEY_EVENTS)]
+#[case::block_map_err_trailing(ERR_TRAIL_INPUT, ERR_TRAIL_EVENTS)]
+#[case::block_map_err_invalid_key1(ERR_INVALID_KEY1_INPUT, ERR_INVALID_KEY1_EVENTS)]
+#[case::block_map_err_invalid_key2(ERR_INVALID_KEY2_INPUT, ERR_INVALID_KEY2_EVENTS)]
+#[case::block_map_err_invalid_key3(ERR_INVALID_KEY3_INPUT, ERR_INVALID_KEY3_EVENTS)]
+#[case::block_map_err_inline(INLINE_ERR_INPUT, INLINE_ERR_EVENTS)]
+#[case::block_map_explicit_err1(EXP_BLOCK_MAP_ERR1, EXP_BLOCK_MAP_ERR1_EVENTS)]
+#[case::block_map_explicit_err2(EXP_BLOCK_MAP_ERR2, EXP_BLOCK_MAP_ERR2_EVENTS)]
+// Block mix seq/map
+#[case::block_map_nested(NESTED_MAPS_INPUT, NESTED_MAPS_EVENTS)]
+#[case::block_map_complex_nested(COMPLEX_NESTED_INPUT, COMPLEX_NESTED_EVENTS)]
+#[case::block_map_nested_input(NESTED_INPUT, NESTED_EVENTS)]
+#[case::block_map_complex_key(COMPLEX_KEYS_INPUT, COMPLEX_KEYS_EVENTS)]
+#[case::block_map_commend_input(MAP_AND_COMMENT_INPUT, MAP_AND_COMMENT_EVENTS)]
+#[case::block_mix_seq_map(MIX_BLOCK_INPUT, MIX_BLOCK_EVENTS)]
+#[case::block_mix_seq_map(MIX2_BLOCK_INPUT, MIX2_BLOCK_EVENTS)]
+// Examples
+#[case::block_rzp5(X1_RZP5_INPUT, X1_RZP5_EVENTS)]
+#[case::block_m5dy_x1(X1_M5DY_INPUT, X1_M5DY_EVENTS)]
+#[case::block_m5dy_x2(X2_M5DY_INPUT, X2_M5DY_EVENTS)]
+#[case::block_kk5p_x1(X1_KK5P_INPUT, X1_KK5P_EVENTS)]
+#[case::block_kk5p_x2(X2_KK5P_INPUT, X2_KK5P_EVENTS)]
+#[case::block_mjs9(X1_MJS9_INPUT, X1_MJS9_EVENTS)]
+#[case::block_k858(X1_K858_INPUT, X1_K858_EVENTS)]
+#[case::block_ukk6(X1_UKK6_02_INPUT, X1_UKK6_02_EVENTS)]
+#[case::block_fh7j_x1(X1_FH7J_INPUT, X1_FH7J_EVENTS)]
+#[case::block_fh7j_x2(X2_FH7J_INPUT, X2_FH7J_EVENTS)]
+#[case::block_fh7j_x3(X3_FH7J_INPUT, X3_FH7J_EVENTS)]
+#[case::block_fh7j_x4(X4_FH7J_INPUT, X4_FH7J_EVENTS)]
+#[case::block_dc7x(X1_DC7X_INPUT, X1_DC7X_EVENTS)]
+#[case::block_y79y_04_x1(X1_Y79Y_004_INPUT, X1_Y79Y_004_EVENTS)]
+#[case::block_y79y_04_x2(X2_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS)]
+#[case::block_y79y_04_x3(X3_Y79Y_004_INPUT, X2_Y79Y_004_EVENTS)]
+#[case::block_y79y_06_x1(X1_Y79Y_006_INPUT, X1_Y79Y_006_EVENTS)]
+#[case::block_y79y_06_x2(X2_Y79Y_006_INPUT, X2_Y79Y_006_EVENTS)]
+#[case::block_y79y_06_x3(X3_Y79Y_006_INPUT, X3_Y79Y_006_EVENTS)]
+#[case::block_y79y_07_x1(X1_Y79Y_007_INPUT, X1_Y79Y_007_EVENTS)]
+#[case::block_y79y_09_x1(X1_Y79Y_009_INPUT, X1_Y79Y_009_EVENTS)]
+#[case::block_y79y_09_x2(X2_Y79Y_009_INPUT, X2_Y79Y_009_EVENTS)]
+#[case::block_y79y_09_x3(X3_Y79Y_009_INPUT, X3_Y79Y_009_EVENTS)]
+#[case::block_u44r(X1_U44R_INPUT, X1_U44R_EVENTS)]
+#[case::block_ew3v(X1_EW3V_INPUT, X1_EW3V_EVENTS)]
+#[case::block_dmg6(X1_DMG6_INPUT, X1_DMG6_EVENTS)]
+#[case::block_7lbh(X1_7LBH_INPUT, X1_7LBH_EVENTS)]
+#[case::block_dk95_x1(X1_DK95_INPUT, X1_DK95_EVENTS)]
+#[case::block_dk95_x2(X2_DK95_INPUT, X2_DK95_EVENTS)]
+#[case::block_dk95_x3(X3_DK95_INPUT, X3_DK95_EVENTS)]
+#[case::block_9kax_x1(X1_9KAX_INPUT, X1_9KAX_EVENTS)]
+#[case::block_9kax_x2(X2_9KAX_INPUT, X1_9KAX_EVENTS)]
+#[case::block_9kax_x3(X3_9KAX_INPUT, X3_9KAX_EVENTS)]
+#[case::block_9kax_x4(X4_9KAX_INPUT, X4_9KAX_EVENTS)]
+#[case::block_9kax_x5(X5_9KAX_INPUT, X5_9KAX_EVENTS)]
+#[case::block_6jwb(X1_6JWB_INPUT, X1_6JWB_EVENTS)]
+#[case::block_u99r_x1(X1_U99R_INPUT, X1_U99R_EVENTS)]
+#[case::block_u99r_x1(X2_U99R_INPUT, X2_U99R_EVENTS)]
+#[case::block_qlj7(X1_QLJ7_INPUT, X1_QLJ7_EVENTS)]
+#[case::block_s7bg(X1_S7BG_INPUT, X1_S7BG_EVENTS)]
+#[case::block_bf9h(X_BF9H_INPUT, X_BF9H_EVENTS)]
+#[case::block_bs4k(X_BS4K_INPUT, X_BS4K_EVENTS)]
+#[case::block_74h7(X_74H7_INPUT, X_74H7_EVENTS)]
+#[case::block_735y(X1_735Y_INPUT, X1_735Y_EVENTS)]
+#[case::block_57h4_x1(X1_57H4_INPUT, X1_57H4_EVENTS)]
+#[case::block_57h4_x2(X2_57H4_INPUT, X2_57H4_EVENTS)]
+#[case::block_57h4_x3(X3_57H4_INPUT, X3_57H4_EVENTS)]
+#[case::block_hmq5(X1_HMQ5_INPUT, X1_HMQ5_EVENTS)]
+#[case::block_g9hc_x1(X1_G9HC_INPUT, X1_G9HC_EVENTS)]
+#[case::block_g9hc_x2_1(X2_1_G9HC_INPUT, X2_G9HC_EVENTS)]
+#[case::block_g9hc_x2_2(X2_2_G9HC_INPUT, X2_G9HC_EVENTS)]
+#[case::block_7t8x_x1(X1_7T8X_INPUT, X1_7T8X_EVENTS)]
+#[case::block_7t8x_x2(X2_7T8X_INPUT, X2_7T8X_EVENTS)]
+#[case::block_6vjk_x1(X1_6VJK_INPUT, X1_6VJK_EVENTS)]
+#[case::block_6vjk_x2(X2_6VJK_INPUT, X2_6VJK_EVENTS)]
+#[case::block_jef9(X1_JEF9_INPUT, X1_JEF9_EVENTS)]
+#[case::block_f6mc_x1(X1_F6MC_INPUT, X1_F6MC_EVENTS)]
+#[case::block_f6mc_x2(X2_F6MC_INPUT, X2_F6MC_EVENTS)]
+#[case::block_pw8x_x1(X1_PW8X_INPUT, X1_PW8X_EVENTS)]
+#[case::block_pw8x_x2(X2_PW8X_INPUT, X2_PW8X_EVENTS)]
+#[case::block_pw8x_x3(X3_PW8X_INPUT, X3_PW8X_EVENTS)]
+#[case::block_sr86(X1_SR86_INPUT, X1_SR86_EVENTS)]
+#[case::block_q9wf(X1_Q9WF_INPUT, X1_Q9WF_EVENTS)]
+#[case::block_4aw9(X1_4AW9_INPUT, X1_4AW9_EVENTS)]
+#[case::block_87e4_x1(X1_87E4_INPUT, X_87E4_EVENTS)]
+#[case::block_6hb6(X1_6HB6_INPUT, X1_6HB6_EVENTS)]
+#[case::block_7zz5(X_7ZZ5_INPUT, X_7ZZ5_EVENTS)]
+#[case::block_87e4_x2(X2_87E4_INPUT, X_87E4_EVENTS)]
+#[case::block_8kb6(X_8KB6_INPUT, X_8KB6_EVENTS)]
+#[case::block_9c9n(X1_9C9N_INPUT, X1_9C9N_EVENTS)]
+#[case::block_v9d5(X1_V9D5_INPUT, X1_V9D5_EVENTS)]
+#[case::block_2xxw(X1_2XXW_INPUT, X1_2XXW_EVENTS)]
+#[case::block_a2m4(X1_A2M4_INPUT, X1_A2M4_EVENTS)]
+#[case::block_7w2p(X_7W2P_INPUT, X_7W2P_EVENTS)]
+#[case::block_5we3(X_5WE3_INPUT, X_5WE3_EVENTS)]
+#[case::block_6kgn(X1_6KGN_INPUT, X1_6KGN_EVENTS)]
+#[case::block_syw4_x1_1(X1_1_SYW4_INPUT, X1_SYW4_EVENTS)]
+#[case::block_syw4_x1_2(X1_2_SYW4_INPUT, X1_SYW4_EVENTS)]
+#[case::block_8xdj(X_8XDJ_INPUT, X_8XDJ_EVENTS)]
+#[case::block_y79y_00_x1(X1_Y79Y_000_INPUT, X1_Y79Y_000_EVENTS)]
+#[case::block_y79y_00_x2(X2_Y79Y_000_INPUT, X2_Y79Y_000_EVENTS)]
+#[case::block_y79y_00_x3(X3_Y79Y_000_INPUT, X3_Y79Y_000_EVENTS)]
+#[case::block_y79y_00_x4(X4_Y79Y_000_INPUT, X4_Y79Y_000_EVENTS)]
+#[case::block_x4qw_x1(X1_X4QW_INPUT, X1_X4QW_EVENTS)]
+#[case::block_x4qw_x2(X2_X4QW_INPUT, X2_X4QW_EVENTS)]
+#[case::block_33x3(X1_33X3_INPUT, X1_33X3_EVENTS)]
+#[case::block_p2eq(X1_P2EQ_INPUT, X1_P2EQ_EVENTS)]
+#[case::block_bd7l(X_BD7L_INPUT, X_BD7L_EVENTS)]
+#[case::block_9cwy(X_9CWY_INPUT, X_9CWY_EVENTS)]
+#[case::block_3alj_x1(X1_3ALJ_INPUT, X_3ALJ_EVENTS)]
+#[case::block_3alj_x2(X2_3ALJ_INPUT, X_3ALJ_EVENTS)]
+fn run_block_tests(#[case] input: &str, #[case] expected_events: &str) {
+    assert_eq_event(input, expected_events);
 }
 
 #[test]
 fn block_comment() {
-    assert_eq_event_exact(X1_RZP5_INPUT, X1_RZP5_EVENTS)
+    assert_eq_event_exact(X1_RZP5_INPUT, X1_RZP5_EVENTS);
+    assert_eq_event_exact(X1_NKF9_INPUT, X1_NKF9_EVENTS);
 }
