@@ -196,3 +196,147 @@ fn block_comment() {
     assert_eq_event_exact(X1_RZP5_INPUT, X1_RZP5_EVENTS);
     assert_eq_event_exact(X1_NKF9_INPUT, X1_NKF9_EVENTS);
 }
+
+#[rstest]
+#[case::single_quote_test1(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS)]
+#[case::single_quote_test2(SQUOTE_STR2_INPUT, SQUOTE_STR_EVENTS)]
+#[case::single_quote_escape_input(SQUOTE_ESCAPE_INPUT, SQUOTE_ESCAPE_EVENTS)]
+#[case::single_quote_escape_input_multiline(SQUOTE_ESCAPE2_INPUT, SQUOTE_ESCAPE_EVENTS)]
+// Double quote tests
+#[case::double_quote(DQUOTE_STR1_INPUT, DQUOTE_STR_EVENTS)]
+#[case::double_quote_split(DQUOTE_STR2_INPUT, DQUOTE_STR_EVENTS)]
+#[case::double_quote_multiline(DQUOTE_MULTI_INPUT, DQUOTE_MULTI_EVENTS)]
+// Double quote multiline
+#[case::double_quote_multiline1(DQUOTE_MULTI1_INPUT, DQUOTE_MULTI1_EVENTS)]
+#[case::double_quote_multiline2(DQUOTE_MULTI2_INPUT, DQUOTE_MULTI2_EVENTS)]
+// Double quote EOF
+#[case::double_quote_end_input1(DQUOTE_END_INPUT, DQUOTE_END_EVENTS)]
+#[case::double_quote_end_input2(DQUOTE_ERR2_INPUT, DQUOTE_ERR2_EVENTS)]
+#[case::double_quote_miss_eof(DQUOTE_MISS_EOF_INPUT, DQUOTE_MISS_EOF_EVENTS)]
+#[case::double_quote_indent_err(DQUOTE_INDENT_ERR_INPUT, DQUOTE_INDENT_ERR_EVENTS)]
+#[case::double_quote_comment_err(DQUOTE_COMMENT_ERR_INPUT, DQUOTE_COMMENT_ERR_EVENTS)]
+// Double quote tabs
+#[case::double_quote_tabs1(DQUOTE_LEADING_TAB1_INPUT, DQUOTE_LEADING_TAB_EVENTS)]
+#[case::double_quote_tabs2(DQUOTE_LEADING_TAB2_INPUT, DQUOTE_LEADING_TAB_EVENTS)]
+#[case::double_quote_tabs3(DQUOTE_LEADING_TAB3_INPUT, DQUOTE_LEADING_TAB2_EVENTS)]
+#[case::double_quote_tabs4(DQUOTE_LEADING_TAB4_INPUT, DQUOTE_LEADING_TAB2_EVENTS)]
+#[case::double_quote_tabs5(DQUOTE_LEADING_TAB5_INPUT, DQUOTE_LEADING_TAB2_EVENTS)]
+// Double quote empty
+#[case::double_quote_empty(DQUOTE_EMPTY1_INPUT, DQUOTE_EMPTY1_EVENTS)]
+// Double quote example tests
+#[case::double_quote_x1_g4rs(X1_G4RS_INPUT, X1_G4RS_EVENTS)]
+#[case::double_quote_x2_g4rs(X2_G4RS_INPUT, X1_G4RS_EVENTS)]
+#[case::double_quote_x3_g4rs(X3_G4RS_INPUT, X3_G4RS_EVENTS)]
+#[case::double_quote_6wpf(X_6WPF_INPUT, X_6WPF_EVENTS)]
+#[case::double_quote_np9h(X1_NP9H_INPUT, X1_NP9H_EVENTS)]
+// Double quote escapes
+#[case::test_escape1(DQUOTE_ESC1_INPUT, DQUOTE_ESC1_EVENTS)]
+#[case::test_escape2(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS)]
+#[case::test_escape3(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS)]
+fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
+    assert_eq_event(input, expected_events);
+}
+
+#[rstest]
+// Scalars
+#[case::flow_null1(NULL_YAML_INPUT, NULL_YAML_EVENTS)]
+#[case::flow_null2(NULL_YAML2_INPUT, NULL_YAML_EVENTS)]
+#[case::flow_multi_word(MULTI_WORD_INPUT, MULTI_WORD_EVENTS)]
+#[case::flow_multiline(MULTILINE_INPUT, MULTILINE_EVENTS)]
+#[case::flow_plain_scalar(ERR_PLAIN_SCALAR_INPUT, ERR_PLAIN_SCALAR_EVENTS)]
+#[case::flow_tag(FLOW_TAG_INPUT, FLOW_TAG_EVENTS)]
+#[case::flow_alias(FLOW_ALIAS_INPUT, FLOW_ALIAS_EVENTS)]
+// Sequence
+#[case::flow_seq1(SEQ_FLOW_INPUT, SEQ_FLOW_EVENTS)]
+#[case::flow_seq2(SEQ_FLOW2_INPUT, SEQ_FLOW_EVENTS)]
+#[case::flow_imp_map_in_seq1(NEST_COL1_INPUT, NESTED_COL_EVENTS)]
+#[case::flow_imp_map_in_seq2(NEST_COL2_INPUT, NESTED_COL_EVENTS)]
+#[case::flow_seq_err1(FLOW_ERR2_INPUT, FLOW_ERR2_EVENTS)]
+#[case::flow_seq_err2(FLOW_ERR1_INPUT, FLOW_ERR1_EVENTS)]
+#[case::flow_seq_err_in(SEQ_ERR_INPUT, SEQ_ERR_EVENTS)]
+#[case::flow_seq_edge_case(SEQ_EDGE_INPUT, SEQ_EDGE_EVENTS)]
+// Map
+#[case::flow_map_complex(COMPLEX_MAP_INPUT, COMPLEX_MAP_EVENTS)]
+#[case::flow_map_unquoted(MAP_XY_INPUT, MAP_XY_EVENTS)]
+#[case::flow_map_explicit1(MAP_X_Y_INPUT, MAP_X_Y_EVENTS)]
+#[case::flow_map_explicit2(MAP_X_Y2_INPUT, MAP_X_Y_EVENTS)]
+#[case::flow_map_explicit3(MAP_X_Y3_INPUT, MAP_X_Y_EVENTS)]
+#[case::flow_map_quoted1(FLOW_QUOTED1_INPUT, FLOW_QUOTED1_EVENTS)]
+#[case::flow_map_quoted2(FLOW_QUOTED2_INPUT, FLOW_QUOTED2_EVENTS)]
+#[case::flow_map_empty1(EMPTY_MAP1_INPUT, EMPTY_FLOW_MAP_EVENTS)]
+#[case::flow_map_empty2(EMPTY_MAP2_INPUT, EMPTY_FLOW_MAP_EVENTS)]
+#[case::flow_map_two_empty(TWO_EMPTY_INPUT, TWO_EMPTY_EVENTS)]
+#[case::flow_map_empty_nodes(EMPTY_NODES_INPUT, EMPTY_NODES_EVENTS)]
+#[case::flow_map_seq_as_key1(SEQ_KEY1_INPUT, SEQ_KEY1_EVENTS)]
+#[case::flow_map_seq_as_key2(SEQ_KEY2_INPUT, SEQ_KEY2_EVENTS)]
+#[case::flow_map_seq_as_key3(SEQ_KEY3_INPUT, SEQ_KEY3_EVENTS)]
+#[case::flow_map_seq_as_key4(SEQ_KEY4_INPUT, SEQ_KEY4_EVENTS)]
+#[case::flow_map_edge1(MAP_EDGE1_INPUT, MAP_EDGE1_EVENTS)]
+#[case::flow_map_edge2(MAP_EDGE2_INPUT, MAP_EDGE2_EVENTS)]
+#[case::flow_map_err(MAP_ERR_INPUT, MAP_ERR_EVENTS)]
+// Examples
+#[case::flow_9mmw_x1(X1_9MMW_INPUT, X1_9MMW_EVENTS)]
+#[case::flow_9mmw_x2(X2_9MMW_INPUT, X2_9MMW_EVENTS)]
+#[case::flow_zxt5_x1_1(X1_1_ZXT5_INPUT, X1_ZXT5_EVENTS)]
+#[case::flow_zxt5_x1_2(X1_2_ZXT5_INPUT, X1_ZXT5_EVENTS)]
+#[case::flow_wz62(X1_WZ62_INPUT, X1_WZ62_EVENTS)]
+#[case::flow_wz62(X1_WZ62_INPUT, X1_WZ62_EVENTS)]
+#[case::flow_c2dt(X_C2DT_INPUT, X_C2DT_EVENTS)]
+#[case::flow_n782_x1(X1_N782_INPUT, X1_N782_EVENTS)]
+#[case::flow_n782_x2(X2_N782_INPUT, X2_N782_EVENTS)]
+#[case::flow_cvw2_x1(X1_CVW2_INPUT, X1_CVW2_EVENTS)]
+#[case::flow_cvw2_x2(X2_CVW2_INPUT, X2_CVW2_EVENTS)]
+#[case::flow_cml9(X_CML9_INPUT, X_CML9_EVENTS)]
+#[case::flow_9jba(X_9JBA_INPUT, X_9JBA_EVENTS)]
+#[case::flow_9mag(X_9MAG_INPUT, X_9MAG_EVENTS)]
+#[case::flow_8udb_x1(X1_8UDB_INPUT, X1_8UDB_EVENTS)]
+#[case::flow_8udb_x2(X2_8UDB_INPUT, X2_8UDB_EVENTS)]
+#[case::flow_t833_x1(X1_T833_INPUT, X1_T833_EVENTS)]
+#[case::flow_dk4h_x1(X1_DK4H_INPUT, X1_DK4H_EVENTS)]
+#[case::flow_dk4h_x2(X2_DK4H_INPUT, X2_DK4H_EVENTS)]
+#[case::flow_dff7(X_DFF7_INPUT, X_DFF7_EVENTS)]
+#[case::flow_ehf6(X1_EHF6_INPUT, X1_EHF6_EVENTS)]
+#[case::flow_x38w(X1_X38W_INPUT, X1_X38W_EVENTS)]
+#[case::flow_cn3r_x1(X1_CN3R_INPUT, X1_CN3R_EVENTS)]
+#[case::flow_cn3r_x2(X2_CN3R_INPUT, X2_CN3R_EVENTS)]
+#[case::flow_cn3r_x3(X3_CN3R_INPUT, X3_CN3R_EVENTS)]
+#[case::flow_cn3r_x4(X4_CN3R_INPUT, X4_CN3R_EVENTS)]
+#[case::flow_y79y(X1_Y79Y_003_INPUT, X1_Y79Y_003_EVENTS)]
+#[case::flow_5t43(X1_5T43_INPUT, X1_5T43_EVENTS)]
+#[case::flow_frk4(X1_FRK4_INPUT, X1_FRK4_EVENTS)]
+fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
+    assert_eq_event(input, expected_events);
+}
+
+#[rstest]
+#[case::docs_empty_err(EMPTY_DOC_ERR_INPUT, EMPTY_DOC_ERR_EVENTS)]
+#[case::docs_empty_tag(DOC_EMPTY_TAG_INPUT, DOC_EMPTY_TAG_EVENTS)]
+#[case::docs_empty_input(EMPTY_DOC_INPUT, EMPTY_DOC_EVENTS)]
+#[case::docs_multi_doc1(MULTI_DOC1_INPUT, MULTI_DOC1_EVENTS)]
+#[case::docs_multi_doc2(MULTI_DOC3_INPUT, MULTI_DOC3_EVENTS)]
+#[case::docs_multi_doc3(MULTI_DOC4_INPUT, MULTI_DOC4_EVENTS)]
+#[case::docs_footer(FOOTER_INPUT, FOOTER_EVENTS)]
+#[case::docs_6zkb(X1_6ZKB_INPUT, X1_6ZKB_EVENTS)]
+fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
+    assert_eq_event(input, expected_events);
+}
+
+#[rstest]
+#[case::docs_exact_simple1(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS)]
+#[case::docs_exact_simple2(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS)]
+#[case::docs_exact_empty1(EMPTY1_INPUT, EMPTY_EVENTS)]
+#[case::docs_exact_empty2(EMPTY2_INPUT, EMPTY_EVENTS)]
+#[case::docs_exact_no_doc(NO_DOC_INPUT, NO_DOC_EVENTS)]
+#[case::docs_exact_err_multidoc(ERR_MULTIDOC_INPUT, ERR_MULTIDOC_EVENTS)]
+#[case::docs_exact_err_post(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS)]
+#[case::docs_exact_err_input(DOC_MAP_ERR_INPUT, DOC_MAP_ERR_EVENTS)]
+#[case::docs_exact_3hfz(X1_3HFZ_INPUT, X1_3HFZ_EVENTS)]
+#[case::docs_exact_9hcy(X1_9HCY_INPUT, X1_9HCY_EVENTS)]
+#[case::docs_exact_eb22(X1_EB22_INPUT, X1_EB22_EVENTS)]
+#[case::docs_exact_err_directive1(ERR_DIRECTIVE1_INPUT, ERR_DIRECTIVE1_EVENTS)]
+#[case::docs_exact_err_directive2(ERR_DIRECTIVE2_INPUT, ERR_DIRECTIVE2_EVENTS)]
+#[case::docs_exact_err_directive3(ERR_DIRECTIVE3_INPUT, ERR_DIRECTIVE3_EVENTS)]
+#[case::docs_exact_err_directive4(ERR_DIRECTIVE4_INPUT, ERR_DIRECTIVE4_EVENTS)]
+fn run_docs_exact_test(#[case] input: &str, #[case] expected_events: &str) {
+    assert_eq_event_exact(input, expected_events);
+}

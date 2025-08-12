@@ -1,4 +1,3 @@
-use crate::impls::AvxScanner;
 use crate::tape::{EventListener, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
 use crate::util::NoopValidator;
@@ -8,7 +7,6 @@ use crate::{
 };
 use alloc::vec;
 use alloc::vec::Vec;
-use core_detect::is_x86_feature_detected;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use yam_common::{Mark, ScalarType};
 
@@ -80,14 +78,14 @@ pub fn run_tape_to_end<E: EventListener>(
 
 #[inline]
 fn get_fastest_impl(input: &str, state: &mut YamlParserState) -> YamlResult<()> {
-    #[cfg(target_arch = "x86_64")]
-    {
-        if is_x86_feature_detected!("avx2") {
-            // SAFETY: We have detected the feature is enabled at runtime,
-            // so it's safe to call this function.
-            return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
-        }
-    }
+    // #[cfg(target_arch = "x86_64")]
+    // {
+    //     if is_x86_feature_detected!("avx2") {
+    //         // SAFETY: We have detected the feature is enabled at runtime,
+    //         // so it's safe to call this function.
+    //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
+    //     }
+    // }
     fill_tape_inner::<NativeScanner, NoopValidator>(input.as_bytes(), state)
 }
 
