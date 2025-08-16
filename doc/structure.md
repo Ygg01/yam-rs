@@ -97,8 +97,6 @@ for flow scalar; `'` (0x27), `"` (0x22), `>` (0x3E), `|` (0x7C) for strings; ` `
 
 Because of string/comment shadowing, we only look for non-string and non-comment elements.
 
-First stage we get rid of comments, then get rid of single and double-quoted strings.
-
 ## Classificator
 
 We need to classify stuff into:
