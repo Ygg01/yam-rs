@@ -120,6 +120,14 @@ fn fill_tape_inner<S: Stage1Scanner, V: ChunkedUtf8Validator>(
     Ok(())
 }
 
+enum TypeOfDoc {
+    None,
+    Implict,
+    Explict,
+}
+
+impl TypeOfDoc {}
+
 fn run_state_machine<'de, 's: 'de, E, S, B>(
     parser_state: &mut YamlParserState,
     event_listener: &mut E,
@@ -133,6 +141,7 @@ where
 {
     let mut idx = 0usize;
     let mut chr = b' ';
+    let mut type_of_start = TypeOfDoc::None;
     let mut i = 0usize;
     macro_rules! update_char {
         () => {
@@ -148,14 +157,39 @@ where
 
     update_char!();
     match chr {
-        b'"' => {}
-        b'-' => {}
-        b'[' => {}
-        b'{' => {}
-        b'?' => {}
-        b':' => {}
-        b'>' | b'|' => {}
-        b'\'' => {}
+        b'"' => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
+        b'-' => {
+            // TODO check if its `---` start of YAML
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
+        b'[' => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
+        b'{' => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
+        b'?' => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
+        b':' => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
+        b'>' | b'|' => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
+        b'\'' => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start(false);
+        }
         _ => {}
     }
 

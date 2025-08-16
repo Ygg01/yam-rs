@@ -33,6 +33,13 @@ fn fill_string_tape(input: &str, event_tape: &mut StringTape) {
 impl EventListener for StringTape {
     type Value<'a> = &'a [u8];
 
+    fn on_doc_start(&mut self, is_explicit: bool) {
+        self.buff.push_str("\nDOC");
+        if is_explicit {
+            self.buff.push_str(" ---");
+        }
+    }
+
     fn on_scalar(&mut self, value: Self::Value<'_>, scalar_type: ScalarType, _mark: Mark) {
         self.buff.push_str("\n=VAL ");
         match scalar_type {

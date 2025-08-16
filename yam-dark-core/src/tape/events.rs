@@ -40,6 +40,12 @@ use yam_common::{Mark, ScalarType};
 pub trait EventListener {
     /// The type of scalar value to be handled.
     type Value<'a>;
+
+    /// Event handler called on event start
+    fn on_doc_start(&mut self, is_explicit: bool) {
+        // Do nothing
+    }
+
     /// Event handler called when a scalar value is first encountered.
     fn on_scalar(&mut self, value: Self::Value<'_>, _scalar_type: ScalarType, mark: Mark);
     /// Event handler called when a scalar value is continued, indicating a multi-line scalar

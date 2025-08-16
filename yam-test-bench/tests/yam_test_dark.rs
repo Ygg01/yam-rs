@@ -196,7 +196,12 @@ use yam_test_bench::consts::*;
 //     assert_eq_event_exact(X1_RZP5_INPUT, X1_RZP5_EVENTS);
 //     assert_eq_event_exact(X1_NKF9_INPUT, X1_NKF9_EVENTS);
 // }
-//
+
+#[test]
+fn test_single() {
+    assert_eq_dark_event(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS);
+}
+
 #[rstest]
 #[case::single_quote_test1(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS)]
 // #[case::single_quote_test2(SQUOTE_STR2_INPUT, SQUOTE_STR_EVENTS)]
