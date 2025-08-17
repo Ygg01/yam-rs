@@ -42,7 +42,7 @@ pub trait EventListener {
     type Value<'a>;
 
     /// Event handler called on event start
-    fn on_doc_start(&mut self, is_explicit: bool) {
+    fn on_doc_start(&mut self) {
         // Do nothing
     }
 

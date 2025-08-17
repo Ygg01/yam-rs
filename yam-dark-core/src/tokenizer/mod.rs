@@ -128,6 +128,20 @@ enum TypeOfDoc {
 
 impl TypeOfDoc {}
 
+enum YamlState {
+    SingleQuoted,
+    DoubleQuoted,
+    UnQuoted,
+    BlockString { is_folded: bool },
+    FlowArray,
+    FlowMap,
+    BlockMap,
+    Minus,
+    QuestionMark,
+    Colon,
+    OneDot,
+}
+
 fn run_state_machine<'de, 's: 'de, E, S, B>(
     parser_state: &mut YamlParserState,
     event_listener: &mut E,
@@ -142,6 +156,7 @@ where
     let mut idx = 0usize;
     let mut chr = b' ';
     let mut type_of_start = TypeOfDoc::None;
+    let mut state;
     let mut i = 0usize;
     macro_rules! update_char {
         () => {
@@ -159,38 +174,57 @@ where
     match chr {
         b'"' => {
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::DoubleQuoted;
         }
         b'-' => {
             // TODO check if its `---` start of YAML
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::Minus;
         }
         b'[' => {
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::FlowArray;
         }
         b'{' => {
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::FlowMap;
         }
         b'?' => {
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::QuestionMark;
         }
         b':' => {
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::Colon;
         }
         b'>' | b'|' => {
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::BlockString {
+                is_folded: chr == b'>',
+            };
         }
         b'\'' => {
             type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start(false);
+            event_listener.on_doc_start();
+            state = YamlState::SingleQuoted;
         }
-        _ => {}
+        b'.' => {
+            type_of_start = TypeOfDoc::Explict;
+            event_listener.on_doc_start();
+            state = YamlState::OneDot;
+        }
+        _ => {
+            type_of_start = TypeOfDoc::Implict;
+            event_listener.on_doc_start();
+            state = YamlState::UnQuoted;
+        }
     }
 
     Ok(())
