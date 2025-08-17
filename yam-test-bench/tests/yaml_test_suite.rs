@@ -1,11 +1,11 @@
 extern crate libtest_mimic;
 
 use std::error::Error;
-use std::fs;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 
-use libtest_mimic::{Failed, Trial};
+use libtest_mimic::{Arguments, Failed, Trial};
 use std::fmt::Write;
 use yam_common::Event;
 use yam_core::tokenizer::EventIterator;
@@ -45,13 +45,22 @@ fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
     }
 
     if is_strict || !is_error {
-        let expected_event = fs::read_to_string(data.test_event)?;
+        let expected_event = adjusted_test_event(data.test_event)?;
         assert_eq!(actual_event, expected_event);
     } else {
         assert_eq!(is_error, data.is_error);
     }
 
     Ok(())
+}
+
+fn adjusted_test_event(path: PathBuf) -> io::Result<String> {
+    let transform_events = fs::read_to_string(&path)?
+        .replace("+DOC ---", "+DOC")
+        .replace("-DOC ...", "-DOC")
+        .replace("+MAP {}", "+MAP")
+        .replace("+SEQ []", "+SEQ");
+    Ok(transform_events)
 }
 
 fn collect_test_suite(
@@ -139,15 +148,15 @@ fn collect_tests(
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    //     let args = Arguments::from_args();
-    //     let filter_list = vec![".git", "name", "tags"];
-    //
-    //     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    //     path.push("tests");
-    //     path.push("yaml-test-suite");
-    //
-    //     let tests = collect_tests(&path, filter_list, false)?;
-    //
-    //     libtest_mimic::run(&args, tests).exit();
-    Ok(())
+    let args = Arguments::from_args();
+    let filter_list = vec![".git", "name", "tags"];
+
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests");
+    path.push("yaml-test-suite");
+
+    let tests = collect_tests(&path, filter_list, false)?;
+
+    libtest_mimic::run(&args, tests).exit();
+    // Ok(())
 }

@@ -61,22 +61,16 @@ pub enum DirectiveType {
 
 #[derive(Clone, PartialEq)]
 pub enum Event<'a> {
-    DocStart {
-        explicit: bool,
-    },
-    DocEnd {
-        explicit: bool,
-    },
+    DocStart,
+    DocEnd,
     SeqStart {
         tag: Option<Cow<'a, [u8]>>,
         anchor: Option<Cow<'a, [u8]>>,
-        flow: bool,
     },
     SeqEnd,
     MapStart {
         tag: Option<Cow<'a, [u8]>>,
         anchor: Option<Cow<'a, [u8]>>,
-        flow: bool,
     },
     MapEnd,
     Directive {
@@ -96,19 +90,15 @@ pub enum Event<'a> {
 impl Display for Event<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            Event::DocStart { explicit } => {
-                let exp_str = if *explicit { " ---" } else { "" };
-                write!(f, "+DOC{exp_str}")
+            Event::DocStart => {
+                write!(f, "+DOC")
             }
-            Event::DocEnd { explicit } => {
-                let exp_str = if *explicit { " ..." } else { "" };
-                write!(f, "-DOC{exp_str}")
+            Event::DocEnd => {
+                write!(f, "-DOC")
             }
-            Event::SeqStart { flow, tag, anchor } => {
+            Event::SeqStart { tag, anchor } => {
                 write!(f, "+SEQ",)?;
-                if *flow {
-                    write!(f, " []")?;
-                }
+
                 if let Some(cow) = anchor {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.
@@ -126,11 +116,8 @@ impl Display for Event<'_> {
             Event::SeqEnd => {
                 write!(f, "-SEQ")
             }
-            Event::MapStart { flow, tag, anchor } => {
+            Event::MapStart { tag, anchor } => {
                 write!(f, "+MAP")?;
-                if *flow {
-                    write!(f, " {{}}")?;
-                }
                 if let Some(cow) = anchor {
                     // SAFETY:
                     // SAFE as long as the slice is valid UTF8.

@@ -84,37 +84,33 @@ where
                 match token {
                     SequenceStart => {
                         return Some(SeqStart {
-                            flow: true,
                             tag: self.tag.take(),
                             anchor: self.anchor.take(),
                         });
                     }
                     SequenceStartImplicit => {
                         return Some(SeqStart {
-                            flow: false,
                             tag: self.tag.take(),
                             anchor: self.anchor.take(),
                         });
                     }
                     MappingStart => {
                         return Some(MapStart {
-                            flow: true,
                             tag: self.tag.take(),
                             anchor: self.anchor.take(),
                         });
                     }
                     MappingStartImplicit => {
                         return Some(MapStart {
-                            flow: false,
                             tag: self.tag.take(),
                             anchor: self.anchor.take(),
                         });
                     }
                     DocumentStart => {
-                        return Some(DocStart { explicit: false });
+                        return Some(DocStart);
                     }
                     DocumentStartExplicit => {
-                        return Some(DocStart { explicit: true });
+                        return Some(DocStart);
                     }
                     SequenceEnd => {
                         return Some(SeqEnd);
@@ -123,10 +119,10 @@ where
                         return Some(MapEnd);
                     }
                     DocumentEnd => {
-                        return Some(DocEnd { explicit: false });
+                        return Some(DocEnd);
                     }
                     DocumentEndExplicit => {
-                        return Some(DocEnd { explicit: true });
+                        return Some(DocEnd);
                     }
                     ErrorToken => return Some(ErrorEvent),
                     DirectiveReserved | DirectiveTag | DirectiveYaml => {

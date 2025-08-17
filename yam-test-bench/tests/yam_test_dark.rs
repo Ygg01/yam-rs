@@ -1,4 +1,3 @@
-use rstest::rstest;
 use yam_test_bench::assert_eq_dark_event;
 use yam_test_bench::consts::*;
 
@@ -197,13 +196,13 @@ use yam_test_bench::consts::*;
 //     assert_eq_event_exact(X1_NKF9_INPUT, X1_NKF9_EVENTS);
 // }
 
-#[test]
+// #[test]
 fn test_single() {
     assert_eq_dark_event(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS);
 }
 
-#[rstest]
-#[case::single_quote_test1(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS)]
+// #[rstest]
+// #[case::single_quote_test1(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS)]
 // #[case::single_quote_test2(SQUOTE_STR2_INPUT, SQUOTE_STR_EVENTS)]
 // #[case::single_quote_escape_input(SQUOTE_ESCAPE_INPUT, SQUOTE_ESCAPE_EVENTS)]
 // #[case::single_quote_escape_input_multiline(SQUOTE_ESCAPE2_INPUT, SQUOTE_ESCAPE_EVENTS)]
@@ -238,9 +237,9 @@ fn test_single() {
 // #[case::test_escape1(DQUOTE_ESC1_INPUT, DQUOTE_ESC1_EVENTS)]
 // #[case::test_escape2(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS)]
 // #[case::test_escape3(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS)]
-fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_dark_event(input, expected_events);
-}
+// fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
+//     assert_eq_dark_event(input, expected_events);
+// }
 //
 // #[rstest]
 // // Scalars

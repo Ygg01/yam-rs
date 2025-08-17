@@ -101,7 +101,7 @@ pub const X1_P2EQ_INPUT: &str = r"
 pub const X1_P2EQ_EVENTS: &str = r"
 +DOC
 +SEQ
-+MAP {}
++MAP
 -MAP
 ERR";
 pub const X1_3ALJ_INPUT: &str = r"
@@ -227,7 +227,7 @@ pub const SIMPLE_FOLD1_INPUT: &str = r"
 pub const SIMPLE_FOLD2_INPUT: &str = r"
 --- >1-";
 pub const SIMPLE_FOLD_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL >
 -DOC";
 pub const X1_X4QW_INPUT: &str = r"
@@ -249,7 +249,7 @@ pub const LITERAL1_INPUT: &str = r"
 pub const LITERAL2_INPUT: &str = r"
 --- |1-";
 pub const SIMPLE_FOLDED_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL |
 -DOC";
 pub const LIT_STR2_INPUT: &str = r"
@@ -306,9 +306,9 @@ pub const LITERAL3_INPUT: &str = r"
   
 ...";
 pub const LITERAL3_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL |ab\n\n \n
--DOC ...";
+-DOC";
 pub const LITERAL_CHOMP_INPUT: &str = r"
 Chomping: |
   Clipped
@@ -379,7 +379,7 @@ pub const LITERAL_ERR_INPUT: &str = r"
 pub const LITERAL_ERR2_INPUT: &str = r"
 --- |+10";
 pub const SIMPLE_FOLDED_ERR_EVENTS: &str = r"
-+DOC ---
++DOC
 ERR";
 pub const X1_6VJK_INPUT: &str = r"
 |
@@ -642,13 +642,13 @@ pub const X1_NKF9_INPUT: &str = r"
 :
 ---";
 pub const X1_NKF9_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP
 =VAL :
 =VAL :
 -MAP
 -DOC
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const MULTILINE_COMMENT1_INPUT: &str = r"
@@ -734,7 +734,7 @@ pub const EXP_MAP_COMP_INPUT: &str = r"
 :
 - c";
 pub const EXP_MAP_COMP_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP
 +SEQ
 =VAL :a
@@ -791,7 +791,7 @@ pub const X1_2XXW_INPUT: &str = r"
 --- !!set
 ? Mark McGwire";
 pub const X1_2XXW_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP <tag:yaml.org,2002:set>
 =VAL :Mark McGwire
 =VAL :
@@ -824,7 +824,7 @@ pub const EXP_MAP_EMPTY_INPUT: &str = r"
 ? c
 ";
 pub const EXP_MAP_EMPTY_INPUT_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP
 =VAL :a
 =VAL :
@@ -962,7 +962,7 @@ pub const COMPLEX_NESTED_EVENTS: &str = r"
 =VAL :not
 +MAP
 =VAL :two
-+SEQ []
++SEQ
 =VAL :nest
 -SEQ
 -MAP
@@ -975,7 +975,7 @@ hr: # 1998 hr ranking
   - Sammy Sosa
 ";
 pub const NESTED_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP
 =VAL :hr
 +SEQ
@@ -992,7 +992,7 @@ pub const X1_9C9N_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :flow
-+SEQ []
++SEQ
 =VAL :a
 ERR";
 pub const MAP_AND_COMMENT_INPUT: &str = r"
@@ -1018,7 +1018,7 @@ pub const X_7ZZ5_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :key2
-+MAP {}
++MAP
 -MAP
 -MAP
 -DOC";
@@ -1036,8 +1036,8 @@ pub const X_87E4_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL 'implicit block key
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL 'implicit flow key
 =VAL :value
 -MAP
@@ -1051,7 +1051,7 @@ pub const X_8KB6_INPUT: &str = r"
 pub const X_8KB6_EVENTS: &str = r"
 +DOC
 +SEQ
-+MAP {}
++MAP
 =VAL :multi line
 =VAL :
 =VAL :a
@@ -1073,7 +1073,7 @@ pub const X1_6HB6_EVENTS: &str = r"
 =VAL :Not indented
 +MAP
 =VAL :Flow style
-+SEQ []
++SEQ
 =VAL :By two
 =VAL :Also by two
 =VAL :Still by two
@@ -1138,7 +1138,7 @@ pub const X1_Q9WF_INPUT: &str = r"
 pub const X1_Q9WF_EVENTS: &str = r"
 +DOC
 +MAP
-+MAP {}
++MAP
 -MAP
 +MAP
 =VAL :hr
@@ -1189,7 +1189,7 @@ pub const ALIAS_N_COMP_MAP_INPUT: &str = r"
 pub const ALIAS_N_COMP_MAP_EVENTS: &str = r"
 +DOC
 +MAP &map
-+SEQ [] &key
++SEQ &key
 =VAL &item :a
 =VAL :b
 -SEQ
@@ -1495,7 +1495,7 @@ pub const COMPLEX_TAG2_EVENTS: &str = r"
 =VAL <tag:yaml.org,2002:str> :c
 -SEQ
 -DOC
-+DOC ---
++DOC
 =VAL <tag:yaml.org,2002:str> :d e
 -DOC";
 pub const X_74H7_INPUT: &str = r"
@@ -1578,7 +1578,7 @@ pub const TAG_SHORT_INPUT: &str = "
 - !!str bar
 - !e!tag%21 baz";
 pub const TAG_SHORT_EVENTS: &str = "
-+DOC ---
++DOC
 +SEQ
 =VAL <!local> :foo
 =VAL <tag:yaml.org,2002:str> :bar
@@ -1591,7 +1591,7 @@ pub const X1_TAG_SHORT_INPUT: &str = "
 - !!str bar
 ";
 pub const X1_TAG_SHORT_EVENTS: &str = "
-+DOC ---
++DOC
 +SEQ
 =VAL <!local> :foo
 =VAL <tag:yaml.org,2002:str> :bar
@@ -1604,13 +1604,13 @@ a: b
 --- !prefix!B
 c: d";
 pub const X1_QLJ7_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP <tag:example.com,2011:A>
 =VAL :a
 =VAL :b
 -MAP
 -DOC
-+DOC ---
++DOC
 ERR";
 pub const X1_U99R_INPUT: &str = r"
 !!str, x";
@@ -1621,7 +1621,7 @@ pub const X2_U99R_INPUT: &str = r"
 [!!str, xxx]";
 pub const X2_U99R_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL <tag:yaml.org,2002:str> :
 =VAL :xxx
 -SEQ
@@ -2034,11 +2034,11 @@ pub const X1_M5DY_INPUT: &str = r"
 pub const X1_M5DY_EVENTS: &str = r"
 +DOC
 +MAP
-+SEQ []
++SEQ
 =VAL :New York Yankees
 =VAL :Atlanta Braves
 -SEQ
-+SEQ []
++SEQ
 =VAL :2001-07-02
 =VAL :2001-08-12
 =VAL :2001-08-14
@@ -2091,7 +2091,7 @@ pub const EMPTY_DOC_INPUT: &str = r"
 ";
 pub const EMPTY_DOC_EVENTS: &str = r"
 %YAML 1.2
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const DOC_EMPTY_TAG_INPUT: &str = r"
@@ -2099,7 +2099,7 @@ pub const DOC_EMPTY_TAG_INPUT: &str = r"
 ---
 ";
 pub const DOC_EMPTY_TAG_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const ERR_DIRECTIVE1_INPUT: &str = r"
@@ -2110,7 +2110,7 @@ pub const ERR_DIRECTIVE1_EVENTS: &str = r"
 ERR
 %YAML 1.2
 +DOC
--DOC ...";
+-DOC";
 pub const ERR_DIRECTIVE2_INPUT: &str = r"
 %YAML 1.2#err
 ...
@@ -2120,7 +2120,7 @@ ERR
 ERR
 %YAML 1.2
 +DOC
--DOC ...";
+-DOC";
 pub const ERR_DIRECTIVE3_INPUT: &str = r"
 %YAML 1.2 err
 ---
@@ -2128,7 +2128,7 @@ pub const ERR_DIRECTIVE3_INPUT: &str = r"
 pub const ERR_DIRECTIVE3_EVENTS: &str = r"
 ERR
 %YAML 1.2
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const ERR_MULTIDOC_INPUT: &str = r"
@@ -2139,12 +2139,12 @@ pub const ERR_MULTIDOC_INPUT: &str = r"
 ";
 pub const ERR_MULTIDOC_EVENTS: &str = r"
 %YAML 1.2
-+DOC ---
++DOC
 ERR
 -DOC
 ERR
 %YAML 1.2
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const ERR_DIRECTIVE4_INPUT: &str = r"%YAML 1.1#...
@@ -2152,14 +2152,14 @@ pub const ERR_DIRECTIVE4_INPUT: &str = r"%YAML 1.1#...
 pub const ERR_DIRECTIVE4_EVENTS: &str = r"
 ERR
 %YAML 1.1
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const SIMPLE_DOC_INPUT: &str = r"
 ---[]";
 pub const SIMPLE_DOC_EVENTS: &str = r"
-+DOC ---
-+SEQ []
++DOC
++SEQ
 -SEQ
 -DOC";
 pub const SIMPLE_DOC2_INPUT: &str = r#"
@@ -2170,7 +2170,7 @@ pub const SIMPLE_DOC2_INPUT: &str = r#"
 "#;
 pub const SIMPLE_DOC2_EVENTS: &str = r#"
 %YAML 1.3
-+DOC ---
++DOC
 =VAL "test
 -DOC"#;
 pub const EMPTY1_INPUT: &str = r"
@@ -2182,9 +2182,9 @@ pub const EMPTY2_INPUT: &str = r"
 # comment
 ...";
 pub const EMPTY_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL :
--DOC ...";
+-DOC";
 pub const NO_DOC_INPUT: &str = "\n...\n";
 pub const NO_DOC_EVENTS: &str = "";
 pub const FOOTER_INPUT: &str = r#"
@@ -2194,15 +2194,15 @@ pub const FOOTER_INPUT: &str = r#"
 pub const FOOTER_EVENTS: &str = r#"
 +DOC
 =VAL "test
--DOC ..."#;
+-DOC"#;
 pub const POST_DOC_ERR_INPUT: &str = r"
 ---
 ... invalid
 ";
 pub const POST_DOC_ERR_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL :
--DOC ...
+-DOC
 ERR
 =VAL :invalid
 -DOC";
@@ -2214,13 +2214,13 @@ pub const MULTI_DOC1_INPUT: &str = r"
 - c
 ";
 pub const MULTI_DOC1_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP
 =VAL :a
 =VAL :b
 -MAP
 -DOC
-+DOC ---
++DOC
 +SEQ
 =VAL :c
 -SEQ
@@ -2234,17 +2234,17 @@ pub const X1_6ZKB_EVENTS: &str = r#"
 +DOC
 =VAL :Document
 -DOC
-+DOC ---
++DOC
 =VAL :
--DOC ..."#;
+-DOC"#;
 pub const MULTI_DOC3_INPUT: &str = r"
 ---
 ---";
 pub const MULTI_DOC3_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL :
 -DOC
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const MULTI_DOC4_INPUT: &str = r"
@@ -2254,17 +2254,17 @@ pub const MULTI_DOC4_INPUT: &str = r"
 %YAML 1.2
 ---";
 pub const MULTI_DOC4_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL :
--DOC ...
+-DOC
 %YAML 1.2
-+DOC ---
++DOC
 =VAL :
 -DOC";
 pub const DOC_MAP_ERR_INPUT: &str = r"
 --- a: b";
 pub const DOC_MAP_ERR_EVENTS: &str = r"
-+DOC ---
++DOC
 ERR
 +MAP
 =VAL :a
@@ -2276,12 +2276,12 @@ pub const X1_3HFZ_INPUT: &str = r"
 a: b
 ... invalid";
 pub const X1_3HFZ_EVENTS: &str = r"
-+DOC ---
++DOC
 +MAP
 =VAL :a
 =VAL :b
 -MAP
--DOC ...
+-DOC
 ERR
 +DOC
 =VAL :invalid
@@ -2296,7 +2296,7 @@ pub const X1_9HCY_EVENTS: &str = r#"
 =VAL <!foo> "bar
 -DOC
 ERR
-+DOC ---
++DOC
 =VAL <tag:example.com,2000:app/foo> "bar
 -DOC"#;
 pub const X1_EB22_INPUT: &str = r#"
@@ -2304,7 +2304,7 @@ pub const X1_EB22_INPUT: &str = r#"
 scalar1 # comment
 %YAML 1.2"#;
 pub const X1_EB22_EVENTS: &str = r#"
-+DOC ---
++DOC
 =VAL :scalar1
 -DOC
 ERR
@@ -2429,7 +2429,7 @@ key: "missing
 
 "#;
 pub const DQUOTE_MISS_EOF_EVENTS: &str = r#"
-+DOC ---
++DOC
 +MAP
 =VAL :key
 ERR"#;
@@ -2441,7 +2441,7 @@ c"
 
 "#;
 pub const DQUOTE_INDENT_ERR_EVENTS: &str = r#"
-+DOC ---
++DOC
 +MAP
 =VAL :quoted
 ERR"#;
@@ -2451,7 +2451,7 @@ pub const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
 
 "##;
 pub const DQUOTE_COMMENT_ERR_EVENTS: &str = r#"
-+DOC ---
++DOC
 =VAL "quote
 ERR"#;
 pub const DQUOTE_LEADING_TAB1_INPUT: &str = r#" "1 test
@@ -2540,7 +2540,7 @@ pub const SEQ_FLOW2_INPUT: &str = r"
 ";
 pub const SEQ_FLOW_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL :x
 =VAL :y
 -SEQ
@@ -2553,8 +2553,8 @@ pub const NEST_COL2_INPUT: &str = r"
 ";
 pub const NESTED_COL_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL :
 =VAL :
 -MAP
@@ -2565,7 +2565,7 @@ pub const MAP_XY_INPUT: &str = r"
 ";
 pub const MAP_XY_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :x:y
 =VAL :
 -MAP
@@ -2582,7 +2582,7 @@ pub const MAP_X_Y3_INPUT: &str = r"
 ";
 pub const MAP_X_Y_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :x
 =VAL :y
 -MAP
@@ -2592,8 +2592,8 @@ pub const COMPLEX_MAP_INPUT: &str = r"
 ";
 pub const COMPLEX_MAP_EVENTS: &str = r"
 +DOC
-+MAP {}
-+SEQ []
++MAP
++SEQ
 =VAL :x
 =VAL :y
 -SEQ
@@ -2604,8 +2604,8 @@ pub const X1_9MMW_INPUT: &str = r#"
 [ "JSON like":adjacent ]"#;
 pub const X1_9MMW_EVENTS: &str = r#"
 +DOC
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL "JSON like
 =VAL :adjacent
 -MAP
@@ -2615,9 +2615,9 @@ pub const X2_9MMW_INPUT: &str = r#"
 [ {JSON: like}:adjacent ]"#;
 pub const X2_9MMW_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {}
-+MAP {}
++SEQ
++MAP
++MAP
 =VAL :JSON
 =VAL :like
 -MAP
@@ -2632,7 +2632,7 @@ pub const X1_WZ62_INPUT: &str = r"
   }";
 pub const X1_WZ62_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :foo
 =VAL <tag:yaml.org,2002:str> :
 =VAL <tag:yaml.org,2002:str> :
@@ -2647,7 +2647,7 @@ pub const X1_2_ZXT5_INPUT: &str = r#"
     : value ]"#;
 pub const X1_ZXT5_EVENTS: &str = r#"
 +DOC
-+SEQ []
++SEQ
 =VAL "key
 ERR"#;
 pub const FLOW_QUOTED1_INPUT: &str = r#"
@@ -2660,14 +2660,14 @@ pub const FLOW_QUOTED2_INPUT: &str = r#"
 "#;
 pub const FLOW_QUOTED1_EVENTS: &str = r#"
 +DOC
-+MAP {}
++MAP
 =VAL "ab
 =VAL "xy
 -MAP
 -DOC"#;
 pub const FLOW_QUOTED2_EVENTS: &str = r#"
 +DOC
-+MAP {}
++MAP
 =VAL "ab
 =VAL :xy
 -MAP
@@ -2678,7 +2678,7 @@ pub const X_C2DT_INPUT: &str = r#"
 } "#;
 pub const X_C2DT_EVENTS: &str = r#"
 +DOC
-+MAP {}
++MAP
 =VAL "empty
 =VAL :
 -MAP
@@ -2691,7 +2691,7 @@ pub const EMPTY_MAP2_INPUT: &str = r"
 ";
 pub const EMPTY_FLOW_MAP_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :
 =VAL :
 -MAP
@@ -2705,7 +2705,7 @@ pub const EMPTY_NODES_INPUT: &str = r#"
 "#;
 pub const EMPTY_NODES_EVENTS: &str = r#"
 +DOC
-+MAP {}
++MAP
 =VAL :a
 =VAL "b
 =VAL :x
@@ -2719,7 +2719,7 @@ pub const TWO_EMPTY_INPUT: &str = r"
 ";
 pub const TWO_EMPTY_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :
 =VAL :
 =VAL :
@@ -2738,8 +2738,8 @@ pub const FLOW_ERR1_INPUT: &str = r"
 ---
 [a, b] ]";
 pub const FLOW_ERR1_EVENTS: &str = r"
-+DOC ---
-+SEQ []
++DOC
++SEQ
 =VAL :a
 =VAL :b
 -SEQ
@@ -2749,9 +2749,9 @@ pub const FLOW_ERR2_INPUT: &str = r"
 ---
 [ [a, b] ";
 pub const FLOW_ERR2_EVENTS: &str = r"
-+DOC ---
-+SEQ []
-+SEQ []
++DOC
++SEQ
++SEQ
 =VAL :a
 =VAL :b
 -SEQ
@@ -2760,13 +2760,13 @@ pub const SEQ_ERR_INPUT: &str = r"
  [-]";
 pub const SEQ_ERR_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 ERR";
 pub const X_9JBA_INPUT: &str = r"
  [a, b]#invalid";
 pub const X_9JBA_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL :a
 =VAL :b
 -SEQ
@@ -2775,7 +2775,7 @@ pub const X_9MAG_INPUT: &str = r"
 [ , a , b, c] ";
 pub const X_9MAG_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 ERR";
 pub const X_CML9_INPUT: &str = r"
 key: [ word1
@@ -2785,7 +2785,7 @@ pub const X_CML9_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :key
-+SEQ []
++SEQ
 =VAL :word1
 ERR";
 pub const X1_CVW2_INPUT: &str = r"
@@ -2793,7 +2793,7 @@ pub const X1_CVW2_INPUT: &str = r"
 ]";
 pub const X1_CVW2_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL :a
 ERR";
 pub const X2_CVW2_INPUT: &str = r"
@@ -2801,7 +2801,7 @@ pub const X2_CVW2_INPUT: &str = r"
 ]";
 pub const X2_CVW2_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL :a
 -SEQ
 -DOC";
@@ -2811,7 +2811,7 @@ pub const X1_N782_INPUT: &str = r"
 ]";
 pub const X1_N782_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 ERR";
 pub const X2_N782_INPUT: &str = r"
 {
@@ -2819,14 +2819,14 @@ pub const X2_N782_INPUT: &str = r"
 }";
 pub const X2_N782_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 ERR";
 pub const SEQ_KEY1_INPUT: &str = r"
 [a, b]: 3 ";
 pub const SEQ_KEY1_EVENTS: &str = r"
 +DOC
 +MAP
-+SEQ []
++SEQ
 =VAL :a
 =VAL :b
 -SEQ
@@ -2838,9 +2838,9 @@ pub const SEQ_KEY2_INPUT: &str = r"
 pub const SEQ_KEY2_EVENTS: &str = r"
 +DOC
 +MAP
-+SEQ []
++SEQ
 =VAL :a
-+SEQ []
++SEQ
 =VAL :b
 =VAL :c
 -SEQ
@@ -2852,9 +2852,9 @@ pub const SEQ_KEY3_INPUT: &str = r"
  [[a]: 3]";
 pub const SEQ_KEY3_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {}
-+SEQ []
++SEQ
++MAP
++SEQ
 =VAL :a
 -SEQ
 =VAL :3
@@ -2866,9 +2866,9 @@ pub const SEQ_KEY4_INPUT: &str = r"
 pub const SEQ_KEY4_EVENTS: &str = r"
 +DOC
 +MAP
-+SEQ []
-+MAP {}
-+SEQ []
++SEQ
++MAP
++SEQ
 =VAL :a
 -SEQ
 =VAL :d
@@ -2882,7 +2882,7 @@ pub const SEQ_EDGE_INPUT: &str = r"
  [:x]";
 pub const SEQ_EDGE_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL ::x
 -SEQ
 -DOC";
@@ -2892,8 +2892,8 @@ single: pair,
 ]";
 pub const X1_8UDB_EVENTS: &str = r#"
 +DOC
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL :single
 =VAL :pair
 -MAP
@@ -2904,10 +2904,10 @@ pub const X2_8UDB_INPUT: &str = r"
 single: pair,]";
 pub const X2_8UDB_EVENTS: &str = r"
 +DOC
-+SEQ []
-+SEQ []
++SEQ
++SEQ
 -SEQ
-+MAP {}
++MAP
 =VAL :single
 =VAL :pair
 -MAP
@@ -2917,7 +2917,7 @@ pub const MAP_EDGE1_INPUT: &str = r"
  {x: :x}";
 pub const MAP_EDGE1_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :x
 =VAL ::x
 -MAP
@@ -2926,7 +2926,7 @@ pub const MAP_EDGE2_INPUT: &str = r"
  {:x}";
 pub const MAP_EDGE2_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL ::x
 =VAL :
 -MAP
@@ -2936,7 +2936,7 @@ pub const MAP_ERR_INPUT: &str = r"
 ]: 42";
 pub const MAP_ERR_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL :23
 ERR";
 pub const X_CT4Q_INPUT: &str = r"
@@ -2944,8 +2944,8 @@ pub const X_CT4Q_INPUT: &str = r"
     bar: baz ]";
 pub const X_CT4Q_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL :foo bar
 =VAL :baz
 -MAP
@@ -2957,7 +2957,7 @@ pub const X_DFF7_INPUT: &str = r"
 }";
 pub const X_DFF7_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :
 =VAL :
 -MAP
@@ -2967,7 +2967,7 @@ pub const X1_DK4H_INPUT: &str = r"
   : value]";
 pub const X1_DK4H_EVENTS: &str = r"
 +DOC
-+SEQ []
++SEQ
 =VAL :key
 ERR";
 pub const X2_DK4H_INPUT: &str = r"
@@ -2975,8 +2975,8 @@ pub const X2_DK4H_INPUT: &str = r"
   : value]";
 pub const X2_DK4H_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL :key
 =VAL :value
 -MAP
@@ -2989,7 +2989,7 @@ pub const X1_T833_INPUT: &str = r"
 }";
 pub const X1_T833_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :foo
 ERR";
 pub const FLOW_TAG_INPUT: &str = r"
@@ -2998,18 +2998,18 @@ pub const FLOW_TAG_INPUT: &str = r"
 !m!light fluorescent
 ...";
 pub const FLOW_TAG_EVENTS: &str = r"
-+DOC ---
++DOC
 =VAL <!my-light> :fluorescent
--DOC ...";
+-DOC";
 pub const X1_EHF6_INPUT: &str = r"
 !!map {
     k: !!seq [a, !!str b]
 }";
 pub const X1_EHF6_EVENTS: &str = r"
 +DOC
-+MAP {} <tag:yaml.org,2002:map>
++MAP <tag:yaml.org,2002:map>
 =VAL :k
-+SEQ [] <tag:yaml.org,2002:seq>
++SEQ <tag:yaml.org,2002:seq>
 =VAL :a
 =VAL <tag:yaml.org,2002:str> :b
 -SEQ
@@ -3022,12 +3022,12 @@ pub const X1_CN3R_INPUT: &str = r"
 ]";
 pub const X1_CN3R_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL &e :e
 =VAL :f
 -MAP
-+MAP {} &g
++MAP &g
 =VAL :g
 =VAL :h
 -MAP
@@ -3038,7 +3038,7 @@ pub const X2_CN3R_INPUT: &str = r"
 ";
 pub const X2_CN3R_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL &e :e
 =VAL :f
 -MAP
@@ -3048,8 +3048,8 @@ pub const X3_CN3R_INPUT: &str = r"
 ";
 pub const X3_CN3R_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {}
++SEQ
++MAP
 =VAL &c :c
 =VAL :d
 -MAP
@@ -3059,8 +3059,8 @@ pub const X4_CN3R_INPUT: &str = r"
 [&g {g: h}]";
 pub const X4_CN3R_EVENTS: &str = r"
 +DOC
-+SEQ []
-+MAP {} &g
++SEQ
++MAP &g
 =VAL :g
 =VAL :h
 -MAP
@@ -3071,7 +3071,7 @@ pub const FLOW_ALIAS_INPUT: &str = r"
 ";
 pub const FLOW_ALIAS_EVENTS: &str = r"
 +DOC
-+SEQ [] &seq
++SEQ &seq
 =VAL &item 'a
 -SEQ
 -DOC";
@@ -3080,8 +3080,8 @@ pub const X1_X38W_INPUT: &str = r"
 ";
 pub const X1_X38W_EVENTS: &str = r"
 +DOC
-+MAP {}
-+SEQ [] &a
++MAP
++SEQ &a
 -SEQ
 =ALI *b
 -MAP
@@ -3095,7 +3095,7 @@ pub const X1_Y79Y_003_INPUT: &str = r"
 pub const X1_Y79Y_003_EVENTS: &str = r"
 +DOC
 +SEQ
-+SEQ []
++SEQ
 =VAL :foo
 =VAL :foo
 ERR";
@@ -3105,11 +3105,11 @@ pub const X1_5T43_INPUT: &str = r#"
 pub const X1_5T43_EVENTS: &str = r#"
 +DOC
 +SEQ
-+MAP {}
++MAP
 =VAL "key
 =VAL :value
 -MAP
-+MAP {}
++MAP
 =VAL "key
 =VAL ::value
 -MAP
@@ -3122,7 +3122,7 @@ pub const X1_FRK4_INPUT: &str = r"
 }";
 pub const X1_FRK4_EVENTS: &str = r"
 +DOC
-+MAP {}
++MAP
 =VAL :foo
 =VAL :
 =VAL :
