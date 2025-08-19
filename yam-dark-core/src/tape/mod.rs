@@ -3,7 +3,7 @@ mod events;
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
 pub use events::EventListener;
-use yam_common::{Mark, ScalarType};
+use yam_common::Mark;
 
 #[allow(dead_code)]
 pub enum Node<'input> {
@@ -31,7 +31,7 @@ pub enum Node<'input> {
 
 pub enum MarkedNode {
     /// A string, from several input slices, spanning several lines
-    String(ScalarType, Vec<Mark>),
+    String(Vec<Mark>),
 
     /// A `Map` given the `size` starts here.
     /// The values are keys and value, alternating.

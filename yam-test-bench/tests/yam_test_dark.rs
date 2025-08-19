@@ -196,7 +196,7 @@ use yam_test_bench::consts::*;
 //     assert_eq_event_exact(X1_NKF9_INPUT, X1_NKF9_EVENTS);
 // }
 
-// #[test]
+#[test]
 fn test_single() {
     assert_eq_dark_event(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS);
 }

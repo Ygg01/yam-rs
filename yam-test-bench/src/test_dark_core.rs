@@ -1,5 +1,5 @@
 use std::str::from_utf8_unchecked;
-use yam_common::{Mark, ScalarType};
+use yam_common::Mark;
 use yam_dark_core::{run_tape_to_end, EventListener, YamlParserState};
 
 /// Struct used for testing equality of events.
@@ -37,26 +37,13 @@ impl EventListener for StringTape {
         self.buff.push_str("\nDOC");
     }
 
-    fn on_scalar(&mut self, value: Self::Value<'_>, scalar_type: ScalarType, _mark: Mark) {
+    fn on_scalar(&mut self, value: &[u8], mark: Mark) {
         self.buff.push_str("\n=VAL ");
-        match scalar_type {
-            ScalarType::DoubleQuote => self.buff.push('"'),
-            ScalarType::SingleQuote => self.buff.push('\''),
-            ScalarType::Folded => self.buff.push('>'),
-            ScalarType::Literal => self.buff.push('|'),
-            ScalarType::Plain => self.buff.push(':'),
-        }
-
         let str_val = unsafe { from_utf8_unchecked(value) };
         self.buff.push_str(str_val);
     }
 
-    fn on_scalar_continued(
-        &mut self,
-        value: Self::Value<'_>,
-        _scalar_type: ScalarType,
-        _mark: Mark,
-    ) {
+    fn on_scalar_continued(&mut self, value: &[u8], mark: Mark) {
         let str_val = unsafe { from_utf8_unchecked(value) };
         self.buff.push_str(str_val);
     }

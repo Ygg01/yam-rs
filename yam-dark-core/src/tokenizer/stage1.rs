@@ -35,11 +35,11 @@ use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
 
-pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
-    chunk: &'buffer [u8; 64],
-    buffers: &'input mut B,
-    state: &'input mut YamlParserState,
-) -> YamlChunkState;
+// pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
+//     chunk: &'buffer [u8; 64],
+//     buffers: &'input mut B,
+//     state: &'input mut YamlParserState,
+// ) -> YamlChunkState;
 
 /// A trait representing a stage 1 scanner for parsing `YAML` input.
 ///

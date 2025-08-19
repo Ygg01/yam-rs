@@ -28,6 +28,7 @@ use crate::{ChunkyIterator, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
 use alloc::vec::Vec;
+use yam_common::Mark;
 
 pub type ParseResult<T> = Result<T, YamlError>;
 
@@ -138,6 +139,15 @@ impl Default for YamlIndentInfo {
             row_indent_mask: 0,
         }
     }
+}
+
+pub unsafe trait Stage2Scanner {
+    fn parse_double_quote(input: &[u8], state: YamlParserState) -> Mark;
+    fn parse_single_quote(input: &[u8], state: YamlParserState);
+
+    fn parse_block_string(input: &[u8], state: YamlParserState);
+
+    fn parse_unquoted(input: &[u8], state: YamlParserState);
 }
 
 impl YamlParserState {

@@ -8,7 +8,7 @@ use crate::{
 use alloc::vec;
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
-use yam_common::{Mark, ScalarType};
+use yam_common::Mark;
 
 pub(crate) mod buffers;
 pub(crate) mod chunk;
@@ -23,12 +23,12 @@ pub struct Deserializer<'de> {
 impl EventListener for Vec<MarkedNode> {
     type Value<'a> = &'a [u8];
 
-    fn on_scalar(&mut self, _: &[u8], scalar_type: ScalarType, mark: Mark) {
-        self.push(MarkedNode::String(scalar_type, vec![mark]));
+    fn on_scalar(&mut self, value: &[u8], mark: Mark) {
+        self.push(MarkedNode::String(vec![mark]));
     }
 
-    fn on_scalar_continued(&mut self, _: &[u8], _: ScalarType, mark: Mark) {
-        if let Some(MarkedNode::String(_, vec)) = self.last_mut() {
+    fn on_scalar_continued(&mut self, value: &[u8], mark: Mark) {
+        if let Some(MarkedNode::String(vec)) = self.last_mut() {
             vec.push(mark);
         }
     }
@@ -142,14 +142,14 @@ enum YamlState {
     OneDot,
 }
 
-fn run_state_machine<'de, 's: 'de, E, S, B>(
+fn run_state_machine<'de, 's: 'de, S, B>(
     parser_state: &mut YamlParserState,
-    event_listener: &mut E,
+    event_listener: &mut impl EventListener,
     source: S,
     mut buffer: B,
 ) -> YamlResult<()>
 where
-    E: EventListener,
+    // E: EventListener<EventListener::Value=&'de [u8]>,
     S: YamlSource<'s>,
     B: YamlBuffer,
 {
@@ -158,6 +158,7 @@ where
     let mut type_of_start = TypeOfDoc::None;
     let mut state;
     let mut i = 0usize;
+
     macro_rules! update_char {
         () => {
             if i < parser_state.structurals.len() {
@@ -165,66 +166,78 @@ where
                 i += 1;
                 chr = unsafe { source.get_u8_unchecked(idx) }
             } else {
-                return Err(YamlError::Syntax);
+                break;
             }
         };
     }
 
-    update_char!();
-    match chr {
-        b'"' => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::DoubleQuoted;
+    loop {
+        update_char!();
+
+        match chr {
+            b'"' => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::DoubleQuoted;
+                let mut mark = Mark { start: 0, end: 0 };
+                let value = unsafe { source.get_span_unsafely(mark) };
+                // let mut mark = Stage2Scanner::parse_str();
+                buffer.append(&source, &mut mark);
+                event_listener.on_scalar(value, mark);
+            }
+            b'-' => {
+                // TODO check if its `---` start of YAML
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::Minus;
+            }
+            b'[' => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::FlowArray;
+            }
+            b'{' => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::FlowMap;
+            }
+            b'?' => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::QuestionMark;
+            }
+            b':' => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::Colon;
+            }
+            b'>' | b'|' => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::BlockString {
+                    is_folded: chr == b'>',
+                };
+            }
+            b'\'' => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::SingleQuoted;
+            }
+            b'.' => {
+                type_of_start = TypeOfDoc::Explict;
+                event_listener.on_doc_start();
+                state = YamlState::OneDot;
+            }
+            _ => {
+                type_of_start = TypeOfDoc::Implict;
+                event_listener.on_doc_start();
+                state = YamlState::UnQuoted;
+            }
         }
-        b'-' => {
-            // TODO check if its `---` start of YAML
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::Minus;
-        }
-        b'[' => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::FlowArray;
-        }
-        b'{' => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::FlowMap;
-        }
-        b'?' => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::QuestionMark;
-        }
-        b':' => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::Colon;
-        }
-        b'>' | b'|' => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::BlockString {
-                is_folded: chr == b'>',
-            };
-        }
-        b'\'' => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::SingleQuoted;
-        }
-        b'.' => {
-            type_of_start = TypeOfDoc::Explict;
-            event_listener.on_doc_start();
-            state = YamlState::OneDot;
-        }
-        _ => {
-            type_of_start = TypeOfDoc::Implict;
-            event_listener.on_doc_start();
-            state = YamlState::UnQuoted;
-        }
+    }
+
+    if !source.has_more() {
+        return Err(YamlError::Syntax);
     }
 
     Ok(())
