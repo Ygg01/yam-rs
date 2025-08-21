@@ -54,6 +54,7 @@ pub enum MarkedNode {
 }
 
 #[allow(dead_code)]
+#[derive(Copy, Clone)]
 pub enum StaticNode {
     /// The null value
     Null,
