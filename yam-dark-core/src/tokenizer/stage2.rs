@@ -143,10 +143,8 @@ impl Default for YamlIndentInfo {
 
 pub unsafe trait Stage2Scanner {
     fn parse_double_quote(input: &[u8], state: YamlParserState) -> Mark;
-    fn parse_single_quote(input: &[u8], state: YamlParserState);
-
-    fn parse_block_string(input: &[u8], state: YamlParserState);
-
+    fn parse_single_quote(input: &[u8], state: YamlParserState) -> Mark;
+    fn parse_block_string(input: &[u8], state: YamlParserState) -> Mark;
     fn parse_unquoted(input: &[u8], state: YamlParserState);
 }
 
