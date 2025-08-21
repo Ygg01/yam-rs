@@ -97,8 +97,9 @@ fn get_fastest_stage1_impl(input: &str, state: &mut YamlParserState) -> YamlResu
     ) -> YamlResult<()> {
         let mut validator = unsafe { V::new() };
         let mut error_mask = 0;
+        let mut iter = ChunkyIterator::from_bytes(input);
 
-        for chunk in ChunkyIterator::from_bytes(input) {
+        for chunk in iter.by_ref() {
             // Invariants:
             // 0. The chunk is always 64 characters long.
             // 1. `validator` is correct for given architecture and parameters
@@ -114,6 +115,9 @@ fn get_fastest_stage1_impl(input: &str, state: &mut YamlParserState) -> YamlResu
             let chunk_state: YamlChunkState = S::next(chunk, state, &mut error_mask);
             state.process_chunk::<S>(&chunk_state);
         }
+        let chunk = iter.remaining_chunk();
+        let chunk_state = S::next(&chunk, state, &mut error_mask);
+        state.process_chunk::<S>(&chunk_state);
 
         if error_mask != 0 {
             return Err(YamlError::Syntax);

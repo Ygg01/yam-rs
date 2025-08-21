@@ -1,65 +1,61 @@
 #![allow(unused)]
 
-use alloc::vec::Vec;
-use core::ptr;
-use core::slice::from_raw_parts;
+use core::intrinsics::copy;
 
 const EMPTY_CHUNK: [u8; 64] = [b' '; 64];
 
 pub struct ChunkyIterator<'a> {
     bytes: &'a [u8],
-    extra_bytes: Vec<u8>,
 }
+
+const CHUNK_SIZE: usize = 64;
 
 impl<'a> Iterator for ChunkyIterator<'a> {
     type Item = &'a [u8; 64];
 
     #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.bytes.len() {
-            i if i >= 64 => {
-                let len = self.bytes.len();
-                let ptr = self.bytes.as_ptr();
-                // SAFETY:
-                // From raw parts it is safe
-                // We manually verified the bounds of the split.
-                let (first, tail) = unsafe {
-                    (
-                        from_raw_parts(ptr, 64),
-                        from_raw_parts(ptr.add(64), len - 64),
-                    )
-                };
-                self.bytes = tail;
-                // SAFETY: We explicitly check for the correct number of elements
-                //   and do not let the references outlive the slice.
-                Some(unsafe { &*first.as_ptr().cast::<[u8; 64]>() })
-            }
-            i if i > 0 && i < 64 => unsafe {
-                // SAFETY: We pad the len to 64
-                // First copy 64 spaces
-                // Then copy over what remains of the data.
-                // In theory, spaces don't affect YAML parsing if no entry is present.
-                self.extra_bytes.set_len(64);
-                ptr::copy_nonoverlapping(EMPTY_CHUNK.as_ptr(), self.extra_bytes.as_mut_ptr(), 64);
-                ptr::copy_nonoverlapping(
-                    self.bytes.as_ptr(),
-                    self.extra_bytes.as_mut_ptr(),
-                    self.bytes.len(),
-                );
-                self.bytes = &[];
-                Some(&*self.extra_bytes.as_ptr().cast::<[u8; 64]>())
-            },
-            _ => None,
+    fn next(&mut self) -> Option<&'a [u8; 64]> {
+        if self.bytes.len() < CHUNK_SIZE {
+            None
+        } else {
+            let (first, second) = self.bytes.split_at(CHUNK_SIZE);
+            self.bytes = second;
+            Some(unsafe { &*first.as_ptr().cast::<[u8; 64]>() })
         }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.bytes.len() / CHUNK_SIZE;
+        (n, Some(n))
+    }
+
+    #[inline]
+    fn count(self) -> usize {
+        self.len()
     }
 }
 
+impl<'a> ExactSizeIterator for ChunkyIterator<'a> {}
+
 impl ChunkyIterator<'_> {
-    pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator<'_> {
-        ChunkyIterator {
-            bytes,
-            extra_bytes: Vec::with_capacity(64),
+    pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
+        ChunkyIterator { bytes }
+    }
+
+    pub fn remaining_chunk(&self) -> [u8; 64] {
+        let mut last_chunk = [b' '; 64];
+        if self.bytes.len() < 64 {
+            unsafe {
+                copy(
+                    self.bytes.as_ptr(),
+                    last_chunk.as_mut_ptr(),
+                    self.bytes.len(),
+                );
+            }
         }
+
+        last_chunk
     }
 }
 

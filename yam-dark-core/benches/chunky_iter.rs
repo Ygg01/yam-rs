@@ -1,4 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use std::hint::black_box;
 
 use yam_dark_core::ChunkyIterator;
 
@@ -67,5 +68,15 @@ fn bytes_iter(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, chunky_iter, bytes_iter);
+fn chunks_iter(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bench-iter");
+    group.significance_level(0.05).sample_size(100);
+    group.throughput(Throughput::Bytes(BYTE.len() as u64));
+    group.bench_function("chunks_iter", |b| {
+        b.iter(|| black_box(BYTE.chunks_exact(64).filter(|x| x[0] > 5)));
+    });
+    group.finish();
+}
+
+criterion_group!(benches, chunky_iter, bytes_iter, chunks_iter);
 criterion_main!(benches);
