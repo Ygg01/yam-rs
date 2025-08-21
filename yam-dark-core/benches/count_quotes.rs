@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rand::random;
+use std::hint::black_box;
 use yam_dark_core::util::fast_select_low_bits;
 
 #[doc(hidden)]

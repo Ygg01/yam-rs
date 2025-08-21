@@ -1,4 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use std::hint::black_box;
 
 use yam_dark_core::util::{calculate_byte_rows, calculate_cols, U8_BYTE_COL_TABLE, U8_ROW_TABLE};
 use yam_dark_core::{u8x64_eq, ChunkyIterator};

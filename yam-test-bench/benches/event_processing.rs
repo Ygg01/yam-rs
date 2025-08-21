@@ -1,6 +1,7 @@
 extern crate yam_core;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use std::hint::black_box;
 
 use yam_core::tokenizer::assert_eq_event;
 
