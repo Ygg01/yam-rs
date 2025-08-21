@@ -5,6 +5,8 @@ use crate::{
     ChunkyIterator, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
     YamlParserState, YamlResult,
 };
+use alloc::borrow::Cow;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
@@ -16,14 +18,13 @@ pub(crate) mod stage1;
 pub(crate) mod stage2;
 
 pub struct Deserializer<'de> {
-    idx: usize,
     tape: Vec<Node<'de>>,
 }
 
 impl EventListener for Vec<MarkedNode> {
     type Value<'a> = &'a [u8];
 
-    fn on_scalar(&mut self, value: &[u8], mark: Mark) {
+    fn on_scalar(&mut self, _value: &[u8], mark: Mark) {
         self.push(MarkedNode::String(vec![mark]));
     }
 
@@ -44,11 +45,33 @@ impl<'de> Deserializer<'de> {
         Ok(Self::slice_into_tape(input, mark_tape))
     }
 
-    fn slice_into_tape(_input: &'de str, _vec: Vec<MarkedNode>) -> Deserializer<'de> {
-        Deserializer {
-            idx: 0,
-            tape: vec![],
-        }
+    fn slice_into_tape(input: &'de str, marked_nodes: Vec<MarkedNode>) -> Deserializer<'de> {
+        let tape = marked_nodes
+            .into_iter()
+            .map(|marked_node| match marked_node {
+                MarkedNode::String(vec) => {
+                    if vec.len() == 1 {
+                        let Mark { start, end } = unsafe { *vec.get_unchecked(0) };
+                        return Node::String(Cow::Borrowed(unsafe {
+                            input.get_unchecked(start..end)
+                        }));
+                    }
+
+                    let x = vec
+                        .into_iter()
+                        .fold(String::with_capacity(128), |mut buff, node| {
+                            buff.push_str(unsafe { input.get_unchecked(node.start..node.end) });
+                            buff
+                        });
+                    Node::String(Cow::Owned(x))
+                }
+                MarkedNode::Map { len, count } => Node::Map { len, count },
+                MarkedNode::Sequence { len, count } => Node::Sequence { len, count },
+                MarkedNode::Static(node) => Node::Static(node),
+            })
+            .collect();
+
+        Deserializer { tape }
     }
 }
 
