@@ -31,7 +31,9 @@ pub enum Node<'input> {
 
 pub enum MarkedNode {
     /// A string, from several input slices, spanning several lines
-    String(Vec<Mark>),
+    StringBorrowed(Mark),
+
+    StringOwned(Vec<u8>),
 
     /// A `Map` given the `size` starts here.
     /// The values are keys and value, alternating.

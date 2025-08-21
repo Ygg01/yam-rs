@@ -39,12 +39,11 @@ impl EventListener for StringTape {
 
     fn on_scalar(&mut self, value: &[u8], mark: Mark) {
         self.buff.push_str("\n=VAL ");
-        let str_val = unsafe { from_utf8_unchecked(value) };
-        self.buff.push_str(str_val);
+        self.buff.push_str(unsafe { from_utf8_unchecked(value) });
     }
 
-    fn on_scalar_continued(&mut self, value: &[u8], mark: Mark) {
-        let str_val = unsafe { from_utf8_unchecked(value) };
-        self.buff.push_str(str_val);
+    fn on_scalar_owned(&mut self, value: Vec<u8>) {
+        self.buff.push_str("\n=VAL ");
+        unsafe { self.buff.as_mut_vec().extend(value) }
     }
 }

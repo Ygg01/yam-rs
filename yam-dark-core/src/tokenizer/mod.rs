@@ -1,5 +1,6 @@
 use crate::tape::{EventListener, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
+use crate::tokenizer::stage2::Stage2Scanner;
 use crate::util::NoopValidator;
 use crate::{
     ChunkyIterator, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
@@ -7,7 +8,6 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use alloc::string::String;
-use alloc::vec;
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use yam_common::Mark;
@@ -25,13 +25,11 @@ impl EventListener for Vec<MarkedNode> {
     type Value<'a> = &'a [u8];
 
     fn on_scalar(&mut self, _value: &[u8], mark: Mark) {
-        self.push(MarkedNode::String(vec![mark]));
+        self.push(MarkedNode::StringBorrowed(mark));
     }
 
-    fn on_scalar_continued(&mut self, value: &[u8], mark: Mark) {
-        if let Some(MarkedNode::String(vec)) = self.last_mut() {
-            vec.push(mark);
-        }
+    fn on_scalar_owned(&mut self, value: Vec<u8>) {
+        self.push(MarkedNode::StringOwned(value));
     }
 }
 
@@ -49,21 +47,13 @@ impl<'de> Deserializer<'de> {
         let tape = marked_nodes
             .into_iter()
             .map(|marked_node| match marked_node {
-                MarkedNode::String(vec) => {
-                    if vec.len() == 1 {
-                        let Mark { start, end } = unsafe { *vec.get_unchecked(0) };
-                        return Node::String(Cow::Borrowed(unsafe {
-                            input.get_unchecked(start..end)
-                        }));
-                    }
-
-                    let x = vec
-                        .into_iter()
-                        .fold(String::with_capacity(128), |mut buff, node| {
-                            buff.push_str(unsafe { input.get_unchecked(node.start..node.end) });
-                            buff
-                        });
-                    Node::String(Cow::Owned(x))
+                MarkedNode::StringBorrowed(Mark { start, end }) => {
+                    // The unsafe relies on YamlParser returning indices that are within scope
+                    Node::String(Cow::Borrowed(unsafe { input.get_unchecked(start..end) }))
+                }
+                MarkedNode::StringOwned(bytes) => {
+                    // The unsafe relies on YamlParser returning indices that are within scope
+                    Node::String(Cow::Owned(unsafe { String::from_utf8_unchecked(bytes) }))
                 }
                 MarkedNode::Map { len, count } => Node::Map { len, count },
                 MarkedNode::Sequence { len, count } => Node::Sequence { len, count },
@@ -94,13 +84,44 @@ pub fn run_tape_to_end<E: EventListener>(
     state: &mut YamlParserState,
     event_listener: &mut E,
 ) -> Result<(), YamlError> {
-    get_fastest_impl(input, state)?;
+    get_fastest_stage1_impl(input, state)?;
     run_state_machine(state, event_listener, input.as_bytes(), ())?;
     Ok(())
 }
 
 #[inline]
-fn get_fastest_impl(input: &str, state: &mut YamlParserState) -> YamlResult<()> {
+fn get_fastest_stage1_impl(input: &str, state: &mut YamlParserState) -> YamlResult<()> {
+    fn fill_tape_inner<S: Stage1Scanner, V: ChunkedUtf8Validator>(
+        input: &[u8],
+        state: &mut YamlParserState,
+    ) -> YamlResult<()> {
+        let mut validator = unsafe { V::new() };
+        let mut error_mask = 0;
+
+        for chunk in ChunkyIterator::from_bytes(input) {
+            // Invariants:
+            // 0. The chunk is always 64 characters long.
+            // 1. `validator` is correct for given architecture and parameters
+            // 1.1 `validator` can be Noop for &str
+            //
+            // SAFETY:
+            // The `update_from_chunks` function is safe if called on with correct CPU features.
+            // It's panic-free if a chunk is a 64-element long array.
+            unsafe {
+                validator.update_from_chunks(chunk);
+            }
+
+            let chunk_state: YamlChunkState = S::next(chunk, state, &mut error_mask);
+            state.process_chunk::<S>(&chunk_state);
+        }
+
+        if error_mask != 0 {
+            return Err(YamlError::Syntax);
+        }
+
+        Ok(())
+    }
+
     // #[cfg(target_arch = "x86_64")]
     // {
     //     if is_x86_feature_detected!("avx2") {
@@ -112,35 +133,33 @@ fn get_fastest_impl(input: &str, state: &mut YamlParserState) -> YamlResult<()> 
     fill_tape_inner::<NativeScanner, NoopValidator>(input.as_bytes(), state)
 }
 
-fn fill_tape_inner<S: Stage1Scanner, V: ChunkedUtf8Validator>(
-    input: &[u8],
-    state: &mut YamlParserState,
-) -> YamlResult<()> {
-    let mut validator = unsafe { V::new() };
-    let mut error_mask = 0;
-
-    for chunk in ChunkyIterator::from_bytes(input) {
-        // Invariants:
-        // 0. The chunk is always 64 characters long.
-        // 1. `validator` is correct for given architecture and parameters
-        // 1.1 `validator` can be Noop for &str
-        //
-        // SAFETY:
-        // The `update_from_chunks` function is safe if called on with correct CPU features.
-        // It's panic-free if a chunk is a 64-element long array.
-        unsafe {
-            validator.update_from_chunks(chunk);
-        }
-
-        let chunk_state: YamlChunkState = S::next(chunk, state, &mut error_mask);
-        state.process_chunk::<S>(&chunk_state);
+#[inline]
+fn get_fastest_dq_str<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
+    source: &S,
+    buffer: &mut B,
+    indent: i64,
+    event_listener: &mut E,
+) -> YamlResult<Mark> {
+    fn run_double_quote_inner<
+        's,
+        A: Stage2Scanner,
+        S: YamlSource<'s>,
+        B: YamlBuffer,
+        E: EventListener,
+    >() -> YamlResult<Mark> {
+        //TODO
+        Ok(Mark { start: 0, end: 0 })
     }
 
-    if error_mask != 0 {
-        return Err(YamlError::Syntax);
-    }
-
-    Ok(())
+    // #[cfg(target_arch = "x86_64")]
+    // {
+    //     if is_x86_feature_detected!("avx2") {
+    //         // SAFETY: We have detected the feature is enabled at runtime,
+    //         // so it's safe to call this function.
+    //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
+    //     }
+    // }
+    run_double_quote_inner::<NativeScanner, S, B, E>()
 }
 
 enum TypeOfDoc {
@@ -177,6 +196,7 @@ where
     B: YamlBuffer,
 {
     let mut idx = 0usize;
+    let mut indent = -1;
     let mut chr = b' ';
     let mut type_of_start = TypeOfDoc::None;
     let mut state;
@@ -199,14 +219,7 @@ where
 
         match chr {
             b'"' => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::DoubleQuoted;
-                let mut mark = Mark { start: 0, end: 0 };
-                let value = unsafe { source.get_span_unsafely(mark) };
-                // let mut mark = Stage2Scanner::parse_str();
-                buffer.append(&source, &mut mark);
-                event_listener.on_scalar(value, mark);
+                let mark = get_fastest_dq_str(&source, &mut buffer, indent, event_listener)?;
             }
             b'-' => {
                 // TODO check if its `---` start of YAML

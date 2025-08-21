@@ -86,9 +86,6 @@ pub struct YamlParserState {
     /// Position of head in the parser state
     pub pos: usize,
 
-    /// Sparse fields
-    pub(crate) col_count: u32,
-
     // Previous chunk fields
     pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
@@ -142,10 +139,18 @@ impl Default for YamlIndentInfo {
 }
 
 pub unsafe trait Stage2Scanner {
-    fn parse_double_quote(input: &[u8], state: YamlParserState) -> Mark;
-    fn parse_single_quote(input: &[u8], state: YamlParserState) -> Mark;
-    fn parse_block_string(input: &[u8], state: YamlParserState) -> Mark;
-    fn parse_unquoted(input: &[u8], state: YamlParserState);
+    fn parse_double_quote(input: &[u8], state: YamlParserState) -> Mark {
+        Mark { start: 0, end: 0 }
+    }
+    fn parse_single_quote(input: &[u8], state: YamlParserState) -> Mark {
+        Mark { start: 0, end: 0 }
+    }
+    fn parse_block_string(input: &[u8], state: YamlParserState) -> Mark {
+        Mark { start: 0, end: 0 }
+    }
+    fn parse_unquoted(input: &[u8], state: YamlParserState) -> Mark {
+        Mark { start: 0, end: 0 }
+    }
 }
 
 impl YamlParserState {

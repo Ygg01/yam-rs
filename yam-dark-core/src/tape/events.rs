@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use yam_common::Mark;
 
 /// A trait representing an event listener for scalar values in a processing or parsing context.
@@ -48,6 +49,7 @@ pub trait EventListener {
 
     /// Event handler called when a scalar value is first encountered.
     fn on_scalar(&mut self, value: &[u8], mark: Mark);
-    /// Event handler called when a scalar value is continued, indicating a multi-line scalar
-    fn on_scalar_continued(&mut self, value: &[u8], mark: Mark);
+
+    /// Event handler called when a scalar value is first encountered.
+    fn on_scalar_owned(&mut self, value: Vec<u8>);
 }
