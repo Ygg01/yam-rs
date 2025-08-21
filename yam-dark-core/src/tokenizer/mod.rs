@@ -139,16 +139,16 @@ fn get_fastest_dq_str<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
     buffer: &mut B,
     indent: i64,
     event_listener: &mut E,
-) -> YamlResult<Mark> {
+) -> YamlResult<()> {
     fn run_double_quote_inner<
         's,
         A: Stage2Scanner,
         S: YamlSource<'s>,
         B: YamlBuffer,
         E: EventListener,
-    >() -> YamlResult<Mark> {
+    >() -> YamlResult<()> {
         //TODO
-        Ok(Mark { start: 0, end: 0 })
+        Ok(())
     }
 
     // #[cfg(target_arch = "x86_64")]
@@ -195,11 +195,18 @@ where
     S: YamlSource<'s>,
     B: YamlBuffer,
 {
+    #[unsafe(no_mangle)]
+    pub fn unqo(input: &[u8]) -> bool {
+        let mut res = false;
+        for x in input.split(|x| *x == b'#') {
+            res &= x.contains(&b'#');
+        }
+        res
+    }
+
     let mut idx = 0usize;
     let mut indent = -1;
     let mut chr = b' ';
-    let mut type_of_start = TypeOfDoc::None;
-    let mut state;
     let mut i = 0usize;
 
     macro_rules! update_char {
@@ -219,55 +226,34 @@ where
 
         match chr {
             b'"' => {
-                let mark = get_fastest_dq_str(&source, &mut buffer, indent, event_listener)?;
+                get_fastest_dq_str(&source, &mut buffer, indent, event_listener)?;
             }
             b'-' => {
-                // TODO check if its `---` start of YAML
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::Minus;
+                todo!("Implement start of sequence or start of document")
             }
             b'[' => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::FlowArray;
+                todo!("Implement start of flow seq")
             }
             b'{' => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::FlowMap;
+                todo!("Implement start of map states")
             }
             b'?' => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::QuestionMark;
+                todo!("Implement explicit map states")
             }
             b':' => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::Colon;
+                todo!("Implement map states")
             }
             b'>' | b'|' => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::BlockString {
-                    is_folded: chr == b'>',
-                };
+                todo!("Implement block scalars")
             }
             b'\'' => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::SingleQuoted;
+                todo!("Implement single quotes")
             }
             b'.' => {
-                type_of_start = TypeOfDoc::Explict;
-                event_listener.on_doc_start();
-                state = YamlState::OneDot;
+                todo!("Implement dots (DOCUMENT END)")
             }
             _ => {
-                type_of_start = TypeOfDoc::Implict;
-                event_listener.on_doc_start();
-                state = YamlState::UnQuoted;
+                todo!("Implement others")
             }
         }
     }
