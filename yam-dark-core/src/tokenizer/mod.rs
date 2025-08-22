@@ -1,11 +1,10 @@
 use crate::tape::{EventListener, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
-use crate::tokenizer::stage2::Stage2Scanner;
-use crate::util::NoopValidator;
-use crate::{
-    ChunkyIterWrap, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
-    YamlParserState, YamlResult,
+use crate::tokenizer::fast_impl::{
+    get_fast_double_quote, get_fast_single_quote, get_fastest_stage1_impl,
 };
+use crate::tokenizer::stage2::Stage2Scanner;
+use crate::{Stage1Scanner, YamlBuffer, YamlError, YamlParserState, YamlResult};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -14,6 +13,7 @@ use yam_common::Mark;
 
 pub(crate) mod buffers;
 pub(crate) mod chunk;
+mod fast_impl;
 pub(crate) mod stage1;
 pub(crate) mod stage2;
 
@@ -89,83 +89,6 @@ pub fn run_tape_to_end<E: EventListener>(
     Ok(())
 }
 
-#[inline]
-fn get_fastest_stage1_impl(input: &str, state: &mut YamlParserState) -> YamlResult<()> {
-    fn fill_tape_inner<S: Stage1Scanner, V: ChunkedUtf8Validator>(
-        input: &[u8],
-        state: &mut YamlParserState,
-    ) -> YamlResult<()> {
-        let mut validator = unsafe { V::new() };
-        let mut error_mask = 0;
-        let mut iter = ChunkyIterWrap::from_bytes(input);
-
-        for chunk in iter.by_ref() {
-            // Invariants:
-            // 0. The chunk is always 64 characters long.
-            // 1. `validator` is correct for given architecture and parameters
-            // 1.1 `validator` can be Noop for &str
-            //
-            // SAFETY:
-            // The `update_from_chunks` function is safe if called on with correct CPU features.
-            // It's panic-free if a chunk is a 64-element long array.
-            unsafe {
-                validator.update_from_chunks(chunk);
-            }
-
-            let chunk_state: YamlChunkState = S::next(chunk, state, &mut error_mask);
-            state.process_chunk::<S>(&chunk_state);
-        }
-        let chunk = iter.remaining_chunk();
-        let chunk_state = S::next(&chunk, state, &mut error_mask);
-        state.process_chunk::<S>(&chunk_state);
-
-        if error_mask != 0 {
-            return Err(YamlError::Syntax);
-        }
-
-        Ok(())
-    }
-
-    // #[cfg(target_arch = "x86_64")]
-    // {
-    //     if is_x86_feature_detected!("avx2") {
-    //         // SAFETY: We have detected the feature is enabled at runtime,
-    //         // so it's safe to call this function.
-    //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
-    //     }
-    // }
-    fill_tape_inner::<NativeScanner, NoopValidator>(input.as_bytes(), state)
-}
-
-#[inline]
-fn get_fastest_dq_str<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
-    source: &S,
-    buffer: &mut B,
-    indent: i64,
-    event_listener: &mut E,
-) -> YamlResult<()> {
-    fn run_double_quote_inner<
-        's,
-        A: Stage2Scanner,
-        S: YamlSource<'s>,
-        B: YamlBuffer,
-        E: EventListener,
-    >() -> YamlResult<()> {
-        //TODO
-        Ok(())
-    }
-
-    // #[cfg(target_arch = "x86_64")]
-    // {
-    //     if is_x86_feature_detected!("avx2") {
-    //         // SAFETY: We have detected the feature is enabled at runtime,
-    //         // so it's safe to call this function.
-    //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
-    //     }
-    // }
-    run_double_quote_inner::<NativeScanner, S, B, E>()
-}
-
 enum TypeOfDoc {
     None,
     Implict,
@@ -199,15 +122,6 @@ where
     S: YamlSource<'s>,
     B: YamlBuffer,
 {
-    #[unsafe(no_mangle)]
-    pub fn unqo(input: &[u8]) -> bool {
-        let mut res = false;
-        for x in input.split(|x| *x == b'#') {
-            res &= x.contains(&b'#');
-        }
-        res
-    }
-
     let mut idx = 0usize;
     let mut indent = -1;
     let mut chr = b' ';
@@ -230,7 +144,7 @@ where
 
         match chr {
             b'"' => {
-                get_fastest_dq_str(&source, &mut buffer, indent, event_listener)?;
+                get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
             }
             b'-' => {
                 todo!("Implement start of sequence or start of document")
@@ -251,7 +165,7 @@ where
                 todo!("Implement block scalars")
             }
             b'\'' => {
-                todo!("Implement single quotes")
+                get_fast_single_quote(&source, &mut buffer, indent, event_listener)?;
             }
             b'.' => {
                 todo!("Implement dots (DOCUMENT END)")
