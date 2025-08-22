@@ -64,4 +64,4 @@ pub const HIGH_NIBBLE: [u8; 16] = [32, 0, 70, 9, 0, 16, 0, 16, 0, 0, 0, 0, 0, 0,
 pub type YamlResult<T> = Result<T, YamlError>;
 
 /// Iterator used to iterate over 64 byte chunks
-pub type ChunkyIterator<'a> = util::ChunkyIterator<'a>;
+pub type ChunkyIterWrap<'a> = util::ChunkyIterWrap<'a>;

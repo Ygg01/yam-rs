@@ -3,7 +3,7 @@ use crate::tokenizer::buffers::YamlSource;
 use crate::tokenizer::stage2::Stage2Scanner;
 use crate::util::NoopValidator;
 use crate::{
-    ChunkyIterator, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
+    ChunkyIterWrap, NativeScanner, Stage1Scanner, YamlBuffer, YamlChunkState, YamlError,
     YamlParserState, YamlResult,
 };
 use alloc::borrow::Cow;
@@ -97,7 +97,7 @@ fn get_fastest_stage1_impl(input: &str, state: &mut YamlParserState) -> YamlResu
     ) -> YamlResult<()> {
         let mut validator = unsafe { V::new() };
         let mut error_mask = 0;
-        let mut iter = ChunkyIterator::from_bytes(input);
+        let mut iter = ChunkyIterWrap::from_bytes(input);
 
         for chunk in iter.by_ref() {
             // Invariants:

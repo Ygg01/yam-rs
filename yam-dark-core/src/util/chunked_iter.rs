@@ -1,57 +1,40 @@
 #![allow(unused)]
 
-use core::intrinsics::copy;
-
-const EMPTY_CHUNK: [u8; 64] = [b' '; 64];
-
-pub struct ChunkyIterator<'a> {
-    bytes: &'a [u8],
-}
+use core::ptr::copy;
+use core::slice::ChunksExact;
 
 const CHUNK_SIZE: usize = 64;
+const EMPTY_CHUNK: [u8; CHUNK_SIZE] = [b' '; CHUNK_SIZE];
 
-impl<'a> Iterator for ChunkyIterator<'a> {
+/// Docs
+pub struct ChunkyIterWrap<'a> {
+    iter: ChunksExact<'a, u8>,
+}
+
+impl<'a> Iterator for ChunkyIterWrap<'a> {
     type Item = &'a [u8; 64];
 
-    #[inline]
-    fn next(&mut self) -> Option<&'a [u8; 64]> {
-        if self.bytes.len() < CHUNK_SIZE {
-            None
-        } else {
-            let (first, second) = self.bytes.split_at(CHUNK_SIZE);
-            self.bytes = second;
-            Some(unsafe { &*first.as_ptr().cast::<[u8; 64]>() })
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|chunk| unsafe { &*chunk.as_ptr().cast::<[u8; 64]>() })
+    }
+}
+
+impl<'a> ChunkyIterWrap<'a> {
+    pub fn from_bytes(bytes: &'a [u8]) -> ChunkyIterWrap<'a> {
+        ChunkyIterWrap {
+            iter: bytes.chunks_exact(CHUNK_SIZE),
         }
     }
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let n = self.bytes.len() / CHUNK_SIZE;
-        (n, Some(n))
-    }
+    pub fn remaining_chunk(&self) -> [u8; CHUNK_SIZE] {
+        let x = self.iter.remainder();
+        let mut last_chunk = [b' '; CHUNK_SIZE];
 
-    #[inline]
-    fn count(self) -> usize {
-        self.len()
-    }
-}
-
-impl<'a> ExactSizeIterator for ChunkyIterator<'a> {}
-
-impl ChunkyIterator<'_> {
-    pub fn from_bytes(bytes: &[u8]) -> ChunkyIterator {
-        ChunkyIterator { bytes }
-    }
-
-    pub fn remaining_chunk(&self) -> [u8; 64] {
-        let mut last_chunk = [b' '; 64];
-        if self.bytes.len() < 64 {
+        if x.len() < 64 {
             unsafe {
-                copy(
-                    self.bytes.as_ptr(),
-                    last_chunk.as_mut_ptr(),
-                    self.bytes.len(),
-                );
+                copy(x.as_ptr(), last_chunk.as_mut_ptr(), x.len());
             }
         }
 
@@ -64,7 +47,7 @@ fn test_chunk() {
     let a = [0u8; 64];
     let b = [1u8; 64];
     let x = [a, b].concat();
-    let mut iter = ChunkyIterator::from_bytes(&x);
+    let mut iter = ChunkyIterWrap::from_bytes(&x);
     assert_eq!(iter.next(), Some(&a));
     assert_eq!(iter.next(), Some(&b));
     assert_eq!(iter.next(), None);
@@ -76,7 +59,7 @@ fn test_chunk_rem() {
     let b = [1u8; 64];
     let mut x = [a, b].concat();
     x.push(3);
-    let mut iter = ChunkyIterator::from_bytes(&x);
+    let mut iter = ChunkyIterWrap::from_bytes(&x);
     assert_eq!(iter.next(), Some(&a));
     assert_eq!(iter.next(), Some(&b));
 
@@ -92,7 +75,7 @@ fn test_chunk_rem_minus() {
     let b = [1u8; 64];
     let mut x = [a, b].concat();
     x.drain(67..);
-    let mut iter = ChunkyIterator::from_bytes(&x);
+    let mut iter = ChunkyIterWrap::from_bytes(&x);
     assert_eq!(iter.next(), Some(&a));
 
     let mut c = [b' '; 64];

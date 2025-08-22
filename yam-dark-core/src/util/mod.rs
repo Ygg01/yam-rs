@@ -8,7 +8,8 @@ use core::fmt::Write;
 use core::{mem, ptr};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-pub(crate) use chunked_iter::ChunkyIterator;
+pub(crate) use chunked_iter::ChunkyIterWrap;
+
 pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
 pub use table::{U8_BYTE_COL_TABLE, U8_ROW_TABLE};
 

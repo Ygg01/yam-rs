@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use std::hint::black_box;
 
-use yam_dark_core::ChunkyIterator;
+use yam_dark_core::ChunkyIterWrap;
 
 const BYTE: [u8; 1024] = [
     0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
@@ -48,16 +48,6 @@ const BYTE: [u8; 1024] = [
     56, 57, 58, 59, 60, 61, 62, 67,
 ];
 
-fn chunky_iter(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bench-iter");
-    group.significance_level(0.05).sample_size(100);
-    group.throughput(Throughput::Bytes(BYTE.len() as u64));
-    group.bench_function("bench_chunky", |b| {
-        b.iter(|| black_box(ChunkyIterator::from_bytes(&BYTE).filter(|x| x[0] > 5)));
-    });
-    group.finish();
-}
-
 fn bytes_iter(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-iter");
     group.significance_level(0.05).sample_size(100);
@@ -73,10 +63,10 @@ fn chunks_iter(c: &mut Criterion) {
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(BYTE.len() as u64));
     group.bench_function("chunks_iter", |b| {
-        b.iter(|| black_box(BYTE.chunks_exact(64).filter(|x| x[0] > 5)));
+        b.iter(|| black_box(ChunkyIterWrap::from_bytes(&BYTE).filter(|x| x[0] > 5)));
     });
     group.finish();
 }
 
-criterion_group!(benches, chunky_iter, bytes_iter, chunks_iter);
+criterion_group!(benches, bytes_iter, chunks_iter);
 criterion_main!(benches);
