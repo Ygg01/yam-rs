@@ -175,8 +175,8 @@ fn test_parsing_basic_processing1() {
     let mut state = YamlParserState::default();
     let mut chunk_iter = ChunkyIterWrap::from_bytes(input.as_bytes());
 
-    let chunk = chunk_iter.next().expect("Missing chunk!");
-    let chunk_state = NativeScanner::next(chunk, &mut state, &mut 0);
+    let chunk = chunk_iter.remaining_chunk();
+    let chunk_state = NativeScanner::next(&chunk, &mut state, &mut 0);
     state.process_chunk::<NativeScanner>(&chunk_state);
 
     let expected_structurals = vec![9usize];

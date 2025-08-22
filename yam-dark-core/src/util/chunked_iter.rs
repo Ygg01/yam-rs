@@ -65,7 +65,6 @@ fn test_chunk_rem() {
 
     let mut c = [b' '; 64];
     c[0] = 3;
-    assert_eq!(iter.next(), Some(&c));
     assert_eq!(iter.next(), None);
 }
 
@@ -82,6 +81,5 @@ fn test_chunk_rem_minus() {
     c[0] = 1;
     c[1] = 1;
     c[2] = 1;
-    assert_eq!(iter.next(), Some(&c));
     assert_eq!(iter.next(), None);
 }

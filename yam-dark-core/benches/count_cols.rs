@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use std::hint::black_box;
 
 use yam_dark_core::util::{calculate_byte_rows, calculate_cols, U8_BYTE_COL_TABLE, U8_ROW_TABLE};
-use yam_dark_core::{u8x64_eq, ChunkyIterator};
+use yam_dark_core::{u8x64_eq, ChunkyIterWrap};
 
 const YAML: &[u8] = r#"
    a: b                      
@@ -597,7 +597,7 @@ fn col_count_all_naive(c: &mut Criterion) {
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(64 * 2));
 
-    let mut chunk_iter = ChunkyIterator::from_bytes(YAML);
+    let mut chunk_iter = ChunkyIterWrap::from_bytes(YAML);
     let chunk = chunk_iter.next().unwrap();
     let newline_mask = u8x64_eq(chunk, b'\n');
     let space_mask = u8x64_eq(chunk, b' ');
