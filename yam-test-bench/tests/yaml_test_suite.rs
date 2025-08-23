@@ -37,7 +37,7 @@ fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
             is_error = true;
             break;
         }
-        write!(actual_event, "{:}", ev)?;
+        write!(actual_event, "{ev:}")?;
         actual_event.push_str("\r\n");
     }
     if !is_error {

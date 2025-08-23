@@ -427,8 +427,15 @@ pub unsafe trait Stage1Scanner {
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
         simd.scan_for_comments(&mut characters, prev_iter_state);
 
-        let double_quotes = simd.scan_double_quote_bitmask(prev_iter_state);
-        let single_quotes = simd.scan_single_quote_bitmask(prev_iter_state);
+        let mut double_quotes = simd.scan_double_quote_bitmask(prev_iter_state);
+        let mut single_quotes = simd.scan_single_quote_bitmask(prev_iter_state);
+
+        fix_quotes_starts(
+            &mut characters,
+            &mut double_quotes,
+            &mut single_quotes,
+            prev_iter_state,
+        );
 
         YamlChunkState::new_from_parts(single_quotes, double_quotes, characters)
     }
@@ -455,11 +462,8 @@ pub unsafe trait Stage1Scanner {
         let comment_start = (character & shifted_spaces) | u64::from(parser_state.is_in_comment);
         let not_whitespace = !chunk.line_feeds;
 
+        chunk.comment_start = comment_start;
         chunk.in_comment = fast_select_high_bits(not_whitespace, comment_start);
-
-        // Update values for the next iteration.
-        parser_state.is_in_comment = chunk.in_comment >> 63 == 1;
-        parser_state.is_previous_white_space = (chunk.spaces >> 63) == 1;
     }
 
     /// Returns a bitmask indicating where there are characters that end an odd-length sequence
@@ -574,7 +578,6 @@ pub unsafe trait Stage1Scanner {
         single_quote.in_string = in_string;
         single_quote.quote_bits = quote_starts | quote_ends << 1;
         single_quote.quote_starts = quote_starts;
-        single_quote.escaped_quotes = quotes ^ single_quote.quote_bits;
 
         single_quote
     }
@@ -629,7 +632,6 @@ pub unsafe trait Stage1Scanner {
     ///  let scanner = NativeScanner::from_chunk(chunk);
     ///  let result = scanner.scan_double_quote_bitmask(&mut prev_iter_state);
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000010010;
-    ///  assert_eq!(result.quote_bits, expected)
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_double_quote_bitmask(
@@ -641,11 +643,11 @@ pub unsafe trait Stage1Scanner {
         let odds_ends =
             Self::scan_for_mask(self.cmp_ascii_to_input(b'\\'), prev_iteration_odd, OddBits);
 
-        double_quote.quote_bits = self.cmp_ascii_to_input(b'"');
-        double_quote.quote_bits &= !odds_ends;
+        let mut quote_bits = self.cmp_ascii_to_input(b'"');
+        quote_bits &= !odds_ends;
 
         // remove from the valid quoted region the unescaped characters.
-        let mut quote_mask: u64 = Self::compute_quote_mask(double_quote.quote_bits);
+        let mut quote_mask: u64 = Self::compute_quote_mask(quote_bits);
         quote_mask ^= prev_iter_state.prev_iter_inside_quote;
 
         // All Unicode characters may be placed within the
@@ -662,8 +664,45 @@ pub unsafe trait Stage1Scanner {
 
         double_quote.in_string = quote_mask;
         double_quote.quote_starts = quote_mask & !(quote_mask << 1);
-        double_quote.escaped = odds_ends;
 
         double_quote
     }
+}
+/// Helper method for figuring out which of quotes/comments is shadowing which.
+/// Doesn't help with block scalars, but they are a separate problem.
+fn fix_quotes_starts(
+    characters: &mut YamlCharacterChunk,
+    double_quote: &mut YamlDoubleQuoteChunk,
+    single_quote: &mut YamlSingleQuoteChunk,
+    parser_state: &mut YamlParserState,
+) {
+    let non_comments = !(double_quote.in_string | single_quote.in_string);
+    let non_single_quote = !(double_quote.in_string | characters.in_comment);
+    let non_double_quote = !(single_quote.in_string | characters.in_comment);
+
+    characters.comment_start &= non_comments;
+    double_quote.quote_starts &= non_double_quote;
+    single_quote.quote_starts &= non_single_quote;
+
+    characters.in_comment = fast_select_high_bits(characters.in_comment, characters.comment_start);
+    double_quote.in_string = fast_select_high_bits(double_quote.in_string, double_quote.in_string);
+    single_quote.in_string = fast_select_high_bits(single_quote.in_string, single_quote.in_string);
+
+    // Update for next iteration
+    parser_state.is_in_comment = characters.in_comment >> 63 == 1;
+    parser_state.is_previous_white_space = (characters.spaces >> 63) == 1;
+
+    // Filter structurals in comments/quotes/double-quotes
+    let exclude_quote_comment =
+        !(characters.in_comment | single_quote.in_string | double_quote.in_string);
+    characters.flow_structurals &= exclude_quote_comment;
+    characters.block_structurals &= exclude_quote_comment;
+
+    // Unquoted possible start
+    let non_white_space_starts = !characters.whitespace & (characters.whitespace << 1);
+    let non_structurals = !(characters.flow_structurals | characters.block_structurals);
+    let possible_blocks = fast_select_low_bits(non_structurals, non_white_space_starts);
+    characters.in_unquoted_scalars = fast_select_high_bits(possible_blocks, non_white_space_starts);
+    characters.unquoted_scalars_starts =
+        characters.in_unquoted_scalars & !(characters.in_unquoted_scalars << 1);
 }
