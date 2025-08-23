@@ -154,7 +154,7 @@ pub unsafe trait Stage2Scanner {
 }
 
 impl YamlParserState {
-    pub(crate) fn process_chunk<S>(&mut self, chunk_state: &YamlChunkState)
+    pub fn process_chunk<S>(&mut self, chunk_state: &YamlChunkState)
     where
         S: Stage1Scanner,
     {

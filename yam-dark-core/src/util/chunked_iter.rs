@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-use core::ptr::copy;
 use core::slice::ChunksExact;
 
 const CHUNK_SIZE: usize = 64;
@@ -29,14 +28,14 @@ impl<'a> ChunkyIterWrap<'a> {
     }
 
     pub fn remaining_chunk(&self) -> [u8; CHUNK_SIZE] {
-        let x = self.iter.remainder();
+        let remainder = self.iter.remainder();
         let mut last_chunk = [b' '; CHUNK_SIZE];
 
-        if x.len() < 64 {
-            unsafe {
-                copy(x.as_ptr(), last_chunk.as_mut_ptr(), x.len());
-            }
-        }
+        unsafe {
+            last_chunk
+                .as_mut_ptr()
+                .copy_from(remainder.as_ptr(), remainder.len());
+        };
 
         last_chunk
     }

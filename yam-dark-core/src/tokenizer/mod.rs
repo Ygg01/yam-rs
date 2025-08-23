@@ -3,12 +3,10 @@ use crate::tokenizer::buffers::YamlSource;
 use crate::tokenizer::fast_impl::{
     get_fast_double_quote, get_fast_single_quote, get_fastest_stage1_impl,
 };
-use crate::tokenizer::stage2::Stage2Scanner;
-use crate::{Stage1Scanner, YamlBuffer, YamlError, YamlParserState, YamlResult};
+use crate::{YamlBuffer, YamlError, YamlParserState, YamlResult};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-use simdutf8::basic::imp::ChunkedUtf8Validator;
 use yam_common::Mark;
 
 pub(crate) mod buffers;

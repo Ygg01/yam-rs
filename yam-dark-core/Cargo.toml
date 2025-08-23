@@ -46,3 +46,7 @@ harness = false
 [[bench]]
 name = "count_quotes"
 harness = false
+
+[[bench]]
+name = "stage1"
+harness = false
