@@ -8,7 +8,7 @@ use core::fmt::Write;
 use core::{mem, ptr};
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-pub(crate) use chunked_iter::ChunkyIterWrap;
+pub(crate) use chunked_iter::ChunkArrayIter;
 
 pub use native::{mask_merge, u8x16_swizzle, u8x64_eq, u8x64_lteq, U8X16};
 pub use table::{U8_BYTE_COL_TABLE, U8_ROW_TABLE};
@@ -43,9 +43,10 @@ impl ChunkedUtf8Validator for NoopValidator {
     }
 }
 
-#[cfg(test)]
+#[doc(hidden)]
+#[must_use]
 /// Used for tests
-pub(crate) fn str_to_chunk(s: &str) -> [u8; 64] {
+pub fn str_to_chunk(s: &str) -> [u8; 64] {
     let mut chunk = [b' '; 64];
     chunk[0..s.len()].copy_from_slice(s.as_bytes());
     chunk

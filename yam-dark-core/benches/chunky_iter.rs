@@ -68,5 +68,15 @@ fn chunks_iter(c: &mut Criterion) {
     group.finish();
 }
 
+// fn chunks_array_iter(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("bench-iter");
+//     group.significance_level(0.05).sample_size(100);
+//     group.throughput(Throughput::Bytes(BYTE.len() as u64));
+//     group.bench_function("chunks_array_iter", |b| {
+//         b.iter(|| black_box(ChunkArrayIter::from_bytes(&BYTE).filter(|x| x[0] > 5)));
+//     });
+//     group.finish();
+// }
+
 criterion_group!(benches, bytes_iter, chunks_iter);
 criterion_main!(benches);

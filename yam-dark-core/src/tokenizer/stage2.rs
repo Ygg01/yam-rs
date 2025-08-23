@@ -24,6 +24,7 @@
 
 use crate::impls::NativeScanner;
 use crate::tokenizer::stage1::Stage1Scanner;
+use crate::util::str_to_chunk;
 use crate::{ChunkyIterWrap, YamlChunkState};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
@@ -173,10 +174,11 @@ fn test_parsing_basic_processing1() {
         "test"
     "#;
     let mut state = YamlParserState::default();
-    let mut chunk_iter = ChunkyIterWrap::from_bytes(input.as_bytes());
+    let wrap = str_to_chunk(input);
+    let mut chunk_iter = ChunkyIterWrap::from_bytes(&wrap);
 
-    let chunk = chunk_iter.remaining_chunk();
-    let chunk_state = NativeScanner::next(&chunk, &mut state, &mut 0);
+    let chunk = chunk_iter.next().expect("Expected a chunk");
+    let chunk_state = NativeScanner::next(chunk, &mut state, &mut 0);
     state.process_chunk::<NativeScanner>(&chunk_state);
 
     let expected_structurals = vec![9usize];

@@ -1,6 +1,8 @@
 #![warn(clippy::pedantic, missing_docs)]
 #![allow(clippy::too_many_arguments, clippy::module_name_repetitions)]
 #![no_std]
+// TEMP allow
+#![allow(unused, missing_docs)]
 
 //! SIMD enhanced YAML parser for Rust
 
@@ -64,4 +66,4 @@ pub const HIGH_NIBBLE: [u8; 16] = [32, 0, 70, 9, 0, 16, 0, 16, 0, 0, 0, 0, 0, 0,
 pub type YamlResult<T> = Result<T, YamlError>;
 
 /// Iterator used to iterate over 64 byte chunks
-pub type ChunkyIterWrap<'a> = util::ChunkyIterWrap<'a>;
+pub type ChunkyIterWrap<'a> = util::ChunkArrayIter<'a>;

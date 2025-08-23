@@ -39,9 +39,11 @@ fn bench_stage1(c: &mut Criterion) {
                 let chunk_state: YamlChunkState = NativeScanner::next(chunk, &mut state, &mut 0);
                 state.process_chunk::<NativeScanner>(&chunk_state);
             }
-            let chunk_state: YamlChunkState =
-                NativeScanner::next(&iter.remaining_chunk(), &mut state, &mut 0);
-            state.process_chunk::<NativeScanner>(&chunk_state);
+            for chr in iter.remainder() {
+                if *chr == b'x' {
+                    state.structurals.push(4)
+                }
+            }
             black_box(!state.structurals.is_empty());
         });
     });

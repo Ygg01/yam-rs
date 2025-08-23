@@ -33,9 +33,9 @@ pub(crate) fn get_fastest_stage1_impl(input: &str, state: &mut YamlParserState) 
             let chunk_state: YamlChunkState = S::next(chunk, state, &mut error_mask);
             state.process_chunk::<S>(&chunk_state);
         }
-        let chunk = iter.remaining_chunk();
-        let chunk_state = S::next(&chunk, state, &mut error_mask);
-        state.process_chunk::<S>(&chunk_state);
+        // let chunk = iter.remaining_chunk();
+        // let chunk_state = S::next(&chunk, state, &mut error_mask);
+        // state.process_chunk::<S>(&chunk_state);
 
         if error_mask != 0 {
             return Err(YamlError::Syntax);
