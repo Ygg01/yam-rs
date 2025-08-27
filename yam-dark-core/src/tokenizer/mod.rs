@@ -1,17 +1,17 @@
 use crate::tape::{EventListener, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
-use crate::tokenizer::fast_impl::{
-    get_fast_double_quote, get_fast_single_quote, get_fastest_stage1_impl,
-};
-use crate::{YamlBuffer, YamlError, YamlParserState, YamlResult};
+use crate::tokenizer::stage1::get_fastest_stage1_impl;
+use crate::tokenizer::stage2::{get_fast_double_quote, get_fast_single_quote};
+use crate::{Stage1Scanner, YamlBuffer, YamlError, YamlResult};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use yam_common::Mark;
 
+pub use crate::tokenizer::parser::YamlParserState;
 pub(crate) mod buffers;
 pub(crate) mod chunk;
-mod fast_impl;
+mod parser;
 pub(crate) mod stage1;
 pub(crate) mod stage2;
 
@@ -144,6 +144,9 @@ where
             b'"' => {
                 get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
             }
+            b'\'' => {
+                get_fast_single_quote(&source, &mut buffer, indent, event_listener)?;
+            }
             b'-' => {
                 todo!("Implement start of sequence or start of document")
             }
@@ -162,9 +165,7 @@ where
             b'>' | b'|' => {
                 todo!("Implement block scalars")
             }
-            b'\'' => {
-                get_fast_single_quote(&source, &mut buffer, indent, event_listener)?;
-            }
+
             b'.' => {
                 todo!("Implement dots (DOCUMENT END)")
             }

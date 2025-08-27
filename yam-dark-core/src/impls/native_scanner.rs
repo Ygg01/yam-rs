@@ -1,8 +1,9 @@
 use crate::tokenizer::stage1::Stage1Scanner;
 use crate::tokenizer::stage2::Stage2Scanner;
+use crate::tokenizer::YamlParserState;
 use crate::util::NoopValidator;
 use crate::util::{u8x64_eq, u8x64_lteq, U8X16};
-use crate::{util, YamlCharacterChunk, YamlChunkState, YamlParserState, HIGH_NIBBLE, LOW_NIBBLE};
+use crate::{util, YamlCharacterChunk, YamlChunkState, HIGH_NIBBLE, LOW_NIBBLE};
 #[allow(unused_imports)]
 use alloc::vec;
 #[allow(unused_imports)]

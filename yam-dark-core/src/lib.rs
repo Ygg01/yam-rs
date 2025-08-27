@@ -22,7 +22,8 @@ pub use tape::EventListener;
 pub(crate) use tokenizer::buffers::YamlBuffer;
 pub use tokenizer::run_tape_to_end;
 pub use tokenizer::stage1::Stage1Scanner;
-pub use tokenizer::stage2::{YamlIndentInfo, YamlParserState};
+pub use tokenizer::stage2::YamlIndentInfo;
+pub use tokenizer::YamlParserState;
 
 pub mod impls;
 mod tape;

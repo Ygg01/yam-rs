@@ -1,5 +1,5 @@
 #[allow(unused_imports)] // imports are used in tests
-use crate::{u8x64_eq, NativeScanner, Stage1Scanner, YamlParserState};
+use crate::{u8x64_eq, NativeScanner, Stage1Scanner};
 
 /// Represents the state of YAML chunk processing.
 ///
@@ -195,8 +195,9 @@ impl YamlCharacterChunk {
 #[cfg(test)]
 mod test {
     use crate::tokenizer::stage1::Stage1Scanner;
+    use crate::tokenizer::YamlParserState;
     use crate::util::str_to_chunk;
-    use crate::{assert_bin_eq, NativeScanner, YamlParserState};
+    use crate::{assert_bin_eq, NativeScanner};
     use alloc::vec;
     use alloc::vec::Vec;
     use rstest::rstest;
