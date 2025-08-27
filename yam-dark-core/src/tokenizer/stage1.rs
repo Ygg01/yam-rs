@@ -41,6 +41,7 @@ use EvenOrOddBits::OddBits;
 //     state: &'input mut YamlParserState,
 // ) -> YamlChunkState;
 
+#[doc(hidden)]
 /// A trait representing a stage 1 scanner for parsing `YAML` input.
 ///
 /// This trait provides methods for validating and scanning chunks of data and finding important

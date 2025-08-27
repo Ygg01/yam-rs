@@ -138,7 +138,8 @@ impl Default for YamlIndentInfo {
         }
     }
 }
-
+#[doc(hidden)]
+/// TODO docs and Safety guarantees
 pub unsafe trait Stage2Scanner {
     fn parse_double_quote(input: &[u8], state: YamlParserState) -> Mark {
         Mark { start: 0, end: 0 }
