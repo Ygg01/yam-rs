@@ -25,7 +25,7 @@
 use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::stage1::Stage1Scanner;
-use crate::util::str_to_chunk;
+use crate::util::{str_to_chunk, ChunkArrayIter};
 use crate::{ChunkyIterWrap, EventListener, YamlParserState};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
@@ -64,7 +64,7 @@ pub unsafe trait Stage2Scanner {
     fn parse_double_quote(input: &[u8], state: YamlParserState) -> Mark {
         Mark { start: 0, end: 0 }
     }
-    fn parse_single_quote(input: &[u8], state: YamlParserState) -> Mark {
+    fn parse_single_quote(input: &[u8; 64]) -> Mark {
         Mark { start: 0, end: 0 }
     }
     fn parse_block_string(input: &[u8], state: YamlParserState) -> Mark {
@@ -108,20 +108,11 @@ pub(crate) fn get_fast_double_quote<'s, S: YamlSource<'s>, B: YamlBuffer, E: Eve
 pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: EventListener>(
     source: &YS,
     buffer: &mut YB,
-    indent: i64,
     event_listener: &mut EL,
+    indent: u32,
+    source_start: &mut usize,
+    source_end: usize,
 ) -> YamlResult<()> {
-    fn run_double_quote_inner<
-        's,
-        S2: Stage2Scanner,
-        YS: YamlSource<'s>,
-        YB: YamlBuffer,
-        EL: EventListener,
-    >() -> YamlResult<()> {
-        //TODO
-        Ok(())
-    }
-
     // #[cfg(target_arch = "x86_64")]
     // {
     //     if is_x86_feature_detected!("avx2") {
@@ -130,41 +121,63 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: 
     //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
     //     }
     // }
-    run_single_quote_inner::<NativeScanner, YS, YB, EL>()
+    run_single_quote_inner::<NativeScanner, YS, YB, EL>(
+        source,
+        buffer,
+        event_listener,
+        indent,
+        source_start,
+        source_end,
+    )
 }
-
+#[inline]
 fn run_single_quote_inner<
     's,
     S2: Stage2Scanner,
     YS: YamlSource<'s>,
     YB: YamlBuffer,
     EL: EventListener,
->(// source: &YS,
-    // buffer: &mut YB,
-    // event_listener: &mut EL,
+>(
+    source: &YS,
+    buffer: &mut YB,
+    event_listener: &mut EL,
+    indent: u32,
+    source_start: &mut usize,
+    source_end: usize,
 ) -> YamlResult<()> {
+    // SAFETY: The Stage1Scanner must always return a correct index within the code.
+    let mut chunk_iter = ChunkArrayIter::from_bytes(unsafe {
+        source.get_span_unsafely(Mark {
+            start: *source_start,
+            end: source_end,
+        })
+    });
+    for x in chunk_iter.by_ref() {
+        // S2::parse_single_quote()
+    }
+
     todo!()
 }
 
-#[inline]
-pub(crate) fn get_fast_block_scalar<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
-    source: &S,
-    buffer: &mut B,
-    indent: i64,
-    event_listener: &mut E,
-) -> YamlResult<()> {
-    Ok(())
-}
-
-#[inline]
-pub(crate) fn get_fast_unquoted_scalar<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
-    source: &S,
-    buffer: &mut B,
-    indent: i64,
-    event_listener: &mut E,
-) -> YamlResult<()> {
-    Ok(())
-}
+// #[inline]
+// pub(crate) fn get_fast_block_scalar<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
+//     source: &S,
+//     buffer: &mut B,
+//     indent: i64,
+//     event_listener: &mut E,
+// ) -> YamlResult<()> {
+//     Ok(())
+// }
+//
+// #[inline]
+// pub(crate) fn get_fast_unquoted_scalar<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
+//     source: &S,
+//     buffer: &mut B,
+//     indent: i64,
+//     event_listener: &mut E,
+// ) -> YamlResult<()> {
+//     Ok(())
+// }
 
 #[test]
 fn test_parsing_basic_processing1() {

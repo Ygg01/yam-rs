@@ -327,7 +327,7 @@ pub unsafe trait Stage1Scanner {
                 // Invariants:
                 // 0. `indents.as_mut_ptr()` must be valid for `writes_bytes` of up to len size
                 // 1. `indents.as_mut_ptr()` must be correctly aligned
-                // 2. the bytes written are correctly interpreted elsewhere (they will be casted to u32 which is safe).
+                // 2. the bytes written are correctly interpreted elsewhere (they will be cast to u32 which is safe).
                 // 3. `pos` must fit in `isize`.
                 // 4. `self` must be derived from a provenance pointer, and all ranges must be in bounds.
                 //
@@ -415,7 +415,7 @@ pub unsafe trait Stage1Scanner {
     /// Returns the Result that returns an error if it encounters a parse error or [`YamlChunkState`].
     /// [`YamlChunkState`] stores current iteration information and is merged on each [`Stage1Scanner::next`]
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next<'de>(
+    fn next(
         chunk: &[u8; 64],
         prev_iter_state: &mut YamlParserState,
         error_mask: &mut u64,
@@ -542,8 +542,7 @@ pub unsafe trait Stage1Scanner {
     /// # Example
     ///
     /// ```rust
-    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState};
-    ///  use yam_dark_core::
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
     ///
     ///  let mut prev_iter_state = YamlParserState::default();
     ///

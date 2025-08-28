@@ -1,14 +1,13 @@
 use crate::tape::{EventListener, MarkedNode, Node};
 use crate::tokenizer::buffers::YamlSource;
+use crate::tokenizer::parser::run_state_machine;
+pub use crate::tokenizer::parser::YamlParserState;
 use crate::tokenizer::stage1::get_fastest_stage1_impl;
-use crate::tokenizer::stage2::{get_fast_double_quote, get_fast_single_quote};
 use crate::{Stage1Scanner, YamlBuffer, YamlError, YamlResult};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use yam_common::Mark;
-
-pub use crate::tokenizer::parser::YamlParserState;
 pub(crate) mod buffers;
 pub(crate) mod chunk;
 mod parser;
@@ -84,100 +83,5 @@ pub fn run_tape_to_end<E: EventListener>(
 ) -> Result<(), YamlError> {
     get_fastest_stage1_impl(input, state)?;
     run_state_machine(state, event_listener, input.as_bytes(), ())?;
-    Ok(())
-}
-
-enum TypeOfDoc {
-    None,
-    Implict,
-    Explict,
-}
-
-impl TypeOfDoc {}
-
-enum YamlState {
-    SingleQuoted,
-    DoubleQuoted,
-    UnQuoted,
-    BlockString { is_folded: bool },
-    FlowArray,
-    FlowMap,
-    BlockMap,
-    Minus,
-    QuestionMark,
-    Colon,
-    OneDot,
-}
-
-fn run_state_machine<'de, 's: 'de, S, B>(
-    parser_state: &mut YamlParserState,
-    event_listener: &mut impl EventListener,
-    source: S,
-    mut buffer: B,
-) -> YamlResult<()>
-where
-    // E: EventListener<EventListener::Value=&'de [u8]>,
-    S: YamlSource<'s>,
-    B: YamlBuffer,
-{
-    let mut idx = 0usize;
-    let mut indent = -1;
-    let mut chr = b' ';
-    let mut i = 0usize;
-
-    macro_rules! update_char {
-        () => {
-            if i < parser_state.structurals.len() {
-                idx = unsafe { *parser_state.structurals.get_unchecked(i) };
-                i += 1;
-                chr = unsafe { source.get_u8_unchecked(idx) }
-            } else {
-                break;
-            }
-        };
-    }
-
-    loop {
-        update_char!();
-
-        match chr {
-            b'"' => {
-                get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
-            }
-            b'\'' => {
-                get_fast_single_quote(&source, &mut buffer, indent, event_listener)?;
-            }
-            b'-' => {
-                todo!("Implement start of sequence or start of document")
-            }
-            b'[' => {
-                todo!("Implement start of flow seq")
-            }
-            b'{' => {
-                todo!("Implement start of map states")
-            }
-            b'?' => {
-                todo!("Implement explicit map states")
-            }
-            b':' => {
-                todo!("Implement map states")
-            }
-            b'>' | b'|' => {
-                todo!("Implement block scalars")
-            }
-
-            b'.' => {
-                todo!("Implement dots (DOCUMENT END)")
-            }
-            _ => {
-                todo!("Implement others")
-            }
-        }
-    }
-
-    if !source.has_more() {
-        return Err(YamlError::Syntax);
-    }
-
     Ok(())
 }

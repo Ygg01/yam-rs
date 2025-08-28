@@ -1,4 +1,6 @@
-use crate::{Stage1Scanner, YamlChunkState, YamlResult};
+use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
+use crate::tokenizer::stage2::get_fast_single_quote;
+use crate::{EventListener, Stage1Scanner, YamlChunkState, YamlError, YamlResult};
 use alloc::vec::Vec;
 
 /// Represents the internal state of a YAML parser.
@@ -93,4 +95,121 @@ impl YamlParserState {
     pub(crate) fn next_state() -> YamlResult<()> {
         todo!()
     }
+}
+
+enum TypeOfDoc {
+    None,
+    Implict,
+    Explict,
+}
+
+impl TypeOfDoc {}
+
+enum YamlState {
+    SingleQuoted,
+    DoubleQuoted,
+    UnQuoted,
+    BlockString { is_folded: bool },
+    FlowArray,
+    FlowMap,
+    BlockMap,
+    Minus,
+    QuestionMark,
+    Colon,
+    OneDot,
+}
+
+pub(crate) fn run_state_machine<'de, 's: 'de, S, B>(
+    parser_state: &mut YamlParserState,
+    event_listener: &mut impl EventListener,
+    source: S,
+    mut buffer: B,
+) -> YamlResult<()>
+where
+    // E: EventListener<EventListener::Value=&'de [u8]>,
+    S: YamlSource<'s>,
+    B: YamlBuffer,
+{
+    let mut idx = 0usize;
+    let mut next_idx = 0usize;
+    let mut indent = 0;
+    let mut chr = b' ';
+    let mut i = 0usize;
+    let max_idx = parser_state.structurals.len() - 1;
+
+    macro_rules! update_char {
+        () => {
+            if i < parser_state.structurals.len() {
+                // SAFETY: Safety of `get_unchecked` relies on implementation of Stage1Scanner.
+                idx = unsafe { *parser_state.structurals.get_unchecked(i) };
+                i += 1;
+                // SAFETY: Safety of `get_unchecked` relies on implementation of Stage1Scanner.
+                chr = unsafe { source.get_u8_unchecked(idx) }
+            } else {
+                break;
+            }
+        };
+    }
+
+    macro_rules! branchless_min {
+        (<$t:ty>, $x:expr, $y:expr) => {
+            $y ^ (($x ^ $y) & (if $x < $y { <$t>::MAX } else { <$t>::MIN }))
+        };
+    }
+
+    loop {
+        update_char!();
+
+        match chr {
+            b'"' => {
+                // get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
+            }
+            b'\'' => {
+                let next_idx = unsafe {
+                    *parser_state
+                        .structurals
+                        .get_unchecked(branchless_min!(<usize>, i + 1, max_idx))
+                };
+                get_fast_single_quote(
+                    &source,
+                    &mut buffer,
+                    event_listener,
+                    indent,
+                    &mut idx,
+                    next_idx,
+                )?;
+            }
+            b'-' => {
+                todo!("Implement start of sequence or start of document")
+            }
+            b'[' => {
+                todo!("Implement start of flow seq")
+            }
+            b'{' => {
+                todo!("Implement start of map states")
+            }
+            b'?' => {
+                todo!("Implement explicit map states")
+            }
+            b':' => {
+                todo!("Implement map states")
+            }
+            b'>' | b'|' => {
+                todo!("Implement block scalars")
+            }
+
+            b'.' => {
+                todo!("Implement dots (DOCUMENT END)")
+            }
+            _ => {
+                todo!("Implement others")
+            }
+        }
+    }
+
+    if !source.has_more() {
+        return Err(YamlError::Syntax);
+    }
+
+    Ok(())
 }
