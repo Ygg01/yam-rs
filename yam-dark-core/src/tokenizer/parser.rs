@@ -3,6 +3,22 @@ use crate::tokenizer::stage2::get_fast_single_quote;
 use crate::{EventListener, Stage1Scanner, YamlChunkState, YamlError, YamlResult};
 use alloc::vec::Vec;
 
+#[derive(Default)]
+pub struct ChunkIterState {
+    // Previous chunk fields
+    pub(crate) last_indent: u32,
+    pub(crate) last_col: u32,
+    pub(crate) last_row: u32,
+    pub(crate) previous_indent: u32,
+    pub(crate) prev_iter_inside_quote: u64,
+    pub(crate) is_indent_running: bool,
+    pub(crate) is_previous_white_space: bool,
+    pub(crate) is_prev_iter_odd_single_quote: bool,
+    pub(crate) is_prev_double_quotes: bool,
+    pub(crate) is_in_comment: bool,
+    pub(crate) pos: usize,
+}
+
 /// Represents the internal state of a YAML parser.
 ///
 /// The `YamlParserState` struct is used to track the parser's state as it processes
@@ -56,18 +72,7 @@ pub struct YamlParserState {
 
     /// Position of head in the parser state
     pub pos: usize,
-
-    // Previous chunk fields
-    pub(crate) last_indent: u32,
-    pub(crate) last_col: u32,
-    pub(crate) last_row: u32,
-    pub(crate) previous_indent: u32,
-    pub(crate) prev_iter_inside_quote: u64,
-    pub(crate) is_indent_running: bool,
-    pub(crate) is_previous_white_space: bool,
-    pub(crate) is_prev_iter_odd_single_quote: bool,
-    pub(crate) is_prev_double_quotes: bool,
-    pub(crate) is_in_comment: bool,
+    // pub(crate) chunk_iter_fields: ChunkIterState,
 }
 
 #[derive(Debug, Default)]
@@ -151,12 +156,6 @@ where
         };
     }
 
-    macro_rules! branchless_min {
-        (<$t:ty>, $x:expr, $y:expr) => {
-            $y ^ (($x ^ $y) & (if $x < $y { <$t>::MAX } else { <$t>::MIN }))
-        };
-    }
-
     loop {
         update_char!();
 
@@ -165,19 +164,7 @@ where
                 // get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
             }
             b'\'' => {
-                let next_idx = unsafe {
-                    *parser_state
-                        .structurals
-                        .get_unchecked(branchless_min!(<usize>, i + 1, max_idx))
-                };
-                get_fast_single_quote(
-                    &source,
-                    &mut buffer,
-                    event_listener,
-                    indent,
-                    &mut idx,
-                    next_idx,
-                )?;
+                get_fast_single_quote(&source, &mut buffer, event_listener, parser_state)?;
             }
             b'-' => {
                 todo!("Implement start of sequence or start of document")

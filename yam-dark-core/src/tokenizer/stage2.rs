@@ -24,8 +24,9 @@
 
 use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
+use crate::tokenizer::parser::ChunkIterState;
 use crate::tokenizer::stage1::Stage1Scanner;
-use crate::util::{str_to_chunk, ChunkArrayIter};
+use crate::util::str_to_chunk;
 use crate::{ChunkyIterWrap, EventListener, YamlParserState};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
@@ -109,9 +110,7 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: 
     source: &YS,
     buffer: &mut YB,
     event_listener: &mut EL,
-    indent: u32,
-    source_start: &mut usize,
-    source_end: usize,
+    state: &mut YamlParserState,
 ) -> YamlResult<()> {
     // #[cfg(target_arch = "x86_64")]
     // {
@@ -121,14 +120,7 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: 
     //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
     //     }
     // }
-    run_single_quote_inner::<NativeScanner, YS, YB, EL>(
-        source,
-        buffer,
-        event_listener,
-        indent,
-        source_start,
-        source_end,
-    )
+    run_single_quote_inner::<NativeScanner, YS, YB, EL>(source, buffer, event_listener, state)
 }
 #[inline]
 fn run_single_quote_inner<
@@ -141,20 +133,18 @@ fn run_single_quote_inner<
     source: &YS,
     buffer: &mut YB,
     event_listener: &mut EL,
-    indent: u32,
-    source_start: &mut usize,
-    source_end: usize,
+    state: &mut YamlParserState,
 ) -> YamlResult<()> {
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
-    let mut chunk_iter = ChunkArrayIter::from_bytes(unsafe {
-        source.get_span_unsafely(Mark {
-            start: *source_start,
-            end: source_end,
-        })
-    });
-    for x in chunk_iter.by_ref() {
-        // S2::parse_single_quote()
-    }
+    // let mut chunk_iter = ChunkArrayIter::from_bytes(unsafe {
+    //     source.get_span_unsafely(Mark {
+    //         start: *source_start,
+    //         end: source_end,
+    //     })
+    // });
+    // for x in chunk_iter.by_ref() {
+    //     // S2::parse_single_quote()
+    // }
 
     todo!()
 }
@@ -184,12 +174,13 @@ fn test_parsing_basic_processing1() {
     let input = r#"
         "test"
     "#;
+    let mut chunk_iter_state = ChunkIterState::default();
     let mut state = YamlParserState::default();
     let wrap = str_to_chunk(input);
     let mut chunk_iter = ChunkyIterWrap::from_bytes(&wrap);
 
     let chunk = chunk_iter.next().expect("Expected a chunk");
-    let chunk_state = NativeScanner::next(chunk, &mut state, &mut 0);
+    let chunk_state = NativeScanner::next(chunk, &mut chunk_iter_state, &mut state, &mut 0);
     state.process_chunk::<NativeScanner>(&chunk_state);
 
     let expected_structurals = vec![9usize];

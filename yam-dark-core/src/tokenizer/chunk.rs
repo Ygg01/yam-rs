@@ -194,6 +194,7 @@ impl YamlCharacterChunk {
 
 #[cfg(test)]
 mod test {
+    use crate::tokenizer::parser::ChunkIterState;
     use crate::tokenizer::stage1::Stage1Scanner;
     use crate::tokenizer::YamlParserState;
     use crate::util::str_to_chunk;
@@ -213,7 +214,10 @@ mod test {
         #[case] in_string: u64,
     ) {
         let scanner = NativeScanner::from_chunk(&str_to_chunk(str));
-        let single_quote = scanner.scan_single_quote_bitmask(&mut YamlParserState::default());
+        let single_quote = scanner.scan_single_quote_bitmask(
+            &mut ChunkIterState::default(),
+            &mut YamlParserState::default(),
+        );
 
         assert_bin_eq!(quote_starts, single_quote.quote_starts);
         assert_bin_eq!(quote_bits, single_quote.quote_bits);
@@ -228,7 +232,10 @@ mod test {
     )]
     fn test_double_quote(#[case] str: &str, #[case] quote_starts: u64, #[case] in_string: u64) {
         let scanner = NativeScanner::from_chunk(&str_to_chunk(str));
-        let double_quote = scanner.scan_double_quote_bitmask(&mut YamlParserState::default());
+        let double_quote = scanner.scan_double_quote_bitmask(
+            &mut ChunkIterState::default(),
+            &mut YamlParserState::default(),
+        );
 
         assert_bin_eq!(quote_starts, double_quote.quote_starts);
         assert_bin_eq!(in_string, double_quote.in_string);
@@ -259,10 +266,12 @@ mod test {
     #[test]
     fn test_scan_single_quote_bitmask() {
         let mut prev_iter_state = YamlParserState::default();
+        let mut chunk_iter_state = ChunkIterState::default();
 
         let chunk = "''' ''''' ";
         let scanner = NativeScanner::from_chunk(&str_to_chunk(chunk));
-        let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
+        let single_quote =
+            scanner.scan_single_quote_bitmask(&mut chunk_iter_state, &mut prev_iter_state);
         assert_bin_eq!(0b0000_0000_0001, single_quote.quote_starts);
         assert_bin_eq!(0b0001_0000_0001, single_quote.quote_bits);
         assert_bin_eq!(0b0000_1111_1111, single_quote.in_string);
@@ -273,8 +282,9 @@ mod test {
         let string = " - a  b";
         let chunk = str_to_chunk(string);
         let mut state = YamlParserState::default();
+        let mut chunk_iter_state = ChunkIterState::default();
 
-        let chunk = NativeScanner::next(&chunk, &mut state, &mut 0);
+        let chunk = NativeScanner::next(&chunk, &mut chunk_iter_state, &mut state, &mut 0);
         let structure_bit = chunk.substructure();
 
         assert_bin_eq!(0b0000_1010, structure_bit);
@@ -320,7 +330,8 @@ mod test {
         #[case] expected: ArrayPattern,
     ) {
         let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
-        let mut prev_iter_state = YamlParserState {
+        let mut parse_state = YamlParserState::default();
+        let mut chunk_iter_state = ChunkIterState {
             previous_indent,
             is_indent_running,
             ..Default::default()
@@ -330,7 +341,8 @@ mod test {
         let mut indents = [0; 64];
         NativeScanner::calculate_relative_indents(
             &character_chunk,
-            &mut prev_iter_state,
+            &mut chunk_iter_state,
+            &mut parse_state,
             &mut indents,
         );
         assert_eq!(indents, expected.into_array());
@@ -344,7 +356,8 @@ mod test {
         let expected = NO_INDENT_PATTERN.into_array();
 
         let scanner = NativeScanner::from_chunk(&str_to_chunk(string));
-        let mut prev_iter_state = YamlParserState {
+        let mut parse_state = YamlParserState::default();
+        let mut chunk_iter_state = ChunkIterState {
             previous_indent,
             is_indent_running,
             ..Default::default()
@@ -354,7 +367,8 @@ mod test {
         let mut indents = [0; 64];
         NativeScanner::calculate_relative_indents(
             &character_chunk,
-            &mut prev_iter_state,
+            &mut chunk_iter_state,
+            &mut parse_state,
             &mut indents,
         );
 

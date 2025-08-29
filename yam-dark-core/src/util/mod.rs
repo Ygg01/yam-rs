@@ -52,6 +52,12 @@ pub fn str_to_chunk(s: &str) -> [u8; 64] {
     chunk
 }
 
+macro_rules! branchless_min {
+    (<$t:ty>, $x:expr, $y:expr) => {
+        $y ^ (($x ^ $y) & (if $x < $y { <$t>::MAX } else { <$t>::MIN }))
+    };
+}
+
 /// Selects bits from the input according to the specified mask, using a branch-less approach.
 ///
 /// This function takes two `u64` values as input: `input` and `mask`. It selects a sequence of 1-bits from
