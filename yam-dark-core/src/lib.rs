@@ -20,10 +20,11 @@ use core::str::Utf8Error;
 pub use impls::NativeScanner;
 pub use tape::EventListener;
 pub(crate) use tokenizer::buffers::YamlBuffer;
+pub use tokenizer::parser::ChunkState;
 pub use tokenizer::run_tape_to_end;
 pub use tokenizer::stage1::Stage1Scanner;
 pub use tokenizer::stage2::YamlIndentInfo;
-pub use tokenizer::YamlParserState;
+pub use tokenizer::YamlStructurals;
 
 pub mod impls;
 mod tape;

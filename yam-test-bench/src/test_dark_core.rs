@@ -1,6 +1,6 @@
 use std::str::from_utf8_unchecked;
 use yam_common::Mark;
-use yam_dark_core::{run_tape_to_end, EventListener, YamlParserState};
+use yam_dark_core::{run_tape_to_end, EventListener, YamlStructurals};
 
 /// Struct used for testing equality of events.
 pub struct StringTape {
@@ -23,7 +23,7 @@ pub fn assert_eq_dark_event(input: &str, events: &str) {
 }
 
 fn fill_string_tape(input: &str, event_tape: &mut StringTape) {
-    let mut state = YamlParserState::default();
+    let mut state = YamlStructurals::default();
 
     if let Err(ref _e) = run_tape_to_end(input, &mut state, event_tape) {
         event_tape.buff.push_str("\nERR")

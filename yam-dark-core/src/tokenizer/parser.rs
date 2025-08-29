@@ -4,7 +4,7 @@ use crate::{EventListener, Stage1Scanner, YamlChunkState, YamlError, YamlResult}
 use alloc::vec::Vec;
 
 #[derive(Default)]
-pub struct ChunkIterState {
+pub struct ChunkState {
     // Previous chunk fields
     pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
@@ -60,7 +60,7 @@ pub struct ChunkIterState {
 
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools)]
-pub struct YamlParserState {
+pub struct YamlStructurals {
     /// State field
     pub(crate) state: State,
 
@@ -72,7 +72,6 @@ pub struct YamlParserState {
 
     /// Position of head in the parser state
     pub pos: usize,
-    // pub(crate) chunk_iter_fields: ChunkIterState,
 }
 
 #[derive(Debug, Default)]
@@ -88,7 +87,7 @@ pub(crate) enum State {
     BlockMap,
 }
 
-impl YamlParserState {
+impl YamlStructurals {
     pub fn process_chunk<S>(&mut self, chunk_state: &YamlChunkState)
     where
         S: Stage1Scanner,
@@ -125,9 +124,9 @@ enum YamlState {
 }
 
 pub(crate) fn run_state_machine<'de, 's: 'de, S, B>(
-    parser_state: &mut YamlParserState,
+    parser_state: &mut YamlStructurals,
     event_listener: &mut impl EventListener,
-    source: S,
+    source: &S,
     mut buffer: B,
 ) -> YamlResult<()>
 where
@@ -164,7 +163,7 @@ where
                 // get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
             }
             b'\'' => {
-                get_fast_single_quote(&source, &mut buffer, event_listener, parser_state)?;
+                get_fast_single_quote(source, &mut buffer, event_listener, parser_state)?;
             }
             b'-' => {
                 todo!("Implement start of sequence or start of document")

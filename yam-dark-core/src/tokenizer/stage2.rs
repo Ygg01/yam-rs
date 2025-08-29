@@ -24,10 +24,10 @@
 
 use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
-use crate::tokenizer::parser::ChunkIterState;
+use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage1::Stage1Scanner;
 use crate::util::str_to_chunk;
-use crate::{ChunkyIterWrap, EventListener, YamlParserState};
+use crate::{ChunkyIterWrap, EventListener, YamlStructurals};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
 use yam_common::Mark;
@@ -62,16 +62,16 @@ impl Default for YamlIndentInfo {
 #[doc(hidden)]
 /// TODO docs and Safety guarantees
 pub unsafe trait Stage2Scanner {
-    fn parse_double_quote(input: &[u8], state: YamlParserState) -> Mark {
+    fn parse_double_quote(input: &[u8], state: YamlStructurals) -> Mark {
         Mark { start: 0, end: 0 }
     }
     fn parse_single_quote(input: &[u8; 64]) -> Mark {
         Mark { start: 0, end: 0 }
     }
-    fn parse_block_string(input: &[u8], state: YamlParserState) -> Mark {
+    fn parse_block_string(input: &[u8], state: YamlStructurals) -> Mark {
         Mark { start: 0, end: 0 }
     }
-    fn parse_unquoted(input: &[u8], state: YamlParserState) -> Mark {
+    fn parse_unquoted(input: &[u8], state: YamlStructurals) -> Mark {
         Mark { start: 0, end: 0 }
     }
 }
@@ -110,7 +110,7 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: 
     source: &YS,
     buffer: &mut YB,
     event_listener: &mut EL,
-    state: &mut YamlParserState,
+    state: &mut YamlStructurals,
 ) -> YamlResult<()> {
     // #[cfg(target_arch = "x86_64")]
     // {
@@ -133,7 +133,7 @@ fn run_single_quote_inner<
     source: &YS,
     buffer: &mut YB,
     event_listener: &mut EL,
-    state: &mut YamlParserState,
+    state: &mut YamlStructurals,
 ) -> YamlResult<()> {
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
     // let mut chunk_iter = ChunkArrayIter::from_bytes(unsafe {
@@ -174,8 +174,8 @@ fn test_parsing_basic_processing1() {
     let input = r#"
         "test"
     "#;
-    let mut chunk_iter_state = ChunkIterState::default();
-    let mut state = YamlParserState::default();
+    let mut chunk_iter_state = ChunkState::default();
+    let mut state = YamlStructurals::default();
     let wrap = str_to_chunk(input);
     let mut chunk_iter = ChunkyIterWrap::from_bytes(&wrap);
 

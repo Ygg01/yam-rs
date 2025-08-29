@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use std::hint::black_box;
 
 use yam_dark_core::{
-    ChunkyIterWrap, NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState,
+    ChunkState, ChunkyIterWrap, NativeScanner, Stage1Scanner, YamlChunkState, YamlStructurals,
 };
 
 const YAML: &str = "
@@ -29,14 +29,16 @@ fn bench_stage1(c: &mut Criterion) {
     let mut group = c.benchmark_group("bench-stage1");
     let mut iter = ChunkyIterWrap::from_bytes(YAML.as_bytes());
     println!("bytes: {:#?}", YAML.as_bytes().len());
-    let mut state = YamlParserState::default();
+    let mut state = YamlStructurals::default();
+    let mut chunk_state = ChunkState::default();
 
     group.significance_level(0.05).sample_size(100);
     group.throughput(Throughput::Bytes(YAML.len() as u64));
     group.bench_function("bench-dark-yam", |b| {
         b.iter(|| {
             for chunk in iter.by_ref() {
-                let chunk_state: YamlChunkState = NativeScanner::next(chunk, &mut state, &mut 0);
+                let chunk_state: YamlChunkState =
+                    NativeScanner::next(chunk, &mut chunk_state, &mut state, &mut 0);
                 state.process_chunk::<NativeScanner>(&chunk_state);
             }
             for chr in iter.remainder() {

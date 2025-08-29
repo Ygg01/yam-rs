@@ -26,9 +26,9 @@
 
 use crate::tokenizer::buffers::YamlBuffer;
 use crate::tokenizer::chunk::YamlChunkState;
-use crate::tokenizer::parser::ChunkIterState;
+use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage2::YamlIndentInfo;
-use crate::tokenizer::YamlParserState;
+use crate::tokenizer::YamlStructurals;
 use crate::util::{
     add_cols_unchecked, add_rows_unchecked, fast_select_high_bits, fast_select_low_bits,
     NoopValidator,
@@ -40,11 +40,6 @@ use crate::{
 use alloc::vec::Vec;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 use EvenOrOddBits::OddBits;
-// pub(crate) type NextFn<B> = for<'buffer, 'input> unsafe fn(
-//     chunk: &'buffer [u8; 64],
-//     buffers: &'input mut B,
-//     state: &'input mut YamlParserState,
-// ) -> YamlChunkState;
 
 #[doc(hidden)]
 /// A trait representing a stage 1 scanner for parsing `YAML` input.
@@ -145,8 +140,8 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Example
     /// ```rust
-    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
-    ///  let mut prev_iter_state = YamlParserState::default();
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlStructurals};
+    ///  let mut structurals = YamlStructurals::default();
     ///  let chunk = b" -                                                              ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
     ///  let characters = scanner.classify_yaml_characters();
@@ -161,29 +156,29 @@ pub unsafe trait Stage1Scanner {
     fn classify_yaml_characters(&self) -> YamlCharacterChunk;
 
     /// Combines all structurals and pseudo structurals into a single flat structure and stores it
-    /// in [`YamlParserState::structurals`]. For every entry in `structurals` there will be
+    /// in [`YamlStructurals::structurals`]. For every entry in `structurals` there will be
     /// corresponding fields in called `cols`, `rows` and `indents`.
     ///
     /// # Arguments:
     ///
     /// * `chunk` - A [`YamlChunkState`] that contains the current chunk info.
-    /// * `parser_state` - A mutable [`YamlParserState`] that contains the current parser state and will be
+    /// * `parser_state` - A mutable [`YamlStructurals`] that contains the current parser state and will be
     ///   updated with a new chunk state.
     /// * `indent_info` - A mutable [`YamlIndentInfo`] that will be updated with info.
     ///
-    fn flatten_bits_yaml(chunk: &YamlChunkState, parser_state: &mut YamlParserState);
+    fn flatten_bits_yaml(chunk: &YamlChunkState, parser_state: &mut YamlStructurals);
 
     /// Calculates rows and cols part of the [`YamlIndentInfo`]
     ///
     /// Arguments:
     ///
     /// * `chunk` - A u64 bitmask that contains position of Line feed characters.
-    /// * `parser_state` - A [`YamlParserState`] which will update `last_row` and `last_col` with the
+    /// * `parser_state` - A [`YamlStructurals`] which will update `last_row` and `last_col` with the
     ///   chunk info.
     /// * `info` - A [`YamlIndentInfo`] that will be updated from chunk with `cols`/`rows`/`rows_indent_mask`.
     fn calculate_row_col_info(
         line_feeds: u64,
-        parser_state: &mut ChunkIterState,
+        parser_state: &mut ChunkState,
         info: &mut YamlIndentInfo,
     ) {
         // Avoid copy/paste with this inline macro
@@ -213,12 +208,12 @@ pub unsafe trait Stage1Scanner {
     /// # Arguments:
     ///
     /// * `characters` - Current [`YamlCharacterChunk`], from which relative indents are calculated.
-    /// * `parser_state` - [`YamlParserState`] being updated with indent, and related data.
+    /// * `parser_state` - [`YamlStructurals`] being updated with indent, and related data.
     /// * `indents` - Current [`indents`] being updated.
     fn calculate_relative_indents(
         characters: &YamlCharacterChunk,
-        chunk_iter_state: &mut ChunkIterState,
-        parser_state: &mut YamlParserState,
+        chunk_iter_state: &mut ChunkState,
+        parser_state: &mut YamlStructurals,
         indents: &mut [u32; 64],
     ) {
         let select_mask =
@@ -411,7 +406,7 @@ pub unsafe trait Stage1Scanner {
     /// * `buffers` - A mutable reference to a `buffers`
     ///   object implementing the [`YamlBuffer`] trait.
     /// * `prev_state` -
-    ///   A mutable reference to a [`YamlParserState`] object that stores previous iteration state information.
+    ///   A mutable reference to a [`YamlStructurals`] object that stores previous iteration state information.
     ///
     /// # Returns
     ///
@@ -420,8 +415,8 @@ pub unsafe trait Stage1Scanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next(
         chunk: &[u8; 64],
-        prev_iter_state: &mut ChunkIterState,
-        parser_state: &mut YamlParserState,
+        chunk_state: &mut ChunkState,
+        structurals: &mut YamlStructurals,
         error_mask: &mut u64,
     ) -> YamlChunkState
     where
@@ -434,17 +429,17 @@ pub unsafe trait Stage1Scanner {
         // Pre-requisite
         // LINE FEED needs to be gathered before calling `calculate_indents`/`scan_for_comments`/
         // `scan_for_double_quote_bitmask`/`scan_single_quote_bitmask`
-        simd.scan_for_comments(&mut characters, prev_iter_state, parser_state);
+        simd.scan_for_comments(&mut characters, chunk_state, structurals);
 
-        let mut double_quotes = simd.scan_double_quote_bitmask(prev_iter_state, parser_state);
-        let mut single_quotes = simd.scan_single_quote_bitmask(prev_iter_state, parser_state);
+        let mut double_quotes = simd.scan_double_quote_bitmask(chunk_state, structurals);
+        let mut single_quotes = simd.scan_single_quote_bitmask(chunk_state, structurals);
 
         fix_quotes_starts(
             &mut characters,
             &mut double_quotes,
             &mut single_quotes,
-            prev_iter_state,
-            parser_state,
+            chunk_state,
+            structurals,
         );
 
         YamlChunkState::new_from_parts(single_quotes, double_quotes, characters)
@@ -453,19 +448,19 @@ pub unsafe trait Stage1Scanner {
     /// This function processes the comments for the current chunk of characters.
     ///
     /// It takes a mutable reference to current [`chunk_state`](YamlChunkState) containing the current chunk data (like spaces and line feeds, etc.)
-    /// and a mutable reference to a [`parser_state`](YamlParserState) which tracks parser state.
+    /// and a mutable reference to a [`parser_state`](YamlStructurals) which tracks parser state.
     ///
     /// # Arguments
     ///
     /// * `chunk` - A mutable reference to a [`YamlChunkState`] object that contains current chunk data.
-    /// * `parser_state` - A mutable reference to a [`YamlParserState`] object that stores parser's state information.
+    /// * `parser_state` - A mutable reference to a [`YamlStructurals`] object that stores parser's state information.
     ///
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_for_comments(
         &self,
         chunk: &mut YamlCharacterChunk,
-        chunk_iter_state: &mut ChunkIterState,
-        parser_state: &mut YamlParserState,
+        chunk_iter_state: &mut ChunkState,
+        parser_state: &mut YamlStructurals,
     ) {
         let character = self.cmp_ascii_to_input(b'#');
         let shifted_spaces =
@@ -545,26 +540,28 @@ pub unsafe trait Stage1Scanner {
     /// * `block_state`: A mutable reference to a current [`YamlChunkState`].
     ///   It will update the
     ///   [`YamlSingleQuoteChunk`] with data for scanned single quotes.
-    /// * `prev_iter_state`: A mutable reference to the previous iteration [`YamlParserState`].
+    /// * `chunk_state`: A mutable reference to previous state.
+    /// * `structurals`: A mutable reference to final structurals [`YamlStructurals`].
     ///
     /// # Example
     ///
     /// ```rust
-    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlStructurals, ChunkState};
     ///
-    ///  let mut prev_iter_state = YamlParserState::default();
+    ///  let mut structurals = YamlStructurals::default();
+    ///  let mut chunk_iter_state = ChunkState::default();
     ///
     ///  let chunk = b" ' ''  '                                                        ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  let single_quote = scanner.scan_single_quote_bitmask(&mut prev_iter_state);
+    ///  let single_quote = scanner.scan_single_quote_bitmask(&mut chunk_iter_state, &mut structurals);
     ///  let expected = 0b0000000000000000000000000000000000000000000000000000010000010;
     ///  assert_eq!(single_quote.quote_bits, expected, "Expected:    {:#066b} \nGot instead: {:#066b} ", expected, single_quote.quote_bits);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_single_quote_bitmask(
         &self,
-        chunk_iter_state: &mut ChunkIterState,
-        prev_iter_state: &mut YamlParserState,
+        chunk_state: &mut ChunkState,
+        structurals: &mut YamlStructurals,
     ) -> YamlSingleQuoteChunk {
         let mut single_quote = YamlSingleQuoteChunk::default();
 
@@ -572,7 +569,7 @@ pub unsafe trait Stage1Scanner {
 
         let even_ends = Self::scan_for_mask(
             quotes,
-            &mut chunk_iter_state.is_prev_iter_odd_single_quote,
+            &mut chunk_state.is_prev_iter_odd_single_quote,
             EvenOrOddBits::EvenBits,
         );
 
@@ -633,28 +630,29 @@ pub unsafe trait Stage1Scanner {
     ///
     /// # Arguments
     ///
-    /// * `block_state` - A mutable reference to the [`YamlChunkState`] struct.
-    /// * `prev_iter_state` - A mutable reference to the [`YamlParserState`] struct.
+    /// * `chunk_state` - A mutable reference to the [`YamlChunkState`] struct.
+    /// * `structurals` - A mutable reference to the [`YamlStructurals`] struct.
     ///
     /// # Example
     ///
     /// ```rust
-    ///  use yam_dark_core::{NativeScanner, Stage1Scanner, YamlChunkState, YamlParserState};
+    ///  use yam_dark_core::{ChunkState, NativeScanner, Stage1Scanner, YamlChunkState, YamlStructurals};
     ///
-    ///  let mut prev_iter_state = YamlParserState::default();
+    ///  let mut structurals = YamlStructurals::default();
+    ///  let mut chunk_state = ChunkState::default();
     ///  let chunk = b" \"  \"                                                           ";
     ///  let scanner = NativeScanner::from_chunk(chunk);
-    ///  let result = scanner.scan_double_quote_bitmask(&mut prev_iter_state);
+    ///  let result = scanner.scan_double_quote_bitmask(&mut chunk_state, &mut structurals);
     ///  let expected = 0b000000000000000000000000000000000000000000000000000000010010;
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn scan_double_quote_bitmask(
         &self,
-        chunk_iter_state: &mut ChunkIterState,
-        prev_iter_state: &mut YamlParserState,
+        chunk_state: &mut ChunkState,
+        structurals: &mut YamlStructurals,
     ) -> YamlDoubleQuoteChunk {
         let mut double_quote = YamlDoubleQuoteChunk::default();
-        let prev_iteration_odd = &mut chunk_iter_state.is_prev_double_quotes;
+        let prev_iteration_odd = &mut chunk_state.is_prev_double_quotes;
         let odds_ends =
             Self::scan_for_mask(self.cmp_ascii_to_input(b'\\'), prev_iteration_odd, OddBits);
 
@@ -663,7 +661,7 @@ pub unsafe trait Stage1Scanner {
 
         // remove from the valid quoted region the unescaped characters.
         let mut quote_mask: u64 = Self::compute_quote_mask(quote_bits);
-        quote_mask ^= chunk_iter_state.prev_iter_inside_quote;
+        quote_mask ^= chunk_state.prev_iter_inside_quote;
 
         // All Unicode characters may be placed within the
         // quotation marks, except for the characters that MUST be escaped:
@@ -675,7 +673,7 @@ pub unsafe trait Stage1Scanner {
         // right shift of a signed value expected to be well-defined and standard
         // compliant as of C++20,
         // John Regher from Utah U. says this is fine code
-        chunk_iter_state.prev_iter_inside_quote = quote_mask >> 63;
+        chunk_state.prev_iter_inside_quote = quote_mask >> 63;
 
         double_quote.in_string = quote_mask;
         double_quote.quote_starts = quote_mask & !(quote_mask << 1);
@@ -689,8 +687,8 @@ fn fix_quotes_starts(
     characters: &mut YamlCharacterChunk,
     double_quote: &mut YamlDoubleQuoteChunk,
     single_quote: &mut YamlSingleQuoteChunk,
-    chunk_iter_state: &mut ChunkIterState,
-    parser_state: &mut YamlParserState,
+    chunk_iter_state: &mut ChunkState,
+    parser_state: &mut YamlStructurals,
 ) {
     let non_comments = !(double_quote.in_string | single_quote.in_string);
     let non_single_quote = !(double_quote.in_string | characters.in_comment);
@@ -724,13 +722,13 @@ fn fix_quotes_starts(
 }
 
 #[inline]
-pub(crate) fn get_fastest_stage1_impl(input: &str, state: &mut YamlParserState) -> YamlResult<()> {
+pub(crate) fn get_fastest_stage1_impl(input: &str, state: &mut YamlStructurals) -> YamlResult<()> {
     fn fill_tape_inner<S: Stage1Scanner, V: ChunkedUtf8Validator>(
         input: &[u8],
-        structurals: &mut YamlParserState,
+        structurals: &mut YamlStructurals,
     ) -> YamlResult<()> {
         let mut validator = unsafe { V::new() };
-        let mut chunk_state = ChunkIterState::default();
+        let mut chunk_state = ChunkState::default();
         let mut error_mask = 0;
         let mut iter = ChunkyIterWrap::from_bytes(input);
 
