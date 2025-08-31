@@ -52,6 +52,7 @@ pub fn str_to_chunk(s: &str) -> [u8; 64] {
     chunk
 }
 
+#[macro_export]
 macro_rules! branchless_min {
     (<$t:ty>, $x:expr, $y:expr) => {
         $y ^ (($x ^ $y) & (if $x < $y { <$t>::MAX } else { <$t>::MIN }))

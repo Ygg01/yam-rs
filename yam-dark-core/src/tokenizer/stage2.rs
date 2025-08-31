@@ -26,7 +26,7 @@ use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage1::Stage1Scanner;
-use crate::util::str_to_chunk;
+use crate::util::{str_to_chunk, ChunkArrayIter};
 use crate::{ChunkyIterWrap, EventListener, YamlStructurals};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
@@ -133,18 +133,18 @@ fn run_single_quote_inner<
     source: &YS,
     buffer: &mut YB,
     event_listener: &mut EL,
-    state: &mut YamlStructurals,
+    yaml_structurals: &mut YamlStructurals,
 ) -> YamlResult<()> {
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
-    // let mut chunk_iter = ChunkArrayIter::from_bytes(unsafe {
-    //     source.get_span_unsafely(Mark {
-    //         start: *source_start,
-    //         end: source_end,
-    //     })
-    // });
-    // for x in chunk_iter.by_ref() {
-    //     // S2::parse_single_quote()
-    // }
+    let mut chunk_iter = ChunkArrayIter::from_bytes(unsafe {
+        source.get_span_unsafely(Mark {
+            start: yaml_structurals.idx,
+            end: yaml_structurals.next_idx(),
+        })
+    });
+    for x in chunk_iter.by_ref() {
+        // S2::parse_single_quote()
+    }
 
     todo!()
 }

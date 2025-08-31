@@ -1,6 +1,6 @@
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::stage2::get_fast_single_quote;
-use crate::{EventListener, Stage1Scanner, YamlChunkState, YamlError, YamlResult};
+use crate::{branchless_min, EventListener, Stage1Scanner, YamlChunkState, YamlError, YamlResult};
 use alloc::vec::Vec;
 
 #[derive(Default)]
@@ -70,8 +70,20 @@ pub struct YamlStructurals {
     /// Indent of each structural
     pub structural_rows: Vec<usize>,
 
-    /// Position of head in the parser state
-    pub pos: usize,
+    /// Position of head in structurals
+    pub(crate) pos: usize,
+
+    /// Position of character in the source
+    pub(crate) idx: usize,
+}
+
+impl YamlStructurals {
+    #[inline]
+    #[must_use]
+    pub(crate) fn next_idx(&self) -> usize {
+        let next_idx = branchless_min!(<usize>, self.pos + 1, self.structurals.len() - 1);
+        unsafe { *self.structurals.get_unchecked(next_idx) }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -139,16 +151,15 @@ where
     let mut indent = 0;
     let mut chr = b' ';
     let mut i = 0usize;
-    let max_idx = parser_state.structurals.len() - 1;
 
     macro_rules! update_char {
         () => {
-            if i < parser_state.structurals.len() {
+            if parser_state.pos < parser_state.structurals.len() {
                 // SAFETY: Safety of `get_unchecked` relies on implementation of Stage1Scanner.
-                idx = unsafe { *parser_state.structurals.get_unchecked(i) };
-                i += 1;
+                parser_state.idx = unsafe { *parser_state.structurals.get_unchecked(i) };
+                parser_state.pos += 1;
                 // SAFETY: Safety of `get_unchecked` relies on implementation of Stage1Scanner.
-                chr = unsafe { source.get_u8_unchecked(idx) }
+                chr = unsafe { source.get_u8_unchecked(parser_state.idx) }
             } else {
                 break;
             }
