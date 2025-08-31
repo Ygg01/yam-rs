@@ -78,10 +78,23 @@ pub struct YamlStructurals {
 }
 
 impl YamlStructurals {
+    /// Computes the next index in the `structurals` array relative to the current position (`self.pos`)
+    /// and ensures it does not exceed the bounds of the `structurals` array.
+    ///
+    /// # Safety
+    /// This function does not perform bound checking and assumes that the `structurals` contain valid position in source array.
+    ///
+    /// # Examples
+    /// ```rust
+    /// // Assuming `self` is properly initialized:
+    /// let next_value = self.next_idx();
+    /// ```
     #[inline]
     #[must_use]
     pub(crate) fn next_idx(&self) -> usize {
         let next_idx = branchless_min!(<usize>, self.pos + 1, self.structurals.len() - 1);
+
+        // SAFETY will always point to the correct position
         unsafe { *self.structurals.get_unchecked(next_idx) }
     }
 }
