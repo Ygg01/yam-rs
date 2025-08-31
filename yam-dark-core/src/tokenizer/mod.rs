@@ -3,7 +3,7 @@ use crate::tokenizer::buffers::YamlSource;
 use crate::tokenizer::parser::run_state_machine;
 pub use crate::tokenizer::parser::YamlStructurals;
 use crate::tokenizer::stage1::get_fastest_stage1_impl;
-use crate::{Stage1Scanner, YamlBuffer, YamlError, YamlResult};
+use crate::{ChunkState, Stage1Scanner, YamlBuffer, YamlError, YamlResult};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -82,6 +82,7 @@ pub fn run_tape_to_end<E: EventListener>(
     event_listener: &mut E,
 ) -> Result<(), YamlError> {
     get_fastest_stage1_impl(input, state)?;
-    run_state_machine(state, event_listener, &input.as_bytes(), ())?;
+    let mut chunk = ChunkState::default();
+    run_state_machine(state, event_listener, &mut chunk, &input.as_bytes(), ())?;
     Ok(())
 }

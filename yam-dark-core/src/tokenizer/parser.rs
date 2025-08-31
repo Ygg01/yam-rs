@@ -17,6 +17,7 @@ pub struct ChunkState {
     pub(crate) is_prev_double_quotes: bool,
     pub(crate) is_in_comment: bool,
     pub(crate) pos: usize,
+    pub(crate) prev_char: u8,
 }
 
 /// Represents the internal state of a YAML parser.
@@ -151,6 +152,7 @@ enum YamlState {
 pub(crate) fn run_state_machine<'de, 's: 'de, S, B>(
     parser_state: &mut YamlStructurals,
     event_listener: &mut impl EventListener,
+    chunk_state: &mut ChunkState,
     source: &S,
     mut buffer: B,
 ) -> YamlResult<()>
@@ -187,7 +189,13 @@ where
                 // get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
             }
             b'\'' => {
-                get_fast_single_quote(source, &mut buffer, event_listener, parser_state)?;
+                get_fast_single_quote(
+                    source,
+                    &mut buffer,
+                    event_listener,
+                    chunk_state,
+                    parser_state,
+                )?;
             }
             b'-' => {
                 todo!("Implement start of sequence or start of document")

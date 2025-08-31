@@ -110,6 +110,7 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: 
     source: &YS,
     buffer: &mut YB,
     event_listener: &mut EL,
+    prev_chunk_state: &mut ChunkState,
     state: &mut YamlStructurals,
 ) -> YamlResult<()> {
     // #[cfg(target_arch = "x86_64")]
@@ -120,7 +121,13 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: 
     //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
     //     }
     // }
-    run_single_quote_inner::<NativeScanner, YS, YB, EL>(source, buffer, event_listener, state)
+    run_single_quote_inner::<NativeScanner, YS, YB, EL>(
+        source,
+        buffer,
+        event_listener,
+        prev_chunk_state,
+        state,
+    )
 }
 #[inline]
 fn run_single_quote_inner<
@@ -133,6 +140,7 @@ fn run_single_quote_inner<
     source: &YS,
     buffer: &mut YB,
     event_listener: &mut EL,
+    prev_chunk_state: &mut ChunkState,
     yaml_structurals: &mut YamlStructurals,
 ) -> YamlResult<()> {
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
@@ -142,9 +150,7 @@ fn run_single_quote_inner<
             end: yaml_structurals.next_idx(),
         })
     });
-    for x in chunk_iter.by_ref() {
-        // S2::parse_single_quote()
-    }
+    let mut prev_char = prev_chunk_state.prev_char;
 
     todo!()
 }
