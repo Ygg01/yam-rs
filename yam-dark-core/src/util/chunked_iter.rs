@@ -3,42 +3,6 @@
 const CHUNK_SIZE: usize = 64;
 const EMPTY_CHUNK: [u8; CHUNK_SIZE] = [b' '; CHUNK_SIZE];
 
-// /// Docs
-// pub struct ChunkyIterWrap<'a> {
-//     iter: ChunksExact<'a, u8>,
-// }
-//
-// impl<'a> Iterator for ChunkyIterWrap<'a> {
-//     type Item = &'a [u8; 64];
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.iter
-//             .next()
-//             .map(|chunk| unsafe { &*chunk.as_ptr().cast::<[u8; 64]>() })
-//     }
-// }
-//
-// impl<'a> ChunkyIterWrap<'a> {
-//     pub fn from_bytes(bytes: &'a [u8]) -> ChunkyIterWrap<'a> {
-//         ChunkyIterWrap {
-//             iter: bytes.chunks_exact(CHUNK_SIZE),
-//         }
-//     }
-//
-//     pub fn remaining_chunk(&self) -> [u8; CHUNK_SIZE] {
-//         let remainder = self.iter.remainder();
-//         let mut last_chunk = [b' '; CHUNK_SIZE];
-//
-//         unsafe {
-//             last_chunk
-//                 .as_mut_ptr()
-//                 .copy_from(remainder.as_ptr(), remainder.len());
-//         };
-//
-//         last_chunk
-//     }
-// }
-
 pub struct ChunkArrayIter<'a> {
     v: &'a [u8],
     rem: &'a [u8],
@@ -97,19 +61,9 @@ impl<'a> Iterator for ChunkArrayIter<'a> {
             self.next()
         }
     }
-
-    // unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item {
-    //     let start = idx * CHUNK_SIZE;
-    //     // SAFETY: mostly identical to `Chunks::__iterator_get_unchecked`.
-    //     unsafe { from_raw_parts(self.v.as_ptr().add(start), CHUNK_SIZE) }
-    // }
 }
 
-impl ExactSizeIterator for ChunkArrayIter<'_> {
-    // fn is_empty(&self) -> bool {
-    //     self.v.is_empty()
-    // }
-}
+impl ExactSizeIterator for ChunkArrayIter<'_> {}
 
 #[test]
 fn test_chunk() {
