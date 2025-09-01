@@ -26,7 +26,7 @@ use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage1::Stage1Scanner;
-use crate::util::{str_to_chunk, ChunkArrayIter};
+use crate::util::str_to_chunk;
 use crate::{ChunkyIterWrap, EventListener, YamlStructurals};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
@@ -144,15 +144,26 @@ fn run_single_quote_inner<
     yaml_structurals: &mut YamlStructurals,
 ) -> YamlResult<()> {
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
-    let mut chunk_iter = ChunkArrayIter::from_bytes(unsafe {
-        source.get_span_unsafely(Mark {
-            start: yaml_structurals.idx,
-            end: yaml_structurals.next_idx(),
-        })
-    });
-    let mut prev_char = prev_chunk_state.prev_char;
+    let span = unsafe {
+        // Skip first character
+        // source.get_span_unsafely(Mark {
+        //     start: yaml_structurals.idx + 1,
+        //     end: yaml_structurals.next_struct_idx()
+        // })
+    };
+    buffer.reserve(64);
+    let mut prev_char = b' ';
+    let mut idx = yaml_structurals.idx + 1;
+    let mut can_borrowed = true;
+    loop {
+        debug_assert!(idx < source.get_len());
+        let char = unsafe { source.get_u8_unchecked(idx) };
+        if char == b'\'' && prev_char != b'\'' {
+            break;
+        }
+    }
 
-    todo!()
+    Ok(())
 }
 
 // #[inline]

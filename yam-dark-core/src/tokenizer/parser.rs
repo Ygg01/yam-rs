@@ -18,6 +18,7 @@ pub struct ChunkState {
     pub(crate) is_in_comment: bool,
     pub(crate) pos: usize,
     pub(crate) prev_char: u8,
+    pub(crate) is_not_dummy: bool,
 }
 
 /// Represents the internal state of a YAML parser.
@@ -92,7 +93,7 @@ impl YamlStructurals {
     /// ```
     #[inline]
     #[must_use]
-    pub(crate) fn next_idx(&self) -> usize {
+    pub(crate) fn next_struct_idx(&self) -> usize {
         let next_idx = branchless_min!(<usize>, self.pos + 1, self.structurals.len() - 1);
 
         // SAFETY will always point to the correct position
