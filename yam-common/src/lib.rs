@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use std::ops::Range;
 use std::str::{Utf8Error, from_utf8_unchecked};
+
+pub type Mark = Range<usize>;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ScalarType {
@@ -192,14 +195,6 @@ impl Display for Event<'_> {
             }
         }
     }
-}
-/// Mark struct showing the start and end of a span in the input
-#[derive(Clone, Copy)]
-pub struct Mark {
-    /// Start position of the span
-    pub start: usize,
-    /// End position of the span
-    pub end: usize,
 }
 
 /// A specialized `Result` type where the error is hard-wired to [`Error`].
