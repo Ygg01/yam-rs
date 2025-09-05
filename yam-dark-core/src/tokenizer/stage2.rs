@@ -143,17 +143,15 @@ fn run_single_quote_inner<
     prev_chunk_state: &mut ChunkState,
     yaml_structurals: &mut YamlStructurals,
 ) -> YamlResult<()> {
+    let start = yaml_structurals.idx + 1;
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
     let span = unsafe {
         // Skip first character
-        // source.get_span_unsafely(Mark {
-        //     start: yaml_structurals.idx + 1,
-        //     end: yaml_structurals.next_struct_idx()
-        // })
+        source.get_span_unsafely(start..yaml_structurals.next_struct_idx())
     };
-    buffer.reserve(64);
+    buffer.reserve(span.len());
     let mut prev_char = b' ';
-    let mut idx = yaml_structurals.idx + 1;
+    let mut idx = start;
     let mut can_borrowed = true;
     loop {
         debug_assert!(idx < source.get_len());

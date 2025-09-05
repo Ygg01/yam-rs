@@ -37,7 +37,7 @@ impl EventListener for StringTape {
         self.buff.push_str("\nDOC");
     }
 
-    fn on_scalar(&mut self, value: &[u8], mark: Mark) {
+    fn on_scalar(&mut self, value: &[u8], _mark: Mark) {
         self.buff.push_str("\n=VAL ");
         self.buff.push_str(unsafe { from_utf8_unchecked(value) });
     }

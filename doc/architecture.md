@@ -55,3 +55,15 @@ To solve these issues in order, we have to do the following:
    structural.
 3. When a block scalar is found (`>` or `|`) we have to scan until we find next structural with less or equal indent (it has to be part of
    current map or a nested one). 
+
+## Parsing string
+
+How to parse string in the fastest way? Let's start with the simplest string to parse - a single quote.
+
+```yaml
+  'single  
+     quotes '
+  # Parsed to 'single␣quotes␣
+```
+
+To parse this we need to scan for odd number `'`.
