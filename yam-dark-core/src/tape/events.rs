@@ -10,7 +10,7 @@ use yam_common::Mark;
 ///
 /// # Associated Types
 /// * `Value<'a>`: A type representing the scalar value to be processed. Its lifetime supports
-/// borrowing behavior and is tied to the source of being parsed.
+///   borrowing behavior and is tied to the source of being parsed.
 ///
 /// # Required Methods
 ///

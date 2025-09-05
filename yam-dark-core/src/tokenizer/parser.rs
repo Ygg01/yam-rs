@@ -196,7 +196,7 @@ where
                     event_listener,
                     chunk_state,
                     parser_state,
-                )?;
+                );
             }
             b'-' => {
                 todo!("Implement start of sequence or start of document")
