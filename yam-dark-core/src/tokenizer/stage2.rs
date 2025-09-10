@@ -26,8 +26,8 @@ use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage1::Stage1Scanner;
-use crate::util::{str_to_chunk, ChunkArrayIter};
-use crate::{u8x64_eq, ChunkyIterWrap, EventListener, YamlStructurals};
+use crate::util::str_to_chunk;
+use crate::{ChunkyIterWrap, EventListener, YamlStructurals};
 use crate::{YamlError, YamlResult};
 use alloc::vec;
 use yam_common::Mark;
@@ -62,7 +62,16 @@ impl Default for YamlIndentInfo {
 #[doc(hidden)]
 /// TODO docs and Safety guarantees
 pub unsafe trait Stage2Scanner {
+    fn parse_double_quote(input: &[u8], state: YamlStructurals) -> Mark {
+        Mark { start: 0, end: 0 }
+    }
     fn parse_single_quote(input: &[u8; 64]) -> Mark {
+        Mark { start: 0, end: 0 }
+    }
+    fn parse_block_string(input: &[u8], state: YamlStructurals) -> Mark {
+        Mark { start: 0, end: 0 }
+    }
+    fn parse_unquoted(input: &[u8], state: YamlStructurals) -> Mark {
         Mark { start: 0, end: 0 }
     }
 }
@@ -76,7 +85,7 @@ pub(crate) fn get_fast_double_quote<'s, S: YamlSource<'s>, B: YamlBuffer, E: Eve
 ) -> YamlResult<()> {
     fn run_double_quote_inner<
         's,
-        A: Stage1Scanner,
+        A: Stage2Scanner,
         S: YamlSource<'s>,
         B: YamlBuffer,
         E: EventListener,
@@ -97,13 +106,12 @@ pub(crate) fn get_fast_double_quote<'s, S: YamlSource<'s>, B: YamlBuffer, E: Eve
 }
 
 #[inline]
-pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: EventListener>(
+pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, EL: EventListener>(
     source: &YS,
-    buffer: &mut YB,
     event_listener: &mut EL,
     prev_chunk_state: &mut ChunkState,
     state: &mut YamlStructurals,
-)  {
+) -> YamlResult<()> {
     // #[cfg(target_arch = "x86_64")]
     // {
     //     if is_x86_feature_detected!("avx2") {
@@ -112,39 +120,33 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, YB: YamlBuffer, EL: 
     //         return fill_tape_inner::<AvxScanner, NoopValidator>(input.as_bytes(), state);
     //     }
     // }
-    run_single_quote_inner::<NativeScanner, YS, YB, EL>(
-        source,
-        buffer,
-        event_listener,
-        prev_chunk_state,
-        state,
-    );
+    run_single_quote_inner::<NativeScanner, YS, EL>(source, event_listener, prev_chunk_state, state)
 }
 #[inline]
-fn run_single_quote_inner<
-    's,
-    S2: Stage2Scanner,
-    YS: YamlSource<'s>,
-    YB: YamlBuffer,
-    EL: EventListener,
->(
+fn run_single_quote_inner<'s, S2: Stage2Scanner, YS: YamlSource<'s>, EL: EventListener>(
     source: &YS,
-    _buffer: &mut YB,
-    _event_listener: &mut EL,
+    event_listener: &mut EL,
     prev_chunk_state: &mut ChunkState,
     yaml_structurals: &mut YamlStructurals,
-) {
+) -> YamlResult<()> {
     let start = yaml_structurals.idx + 1;
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
     let span = unsafe {
         // Skip first character
         source.get_span_unsafely(start..yaml_structurals.next_struct_idx())
     };
-
+    let mut prev_char = b' ';
+    let mut idx = start;
+    let mut can_borrowed = true;
     loop {
-        
+        debug_assert!(idx < source.get_len());
+        let char = unsafe { source.get_u8_unchecked(idx) };
+        if char == b'\'' && prev_char != b'\'' {
+            break;
+        }
     }
 
+    Ok(())
 }
 
 // #[inline]

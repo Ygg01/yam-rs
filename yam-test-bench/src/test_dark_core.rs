@@ -31,8 +31,6 @@ fn fill_string_tape(input: &str, event_tape: &mut StringTape) {
 }
 
 impl EventListener for StringTape {
-    type Value<'a> = &'a [u8];
-
     fn on_doc_start(&mut self) {
         self.buff.push_str("\nDOC");
     }

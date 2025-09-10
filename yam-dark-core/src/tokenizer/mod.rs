@@ -19,8 +19,6 @@ pub struct Deserializer<'de> {
 }
 
 impl EventListener for Vec<MarkedNode> {
-    type Value<'a> = &'a [u8];
-
     fn on_scalar(&mut self, _value: &[u8], mark: Mark) {
         self.push(MarkedNode::StringBorrowed(mark));
     }

@@ -190,13 +190,7 @@ where
                 // get_fast_double_quote(&source, &mut buffer, indent, event_listener)?;
             }
             b'\'' => {
-                get_fast_single_quote(
-                    source,
-                    &mut buffer,
-                    event_listener,
-                    chunk_state,
-                    parser_state,
-                );
+                get_fast_single_quote(source, event_listener, chunk_state, parser_state)?;
             }
             b'-' => {
                 todo!("Implement start of sequence or start of document")

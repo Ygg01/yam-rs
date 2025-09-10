@@ -39,9 +39,6 @@ use yam_common::Mark;
 /// correctly reflects the logic for processing the scalar values in their context, and that they appropriately
 /// use the metadata provided by the `mark` parameter.
 pub trait EventListener {
-    /// The type of scalar value to be handled.
-    type Value<'a>;
-
     /// Event handler called on event start
     fn on_doc_start(&mut self) {
         // Do nothing
