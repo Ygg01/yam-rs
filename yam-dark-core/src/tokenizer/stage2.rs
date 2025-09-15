@@ -26,6 +26,7 @@ use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage1::Stage1Scanner;
+use crate::tokenizer::stage2::SingleQuoteState::Quote;
 use crate::util::str_to_chunk;
 use crate::{ChunkyIterWrap, EventListener, YamlStructurals};
 use crate::{YamlError, YamlResult};
@@ -122,6 +123,17 @@ pub(crate) fn get_fast_single_quote<'s, YS: YamlSource<'s>, EL: EventListener>(
     // }
     run_single_quote_inner::<NativeScanner, YS, EL>(source, event_listener, prev_chunk_state, state)
 }
+
+#[derive(Copy, Clone)]
+enum SingleQuoteState {
+    Inside,
+    Quote,
+    QuoteQuote,
+    New,
+}
+
+fn trim<'s, YS: YamlSource<'s>>(source: &YS, tag: &mut Mark) {}
+
 #[inline]
 fn run_single_quote_inner<'s, S2: Stage2Scanner, YS: YamlSource<'s>, EL: EventListener>(
     source: &YS,
@@ -129,45 +141,40 @@ fn run_single_quote_inner<'s, S2: Stage2Scanner, YS: YamlSource<'s>, EL: EventLi
     prev_chunk_state: &mut ChunkState,
     yaml_structurals: &mut YamlStructurals,
 ) -> YamlResult<()> {
+    use SingleQuoteState::*;
     let start = yaml_structurals.idx + 1;
     // SAFETY: The Stage1Scanner must always return a correct index within the code.
     let span = unsafe {
         // Skip first character
-        source.get_span_unsafely(start..yaml_structurals.next_struct_idx())
+        source.get_span_unsafely(start..)
     };
     let mut prev_char = b' ';
     let mut idx = start;
     let mut can_borrowed = true;
+    let mut mark = yaml_structurals.idx..start;
+    let mut state = Inside;
     loop {
         debug_assert!(idx < source.get_len());
         let char = unsafe { source.get_u8_unchecked(idx) };
-        if char == b'\'' && prev_char != b'\'' {
-            break;
+        match (state, char) {
+            (Inside, b'\'') => {
+                state = Quote;
+            }
+            (Quote, b'\'') => {
+                state = QuoteQuote;
+                trim(source, &mut mark);
+                event_listener.on_scalar(source.get_bytes(), &mark);
+                // mark =
+            }
+            (Quote, _) => {
+                break;
+            }
+            _ => break,
         }
     }
 
     Ok(())
 }
-
-// #[inline]
-// pub(crate) fn get_fast_block_scalar<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
-//     source: &S,
-//     buffer: &mut B,
-//     indent: i64,
-//     event_listener: &mut E,
-// ) -> YamlResult<()> {
-//     Ok(())
-// }
-//
-// #[inline]
-// pub(crate) fn get_fast_unquoted_scalar<'s, S: YamlSource<'s>, B: YamlBuffer, E: EventListener>(
-//     source: &S,
-//     buffer: &mut B,
-//     indent: i64,
-//     event_listener: &mut E,
-// ) -> YamlResult<()> {
-//     Ok(())
-// }
 
 #[test]
 fn test_parsing_basic_processing1() {

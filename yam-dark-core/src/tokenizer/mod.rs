@@ -5,7 +5,7 @@ pub use crate::tokenizer::parser::YamlStructurals;
 use crate::tokenizer::stage1::get_fastest_stage1_impl;
 use crate::{ChunkState, Stage1Scanner, YamlBuffer, YamlError, YamlResult};
 use alloc::borrow::Cow;
-use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use yam_common::Mark;
 pub(crate) mod buffers;
@@ -19,13 +19,13 @@ pub struct Deserializer<'de> {
 }
 
 impl EventListener for Vec<MarkedNode> {
-    fn on_scalar(&mut self, _value: &[u8], mark: Mark) {
-        self.push(MarkedNode::StringBorrowed(mark));
+    fn on_scalar(&mut self, _value: &[u8], mark: &Mark) {
+        self.push(MarkedNode::StringBorrowed(mark.start..mark.end));
     }
 
-    fn on_scalar_owned(&mut self, value: Vec<u8>) {
-        self.push(MarkedNode::StringOwned(value));
-    }
+    // fn on_scalar_owned(&mut self, value: Vec<u8>) {
+    //     self.push(MarkedNode::StringOwned(value));
+    // }
 }
 
 impl<'de> Deserializer<'de> {
@@ -42,17 +42,18 @@ impl<'de> Deserializer<'de> {
         let tape = marked_nodes
             .into_iter()
             .map(|marked_node| match marked_node {
-                MarkedNode::StringBorrowed(Mark { start, end }) => {
-                    // The unsafe relies on YamlParser returning indices that are within scope
-                    Node::String(Cow::Borrowed(unsafe { input.get_unchecked(start..end) }))
-                }
-                MarkedNode::StringOwned(bytes) => {
-                    // The unsafe relies on YamlParser returning indices that are within scope
-                    Node::String(Cow::Owned(unsafe { String::from_utf8_unchecked(bytes) }))
-                }
+                // MarkedNode::StringBorrowed(Mark { start, end }) => {
+                //     // The unsafe relies on YamlParser returning indices that are within scope
+                //     Node::String(Cow::Borrowed(unsafe { input.get_unchecked(start..end) }))
+                // }
+                // MarkedNode::StringOwned(bytes) => {
+                //     // The unsafe relies on YamlParser returning indices that are within scope
+                //     Node::String(Cow::Owned(unsafe { String::from_utf8_unchecked(bytes) }))
+                // }
                 MarkedNode::Map { len, count } => Node::Map { len, count },
                 MarkedNode::Sequence { len, count } => Node::Sequence { len, count },
                 MarkedNode::Static(node) => Node::Static(node),
+                _ => Node::String(Cow::Owned("BLA".to_string())),
             })
             .collect();
 

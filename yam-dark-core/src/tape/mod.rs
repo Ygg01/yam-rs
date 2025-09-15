@@ -1,7 +1,6 @@
 mod events;
 
 use alloc::borrow::Cow;
-use alloc::vec::Vec;
 pub use events::EventListener;
 use yam_common::Mark;
 
@@ -33,7 +32,7 @@ pub enum MarkedNode {
     /// A string, from several input slices, spanning several lines
     StringBorrowed(Mark),
 
-    StringOwned(Vec<u8>),
+    StringOwned(Mark),
 
     /// A `Map` given the `size` starts here.
     /// The values are keys and value, alternating.

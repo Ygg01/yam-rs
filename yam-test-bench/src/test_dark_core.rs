@@ -35,13 +35,13 @@ impl EventListener for StringTape {
         self.buff.push_str("\nDOC");
     }
 
-    fn on_scalar(&mut self, value: &[u8], _mark: Mark) {
+    fn on_scalar(&mut self, value: &[u8], _mark: &Mark) {
         self.buff.push_str("\n=VAL ");
         self.buff.push_str(unsafe { from_utf8_unchecked(value) });
     }
 
-    fn on_scalar_owned(&mut self, value: Vec<u8>) {
-        self.buff.push_str("\n=VAL ");
-        unsafe { self.buff.as_mut_vec().extend(value) }
-    }
+    // fn on_scalar_owned(&mut self, value: Vec<u8>) {
+    //     self.buff.push_str("\n=VAL ");
+    //     unsafe { self.buff.as_mut_vec().extend(value) }
+    // }
 }

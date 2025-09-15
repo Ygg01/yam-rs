@@ -22,20 +22,16 @@ impl YamlBuffer for () {
 ///
 /// It allows abstracting over input strings and buffers
 pub trait YamlSource<'s> {
-    unsafe fn get_span_unsafely(&self, span: Mark) -> &'s [u8];
-    unsafe fn get_span_unsafely_from(&self, pos: usize) -> &'s [u8];
+    unsafe fn get_span_unsafely<T: SliceIndex<[u8], Output = [u8]>>(&self, span: T) -> &'s [u8];
     unsafe fn get_u8_unchecked(&self, pos: usize) -> u8;
     fn has_more(&self) -> bool;
     fn get_len(&self) -> usize;
+    fn get_bytes(&self) -> &[u8];
 }
 
 impl<'s> YamlSource<'s> for &'s [u8] {
-    unsafe fn get_span_unsafely(&self, span: Mark) -> &'s [u8] {
-        self.get_unchecked(span.start..span.end)
-    }
-
-    unsafe fn get_span_unsafely_from(&self, pos: usize) -> &'s [u8] {
-        self.get_unchecked(pos..)
+    unsafe fn get_span_unsafely<T: SliceIndex<[u8], Output = [u8]>>(&self, span: T) -> &'s [u8] {
+        self.get_unchecked(span)
     }
 
     unsafe fn get_u8_unchecked(&self, pos: usize) -> u8 {
@@ -49,15 +45,15 @@ impl<'s> YamlSource<'s> for &'s [u8] {
     fn get_len(&self) -> usize {
         self.len()
     }
+
+    fn get_bytes(&self) -> &[u8] {
+        self
+    }
 }
 
 impl<'s> YamlSource<'s> for &'s str {
-    unsafe fn get_span_unsafely(&self, span: Mark) -> &'s [u8] {
-        self.get_unchecked(span.start..span.end).as_bytes()
-    }
-
-    unsafe fn get_span_unsafely_from(&self, pos: usize) -> &'s [u8] {
-        self.get_unchecked(pos..).as_bytes()
+    unsafe fn get_span_unsafely<T: SliceIndex<[u8], Output = [u8]>>(&self, span: T) -> &'s [u8] {
+        self.as_bytes().get_unchecked(span)
     }
 
     unsafe fn get_u8_unchecked(&self, pos: usize) -> u8 {
@@ -70,5 +66,9 @@ impl<'s> YamlSource<'s> for &'s str {
 
     fn get_len(&self) -> usize {
         self.len()
+    }
+
+    fn get_bytes(&self) -> &[u8] {
+        self.as_bytes()
     }
 }
