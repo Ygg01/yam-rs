@@ -10,7 +10,6 @@ yam-dark-core = { path = "../yam-dark-core" }
 yam-common = { path = "../yam-common" }
 
 [dev-dependencies]
-criterion = "0.5.1"
 libtest-mimic = "0.6.0"
 rstest = "0.26.1"
 
@@ -18,6 +17,3 @@ rstest = "0.26.1"
 name = "yaml_test_suite"
 harness = false
 
-[[bench]]
-name = "event_processing"
-harness = false
