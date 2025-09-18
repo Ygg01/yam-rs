@@ -8,11 +8,11 @@ edition = "2021"
 yam-core = {path = "../yam-core"}
 yam-dark-core = { path = "../yam-dark-core" }
 yam-common = { path = "../yam-common" }
-rstest = "0.26.1"
 
 [dev-dependencies]
 criterion = "0.5.1"
 libtest-mimic = "0.6.0"
+rstest = "0.26.1"
 
 [[test]]
 name = "yaml_test_suite"
