@@ -26,7 +26,7 @@ use crate::impls::NativeScanner;
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage1::Stage1Scanner;
-use crate::tokenizer::stage2::SingleQuoteState::Quote;
+use crate::tokenizer::stage2::SingleQuoteState::{Inside, Quote};
 use crate::util::str_to_chunk;
 use crate::{ChunkyIterWrap, EventListener, YamlStructurals};
 use crate::{YamlError, YamlResult};
@@ -153,9 +153,8 @@ fn run_single_quote_inner<'s, S2: Stage2Scanner, YS: YamlSource<'s>, EL: EventLi
     let mut can_borrowed = true;
     let mut mark = yaml_structurals.idx..start;
     let mut state = Inside;
-    loop {
-        debug_assert!(idx < source.get_len());
-        let char = unsafe { source.get_u8_unchecked(idx) };
+
+    for char in span {
         match (state, char) {
             (Inside, b'\'') => {
                 state = Quote;
@@ -167,6 +166,8 @@ fn run_single_quote_inner<'s, S2: Stage2Scanner, YS: YamlSource<'s>, EL: EventLi
                 // mark =
             }
             (Quote, _) => {
+                mark.end = idx;
+                trim(source, &mut mark);
                 break;
             }
             _ => break,
