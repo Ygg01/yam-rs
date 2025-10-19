@@ -132,7 +132,23 @@ enum SingleQuoteState {
     New,
 }
 
-fn trim<'s, YS: YamlSource<'s>>(source: &YS, tag: &mut Mark) {}
+fn trim<'s, YS: YamlSource<'s>>(source: &YS, tag: &mut Mark, skip_tab: bool) {
+    // TODO trim the content
+    let mut start = tag.start;
+    let mut chr = unsafe { source.get_u8_unchecked(start) };
+    while (chr == b' ' || chr == b'\t') {
+        start += 1;
+        chr = unsafe { source.get_u8_unchecked(start) }
+    }
+    let mut end = tag.end;
+    let mut chr = unsafe { source.get_u8_unchecked(end) };
+    while (chr == b' ' || chr == b'\t') {
+        end -= 1;
+        chr = unsafe { source.get_u8_unchecked(end) }
+    }
+    tag.start = start;
+    tag.end = end;
+}
 
 #[inline]
 fn run_single_quote_inner<'s, S2: Stage2Scanner, YS: YamlSource<'s>, EL: EventListener>(
@@ -161,13 +177,13 @@ fn run_single_quote_inner<'s, S2: Stage2Scanner, YS: YamlSource<'s>, EL: EventLi
             }
             (Quote, b'\'') => {
                 state = QuoteQuote;
-                trim(source, &mut mark);
+                trim(source, &mut mark, true);
                 event_listener.on_scalar(source.get_bytes(), &mark);
                 // mark =
             }
             (Quote, _) => {
                 mark.end = idx;
-                trim(source, &mut mark);
+                trim(source, &mut mark, true);
                 break;
             }
             _ => break,

@@ -411,7 +411,6 @@ fn count_naive(
 }
 
 ///
-///
 /// # Arguments
 ///
 /// * `input`: mutable vector being swizzled

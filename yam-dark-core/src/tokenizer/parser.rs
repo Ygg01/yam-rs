@@ -1,6 +1,6 @@
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::stage2::get_fast_single_quote;
-use crate::{branchless_min, EventListener, Stage1Scanner, YamlChunkState, YamlError, YamlResult};
+use crate::{branchless_min, EventListener, Stage1Scanner, YamlChunkState, YamlResult};
 use alloc::vec::Vec;
 
 #[derive(Default)]
@@ -18,7 +18,6 @@ pub struct ChunkState {
     pub(crate) is_in_comment: bool,
     pub(crate) pos: usize,
     pub(crate) prev_char: u8,
-    pub(crate) is_not_dummy: bool,
 }
 
 /// Represents the internal state of a YAML parser.
@@ -86,11 +85,6 @@ impl YamlStructurals {
     /// # Safety
     /// This function does not perform bound checking and assumes that the `structurals` contain valid position in source array.
     ///
-    /// # Examples
-    /// ```rust
-    /// // Assuming `self` is properly initialized:
-    /// let next_value = self.next_idx();
-    /// ```
     #[inline]
     #[must_use]
     pub(crate) fn next_struct_idx(&self) -> usize {
@@ -220,9 +214,9 @@ where
         }
     }
 
-    if !source.has_more() {
-        return Err(YamlError::Syntax);
-    }
+    // if !source.has_more() {
+    //     return Err(YamlError::Syntax);
+    // }
 
     Ok(())
 }
