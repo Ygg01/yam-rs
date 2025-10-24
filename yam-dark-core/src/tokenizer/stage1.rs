@@ -749,9 +749,9 @@ pub(crate) fn get_fastest_stage1_impl(input: &str, state: &mut YamlStructurals) 
                 S::next(chunk, &mut chunk_state, structurals, &mut error_mask);
             structurals.process_chunk::<S>(&chunk_state);
         }
-        // let chunk = iter.remaining_chunk();
-        // let chunk_state = S::next(&chunk, state, &mut error_mask);
-        // state.process_chunk::<S>(&chunk_state);
+
+        let chunk = iter.remainder();
+        chunk_state.process_remainder(chunk, structurals);
 
         if error_mask != 0 {
             return Err(YamlError::Syntax);

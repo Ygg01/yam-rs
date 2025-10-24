@@ -1,4 +1,7 @@
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
+use crate::tokenizer::parser::MiniState::{
+    Default, InsideDoubleQuote, InsideSingleQuote, InsideSingleQuoteEscapeOrEnd,
+};
 use crate::tokenizer::stage2::get_fast_single_quote;
 use crate::{branchless_min, EventListener, Stage1Scanner, YamlChunkState, YamlResult};
 use alloc::vec::Vec;
@@ -6,7 +9,6 @@ use alloc::vec::Vec;
 #[derive(Default)]
 pub struct ChunkState {
     // Previous chunk fields
-    pub(crate) last_indent: u32,
     pub(crate) last_col: u32,
     pub(crate) last_row: u32,
     pub(crate) previous_indent: u32,
@@ -18,6 +20,84 @@ pub struct ChunkState {
     pub(crate) is_in_comment: bool,
     pub(crate) pos: usize,
     pub(crate) prev_char: u8,
+}
+
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub(crate) enum MiniState {
+    Default = 0,
+    InsideSingleQuote = 0x2,
+    InsideSingleQuoteEscapeOrEnd = 0x4,
+    InsideDoubleQuote = 0x8,
+    InsideDoubleQuoteEscape = 0x10,
+}
+
+impl MiniState {
+    pub(crate) fn is_not_quotes(self) -> bool {
+        use MiniState::{InsideDoubleQuote, InsideSingleQuote};
+
+        (self as u8) & (InsideSingleQuote as u8 | InsideDoubleQuote as u8) == 0
+    }
+}
+
+impl ChunkState {
+    pub(crate) fn process_remainder(
+        &mut self,
+        remainder: &[u8],
+        structurals: &mut YamlStructurals,
+    ) {
+        use MiniState::*;
+
+        let mut state = self.mini_state();
+        let mut indent = self.previous_indent as usize;
+        for (index, x) in remainder.iter().enumerate() {
+            match (*x, state) {
+                (b'>' | b'|', block_state) if block_state.is_not_quotes() => {
+                    structurals.structurals.push(self.pos + index);
+                    structurals.structural_indents.push(indent);
+                }
+                // Single quote state machine
+                (b'\'', Default) => {
+                    structurals.structurals.push(self.pos + index);
+                    structurals.structural_indents.push(indent);
+                    state = InsideSingleQuote;
+                }
+                (b'\'', InsideSingleQuote) => {
+                    state = InsideSingleQuoteEscapeOrEnd;
+                }
+                (_, InsideSingleQuoteEscapeOrEnd) => {
+                    state = Default;
+                }
+                (b'\'', InsideSingleQuoteEscapeOrEnd) => {
+                    state = InsideSingleQuote;
+                }
+                // Double quote state machine
+                (b'"', Default) => {
+                    structurals.structurals.push(self.pos + index);
+                    structurals.structural_indents.push(indent);
+                    state = InsideDoubleQuote;
+                }
+                (b'\\', InsideDoubleQuote) => {
+                    state = InsideDoubleQuoteEscape;
+                }
+                (_, InsideSingleQuoteEscapeOrEnd) | (b'"', InsideDoubleQuote) => {
+                    state = Default;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn mini_state(&self) -> MiniState {
+        use MiniState::*;
+        if self.is_prev_double_quotes {
+            InsideDoubleQuote
+        } else if self.is_prev_iter_odd_single_quote {
+            InsideSingleQuote
+        } else {
+            Default
+        }
+    }
 }
 
 /// Represents the internal state of a YAML parser.
@@ -69,7 +149,7 @@ pub struct YamlStructurals {
     pub structurals: Vec<usize>,
 
     /// Indent of each structural
-    pub structural_rows: Vec<usize>,
+    pub structural_indents: Vec<usize>,
 
     /// Position of head in structurals
     pub(crate) pos: usize,
