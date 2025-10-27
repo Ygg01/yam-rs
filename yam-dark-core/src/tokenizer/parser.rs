@@ -1,6 +1,7 @@
 use crate::tokenizer::buffers::{YamlBuffer, YamlSource};
 use crate::tokenizer::parser::MiniState::{
-    Default, InsideDoubleQuote, InsideSingleQuote, InsideSingleQuoteEscapeOrEnd,
+    Default, InsideDoubleQuote, InsideDoubleQuoteEscape, InsideSingleQuote,
+    InsideSingleQuoteEscapeOrEnd,
 };
 use crate::tokenizer::stage2::get_fast_single_quote;
 use crate::{branchless_min, EventListener, Stage1Scanner, YamlChunkState, YamlResult};
@@ -26,10 +27,10 @@ pub struct ChunkState {
 #[repr(u8)]
 pub(crate) enum MiniState {
     Default = 0,
-    InsideSingleQuote = 0x2,
-    InsideSingleQuoteEscapeOrEnd = 0x4,
-    InsideDoubleQuote = 0x8,
-    InsideDoubleQuoteEscape = 0x10,
+    InsideSingleQuote = 0x1,
+    InsideSingleQuoteEscapeOrEnd = 0x2,
+    InsideDoubleQuote = 0x4,
+    InsideDoubleQuoteEscape = 0x8,
 }
 
 impl MiniState {
@@ -50,7 +51,21 @@ impl ChunkState {
 
         let mut state = self.mini_state();
         let mut indent = self.previous_indent as usize;
+        let mut is_indent_running = self.is_indent_running;
         for (index, x) in remainder.iter().enumerate() {
+            match (*x) {
+                b'\n' => {
+                    indent = 0;
+                    is_indent_running = true;
+                }
+                b' ' if is_indent_running => {
+                    indent += 1;
+                }
+                _ if is_indent_running => {
+                    is_indent_running = false;
+                }
+                _ => {}
+            }
             match (*x, state) {
                 (b'>' | b'|', block_state) if block_state.is_not_quotes() => {
                     structurals.structurals.push(self.pos + index);
@@ -65,9 +80,6 @@ impl ChunkState {
                 (b'\'', InsideSingleQuote) => {
                     state = InsideSingleQuoteEscapeOrEnd;
                 }
-                (_, InsideSingleQuoteEscapeOrEnd) => {
-                    state = Default;
-                }
                 (b'\'', InsideSingleQuoteEscapeOrEnd) => {
                     state = InsideSingleQuote;
                 }
@@ -79,6 +91,9 @@ impl ChunkState {
                 }
                 (b'\\', InsideDoubleQuote) => {
                     state = InsideDoubleQuoteEscape;
+                }
+                (b'"', InsideDoubleQuoteEscape) => {
+                    state = InsideDoubleQuote;
                 }
                 (_, InsideSingleQuoteEscapeOrEnd) | (b'"', InsideDoubleQuote) => {
                     state = Default;
