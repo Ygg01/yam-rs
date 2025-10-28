@@ -30,8 +30,7 @@ use crate::tokenizer::parser::ChunkState;
 use crate::tokenizer::stage2::YamlIndentInfo;
 use crate::tokenizer::YamlStructurals;
 use crate::util::{
-    add_cols_unchecked, add_rows_unchecked, fast_select_high_bits, fast_select_low_bits,
-    NoopValidator,
+    add_cols_unchecked, add_rows_unchecked, select_high_bits, select_low_bits, NoopValidator,
 };
 use crate::{
     ChunkyIterWrap, EvenOrOddBits, NativeScanner, YamlCharacterChunk, YamlDoubleQuoteChunk,
@@ -218,7 +217,7 @@ pub unsafe trait Stage1Scanner {
     ) {
         let select_mask =
             (characters.line_feeds << 1) | u64::from(chunk_iter_state.is_indent_running);
-        let mut neg_indents_mask = fast_select_high_bits(characters.spaces, select_mask);
+        let mut neg_indents_mask = select_high_bits(characters.spaces, select_mask);
         let mut line_feeds = characters.line_feeds | 1 << 63;
 
         if neg_indents_mask == 0 {
@@ -471,7 +470,7 @@ pub unsafe trait Stage1Scanner {
         let not_whitespace = !chunk.line_feeds;
 
         chunk.comment_start = comment_start;
-        chunk.in_comment = fast_select_high_bits(not_whitespace, comment_start);
+        chunk.in_comment = select_high_bits(not_whitespace, comment_start);
     }
 
     /// Returns a bitmask indicating where there are characters that end an odd-length sequence
@@ -573,7 +572,7 @@ pub unsafe trait Stage1Scanner {
             EvenOrOddBits::EvenBits,
         );
 
-        let exclude_even = fast_select_low_bits(quotes, even_ends >> 1);
+        let exclude_even = select_low_bits(quotes, even_ends >> 1);
 
         let odd_quotes = quotes ^ exclude_even;
         let odd_starts = odd_quotes & !(odd_quotes << 1);
@@ -623,7 +622,7 @@ pub unsafe trait Stage1Scanner {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn calculate_mask_from_end(quote_bits: u64, even_ends: u64) -> u64 {
-        fast_select_low_bits(quote_bits, even_ends)
+        select_low_bits(quote_bits, even_ends)
     }
 
     /// Scans the input for double quote bitmask.
@@ -698,9 +697,9 @@ fn fix_quotes_starts(
     double_quote.quote_starts &= non_double_quote;
     single_quote.quote_starts &= non_single_quote;
 
-    characters.in_comment = fast_select_high_bits(characters.in_comment, characters.comment_start);
-    double_quote.in_string = fast_select_high_bits(double_quote.in_string, double_quote.in_string);
-    single_quote.in_string = fast_select_high_bits(single_quote.in_string, single_quote.in_string);
+    characters.in_comment = select_high_bits(characters.in_comment, characters.comment_start);
+    double_quote.in_string = select_high_bits(double_quote.in_string, double_quote.quote_starts);
+    single_quote.in_string = select_high_bits(single_quote.in_string, single_quote.quote_starts);
 
     // Update for next iteration
     chunk_iter_state.is_in_comment = characters.in_comment >> 63 == 1;
@@ -715,8 +714,8 @@ fn fix_quotes_starts(
     // Unquoted possible start
     let non_white_space_starts = !characters.whitespace & (characters.whitespace << 1);
     let non_structurals = !(characters.flow_structurals | characters.block_structurals);
-    let possible_blocks = fast_select_low_bits(non_structurals, non_white_space_starts);
-    characters.in_unquoted_scalars = fast_select_high_bits(possible_blocks, non_white_space_starts);
+    let possible_blocks = select_low_bits(non_structurals, non_white_space_starts);
+    characters.in_unquoted_scalars = select_high_bits(possible_blocks, non_white_space_starts);
     characters.unquoted_scalars_starts =
         characters.in_unquoted_scalars & !(characters.in_unquoted_scalars << 1);
 }

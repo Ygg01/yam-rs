@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rand::random;
 use std::hint::black_box;
-use yam_dark_core::util::fast_select_low_bits;
+use yam_dark_core::util::select_low_bits;
 
 #[doc(hidden)]
 pub fn select_consecutive_bits(input: u64, selector: u64) -> u64 {
@@ -40,7 +40,7 @@ fn find_bits_branchless(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(64));
     group.bench_function("quotes_branchless", |b| {
         b.iter(|| {
-            black_box(fast_select_low_bits(random(), selector));
+            black_box(select_low_bits(random(), selector));
         });
     });
     group.finish();

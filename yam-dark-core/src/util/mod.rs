@@ -86,7 +86,7 @@ macro_rules! branchless_min {
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[must_use]
-pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
+pub fn select_low_bits(input: u64, mask: u64) -> u64 {
     let mut result = 0;
 
     result |= input & mask;
@@ -138,7 +138,7 @@ pub fn fast_select_low_bits(input: u64, mask: u64) -> u64 {
 #[doc(hidden)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[must_use]
-pub fn fast_select_high_bits(input: u64, mask: u64) -> u64 {
+pub fn select_high_bits(input: u64, mask: u64) -> u64 {
     input & (mask | !input.wrapping_add(input & mask))
 }
 #[doc(hidden)]
@@ -381,7 +381,7 @@ macro_rules! assert_bin_eq {
 
 #[cfg(test)]
 mod test {
-    use crate::util::{fast_select_high_bits, fast_select_low_bits};
+    use crate::util::{select_high_bits, select_low_bits};
     use rstest::rstest;
 
     #[rstest]
@@ -394,7 +394,7 @@ mod test {
     #[case(1434, 272, 0b1_1001_1000)]
     #[case(1434, 0, 0)]
     fn test_select_low(#[case] input: u64, #[case] mask: u64, #[case] expected: u64) {
-        let actual = fast_select_low_bits(input, mask);
+        let actual = select_low_bits(input, mask);
         assert_bin_eq!(expected, actual);
     }
 
@@ -413,7 +413,7 @@ mod test {
     #[case(0b1111, 0b1101, 0b0000_1111)]
     #[case(1434, 0, 0)]
     fn test_select_high(#[case] input: u64, #[case] mask: u64, #[case] expected: u64) {
-        let actual = fast_select_high_bits(input, mask);
+        let actual = select_high_bits(input, mask);
         assert_bin_eq!(actual, expected);
     }
 }

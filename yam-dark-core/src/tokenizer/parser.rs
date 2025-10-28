@@ -95,6 +95,7 @@ impl ChunkState {
                 (b'"', InsideDoubleQuoteEscape) => {
                     state = InsideDoubleQuote;
                 }
+                // Return to the default state
                 (_, InsideSingleQuoteEscapeOrEnd) | (b'"', InsideDoubleQuote) => {
                     state = Default;
                 }

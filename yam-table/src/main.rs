@@ -1,4 +1,4 @@
-use yam_dark_core::util::{fast_select_high_bits, print_bin_till};
+use yam_dark_core::util::{print_bin_till, select_high_bits};
 
 fn main() {
     // let input = 0b1100_1100;
@@ -17,7 +17,7 @@ fn main() {
 }
 
 fn select_reverse(input: u64, mask: u64, _u: usize) -> u64 {
-    fast_select_high_bits(input.reverse_bits(), mask.reverse_bits()).reverse_bits()
+    select_high_bits(input.reverse_bits(), mask.reverse_bits()).reverse_bits()
 }
 /*
 fn select_left_input(input: u64, mask: u64, max_size: usize) -> u64 {
