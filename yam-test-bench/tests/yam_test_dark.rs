@@ -1,6 +1,3 @@
-use yam_test_bench::assert_eq_dark_event;
-use yam_test_bench::consts::*;
-
 // #[rstest]
 // // Scalar
 // #[case::block_lit_multi(BLOCK_MULTI_INPUT, BLOCK_MULTI_EVENTS)]
@@ -198,7 +195,7 @@ use yam_test_bench::consts::*;
 
 #[test]
 fn test_single() {
-    assert_eq_dark_event(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS);
+    // assert_eq_dark_event(SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS);
 }
 
 // #[rstest]

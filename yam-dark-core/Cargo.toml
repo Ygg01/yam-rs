@@ -34,9 +34,6 @@ harness = false
 name = "eq_bench"
 harness = false
 
-[[bench]]
-name = "swizzle"
-harness = false
 
 [[bench]]
 name = "count_cols"
@@ -44,8 +41,4 @@ harness = false
 
 [[bench]]
 name = "count_quotes"
-harness = false
-
-[[bench]]
-name = "stage1"
 harness = false

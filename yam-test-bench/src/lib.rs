@@ -5,8 +5,6 @@ use std::fmt::Write;
 use yam_common::Event;
 use yam_core::tokenizer::{EventIterator, StrReader};
 
-pub use test_dark_core::assert_eq_dark_event;
-
 ///
 /// Assert that in for given input, the parser generates expected set of events
 ///

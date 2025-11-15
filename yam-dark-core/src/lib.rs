@@ -10,25 +10,12 @@ extern crate alloc;
 extern crate core_detect;
 extern crate yam_common;
 
-pub use crate::tokenizer::chunk::{
-    YamlCharacterChunk, YamlChunkState, YamlDoubleQuoteChunk, YamlSingleQuoteChunk,
-};
-
 pub use crate::util::u8x64_eq;
 use alloc::string::String;
 use core::str::Utf8Error;
-pub use impls::NativeScanner;
-pub use tape::EventListener;
-pub(crate) use tokenizer::buffers::YamlBuffer;
-pub use tokenizer::parser::ChunkState;
-pub use tokenizer::run_tape_to_end;
-pub use tokenizer::stage1::Stage1Scanner;
-pub use tokenizer::stage2::YamlIndentInfo;
-pub use tokenizer::YamlStructurals;
 
-pub mod impls;
-mod tape;
-mod tokenizer;
+mod events;
+mod scanner;
 pub mod util;
 
 #[doc(hidden)]
