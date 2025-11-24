@@ -56,3 +56,27 @@ pub type YamlResult<T> = Result<T, YamlError>;
 
 /// Iterator used to iterate over 64 byte chunks
 pub type ChunkyIterWrap<'a> = util::ChunkArrayIter<'a>;
+
+#[derive(Clone, PartialEq, Debug, Eq)]
+pub struct Marker {
+    /// Position of byte. Starts at 0.
+    pub pos: usize,
+    /// Byte column of the marker. Starts at one.
+    pub byte_column: usize,
+    /// Line of the marker. Starts at one.
+    pub line: usize,
+}
+
+#[derive(Clone, PartialEq, Debug, Eq)]
+pub struct Span {
+    pub start: Marker,
+    pub end: usize,
+}
+
+#[derive(Clone, PartialEq, Debug, Eq)]
+pub enum TokenType<'input>{
+
+}
+
+#[derive(Clone, PartialEq, Debug, Eq)]
+pub struct Token<'input>(pub Span, pub TokenType<'input>);
