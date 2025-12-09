@@ -3,9 +3,7 @@
 [workspace]
 members = [
     "yam-core",
-    "yam-dark-core",
-    "yam-test-bench",
-    "yam-table", "yam-common",
+    "yam-common",
 ]
 resolver = "2"
 
