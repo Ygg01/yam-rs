@@ -55,6 +55,40 @@ impl Display for ScalarType {
     }
 }
 
+#[derive(PartialEq)]
+pub enum TokenType<'input> {
+    StreamStart,
+    StreamEnd,
+    DocumentStart,
+    DocumentEnd,
+    BlockSequenceStart,
+    BlockMappingStart,
+    BlockEnd,
+    FlowSequenceStart,
+    FlowSequenceEnd,
+    FlowMappingStart,
+    FlowMappingEnd,
+    VersionDirective {
+        major: u8,
+        minor: u8,
+    },
+    TagDirective {
+        handle: Cow<'input, str>,
+        suffix: Cow<'input, str>,
+    },
+    Scalar(ScalarType, Cow<'input, str>),
+}
+
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
+pub struct Marker {
+    /// index in bytes of the input string.
+    pub pos: usize,
+    /// Column of mark. One indexed.
+    pub col: u32,
+    /// Column of mark. One indexed.
+    line: u32,
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum DirectiveType {
     Yaml,
@@ -210,6 +244,10 @@ pub enum YamlError {
     /// Input decoding error. If `encoding` feature is disabled, contains `None`,
     /// otherwise contains the UTF-8 decoding error
     NonDecodable(Option<Utf8Error>),
+    ScannerErr {
+        mark: Marker,
+        info: String,
+    },
 }
 
 impl From<Utf8Error> for YamlError {

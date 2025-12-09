@@ -8,6 +8,7 @@ pub use str_reader::StrReader;
 mod iterator;
 mod lexer;
 mod reader;
+mod scanner;
 mod str_reader;
 
 pub use iterator::assert_eq_event;
