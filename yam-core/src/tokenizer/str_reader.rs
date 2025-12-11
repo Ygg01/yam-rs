@@ -7,8 +7,8 @@ use memchr::{memchr, memchr2};
 
 use reader::{is_flow_indicator, is_plain_unsafe};
 
-use crate::tokenizer::reader::{is_uri_char, is_white_tab_or_break, LookAroundBytes};
-use crate::tokenizer::{reader, ErrorType, Reader};
+use crate::tokenizer::reader::{LookAroundBytes, is_uri_char, is_white_tab_or_break};
+use crate::tokenizer::{ErrorType, Reader, reader};
 
 use super::reader::{is_newline, is_tag_char, is_tag_char_short};
 

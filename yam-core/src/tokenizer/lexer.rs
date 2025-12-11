@@ -13,20 +13,6 @@ use hashbrown::HashMap;
 
 use LexerState::PreDocStart;
 
-use crate::tokenizer::lexer::LexerState::{
-    AfterDocBlock, BlockMap, BlockSeq, DocBlock, FlowMap, FlowSeq, InDocEnd,
-};
-use crate::tokenizer::lexer::LexerToken::{
-    DirectiveReserved, DirectiveTag, DirectiveYaml, Mark, NewLine, ScalarDoubleQuote, ScalarEnd,
-    ScalarFold, ScalarLit, ScalarPlain, ScalarSingleQuote,
-};
-use crate::tokenizer::lexer::MapState::{
-    BeforeFirstKey, BeforeFlowComplexKey, ExpectComplexColon, ExpectComplexKey, ExpectComplexValue,
-    ExpectKey, ExpectValue,
-};
-use crate::tokenizer::lexer::PropType::{Anchor, Tag, TagAndAnchor, Unset};
-use crate::tokenizer::lexer::SeqState::{BeforeElem, BeforeFirst, InSeqElem};
-use crate::tokenizer::reader::{is_white_tab_or_break, Reader};
 use crate::tokenizer::ErrorType;
 use crate::tokenizer::ErrorType::{
     ColonMustBeOnSameLineAsKey, ExpectedChompBetween1and9, ExpectedDocumentEnd,
@@ -40,6 +26,20 @@ use crate::tokenizer::ErrorType::{
     UnexpectedEndOfStream, UnexpectedIndentDocEnd, UnexpectedScalarAtNodeEnd,
     UnexpectedSeqAtNodeEnd, UnexpectedSymbol,
 };
+use crate::tokenizer::lexer::LexerState::{
+    AfterDocBlock, BlockMap, BlockSeq, DocBlock, FlowMap, FlowSeq, InDocEnd,
+};
+use crate::tokenizer::lexer::LexerToken::{
+    DirectiveReserved, DirectiveTag, DirectiveYaml, Mark, NewLine, ScalarDoubleQuote, ScalarEnd,
+    ScalarFold, ScalarLit, ScalarPlain, ScalarSingleQuote,
+};
+use crate::tokenizer::lexer::MapState::{
+    BeforeFirstKey, BeforeFlowComplexKey, ExpectComplexColon, ExpectComplexKey, ExpectComplexValue,
+    ExpectKey, ExpectValue,
+};
+use crate::tokenizer::lexer::PropType::{Anchor, Tag, TagAndAnchor, Unset};
+use crate::tokenizer::lexer::SeqState::{BeforeElem, BeforeFirst, InSeqElem};
+use crate::tokenizer::reader::{Reader, is_white_tab_or_break};
 
 use super::reader::{
     is_flow_indicator, is_plain_unsafe, is_valid_escape, is_valid_skip_char, is_white_tab,
@@ -2841,7 +2841,7 @@ impl LexerToken {
             DirectiveTag => DirectiveType::Tag,
             DirectiveYaml => DirectiveType::Yaml,
             DirectiveReserved => DirectiveType::Reserved,
-            _ => unreachable_unchecked(),
+            _ => unreachable!(),
         }
     }
 

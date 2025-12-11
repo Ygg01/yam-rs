@@ -3,9 +3,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+use crate::Lexer;
 use crate::escaper::{escape_double_quotes, escape_plain, escape_single_quotes};
 use crate::tokenizer::{Reader, Slicer};
-use crate::Lexer;
 use urlencoding::decode_binary;
 use yam_common::{Event, ScalarType};
 
@@ -71,8 +71,8 @@ where
 
     #[allow(clippy::too_many_lines)]
     fn next(&mut self) -> Option<Self::Item> {
-        pub use crate::tokenizer::iterator::Event::*;
         pub use crate::tokenizer::LexerToken::*;
+        pub use crate::tokenizer::iterator::Event::*;
 
         loop {
             if self.state.is_empty() && !self.state.stream_end {
