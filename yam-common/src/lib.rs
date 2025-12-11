@@ -86,7 +86,7 @@ pub struct Marker {
     /// Column of mark. One indexed.
     pub col: u32,
     /// Column of mark. One indexed.
-    line: u32,
+    pub line: u32,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -235,6 +235,7 @@ impl Display for Event<'_> {
 ///
 /// [`Error`]: enum.Error.html
 pub type YamlResult<T> = Result<T, YamlError>;
+pub type ScanResult = Result<(), YamlError>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum YamlError {
@@ -248,6 +249,15 @@ pub enum YamlError {
         mark: Marker,
         info: String,
     },
+}
+
+impl YamlError {
+    pub fn scanner_err(marker: Marker, info: &str) -> Self {
+        YamlError::ScannerErr {
+            mark: marker,
+            info: info.to_string(),
+        }
+    }
 }
 
 impl From<Utf8Error> for YamlError {
