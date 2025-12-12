@@ -2,6 +2,14 @@ pub(crate) fn is_blank_or_break(c: u8) -> bool {
     c == b' ' || c == b'\t' || c == b'\r' || c == b'\n'
 }
 
+pub(crate) fn is_anchor_char(c: u8) -> bool {
+    is_yaml_non_space(c) && !is_flow(c)
+}
+
+pub(crate) fn is_yaml_non_space(c: u8) -> bool {
+    !is_blank(c)
+}
+
 pub(crate) fn is_break(c: u8) -> bool {
     c == b'\r' || c == b'\n'
 }

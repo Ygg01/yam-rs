@@ -1,5 +1,5 @@
 use crate::tokenizer::char_utils::{
-    as_hex, is_alpha, is_blank, is_blank_or_break, is_break, is_flow,
+    as_hex, is_alpha, is_anchor_char, is_blank, is_blank_or_break, is_break, is_flow,
 };
 use TokenType::FlowSequenceEnd;
 use alloc::borrow::{Cow, ToOwned};
@@ -29,6 +29,10 @@ pub trait Source {
 
     #[must_use]
     fn bufmaxlen(&self) -> usize;
+
+    fn buf_is_empty(&self) -> bool;
+
+    fn raw_read_non_breakz_ch(&mut self) -> &[u8];
 
     fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>);
     fn next_byte_is(&self, chr: u8) -> bool {
@@ -759,12 +763,24 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.fetch_value()
     }
 
-    fn fetch_anchor(&mut self, _is_alias: bool) -> ScanResult {
-        todo!()
+    fn fetch_anchor(&mut self, is_alias: bool) -> ScanResult {
+        self.save_simple_key();
+        self.simple_key_allowed = false;
+
+        let tok = self.scan_anchor(is_alias)?;
+
+        self.tokens.push_back(tok);
+
+        Ok(())
     }
 
     fn fetch_tag(&mut self) -> ScanResult {
-        todo!()
+        self.save_simple_key();
+        self.simple_key_allowed = false;
+
+        let tok = self.scan_tag()?;
+        self.tokens.push_back(tok);
+        Ok(())
     }
 
     fn fetch_block_scalar(&mut self, is_literal: bool) -> ScanResult {
@@ -1300,7 +1316,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if increment > 0 {
-            indent = if self.indent >= 0 {
+            indent = if self.indent >= 1 {
                 self.indent + increment as u32
             } else {
                 increment as u32
@@ -1321,9 +1337,9 @@ impl<'input, S: Source> Scanner<'input, S> {
         if self.src.next_is_z() {
             let contents = match chomping {
                 // We strip trailing linebreaks. Nothing remain.
-                ChompIndicator::Strip => String::new(),
+                ChompIndicator::Strip => Vec::new(),
                 // There was no newline after the chomping indicator.
-                _ if self.mark.line == start_mark.line() => String::new(),
+                _ if self.mark.line == start_mark.line => Vec::new(),
                 // We clip lines, and there was a newline after the chomping indicator.
                 // All other breaks are ignored.
                 ChompIndicator::Clip => chomping_break,
@@ -1333,51 +1349,54 @@ impl<'input, S: Source> Scanner<'input, S> {
                 // Otherwise, the newline after chomping is ignored.
                 ChompIndicator::Keep => trailing_breaks,
             };
-            return Ok(Token(
-                Span::new(start_mark, self.mark),
-                TokenType::Scalar(style, contents.into()),
-            ));
+            return Ok(Token {
+                span: self.get_span(start_mark),
+                token_type: TokenType::Scalar {
+                    scalar_type: Plain,
+                    value: unsafe { Cow::Owned(String::from_utf8_unchecked(contents)) },
+                },
+            });
         }
 
-        if self.mark.col < indent && (self.mark.col as isize) > self.indent {
+        if self.mark.col < indent && self.mark.col > self.indent {
             return Err(YamlError::scanner_err(
                 self.mark,
                 "wrongly indented line in block scalar",
             ));
         }
 
-        let mut line_buffer = String::with_capacity(100);
+        let mut line_buffer = Vec::with_capacity(100);
         let start_mark = self.mark;
-        while self.mark.col == indent && !self.input.next_is_z() {
+        while self.mark.col == indent && !self.src.next_is_z() {
             if indent == 0 {
-                self.input.lookahead(4);
-                if self.input.next_is_document_end() {
+                // self.src.lookahead(4);
+                if self.next_is_document_end() {
                     break;
                 }
             }
 
             // We are at the first content character of a content line.
-            trailing_blank = self.input.next_is_blank();
+            trailing_blank = self.src.next_is_blank();
             if !literal && !leading_break.is_empty() && !leading_blank && !trailing_blank {
-                string.push_str(&trailing_breaks);
+                string.extend_from_slice(&trailing_breaks);
                 if trailing_breaks.is_empty() {
-                    string.push(' ');
+                    string.push(b' ');
                 }
             } else {
-                string.push_str(&leading_break);
-                string.push_str(&trailing_breaks);
+                string.extend_from_slice(&leading_break);
+                string.extend_from_slice(&trailing_breaks);
             }
 
             leading_break.clear();
             trailing_breaks.clear();
 
-            leading_blank = self.input.next_is_blank();
+            leading_blank = self.src.next_is_blank();
 
             self.scan_block_scalar_content_line(&mut string, &mut line_buffer);
 
             // break on EOF
-            self.input.lookahead(2);
-            if self.input.next_is_z() {
+            // ? self.input.lookahead(2);
+            if self.src.next_is_z() {
                 break;
             }
 
@@ -1388,24 +1407,161 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         // Chomp the tail.
-        if chomping != Chomping::Strip {
-            string.push_str(&leading_break);
+        if chomping != ChompIndicator::Strip {
+            string.extend_from_slice(&leading_break);
             // If we had reached an eof but the last character wasn't an end-of-line, check if the
             // last line was indented at least as the rest of the scalar, then we need to consider
             // there is a newline.
-            if self.input.next_is_z() && self.mark.col >= indent.max(1) {
-                string.push('\n');
+            if self.src.next_is_z() && self.mark.col >= indent.max(1) {
+                string.push(b'\n');
             }
         }
 
-        if chomping == Chomping::Keep {
-            string.push_str(&trailing_breaks);
+        if chomping == ChompIndicator::Keep {
+            string.extend_from_slice(&trailing_breaks);
         }
 
-        Ok(Token(
-            Span::new(start_mark, self.mark),
-            TokenType::Scalar(style, string.into()),
-        ))
+        Ok(Token {
+            span: Span::new(start_mark, self.mark),
+            token_type: TokenType::Scalar {
+                scalar_type: style,
+                value: Cow::Owned(unsafe { String::from_utf8_unchecked(string) }),
+            },
+        })
+    }
+
+    fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>, line_buffer: &mut Vec<u8>) {
+        // Start by evaluating characters in the buffer.
+        while !self.src.buf_is_empty() && !self.src.next_is_break() {
+            string.push(self.src.peek());
+            // We may technically skip non-blank characters. However, the only distinction is
+            // to determine what is leading whitespace and what is not. Here, we read the
+            // contents of the line until either eof or a linebreak. We know we will not read
+            // `self.leading_whitespace` until the end of the line, where it will be reset.
+            // This allows us to call a slightly less expensive function.
+            self.skip_blank();
+        }
+
+        // All characters that were in the buffer were consumed. We need to check if more
+        // follow.
+        if self.src.buf_is_empty() {
+            // We will read all consecutive non-breakz characters. We push them into a
+            // temporary buffer. The main difference with going through `self.buffer` is that
+            // characters are appended here as their real size (1B for ascii, or up to 4 bytes for
+            // UTF-8). We can then use the internal `line_buffer` `Vec` to push data into `string`
+            // (using `String::push_str`).
+            line_buffer.extend_from_slice(self.src.raw_read_non_breakz_ch());
+
+            // We need to manually update our position; we haven't called a `skip` function.
+            let n_chars = line_buffer.len();
+            self.mark.col += n_chars as u32;
+            self.mark.pos += n_chars;
+
+            // We can now append our bytes to our `string`.
+            string.reserve(line_buffer.len());
+            string.extend_from_slice(line_buffer);
+            // This clears the _contents_ without touching the _capacity_.
+            line_buffer.clear();
+        }
+    }
+
+    fn scan_anchor(&mut self, alias: bool) -> Result<Token<'input>, YamlError> {
+        let mut string = Vec::new();
+        let start_mark = self.mark;
+
+        self.skip_non_blank();
+        while is_anchor_char(self.src.peek()) {
+            string.push(self.src.peek());
+            self.skip_non_blank();
+        }
+
+        if string.is_empty() {
+            return Err(YamlError::scanner_err(
+                start_mark,
+                "while scanning an anchor or alias, did not find expected alphabetic or numeric character",
+            ));
+        }
+
+        let tok = if alias {
+            TokenType::Alias(Cow::Owned(unsafe { String::from_utf8_unchecked(string) }))
+        } else {
+            TokenType::Anchor(Cow::Owned(unsafe { String::from_utf8_unchecked(string) }))
+        };
+        Ok(Token {
+            span: Span::new(start_mark, self.mark),
+            token_type: tok,
+        })
+    }
+
+    fn scan_tag(&mut self) -> Result<Token<'input>, YamlError> {
+        let start_mark = self.mark;
+        let mut handle = Vec::new();
+        let mut suffix = Vec::new();
+
+        // Check if the tag is in the canonical form (verbatim).
+        // self.input.lookahead(2);
+
+        if self.src.nth_byte_is(1, b'<') {
+            suffix = self.scan_verbatim_tag(&start_mark)?;
+        } else {
+            // The tag has either the '!suffix' or the '!handle!suffix'
+            handle = self.scan_tag_handle(false, &start_mark)?;
+            // Check if it is, indeed, handle.
+            if handle.len() >= 2 && handle.starts_with(b"!") && handle.ends_with(b"!") {
+                // A tag handle starting with "!!" is a secondary tag handle.
+                let is_secondary_handle = handle == b"!!";
+                suffix = self.scan_tag_shorthand_suffix(
+                    false,
+                    is_secondary_handle,
+                    &b"".to_vec(),
+                    &start_mark,
+                )?;
+            } else {
+                suffix = self.scan_tag_shorthand_suffix(false, false, &handle, &start_mark)?;
+
+                handle.push(b'!');
+                // A special case: the '!' tag.  Set the handle to '' and the
+                // suffix to '!'.
+                if suffix.is_empty() {
+                    handle.clear();
+                    suffix.push(b'!');
+                }
+            }
+        }
+
+        if is_blank_or_break(self.src.peek()) || (self.flow_level > 0 && self.src.next_is_flow()) {
+            // XXX: ex 7.2, an empty scalar can follow a secondary tag
+            Ok(Token {
+                span: Span::new(start_mark, self.mark),
+                token_type: TokenType::TagDirective {
+                    handle: Cow::Owned(unsafe { String::from_utf8_unchecked(handle) }),
+                    suffix: Cow::Owned(unsafe { String::from_utf8_unchecked(suffix) }),
+                },
+            })
+        } else {
+            Err(YamlError::scanner_err(
+                start_mark,
+                "while scanning a tag, did not find expected whitespace or line break",
+            ))
+        }
+    }
+
+    fn scan_verbatim_tag(&mut self, start_mark: &Marker) -> Result<Vec<u8>, YamlError> {
+        todo!()
+    }
+
+    fn scan_tag_handle(&mut self, directive: bool, mark: &Marker) -> Result<Vec<u8>, YamlError> {
+        todo!()
+    }
+
+    fn scan_tag_shorthand_suffix(
+        &mut self,
+        _directive: bool,
+        _is_secondary: bool,
+        head: &Vec<u8>,
+        marker: &Marker,
+    ) -> Result<Vec<u8>, YamlError> {
+        todo!()
     }
 
     fn skip_block_scalar_first_line_indent(&mut self, indent: &mut u32, breaks: &mut Vec<u8>) {
@@ -1445,20 +1601,20 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     /// Skip the block scalar indentation and empty lines.
-    fn skip_block_scalar_indent(&mut self, indent: usize, breaks: &mut Vec<u8>) {
+    fn skip_block_scalar_indent(&mut self, indent: u32, breaks: &mut Vec<u8>) {
         loop {
             // Consume all spaces. Tabs cannot be used as indentation.
-            if indent < self.src.bufmaxlen() - 2 {
-                self.input.lookahead(self.input.bufmaxlen());
-                while self.mark.col < indent && self.input.peek() == ' ' {
+            if (indent as usize) < self.src.bufmaxlen() - 2 {
+                // ? self.src.lookahead(self.input.bufmaxlen());
+                while self.mark.col < indent && self.src.peek() == b' ' {
                     self.skip_blank();
                 }
             } else {
                 loop {
-                    self.input.lookahead(self.input.bufmaxlen());
-                    while !self.input.buf_is_empty()
+                    // ? self.input.lookahead(self.input.bufmaxlen());
+                    while !self.src.buf_is_empty()
                         && self.mark.col < indent
-                        && self.input.peek() == ' '
+                        && self.src.peek() == b' '
                     {
                         self.skip_blank();
                     }
@@ -1466,16 +1622,16 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // reached content or EOF; that is, the buffer is not empty and the next
                     // character is not a space.
                     if self.mark.col == indent
-                        || (!self.input.buf_is_empty() && self.input.peek() != ' ')
+                        || (!self.src.buf_is_empty() && self.src.peek() != b' ')
                     {
                         break;
                     }
                 }
-                self.input.lookahead(2);
+                // ? self.input.lookahead(2);
             }
 
             // If our current line is empty, skip over the break and continue looping.
-            if self.input.next_is_break() {
+            if self.src.next_is_break() {
                 self.read_break(breaks);
             } else {
                 // Otherwise, we have a content line. Return control.
@@ -1678,8 +1834,10 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
     }
 
-    fn insert_token(&self, _pos: usize, _token: Token) {
-        todo!()
+    fn insert_token(&mut self, pos: usize, token: Token<'input>) {
+        let old_len = self.tokens.len();
+        assert!(pos <= old_len);
+        self.tokens.insert(pos, token);
     }
 
     fn increase_flow_level(&mut self) -> ScanResult {
