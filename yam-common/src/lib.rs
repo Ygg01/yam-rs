@@ -88,6 +88,16 @@ pub enum TokenType<'input> {
     },
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum ChompIndicator {
+    /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
+    Strip,
+    ///  ` ` final line break character is preserved in the scalar’s content
+    Clip,
+    /// `+` final line break and any trailing empty lines are considered to be part of the scalar’s content
+    Keep,
+}
+
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Marker {
     /// index in bytes of the input string.
