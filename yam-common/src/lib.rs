@@ -64,10 +64,16 @@ pub enum TokenType<'input> {
     BlockSequenceStart,
     BlockMappingStart,
     BlockEnd,
+    BlockEntry,
+    FlowEntry,
+    Key,
+    Value,
     FlowSequenceStart,
     FlowSequenceEnd,
     FlowMappingStart,
     FlowMappingEnd,
+    Alias(Cow<'input, str>),
+    Anchor(Cow<'input, str>),
     VersionDirective {
         major: u8,
         minor: u8,
@@ -76,7 +82,10 @@ pub enum TokenType<'input> {
         handle: Cow<'input, str>,
         suffix: Cow<'input, str>,
     },
-    Scalar(ScalarType, Cow<'input, str>),
+    Scalar {
+        scalar_type: ScalarType,
+        value: Cow<'input, str>,
+    },
 }
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
