@@ -1,6 +1,7 @@
 use crate::tokenizer::char_utils::{
-    as_hex, is_alpha, is_anchor_char, is_blank, is_blank_or_break, is_break, is_flow,
+    as_hex, is_alpha, is_anchor_char, is_blank, is_blank_or_break, is_break, is_flow, is_uri_char,
 };
+use crate::tokenizer::reader::is_tag_char;
 use TokenType::FlowSequenceEnd;
 use alloc::borrow::{Cow, ToOwned};
 use alloc::collections::VecDeque;
@@ -29,6 +30,25 @@ pub trait Source {
 
     #[must_use]
     fn bufmaxlen(&self) -> usize;
+
+    fn fetch_while_is_alpha(&mut self, out: &mut Vec<u8>) -> usize {
+        let mut n_chars = 0;
+        while is_alpha(self.peek()) {
+            n_chars += 1;
+            out.push(self.peek());
+            self.skip(1);
+        }
+        n_chars
+    }
+
+    fn skip_while_blank(&mut self) -> usize {
+        let mut n_chars = 0;
+        while is_blank(self.peek()) {
+            n_chars += 1;
+            self.skip(1);
+        }
+        n_chars
+    }
 
     fn buf_is_empty(&self) -> bool;
 
@@ -930,7 +950,44 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn scan_directive(&mut self) -> YamlResult<Token<'input>> {
-        todo!()
+        let start_mark = self.mark;
+        self.skip_non_blank();
+
+        let name = self.scan_directive_name()?;
+        let tok = match &name[..] {
+            b"YAML" => self.scan_version_directive_value(&start_mark)?,
+            b"TAG" => self.scan_tag_directive_value(&start_mark)?,
+            // XXX This should be a warning instead of an error
+            _ => {
+                // skip current line
+                let line_len = self.src.skip_while_non_breakz();
+                self.mark.pos += line_len;
+                self.mark.col += line_len as u32;
+                // XXX return an empty TagDirective token
+                Token {
+                    span: Span::new(start_mark, self.mark),
+                    token_type: TokenType::TagDirective {
+                        handle: Cow::default(),
+                        suffix: Cow::default(),
+                    },
+                }
+                // return Err(ScanError::new_str(start_mark,
+                //     "while scanning a directive, found unknown directive name"))
+            }
+        };
+
+        self.skip_ws_to_eol(SkipTabs::Yes)?;
+
+        if self.src.next_is_break() {
+            // self.src.lookahead(2);
+            self.skip_linebreak();
+            Ok(tok)
+        } else {
+            Err(YamlError::scanner_err(
+                start_mark,
+                "while scanning a directive, did not find expected comment or line break",
+            ))
+        }
     }
 
     #[allow(clippy::too_many_lines)]
@@ -1547,11 +1604,61 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn scan_verbatim_tag(&mut self, start_mark: &Marker) -> Result<Vec<u8>, YamlError> {
-        todo!()
+        // Eat `!<`
+        self.skip_non_blank();
+        self.skip_non_blank();
+
+        let mut string = Vec::new();
+        while is_uri_char(self.src.peek()) {
+            if self.src.peek() == b'%' {
+                string.extend(self.scan_uri_escapes(start_mark)?);
+            } else {
+                string.push(self.src.peek());
+                self.skip_non_blank();
+            }
+        }
+
+        if self.src.peek() != b'>' {
+            return Err(YamlError::scanner_err(
+                *start_mark,
+                "while scanning a verbatim tag, did not find the expected '>'",
+            ));
+        }
+        self.skip_non_blank();
+
+        Ok(string)
     }
 
     fn scan_tag_handle(&mut self, directive: bool, mark: &Marker) -> Result<Vec<u8>, YamlError> {
-        todo!()
+        let mut string = Vec::new();
+        if self.src.peek() != b'!' {
+            return Err(YamlError::scanner_err(
+                *mark,
+                "while scanning a tag, did not find expected '!'",
+            ));
+        }
+
+        string.push(self.src.peek());
+        self.skip_non_blank();
+
+        let n_chars = self.src.fetch_while_is_alpha(&mut string);
+        self.mark.pos += n_chars;
+        self.mark.col += n_chars as u32;
+
+        // Check if the trailing character is '!' and copy it.
+        if self.src.peek() == b'!' {
+            string.push(self.src.peek());
+            self.skip_non_blank();
+        } else if directive && string != b"!" {
+            // It's either the '!' tag or not really a tag handle.  If it's a %TAG
+            // directive, it's an error.  If it's a tag token, it must be a part of
+            // URI.
+            return Err(YamlError::scanner_err(
+                *mark,
+                "while parsing a tag directive, did not find expected '!'",
+            ));
+        }
+        Ok(string)
     }
 
     fn scan_tag_shorthand_suffix(
@@ -1559,9 +1666,37 @@ impl<'input, S: Source> Scanner<'input, S> {
         _directive: bool,
         _is_secondary: bool,
         head: &Vec<u8>,
-        marker: &Marker,
+        mark: &Marker,
     ) -> Result<Vec<u8>, YamlError> {
-        todo!()
+        let mut length = head.len();
+        let mut string = Vec::new();
+
+        // Copy the head if needed.
+        // Note that we don't copy the leading '!' character.
+        if length > 1 {
+            string.extend_from_slice(&head[1..]);
+        }
+
+        while is_tag_char(self.src.peek()) {
+            // Check if it is a URI-escape sequence.
+            if self.src.peek() == b'%' {
+                string.extend_from_slice(&self.scan_uri_escapes(mark)?);
+            } else {
+                string.push(self.src.peek());
+                self.skip_non_blank();
+            }
+
+            length += 1;
+        }
+
+        if length == 0 {
+            return Err(YamlError::scanner_err(
+                *mark,
+                "while parsing a tag, did not find expected tag URI",
+            ));
+        }
+
+        Ok(string)
     }
 
     fn skip_block_scalar_first_line_indent(&mut self, indent: &mut u32, breaks: &mut Vec<u8>) {
@@ -1898,6 +2033,206 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.simple_keys.pop();
             self.simple_keys.push(sk);
         }
+    }
+
+    fn scan_uri_escapes(&mut self, mark: &Marker) -> Result<Vec<u8>, YamlError> {
+        let mut width = 0usize;
+        let mut code = 0u32;
+        loop {
+            // self.src.lookahead(3);
+
+            let c = self.src.peek_nth(1);
+            let nc = self.src.peek_nth(2);
+
+            if !(self.src.peek() == b'%' && c.is_ascii_hexdigit() && nc.is_ascii_hexdigit()) {
+                return Err(YamlError::scanner_err(
+                    *mark,
+                    "while parsing a tag, found an invalid escape sequence",
+                ));
+            }
+
+            let byte = (as_hex(c) << 4) + as_hex(nc);
+            if width == 0 {
+                width = match byte {
+                    _ if byte & 0x80 == 0x00 => 1,
+                    _ if byte & 0xE0 == 0xC0 => 2,
+                    _ if byte & 0xF0 == 0xE0 => 3,
+                    _ if byte & 0xF8 == 0xF0 => 4,
+                    _ => {
+                        return Err(YamlError::scanner_err(
+                            *mark,
+                            "while parsing a tag, found an incorrect leading UTF-8 byte",
+                        ));
+                    }
+                };
+                code = byte;
+            } else {
+                if byte & 0xc0 != 0x80 {
+                    return Err(YamlError::scanner_err(
+                        *mark,
+                        "while parsing a tag, found an incorrect trailing UTF-8 byte",
+                    ));
+                }
+                code = (code << 8) + byte;
+            }
+
+            self.skip_n_non_blank(3);
+
+            width -= 1;
+            if width == 0 {
+                break;
+            }
+        }
+
+        match char::from_u32(code) {
+            Some(ch) => Ok(ch.to_string().as_bytes().to_vec()),
+            None => Err(YamlError::scanner_err(
+                *mark,
+                "while parsing a tag, found an invalid UTF-8 codepoint",
+            )),
+        }
+    }
+
+    fn scan_directive_name(&mut self) -> Result<Vec<u8>, YamlError> {
+        let start_mark = self.mark;
+        let mut string = Vec::new();
+
+        let n_chars = self.src.fetch_while_is_alpha(&mut string);
+        self.mark.pos += n_chars;
+        self.mark.col += n_chars as u32;
+
+        if string.is_empty() {
+            return Err(YamlError::scanner_err(
+                start_mark,
+                "while scanning a directive, could not find expected directive name",
+            ));
+        }
+
+        if !is_blank_or_break(self.src.peek()) {
+            return Err(YamlError::scanner_err(
+                start_mark,
+                "while scanning a directive, found unexpected non-alphabetical character",
+            ));
+        }
+
+        Ok(string)
+    }
+
+    fn scan_version_directive_value(
+        &mut self,
+        marker: &Marker,
+    ) -> Result<Token<'input>, YamlError> {
+        let n_blanks = self.src.skip_while_blank();
+        self.mark.pos += n_blanks;
+        self.mark.col += n_blanks as u32;
+
+        let major = self.scan_version_directive_number(marker)?;
+
+        if self.src.peek() != b'.' {
+            return Err(YamlError::scanner_err(
+                *marker,
+                "while scanning a YAML directive, did not find expected digit or '.' character",
+            ));
+        }
+        self.skip_non_blank();
+
+        let minor = self.scan_version_directive_number(marker)?;
+
+        Ok(Token {
+            span: Span::new(*marker, self.mark),
+            token_type: TokenType::VersionDirective { major, minor },
+        })
+    }
+
+    fn scan_tag_directive_value(&mut self, mark: &Marker) -> Result<Token<'input>, YamlError> {
+        let n_blanks = self.src.skip_while_blank();
+        self.mark.pos += n_blanks;
+        self.mark.col += n_blanks as u32;
+
+        let handle = self.scan_tag_handle(true, mark)?;
+
+        let n_blanks = self.src.skip_while_blank();
+        self.mark.pos += n_blanks;
+        self.mark.col += n_blanks as u32;
+
+        let prefix = self.scan_tag_prefix(mark)?;
+
+        // self.src.lookahead(1);
+
+        if self.src.next_is_blank_or_break() {
+            Ok(Token {
+                span: Span::new(*mark, self.mark),
+                token_type: TokenType::TagDirective {
+                    handle: Cow::Owned(unsafe { String::from_utf8_unchecked(handle) }),
+                    suffix: Cow::Owned(unsafe { String::from_utf8_unchecked(prefix) }),
+                },
+            })
+        } else {
+            Err(YamlError::scanner_err(
+                *mark,
+                "while scanning TAG, did not find expected whitespace or line break",
+            ))
+        }
+    }
+
+    fn scan_version_directive_number(&mut self, mark: &Marker) -> Result<u8, YamlError> {
+        let mut val = 0;
+        let mut length = 0usize;
+        while self.src.peek().is_ascii_digit() {
+            let digit = self.src.peek() - b'0';
+            if length + 1 > 9 {
+                return Err(YamlError::scanner_err(
+                    *mark,
+                    "while scanning a YAML directive, found extremely long version number",
+                ));
+            }
+            length += 1;
+            val = val * 10 + digit;
+            self.skip_non_blank();
+        }
+
+        if length == 0 {
+            return Err(YamlError::scanner_err(
+                *mark,
+                "while scanning a YAML directive, did not find expected version number",
+            ));
+        }
+
+        Ok(val)
+    }
+
+    fn scan_tag_prefix(&mut self, start_mark: &Marker) -> Result<Vec<u8>, YamlError> {
+        let mut string = Vec::new();
+
+        if self.src.peek() == b'!' {
+            // If we have a local tag, insert and skip `!`.
+            string.push(self.src.peek());
+            self.skip_non_blank();
+        } else if !is_tag_char(self.src.peek()) {
+            // Otherwise, check if the first global tag character is valid.
+            return Err(YamlError::scanner_err(
+                *start_mark,
+                "invalid global tag character",
+            ));
+        } else if self.src.peek() == b'%' {
+            // If it is valid and an escape sequence, escape it.
+            string.extend(self.scan_uri_escapes(start_mark)?);
+        } else {
+            // Otherwise, push the first character.
+            string.push(self.src.peek());
+            self.skip_non_blank();
+        }
+
+        while is_uri_char(self.src.peek()) {
+            if self.src.peek() == b'%' {
+                string.extend(self.scan_uri_escapes(start_mark)?);
+            } else {
+                string.push(self.src.peek());
+                self.skip_non_blank();
+            }
+        }
+
+        Ok(string)
     }
 }
 

@@ -10,6 +10,19 @@ pub(crate) fn is_yaml_non_space(c: u8) -> bool {
     !is_blank(c)
 }
 
+#[inline]
+#[must_use]
+pub(crate) fn is_word_char(c: u8) -> bool {
+    c.is_ascii_alphanumeric() && c != b'_'
+}
+
+/// Check whether the character is a valid URI character.
+#[inline]
+#[must_use]
+pub(crate) fn is_uri_char(c: u8) -> bool {
+    is_word_char(c) || b"#;/?:@&=+$,_.!~*\'()[]%".contains(&c)
+}
+
 pub(crate) fn is_break(c: u8) -> bool {
     c == b'\r' || c == b'\n'
 }
