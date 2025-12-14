@@ -7,7 +7,7 @@ use crate::Lexer;
 use crate::escaper::{escape_double_quotes, escape_plain, escape_single_quotes};
 use crate::tokenizer::{Reader, Slicer};
 use urlencoding::decode_binary;
-use yam_common::{Event, ScalarType};
+use yam_common::{ScalarType, YEvent};
 
 use super::StrReader;
 
@@ -67,12 +67,12 @@ where
     R: Reader<B>,
     RB: Slicer<'a>,
 {
-    type Item = Event<'a>;
+    type Item = YEvent<'a>;
 
     #[allow(clippy::too_many_lines)]
     fn next(&mut self) -> Option<Self::Item> {
         pub use crate::tokenizer::LexerToken::*;
-        pub use crate::tokenizer::iterator::Event::*;
+        pub use crate::tokenizer::iterator::YEvent::*;
 
         loop {
             if self.state.is_empty() && !self.state.stream_end {
@@ -230,7 +230,7 @@ where
                             } else if extension.is_empty() && end == 0 {
                                 Some(Cow::Borrowed(namespace))
                             } else {
-                                return Some(Event::ErrorEvent);
+                                return Some(YEvent::ErrorEvent);
                             }
                         }
                     }

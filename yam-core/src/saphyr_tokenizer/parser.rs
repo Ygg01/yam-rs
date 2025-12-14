@@ -4,22 +4,23 @@
 //! compliance, and emits a stream of YAML events. This stream can for instance be used to create
 //! YAML objects.
 
-use crate::saphyr_tokenizer::scanner::{Scanner, Source, Span, Token};
+use crate::saphyr_tokenizer::scanner::{Scanner, Span, Token};
+use crate::saphyr_tokenizer::source::{Source, StrSource};
 use alloc::{
     borrow::Cow,
     collections::BTreeMap,
     string::{String, ToString},
     vec::Vec,
 };
-use core::fmt::Display;
+use core::fmt::{Debug, Display};
 use yam_common::{Marker, ScalarType, TokenType, YamlError};
 
 #[derive(Clone, PartialEq, Debug, Eq)]
-struct ScalarValue<'input> {
-    value: Cow<'input, str>,
-    scalar_type: ScalarType,
-    anchor_id: usize,
-    tag: Option<Cow<'input, Tag>>,
+pub struct ScalarValue<'input> {
+    pub value: Cow<'input, str>,
+    pub scalar_type: ScalarType,
+    pub anchor_id: usize,
+    pub tag: Option<Cow<'input, Tag>>,
 }
 
 impl<'input> ScalarValue<'input> {
@@ -27,7 +28,7 @@ impl<'input> ScalarValue<'input> {
     pub(crate) fn empty_scalar() -> Self {
         // a null scalar
         ScalarValue {
-            value: "~".into(),
+            value: "".into(),
             scalar_type: ScalarType::Plain,
             anchor_id: 0,
             tag: None,
@@ -162,8 +163,6 @@ impl Display for Tag {
         }
     }
 }
-
-impl<'input> Event<'input> {}
 
 /// A YAML parser.
 pub struct Parser<'input, T: Source> {
@@ -304,6 +303,10 @@ impl<'input, T: Source> Parser<'input, T> {
             self.stream_end_emitted = true;
         }
         Some(tok)
+    }
+
+    pub fn get_anchor(&self, anchor_id: usize) -> Option<&Cow<'input, str>> {
+        self.anchors.iter().find(|x| *x.1 == anchor_id).map(|x| x.0)
     }
 
     /// Implementation function for [`Self::next_event`] without the `Option`.
@@ -473,8 +476,6 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.load_mapping(recv)
             }
             _ => {
-                #[cfg(feature = "debug_prints")]
-                std::println!("UNREACHABLE EVENT: {first_ev:?}");
                 unreachable!();
             }
         }
@@ -604,7 +605,7 @@ impl<'input, T: Source> Parser<'input, T> {
             Token {
                 token_type:
                     TokenType::VersionDirective { .. }
-                    | TokenType::Tag { .. }
+                    | TokenType::TagDirective { .. }
                     | TokenType::DocumentStart,
                 ..
             } => {
@@ -648,7 +649,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 }
                 Token {
                     span,
-                    token_type: TokenType::Tag { handle, prefix },
+                    token_type: TokenType::TagDirective { handle, prefix },
                 } => {
                     if tags.contains_key(&**handle) {
                         return Err(YamlError::new_str(
@@ -697,7 +698,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 span,
                 token_type:
                     TokenType::VersionDirective { .. }
-                    | TokenType::Tag { .. }
+                    | TokenType::TagDirective { .. }
                     | TokenType::DocumentStart
                     | TokenType::DocumentEnd
                     | TokenType::StreamEnd,
@@ -735,7 +736,7 @@ impl<'input, T: Source> Parser<'input, T> {
         } else {
             if let Token {
                 span,
-                token_type: TokenType::VersionDirective { .. } | TokenType::Tag { .. },
+                token_type: TokenType::VersionDirective { .. } | TokenType::TagDirective { .. },
             } = *self.peek_token()?
             {
                 return Err(YamlError::new_str(
@@ -801,8 +802,8 @@ impl<'input, T: Source> Parser<'input, T> {
                 {
                     anchor_id = self.register_anchor(name, &span);
                     if let TokenType::Tag { .. } = self.peek_token()?.token_type {
-                        if let TokenType::Tag { handle, prefix } = self.fetch_token().token_type {
-                            tag = Some(self.resolve_tag(span, &handle, prefix.to_string())?);
+                        if let TokenType::Tag { handle, suffix } = self.fetch_token().token_type {
+                            tag = Some(self.resolve_tag(span, &handle, suffix.to_string())?);
                         } else {
                             unreachable!()
                         }
@@ -815,8 +816,8 @@ impl<'input, T: Source> Parser<'input, T> {
                 span,
                 token_type: TokenType::Tag { .. },
             } => {
-                if let TokenType::Tag { handle, prefix } = self.fetch_token().token_type {
-                    tag = Some(self.resolve_tag(span, &handle, prefix.to_string())?);
+                if let TokenType::Tag { handle, suffix } = self.fetch_token().token_type {
+                    tag = Some(self.resolve_tag(span, &handle, suffix.to_string())?);
                     if let TokenType::Anchor(_) = &self.peek_token()?.token_type {
                         if let Token {
                             span,
@@ -1010,7 +1011,7 @@ impl<'input, T: Source> Parser<'input, T> {
                         match *self.peek_token()? {
                             Token {
                                 token_type: TokenType::FlowEntry,
-                                span,
+                                span: _,
                             } => self.skip(),
                             Token { span, .. } => {
                                 return Err(YamlError::new_str(
@@ -1206,7 +1207,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 Ok((Event::SequenceEnd, span))
             }
             Token {
-                span,
+                span: _,
                 token_type: TokenType::BlockEntry,
             } => {
                 self.skip();
@@ -1349,5 +1350,11 @@ impl<'input, T: Source> Iterator for Parser<'input, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_event()
+    }
+}
+
+impl<'input> Parser<'input, StrSource<'input>> {
+    pub fn new_from_str(input: &'input str) -> Self {
+        Parser::new(StrSource::new(input))
     }
 }

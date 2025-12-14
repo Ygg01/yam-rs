@@ -4,6 +4,7 @@
 members = [
     "yam-core",
     "yam-common",
+    "yam-test-bench"
 ]
 resolver = "2"
 

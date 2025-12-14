@@ -2,7 +2,6 @@
 name = "yam-core"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85.0"
 
 documentation = "https://docs.rs/yam-core"
 repository = "https://github.com/Ygg01/yam-rs"

@@ -1,6 +1,7 @@
 use crate::saphyr_tokenizer::char_utils::*;
+use crate::saphyr_tokenizer::source::Source;
 use TokenType::FlowSequenceEnd;
-use alloc::borrow::{Cow, ToOwned};
+use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -12,119 +13,12 @@ use yam_common::TokenType::{
 use yam_common::{
     ChompIndicator, Marker, ScalarType, ScanResult, TokenType, YamlError, YamlResult,
 };
-pub trait Source {
-    #[must_use]
-    fn peek(&self) -> u8;
-
-    #[must_use]
-    fn peek_char(&self) -> char;
-
-    #[must_use]
-    fn peek_nth(&self, n: usize) -> u8;
-
-    fn skip(&mut self, n: usize);
-
-    #[must_use]
-    fn bufmaxlen(&self) -> usize;
-
-    fn fetch_while_is_alpha(&mut self, out: &mut Vec<u8>) -> usize {
-        let mut n_chars = 0;
-        while is_alpha(self.peek()) {
-            n_chars += 1;
-            out.push(self.peek());
-            self.skip(1);
-        }
-        n_chars
-    }
-
-    fn skip_while_blank(&mut self) -> usize {
-        let mut n_chars = 0;
-        while is_blank(self.peek()) {
-            n_chars += 1;
-            self.skip(1);
-        }
-        n_chars
-    }
-
-    fn buf_is_empty(&self) -> bool;
-
-    fn raw_read_non_breakz_ch(&mut self) -> &[u8];
-
-    fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>);
-    fn next_byte_is(&self, chr: u8) -> bool {
-        self.peek() == chr
-    }
-
-    fn nth_byte_is(&self, n: usize, chr: u8) -> bool {
-        self.peek_nth(n) == chr
-    }
-
-    fn peek_two(&self) -> [u8; 2] {
-        [self.peek(), self.peek_nth(1)]
-    }
-
-    fn next_is_three(&self, chr: u8) -> bool {
-        self.peek() == chr && self.peek_nth(1) == chr && self.peek_nth(2) == chr
-    }
-
-    #[must_use]
-    fn next_is_flow(&self) -> bool {
-        is_flow(self.peek())
-    }
-
-    #[must_use]
-    fn next_is_break(&self) -> bool {
-        is_break(self.peek())
-    }
-
-    #[must_use]
-    fn next_is_blank(&self) -> bool {
-        is_blank(self.peek())
-    }
-
-    fn skip_while_non_breakz(&mut self) -> usize {
-        let mut count = 0;
-        while !is_break(self.peek()) {
-            count += 1;
-            self.skip(1);
-        }
-        count
-    }
-
-    fn next_is_blank_or_break(&self) -> bool {
-        is_blank_or_break(self.peek())
-    }
-
-    fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
-        let nc = self.peek_nth(1);
-        match self.peek() {
-            // indicators can end a plain scalar, see 7.3.3. Plain Style
-            b':' if is_blank_or_break(nc) || (in_flow && is_flow(nc)) => false,
-            c if in_flow && is_flow(c) => false,
-            _ => true,
-        }
-    }
-
-    fn next_is_document_indicator(&self) -> bool {
-        (self.next_is_three(b'-') || self.next_is_three(b'.'))
-            && is_blank_or_break(self.peek_nth(3))
-    }
-
-    fn next_is_z(&self) -> bool;
-
-    fn next_is_alpha(&self) -> bool {
-        is_alpha(self.peek())
-    }
-}
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-enum SkipTabs {
+pub enum SkipTabs {
     Yes,
     No,
-    Result {
-        any_tabs: bool,
-        any_whitespace: bool,
-    },
+    Result { any_tabs: bool, has_yaml_ws: bool },
 }
 
 impl SkipTabs {
@@ -137,7 +31,7 @@ impl SkipTabs {
         matches!(
             self,
             SkipTabs::Result {
-                any_whitespace: true,
+                has_yaml_ws: true,
                 ..
             }
         )
@@ -238,7 +132,11 @@ impl<'input, S: Source> Scanner<'input, S> {
     pub fn new(src: S) -> Scanner<'input, S> {
         Scanner {
             src,
-            mark: Marker::default(),
+            mark: Marker {
+                pos: 0,
+                col: 1,
+                line: 1,
+            },
             tokens: VecDeque::new(),
             implicit_flow_mapping_states: Vec::new(),
             error: None,
@@ -297,6 +195,17 @@ impl<'input, S: Source> Scanner<'input, S> {
         };
 
         self.tokens_available = false;
+        self.tokens_parsed += 1;
+
+        if matches!(
+            tok,
+            Ok(Token {
+                token_type: StreamEnd,
+                ..
+            })
+        ) {
+            self.stream_end_produced = true;
+        }
 
         tok
     }
@@ -309,6 +218,12 @@ impl<'input, S: Source> Scanner<'input, S> {
             } else {
                 need_more = false;
                 self.stale_simple_keys()?;
+                for sk in &self.simple_keys {
+                    if sk.possible && sk.token_number == self.tokens_parsed {
+                        need_more = true;
+                        break;
+                    }
+                }
             }
 
             if !need_more {
@@ -339,11 +254,12 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn next_is_document_start(&mut self) -> bool {
-        self.src.next_is_three(b'-') && is_blank_or_break(self.src.peek_nth(4))
+        let x = self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peek_nth(3));
+        x
     }
 
     fn next_is_document_end(&mut self) -> bool {
-        self.src.next_is_three(b'.') && is_blank_or_break(self.src.peek_nth(4))
+        self.src.next_is_three(b'.') && is_blank_or_breakz(self.src.peek_nth(3))
     }
 
     fn fetch_next_token(&mut self) -> ScanResult {
@@ -352,12 +268,18 @@ impl<'input, S: Source> Scanner<'input, S> {
             return Ok(());
         }
 
+        self.skip_to_next_token()?;
         self.stale_simple_keys()?;
 
         let mark = self.mark;
         self.unroll_indent(mark.col);
 
-        if self.mark.col == 0
+        if self.src.buf_is_empty() {
+            self.fetch_stream_end()?;
+            return Ok(());
+        }
+
+        if self.mark.col == 1
             && let Some(res) = self.process_start()
         {
             return res;
@@ -368,6 +290,34 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         self.fetch_main_loop()
+    }
+
+    fn fetch_stream_end(&mut self) -> ScanResult {
+        // force new line
+        if self.mark.col != 0 {
+            self.mark.col = 1;
+            self.mark.line += 1;
+        }
+
+        // If the stream ended, we won't have more context. We can stall all the simple keys we
+        // had. If one was required, however, that was an error and we must propagate it.
+        for sk in &mut self.simple_keys {
+            if sk.required && sk.possible {
+                return Err(YamlError::new_str(self.mark, "simple key expected"));
+            }
+            sk.possible = false;
+        }
+
+        self.unroll_indent(0);
+        self.remove_simple_key()?;
+        self.simple_key_allowed = false;
+        let span = Span::empty(self.mark);
+
+        self.tokens.push_back(Token {
+            span,
+            token_type: TokenType::StreamEnd,
+        });
+        Ok(())
     }
 
     fn fetch_document_indicator(&mut self, token_type: TokenType<'input>) -> ScanResult {
@@ -405,9 +355,9 @@ impl<'input, S: Source> Scanner<'input, S> {
             [b']', _] => self.fetch_flow_collection_end(FlowSequenceEnd),
             [b'}', _] => self.fetch_flow_collection_end(FlowMappingEnd),
             [b',', _] => self.fetch_flow_entry(),
-            [b'-', x] if is_blank_or_break(x) => self.fetch_block_entry(),
-            [b'?', x] if is_blank_or_break(x) => self.fetch_key(),
-            [b':', x] if is_blank_or_break(x) => self.fetch_value(),
+            [b'-', x] if is_blank_or_breakz(x) => self.fetch_block_entry(),
+            [b'?', x] if is_blank_or_breakz(x) => self.fetch_key(),
+            [b':', x] if is_blank_or_breakz(x) => self.fetch_value(),
             [b':', x]
                 if self.flow_level > 0
                     && (is_flow(x) || self.mark.pos == self.adjacent_value_allowed_at) =>
@@ -448,7 +398,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let start_mark = self.mark;
         self.skip_non_blank();
 
-        if token_type == FlowSequenceStart {
+        if token_type == FlowMappingStart {
             self.flow_mapping_started = true;
         } else {
             self.implicit_flow_mapping_states
@@ -469,7 +419,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         self.simple_key_allowed = false;
 
-        if matches!(token_type, TokenType::FlowMappingEnd) {
+        if matches!(token_type, FlowSequenceEnd) {
             self.end_implicit_mapping(self.mark);
             self.implicit_flow_mapping_states.pop();
         }
@@ -550,8 +500,8 @@ impl<'input, S: Source> Scanner<'input, S> {
             span,
             token_type: TokenType::Anchor(..) | TokenType::Tag { .. },
         }) = self.tokens.back()
-            && self.mark.col == 0
-            && span.start.col == 0
+            && self.mark.col == 1
+            && span.start.col == 1
             && self.indent > 0
         {
             return Err(YamlError::new_str(
@@ -839,7 +789,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn finish_document(&mut self) -> ScanResult {
         self.fetch_document_indicator(TokenType::DocumentEnd)?;
         self.skip_ws_to_eol(SkipTabs::Yes)?;
-        if !self.src.next_is_break() {
+        if !self.src.next_is_breakz() {
             Err(YamlError::new_str(
                 self.mark,
                 "Invalid content after document end marker",
@@ -870,14 +820,16 @@ impl<'input, S: Source> Scanner<'input, S> {
         match self.src.peek_two() {
             [b'\r', b'\n'] => {
                 self.mark.pos += 2;
-                self.mark.col = 0;
+                self.mark.col = 1;
                 self.mark.line += 1;
+                self.leading_whitespace = true;
                 self.src.skip(2);
             }
             [b'\n', _] => {
                 self.mark.pos += 1;
-                self.mark.col = 0;
+                self.mark.col = 1;
                 self.mark.line += 1;
+                self.leading_whitespace = true;
                 self.src.skip(1);
             }
             _ => {}
@@ -905,7 +857,6 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn skip_to_next_token(&mut self) -> ScanResult {
         loop {
-            // TODO(chenyh) BOM
             match self.src.peek() {
                 // Tabs may not be used as indentation.
                 // "Indentation" only exists as long as a block is started, but does not exist
@@ -920,7 +871,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 {
                     self.skip_ws_to_eol(SkipTabs::Yes)?;
                     // If we have content on that line with a tab, return an error.
-                    if !self.src.next_is_break() {
+                    if !self.src.next_is_breakz() {
                         return Err(YamlError::new_str(
                             self.mark,
                             "tabs disallowed within this context (block indentation)",
@@ -963,7 +914,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 // XXX return an empty TagDirective token
                 Token {
                     span: Span::new(start_mark, self.mark),
-                    token_type: TokenType::Tag {
+                    token_type: TokenType::TagDirective {
                         handle: Cow::default(),
                         prefix: Cow::default(),
                     },
@@ -1008,9 +959,8 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         loop {
             // ? self.input.lookahead(4);
-            if (self.leading_whitespace && self.src.next_is_document_indicator())
-                || self.src.peek() == b'#'
-            {
+            let next_is_document_indicator = self.src.next_is_document_indicator();
+            if (self.leading_whitespace && next_is_document_indicator) || self.src.peek() == b'#' {
                 break;
             }
 
@@ -1021,7 +971,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 ));
             }
 
-            if !self.src.next_is_blank_or_break()
+            if !self.src.next_is_blank_or_breakz()
                 && self.src.next_can_be_plain_scalar(self.flow_level > 0)
             {
                 if self.leading_whitespace {
@@ -1058,7 +1008,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // hence the `for` loop looping `self.input.bufmaxlen() - 1` times.
                     // ? self.src.lookahead(self.src.bufmaxlen());
                     for _ in 0..self.src.bufmaxlen() - 1 {
-                        if self.src.next_is_blank_or_break()
+                        if self.src.next_is_blank_or_breakz()
                             || !self.src.next_can_be_plain_scalar(self.flow_level > 0)
                         {
                             end = true;
@@ -1090,7 +1040,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                         // Tabs in an indentation columns are allowed if and only if the line is
                         // empty. Skip to the end of the line.
                         self.skip_ws_to_eol(SkipTabs::Yes)?;
-                        if !self.src.next_is_break() {
+                        if !self.src.next_is_breakz() {
                             return Err(YamlError::new_str(
                                 start_mark,
                                 "while scanning a plain scalar, found a tab",
@@ -1107,7 +1057,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                         self.buf_trailing_breaks.push(b'\n');
                     } else {
                         self.buf_whitespaces.clear();
-                        // TODO check this works
                         self.skip_linebreak();
                         self.buf_leading_break.push(b'\n');
                         self.leading_whitespace = true;
@@ -1162,7 +1111,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             /* Check for a document indicator. */
             // ? self.src.lookahead(4);
 
-            if self.mark.col == 0 && self.src.next_is_document_indicator() {
+            if self.mark.col == 1 && self.src.next_is_document_indicator() {
                 return Err(YamlError::new_str(
                     start_mark,
                     "while scanning a quoted scalar, found unexpected document indicator",
@@ -1257,7 +1206,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // These can be encountered in flow sequences or mappings.
             b',' | b'}' | b']' if self.flow_level > 0 => {}
             // An end-of-line / end-of-stream is fine. No trailing content.
-            c if is_break(c) => {}
+            c if is_breakz(c) => {}
             // ':' can be encountered if our scalar is a key.
             // Outside of flow contexts, keys cannot span multiple lines
             b':' if self.flow_level == 0 && start_mark.line == self.mark.line => {}
@@ -1292,7 +1241,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut indent: u32 = 0;
         let mut trailing_blank: bool;
         let mut leading_blank: bool = false;
-        let style = if literal {
+        let scalar_type = if literal {
             ScalarType::Literal
         } else {
             ScalarType::Folded
@@ -1350,7 +1299,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // Check if we are at the end of the line.
         // self.input.lookahead(1);
-        if !self.src.next_is_break() {
+        if !self.src.next_is_breakz() {
             return Err(YamlError::new_str(
                 start_mark,
                 "while scanning a block scalar, did not find expected comment or line break",
@@ -1406,7 +1355,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             return Ok(Token {
                 span: self.get_span(start_mark),
                 token_type: TokenType::Scalar {
-                    scalar_type: Plain,
+                    scalar_type,
                     value: unsafe { Cow::Owned(String::from_utf8_unchecked(contents)) },
                 },
             });
@@ -1422,7 +1371,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut line_buffer = Vec::with_capacity(100);
         let start_mark = self.mark;
         while self.mark.col == indent && !self.src.next_is_z() {
-            if indent == 0 {
+            if indent == 1 {
                 // self.src.lookahead(4);
                 if self.next_is_document_end() {
                     break;
@@ -1466,7 +1415,8 @@ impl<'input, S: Source> Scanner<'input, S> {
             // If we had reached an eof but the last character wasn't an end-of-line, check if the
             // last line was indented at least as the rest of the scalar, then we need to consider
             // there is a newline.
-            if self.src.next_is_z() && self.mark.col >= indent.max(1) {
+            let is_greater_col = self.mark.col > indent.max(1);
+            if self.src.next_is_z() && is_greater_col {
                 string.push(b'\n');
             }
         }
@@ -1478,7 +1428,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(Token {
             span: Span::new(start_mark, self.mark),
             token_type: TokenType::Scalar {
-                scalar_type: style,
+                scalar_type,
                 value: Cow::Owned(unsafe { String::from_utf8_unchecked(string) }),
             },
         })
@@ -1550,13 +1500,13 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_tag(&mut self) -> Result<Token<'input>, YamlError> {
         let start_mark = self.mark;
         let mut handle = Vec::new();
-        let mut prefix = Vec::new();
+        let mut suffix;
 
         // Check if the tag is in the canonical form (verbatim).
         // self.input.lookahead(2);
 
         if self.src.nth_byte_is(1, b'<') {
-            prefix = self.scan_verbatim_tag(&start_mark)?;
+            suffix = self.scan_verbatim_tag(&start_mark)?;
         } else {
             // The tag has either the '!suffix' or the '!handle!suffix'
             handle = self.scan_tag_handle(false, &start_mark)?;
@@ -1564,33 +1514,31 @@ impl<'input, S: Source> Scanner<'input, S> {
             if handle.len() >= 2 && handle.starts_with(b"!") && handle.ends_with(b"!") {
                 // A tag handle starting with "!!" is a secondary tag handle.
                 let is_secondary_handle = handle == b"!!";
-                prefix = self.scan_tag_shorthand_suffix(
+                suffix = self.scan_tag_shorthand_suffix(
                     false,
                     is_secondary_handle,
                     &b"".to_vec(),
                     &start_mark,
                 )?;
             } else {
-                prefix = self.scan_tag_shorthand_suffix(false, false, &handle, &start_mark)?;
+                suffix = self.scan_tag_shorthand_suffix(false, false, &handle, &start_mark)?;
 
-                handle.push(b'!');
+                handle = b"!".to_vec();
                 // A special case: the '!' tag.  Set the handle to '' and the
                 // suffix to '!'.
-                if prefix.is_empty() {
+                if suffix.is_empty() {
                     handle.clear();
-                    prefix.push(b'!');
+                    suffix.push(b'!');
                 }
             }
         }
 
-        if is_blank_or_break(self.src.peek()) || (self.flow_level > 0 && self.src.next_is_flow()) {
+        if is_blank_or_breakz(self.src.peek()) || (self.flow_level > 0 && self.src.next_is_flow()) {
             // XXX: ex 7.2, an empty scalar can follow a secondary tag
             Ok(Token {
                 span: Span::new(start_mark, self.mark),
-                token_type: TokenType::Tag {
-                    handle: Cow::Owned(unsafe { String::from_utf8_unchecked(handle) }),
-                    prefix: Cow::Owned(unsafe { String::from_utf8_unchecked(prefix) }),
-                },
+                // SAFETY: handle and prefix must contain valid Vec<u8>
+                token_type: unsafe { TokenType::new_tag_unchecked(handle, suffix) },
             })
         } else {
             Err(YamlError::new_str(
@@ -1786,7 +1734,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         start_mark: &Marker,
     ) -> Result<(), YamlError> {
         // ? self.input.lookahead(2);
-        while !is_blank_or_break(self.src.peek()) {
+        while !is_blank_or_breakz(self.src.peek()) {
             match self.src.peek() {
                 // Check for an escaped single quote.
                 b'\'' if self.src.peek_nth(1) == b'\'' && single => {
@@ -1899,7 +1847,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             return;
         }
 
-        while self.indent >= col {
+        while self.indent > col {
             // TODO: avoid unwrap
             let indent = self.indents.pop().unwrap();
             self.indent = indent.indent;
@@ -1994,11 +1942,15 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn stale_simple_keys(&mut self) -> ScanResult {
         for sk in &mut self.simple_keys {
-            if sk.possible {
-                return Err(YamlError::ScannerErr {
-                    mark: self.mark,
-                    info: "simple key expect `:`".to_owned(),
-                });
+            if sk.possible
+                // If not in a flow construct, simple keys cannot span multiple lines.
+                && self.flow_level == 0
+                    && (sk.mark.line < self.mark.line || sk.mark.pos + 1024 < self.mark.pos)
+            {
+                if sk.required {
+                    return Err(YamlError::new_str(self.mark, "simple key expect ':'"));
+                }
+                sk.possible = false;
             }
         }
         Ok(())
@@ -2146,23 +2098,25 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.mark.pos += n_blanks;
         self.mark.col += n_blanks as u32;
 
-        let handle = self.scan_tag_handle(true, mark)?;
+        let handle = String::from_utf8(self.scan_tag_handle(true, mark)?)
+            .map_err(|_| YamlError::new_str(*mark, "Error decoding tag handle as UTF-8"))?
+            .into();
 
         let n_blanks = self.src.skip_while_blank();
         self.mark.pos += n_blanks;
         self.mark.col += n_blanks as u32;
 
-        let prefix = self.scan_tag_prefix(mark)?;
+        let prefix = String::from_utf8(self.scan_tag_prefix(mark)?)
+            .map_err(|_| YamlError::new_str(*mark, "Error decoding tag prefix as UTF-8"))?
+            .into();
 
         // self.src.lookahead(1);
 
         if self.src.next_is_blank_or_break() {
             Ok(Token {
                 span: Span::new(*mark, self.mark),
-                token_type: TokenType::Tag {
-                    handle: Cow::Owned(unsafe { String::from_utf8_unchecked(handle) }),
-                    prefix: Cow::Owned(unsafe { String::from_utf8_unchecked(prefix) }),
-                },
+                // SAFETY: handle and prefix must not contain invalid UTF8
+                token_type: TokenType::TagDirective { prefix, handle },
             })
         } else {
             Err(YamlError::new_str(

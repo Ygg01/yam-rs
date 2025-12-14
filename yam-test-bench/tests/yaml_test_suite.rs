@@ -7,8 +7,10 @@ use std::{fs, io};
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::fmt::Write;
-use yam_common::Event;
+use yam_common::YEvent;
 use yam_core::tokenizer::EventIterator;
+use yam_core::Parser;
+use yam_test_bench::{unescape_text, write_str_from_event};
 
 const TEST_SIZE: usize = 440;
 
@@ -30,10 +32,10 @@ fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
     actual_event.push_str("+STR\r\n");
     let mut is_error = false;
     for ev in ev_iterator {
-        if matches!(ev, Event::Directive { .. }) {
+        if matches!(ev, YEvent::Directive { .. }) {
             continue;
         }
-        if ev == Event::ErrorEvent {
+        if ev == YEvent::ErrorEvent {
             is_error = true;
             break;
         }
@@ -53,14 +55,32 @@ fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
 
     Ok(())
 }
+const TEST: &str = "---\r\n[\r\n  [ a, [ [[b,c]]: d, e]]: 23\r\n]\r\n";
+
+fn perform_test_saphyr(data: TestData, _is_strict: bool) -> Result<(), Failed> {
+    let input_yaml = fs::read_to_string(data.input_yaml)?;
+    let mut actual_event = String::with_capacity(input_yaml.len());
+    let mut parser = Parser::new_from_str(&input_yaml);
+    write_str_from_event(&mut actual_event, &mut parser, true);
+    let actual_error = !actual_event.contains("-STR");
+    let expected_event = adjusted_test_event(data.test_event)?;
+
+    assert_eq!(actual_error, data.is_error);
+    if !data.is_error {
+        assert_eq!(actual_event, expected_event);
+    }
+
+    Ok(())
+}
 
 fn adjusted_test_event(path: PathBuf) -> io::Result<String> {
     let transform_events = fs::read_to_string(&path)?
         .replace("+DOC ---", "+DOC")
         .replace("-DOC ...", "-DOC")
         .replace("+MAP {}", "+MAP")
-        .replace("+SEQ []", "+SEQ");
-    Ok(transform_events)
+        .replace("+SEQ []", "+SEQ")
+        .replace("\r\n", "\n");
+    Ok(unescape_text(&transform_events))
 }
 
 fn collect_test_suite(
@@ -129,7 +149,7 @@ fn collect_test(
     }
     if !is_dir {
         let test = Trial::test(format!("{} ({})", dir_name, &test_data.desc), move || {
-            perform_test(test_data, is_strict)
+            perform_test_saphyr(test_data, is_strict)
         });
         tests.push(test);
     }

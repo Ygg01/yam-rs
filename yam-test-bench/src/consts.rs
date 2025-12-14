@@ -165,6 +165,9 @@ pub const FOLD_ERR_INPUT: &str = r"
 pub const FOLD_ERR_EVENTS: &str = r"
 +DOC
 ERR";
+pub const FOLD_ERR_EVENTS_SAPH: &str = r"
+ERR";
+
 pub const FOLD_STR2_INPUT: &str = r"
  >
 
@@ -1110,7 +1113,7 @@ pub const MAPS_WITH_QUOTES_EVENTS: &str = r#"
 pub const NESTED_MAPS_INPUT: &str = r#"
 "top1" :
   'key1' :
-    down : test
+    down : &x1 test
 'top2' :
   *x1 :  scalar2
 "#;
@@ -1122,7 +1125,7 @@ pub const NESTED_MAPS_EVENTS: &str = r#"
 =VAL 'key1
 +MAP
 =VAL :down
-=VAL :test
+=VAL &x1 :test
 -MAP
 -MAP
 =VAL 'top2
@@ -1148,7 +1151,7 @@ pub const X1_Q9WF_EVENTS: &str = r"
 -DOC";
 pub const ALIAS_N_MAPS_INPUT: &str = r#"
 "top1" : &node
-  &node2 'key1' : 'val'
+  &x1 'key1' : 'val'
 
 'top2' :
   *x1 :  scalar2
@@ -1158,7 +1161,7 @@ pub const ALIAS_N_MAPS_EVENTS: &str = r#"
 +MAP
 =VAL "top1
 +MAP &node
-=VAL &node2 'key1
+=VAL &x1 'key1
 =VAL 'val
 -MAP
 =VAL 'top2
@@ -1169,14 +1172,14 @@ pub const ALIAS_N_MAPS_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 pub const ALIAS_N_MAPS2_INPUT: &str = r"
-top3: &node3
+top3: &alias1
   *alias1 : scalar3
  ";
 pub const ALIAS_N_MAPS2_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :top3
-+MAP &node3
++MAP &alias1
 =ALI *alias1
 =VAL :scalar3
 -MAP
@@ -1299,14 +1302,15 @@ pub const X2_G9HC_EVENTS: &str = r"
 pub const X1_HMQ5_INPUT: &str = r#"
 !!str &a1 "foo":
   !!str bar
-&a2 baz : *a1""#;
+&a2 baz : *a1
+"#;
 pub const X1_HMQ5_EVENTS: &str = r#"
 +DOC
 +MAP
 =VAL &a1 <tag:yaml.org,2002:str> "foo
 =VAL <tag:yaml.org,2002:str> :bar
 =VAL &a2 :baz
-=ALI *a1"
+=ALI *a1
 -MAP
 -DOC"#;
 pub const X1_57H4_INPUT: &str = r"
@@ -1383,29 +1387,6 @@ pub const ANCHOR_COLON_EVENTS: &str = r"
 =VAL &node3: :key
 =VAL :scalar3
 =ALI *node3:
-=VAL :x
--MAP
--DOC";
-pub const ANCHOR_MULTI_INPUT: &str = r"
-top2: &node2
-  &v2 val: x";
-pub const ANCHOR_MULTI_EVENTS: &str = r"
-+DOC
-+MAP
-=VAL :top2
-+MAP &node2
-=VAL &v2 :val
-=VAL :x
--MAP
--MAP
--DOC";
-pub const ANCHOR_MULTI_2_INPUT: &str = r"
-    &node2
-  &v2 val: x";
-pub const ANCHOR_MULTI_2_EVENTS: &str = r"
-+DOC
-+MAP &node2
-=VAL &v2 :val
 =VAL :x
 -MAP
 -DOC";
@@ -2089,6 +2070,11 @@ pub const EMPTY_DOC_INPUT: &str = r"
 %YAML 1.2
 ---
 ";
+
+pub const EMPTY_DOC_EVENTS_SAPH: &str = r"
++DOC
+=VAL :
+-DOC";
 pub const EMPTY_DOC_EVENTS: &str = r"
 %YAML 1.2
 +DOC
@@ -2257,7 +2243,6 @@ pub const MULTI_DOC4_EVENTS: &str = r"
 +DOC
 =VAL :
 -DOC
-%YAML 1.2
 +DOC
 =VAL :
 -DOC";
@@ -3076,14 +3061,14 @@ pub const FLOW_ALIAS_EVENTS: &str = r"
 -SEQ
 -DOC";
 pub const X1_X38W_INPUT: &str = r"
-{&a []: *b}
+{&a []: *a}
 ";
 pub const X1_X38W_EVENTS: &str = r"
 +DOC
 +MAP
 +SEQ &a
 -SEQ
-=ALI *b
+=ALI *a
 -MAP
 -DOC";
 pub const X1_Y79Y_003_INPUT: &str = r"

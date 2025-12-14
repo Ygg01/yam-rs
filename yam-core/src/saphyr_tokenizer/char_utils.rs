@@ -3,17 +3,23 @@ pub(crate) fn is_blank_or_break(c: u8) -> bool {
 }
 
 pub(crate) fn is_anchor_char(c: u8) -> bool {
-    is_yaml_non_space(c) && !is_flow(c)
+    is_yaml_non_space(c) && !is_flow(c) && c != b'\0'
 }
 
 pub(crate) fn is_yaml_non_space(c: u8) -> bool {
-    !is_blank(c)
+    !is_blank(c) && !is_break(c)
 }
 
 #[inline]
 #[must_use]
 pub(crate) fn is_word_char(c: u8) -> bool {
-    c.is_ascii_alphanumeric() && c != b'_'
+    c.is_ascii_alphanumeric() || c == b'-'
+}
+
+#[inline]
+#[must_use]
+pub(crate) fn is_blank_or_breakz(c: u8) -> bool {
+    c == b'\0' || is_blank(c) || is_break(c)
 }
 
 /// Check whether the character is a valid URI character.
@@ -25,6 +31,10 @@ pub(crate) fn is_uri_char(c: u8) -> bool {
 
 pub(crate) fn is_break(c: u8) -> bool {
     c == b'\r' || c == b'\n'
+}
+
+pub(crate) fn is_breakz(c: u8) -> bool {
+    c == b'\r' || c == b'\n' || c == b'\0'
 }
 
 pub(crate) fn is_blank(c: u8) -> bool {
@@ -47,7 +57,7 @@ pub fn as_hex(c: u8) -> u32 {
 }
 
 pub(crate) fn is_tag_char(chr: u8) -> bool {
-    matches!(chr, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')
+    is_uri_char(chr) && !is_flow(chr) && chr != b'!'
 }
 
 #[inline]

@@ -78,14 +78,49 @@ pub enum TokenType<'input> {
         major: u8,
         minor: u8,
     },
-    Tag {
+    TagDirective {
         handle: Cow<'input, str>,
         prefix: Cow<'input, str>,
+    },
+    Tag {
+        handle: Cow<'input, str>,
+        suffix: Cow<'input, str>,
     },
     Scalar {
         scalar_type: ScalarType,
         value: Cow<'input, str>,
     },
+}
+
+impl<'input> TokenType<'input> {
+    ///
+    /// # Safety
+    ///
+    /// The passed Vec<u8> must contain only valid UTF-8.
+    pub unsafe fn new_tag_unchecked(handle_raw: Vec<u8>, suffix_raw: Vec<u8>) -> TokenType<'input> {
+        unsafe {
+            TokenType::Tag {
+                handle: Cow::Owned(String::from_utf8_unchecked(handle_raw)),
+                suffix: Cow::Owned(String::from_utf8_unchecked(suffix_raw)),
+            }
+        }
+    }
+
+    ///
+    /// # Safety
+    ///
+    /// The passed Vec<u8> must contain only valid UTF-8.
+    pub unsafe fn new_tag_directive_unchecked(
+        handle_raw: Vec<u8>,
+        prefix_raw: Vec<u8>,
+    ) -> TokenType<'input> {
+        unsafe {
+            TokenType::TagDirective {
+                handle: Cow::Owned(String::from_utf8_unchecked(handle_raw)),
+                prefix: Cow::Owned(String::from_utf8_unchecked(prefix_raw)),
+            }
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -116,7 +151,7 @@ pub enum DirectiveType {
 }
 
 #[derive(Clone, PartialEq)]
-pub enum Event<'a> {
+pub enum YEvent<'a> {
     DocStart,
     DocEnd,
     SeqStart {
@@ -143,16 +178,16 @@ pub enum Event<'a> {
     ErrorEvent,
 }
 
-impl Display for Event<'_> {
+impl Display for YEvent<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            Event::DocStart => {
+            YEvent::DocStart => {
                 write!(f, "+DOC")
             }
-            Event::DocEnd => {
+            YEvent::DocEnd => {
                 write!(f, "-DOC")
             }
-            Event::SeqStart { tag, anchor } => {
+            YEvent::SeqStart { tag, anchor } => {
                 write!(f, "+SEQ",)?;
 
                 if let Some(cow) = anchor {
@@ -169,10 +204,10 @@ impl Display for Event<'_> {
                 };
                 Ok(())
             }
-            Event::SeqEnd => {
+            YEvent::SeqEnd => {
                 write!(f, "-SEQ")
             }
-            Event::MapStart { tag, anchor } => {
+            YEvent::MapStart { tag, anchor } => {
                 write!(f, "+MAP")?;
                 if let Some(cow) = anchor {
                     // SAFETY:
@@ -188,10 +223,10 @@ impl Display for Event<'_> {
                 };
                 Ok(())
             }
-            Event::MapEnd => {
+            YEvent::MapEnd => {
                 write!(f, "-MAP")
             }
-            Event::Directive {
+            YEvent::Directive {
                 directive_type,
                 value,
             } => {
@@ -203,7 +238,7 @@ impl Display for Event<'_> {
                     _ => write!(f, "{val_str}"),
                 }
             }
-            Event::Scalar {
+            YEvent::Scalar {
                 scalar_type,
                 value,
                 tag,
@@ -237,10 +272,10 @@ impl Display for Event<'_> {
 
                 Ok(())
             }
-            Event::ErrorEvent => {
+            YEvent::ErrorEvent => {
                 write!(f, "ERR")
             }
-            Event::Alias(value) => {
+            YEvent::Alias(value) => {
                 // SAFETY:
                 // SAFE as long as the slice is valid UTF8.
                 let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
