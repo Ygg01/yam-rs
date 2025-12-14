@@ -5,7 +5,7 @@ use std::str::{Utf8Error, from_utf8_unchecked};
 
 pub type Mark = Range<usize>;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ScalarType {
     /// Unquoted string type like:
     /// ```yaml
@@ -55,7 +55,7 @@ impl Display for ScalarType {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum TokenType<'input> {
     StreamStart,
     StreamEnd,
@@ -78,9 +78,9 @@ pub enum TokenType<'input> {
         major: u8,
         minor: u8,
     },
-    TagDirective {
+    Tag {
         handle: Cow<'input, str>,
-        suffix: Cow<'input, str>,
+        prefix: Cow<'input, str>,
     },
     Scalar {
         scalar_type: ScalarType,
@@ -271,7 +271,7 @@ pub enum YamlError {
 }
 
 impl YamlError {
-    pub fn scanner_err(marker: Marker, info: &str) -> Self {
+    pub fn new_str(marker: Marker, info: &str) -> Self {
         YamlError::ScannerErr {
             mark: marker,
             info: info.to_string(),

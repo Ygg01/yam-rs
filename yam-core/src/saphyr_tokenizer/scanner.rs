@@ -1,7 +1,4 @@
-use crate::tokenizer::char_utils::{
-    as_hex, is_alpha, is_anchor_char, is_blank, is_blank_or_break, is_break, is_flow, is_uri_char,
-};
-use crate::tokenizer::reader::is_tag_char;
+use crate::saphyr_tokenizer::char_utils::*;
 use TokenType::FlowSequenceEnd;
 use alloc::borrow::{Cow, ToOwned};
 use alloc::collections::VecDeque;
@@ -15,7 +12,6 @@ use yam_common::TokenType::{
 use yam_common::{
     ChompIndicator, Marker, ScalarType, ScanResult, TokenType, YamlError, YamlResult,
 };
-
 pub trait Source {
     #[must_use]
     fn peek(&self) -> u8;
@@ -155,11 +151,11 @@ pub struct Span {
 }
 
 impl Span {
-    fn new(start: Marker, end: Marker) -> Self {
+    pub fn new(start: Marker, end: Marker) -> Self {
         Span { start, end }
     }
 
-    fn empty(mark: Marker) -> Self {
+    pub fn empty(mark: Marker) -> Self {
         Span {
             start: mark,
             end: mark,
@@ -167,9 +163,10 @@ impl Span {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct Token<'input> {
-    span: Span,
-    token_type: TokenType<'input>,
+    pub span: Span,
+    pub token_type: TokenType<'input>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -212,9 +209,9 @@ enum ImplicitMappingState {
 
 pub struct Scanner<'input, S> {
     src: S,
-    mark: Marker,
+    pub(crate) mark: Marker,
     tokens: VecDeque<Token<'input>>,
-    error: Option<YamlError>,
+    pub(crate) error: Option<YamlError>,
 
     simple_keys: Vec<SimpleKey>,
     indents: Vec<Indent>,
@@ -222,10 +219,10 @@ pub struct Scanner<'input, S> {
     stream_end_reached: bool,
     tokens_available: bool,
     simple_key_allowed: bool,
-    stream_start_produced: bool,
+    pub(crate) stream_start_produced: bool,
+    pub(crate) stream_end_produced: bool,
     leading_whitespace: bool,
     flow_mapping_started: bool,
-    stream_end_produced: bool,
 
     adjacent_value_allowed_at: usize,
     tokens_parsed: usize,
@@ -367,7 +364,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if self.mark.col < self.indent {
-            return Err(YamlError::scanner_err(self.mark, "invalid indentation"));
+            return Err(YamlError::new_str(self.mark, "invalid indentation"));
         }
 
         self.fetch_main_loop()
@@ -431,7 +428,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
             [b'%' | b'@' | b'`', _] => {
                 let chr = self.src.peek_char();
-                Err(YamlError::scanner_err(
+                Err(YamlError::new_str(
                     self.mark,
                     &format!("Unexpected character `{chr}`"),
                 ))
@@ -535,14 +532,14 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn fetch_block_entry(&mut self) -> ScanResult {
         if self.flow_level > 0 {
             // - * only allowed in block
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 r#""-" is only valid inside a block"#,
             ));
         }
         // Check if we are allowed to start a new entry.
         if !self.simple_key_allowed {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 "block sequence entries are not allowed in this context",
             ));
@@ -551,13 +548,13 @@ impl<'input, S: Source> Scanner<'input, S> {
         // ???, fixes test G9HC.
         if let Some(Token {
             span,
-            token_type: TokenType::Anchor(..) | TokenType::TagDirective { .. },
+            token_type: TokenType::Anchor(..) | TokenType::Tag { .. },
         }) = self.tokens.back()
             && self.mark.col == 0
             && span.start.col == 0
             && self.indent > 0
         {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 "block sequence entries are not allowed in this context",
             ));
@@ -571,7 +568,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.roll_indent(mark.col, None, TokenType::BlockSequenceStart, mark);
         let found_tabs = self.skip_ws_to_eol(SkipTabs::Yes)?.found_tabs();
         if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peek_nth(1)) {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 "'-' must be followed by a valid YAML whitespace",
             ));
@@ -600,7 +597,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         if self.flow_level == 0 {
             // Check if we are allowed to start a new key (not necessarily simple).
             if !self.simple_key_allowed {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     self.mark,
                     "mapping keys are not allowed in this context",
                 ));
@@ -623,7 +620,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
         self.skip_yaml_whitespace()?;
         if self.src.peek() == b'\t' {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 "tabs disallowed in this context",
             ));
@@ -663,7 +660,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if need_whitespace {
-            Err(YamlError::scanner_err(self.mark, "expected whitespace"))
+            Err(YamlError::new_str(self.mark, "expected whitespace"))
         } else {
             Ok(())
         }
@@ -684,7 +681,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             && !self.skip_ws_to_eol(SkipTabs::Yes)?.has_valid_yaml_ws()
             && (self.src.peek() == b'-' || self.src.next_is_alpha())
         {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 "':' must be followed by a valid YAML whitespace",
             ));
@@ -699,7 +696,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.insert_token(sk.token_number - self.tokens_parsed, tok);
             if is_implicit_flow_mapping {
                 if sk.mark.line < start_mark.line {
-                    return Err(YamlError::scanner_err(
+                    return Err(YamlError::new_str(
                         start_mark,
                         "illegal placement of ':' indicator",
                     ));
@@ -734,7 +731,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // The ':' indicator follows a complex key.
             if self.flow_level == 0 {
                 if !self.simple_key_allowed {
-                    return Err(YamlError::scanner_err(
+                    return Err(YamlError::new_str(
                         start_mark,
                         "mapping values are not allowed in this context",
                     ));
@@ -774,7 +771,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // flow character), but the ']' is not the value. The value is an invisible empty
         // space which is represented as null ('~').
         if self.mark.pos != self.adjacent_value_allowed_at && matches!(nc, b'[' | b'{') {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 "':' may not precede any of `[{` in flow mapping",
             ));
@@ -843,7 +840,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.fetch_document_indicator(TokenType::DocumentEnd)?;
         self.skip_ws_to_eol(SkipTabs::Yes)?;
         if !self.src.next_is_break() {
-            Err(YamlError::scanner_err(
+            Err(YamlError::new_str(
                 self.mark,
                 "Invalid content after document end marker",
             ))
@@ -865,7 +862,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         self.mark.col += n_bytes;
         self.mark.pos += n_bytes as usize;
-        result.map_err(|message| YamlError::scanner_err(self.mark, message))
+        result.map_err(|message| YamlError::new_str(self.mark, message))
     }
 
     #[inline]
@@ -924,7 +921,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     self.skip_ws_to_eol(SkipTabs::Yes)?;
                     // If we have content on that line with a tab, return an error.
                     if !self.src.next_is_break() {
-                        return Err(YamlError::scanner_err(
+                        return Err(YamlError::new_str(
                             self.mark,
                             "tabs disallowed within this context (block indentation)",
                         ));
@@ -966,9 +963,9 @@ impl<'input, S: Source> Scanner<'input, S> {
                 // XXX return an empty TagDirective token
                 Token {
                     span: Span::new(start_mark, self.mark),
-                    token_type: TokenType::TagDirective {
+                    token_type: TokenType::Tag {
                         handle: Cow::default(),
-                        suffix: Cow::default(),
+                        prefix: Cow::default(),
                     },
                 }
                 // return Err(ScanError::new_str(start_mark,
@@ -983,7 +980,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.skip_linebreak();
             Ok(tok)
         } else {
-            Err(YamlError::scanner_err(
+            Err(YamlError::new_str(
                 start_mark,
                 "while scanning a directive, did not find expected comment or line break",
             ))
@@ -997,7 +994,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let start_mark = self.mark;
 
         if self.flow_level > 0 && start_mark.col < indent {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 start_mark,
                 "invalid indentation in flow construct",
             ));
@@ -1018,7 +1015,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
 
             if self.flow_level > 0 && self.src.peek() == b'-' && is_flow(self.src.peek_nth(1)) {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     self.mark,
                     "plain scalar cannot start with '-' followed by ,[]{}",
                 ));
@@ -1094,7 +1091,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                         // empty. Skip to the end of the line.
                         self.skip_ws_to_eol(SkipTabs::Yes)?;
                         if !self.src.next_is_break() {
-                            return Err(YamlError::scanner_err(
+                            return Err(YamlError::new_str(
                                 start_mark,
                                 "while scanning a plain scalar, found a tab",
                             ));
@@ -1133,7 +1130,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // `fetch_plain_scalar` must absolutely consume at least one byte. Otherwise,
             // `fetch_next_token` will never stop calling it. An empty plain scalar may happen with
             // erroneous inputs such as "{...".
-            Err(YamlError::scanner_err(
+            Err(YamlError::new_str(
                 start_mark,
                 "unexpected end of plain scalar",
             ))
@@ -1166,21 +1163,21 @@ impl<'input, S: Source> Scanner<'input, S> {
             // ? self.src.lookahead(4);
 
             if self.mark.col == 0 && self.src.next_is_document_indicator() {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     start_mark,
                     "while scanning a quoted scalar, found unexpected document indicator",
                 ));
             }
 
             if self.src.next_is_z() {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     start_mark,
                     "while scanning a quoted scalar, found unexpected end of stream",
                 ));
             }
 
             if self.mark.col < self.indent {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     start_mark,
                     "invalid indentation in quoted scalar",
                 ));
@@ -1206,7 +1203,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // Consume a space or a tab character.
                     if leading_blanks {
                         if self.src.peek() == b'\t' && self.mark.col < self.indent {
-                            return Err(YamlError::scanner_err(
+                            return Err(YamlError::new_str(
                                 self.mark,
                                 "tab cannot be used as indentation",
                             ));
@@ -1267,7 +1264,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // Inside a flow context, this is allowed.
             b':' if self.flow_level > 0 => {}
             _ => {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     self.mark,
                     "invalid trailing content after double-quoted scalar",
                 ));
@@ -1320,7 +1317,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // ? self.src.lookahead(1);
             if self.src.peek().is_ascii_digit() {
                 if self.src.peek() == b'0' {
-                    return Err(YamlError::scanner_err(
+                    return Err(YamlError::new_str(
                         start_mark,
                         "while scanning a block scalar, found an indentation indicator equal to 0",
                     ));
@@ -1330,7 +1327,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         } else if self.src.peek().is_ascii_digit() {
             if self.src.peek() == b'0' {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     start_mark,
                     "while scanning a block scalar, found an indentation indicator equal to 0",
                 ));
@@ -1354,7 +1351,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // Check if we are at the end of the line.
         // self.input.lookahead(1);
         if !self.src.next_is_break() {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 start_mark,
                 "while scanning a block scalar, did not find expected comment or line break",
             ));
@@ -1366,7 +1363,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if self.src.peek() == b'\t' {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 start_mark,
                 "a block scalar content cannot start with a tab",
             ));
@@ -1416,7 +1413,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if self.mark.col < indent && self.mark.col > self.indent {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 self.mark,
                 "wrongly indented line in block scalar",
             ));
@@ -1533,7 +1530,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if string.is_empty() {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 start_mark,
                 "while scanning an anchor or alias, did not find expected alphabetic or numeric character",
             ));
@@ -1553,13 +1550,13 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_tag(&mut self) -> Result<Token<'input>, YamlError> {
         let start_mark = self.mark;
         let mut handle = Vec::new();
-        let mut suffix = Vec::new();
+        let mut prefix = Vec::new();
 
         // Check if the tag is in the canonical form (verbatim).
         // self.input.lookahead(2);
 
         if self.src.nth_byte_is(1, b'<') {
-            suffix = self.scan_verbatim_tag(&start_mark)?;
+            prefix = self.scan_verbatim_tag(&start_mark)?;
         } else {
             // The tag has either the '!suffix' or the '!handle!suffix'
             handle = self.scan_tag_handle(false, &start_mark)?;
@@ -1567,21 +1564,21 @@ impl<'input, S: Source> Scanner<'input, S> {
             if handle.len() >= 2 && handle.starts_with(b"!") && handle.ends_with(b"!") {
                 // A tag handle starting with "!!" is a secondary tag handle.
                 let is_secondary_handle = handle == b"!!";
-                suffix = self.scan_tag_shorthand_suffix(
+                prefix = self.scan_tag_shorthand_suffix(
                     false,
                     is_secondary_handle,
                     &b"".to_vec(),
                     &start_mark,
                 )?;
             } else {
-                suffix = self.scan_tag_shorthand_suffix(false, false, &handle, &start_mark)?;
+                prefix = self.scan_tag_shorthand_suffix(false, false, &handle, &start_mark)?;
 
                 handle.push(b'!');
                 // A special case: the '!' tag.  Set the handle to '' and the
                 // suffix to '!'.
-                if suffix.is_empty() {
+                if prefix.is_empty() {
                     handle.clear();
-                    suffix.push(b'!');
+                    prefix.push(b'!');
                 }
             }
         }
@@ -1590,13 +1587,13 @@ impl<'input, S: Source> Scanner<'input, S> {
             // XXX: ex 7.2, an empty scalar can follow a secondary tag
             Ok(Token {
                 span: Span::new(start_mark, self.mark),
-                token_type: TokenType::TagDirective {
+                token_type: TokenType::Tag {
                     handle: Cow::Owned(unsafe { String::from_utf8_unchecked(handle) }),
-                    suffix: Cow::Owned(unsafe { String::from_utf8_unchecked(suffix) }),
+                    prefix: Cow::Owned(unsafe { String::from_utf8_unchecked(prefix) }),
                 },
             })
         } else {
-            Err(YamlError::scanner_err(
+            Err(YamlError::new_str(
                 start_mark,
                 "while scanning a tag, did not find expected whitespace or line break",
             ))
@@ -1619,7 +1616,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if self.src.peek() != b'>' {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 *start_mark,
                 "while scanning a verbatim tag, did not find the expected '>'",
             ));
@@ -1632,7 +1629,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_tag_handle(&mut self, directive: bool, mark: &Marker) -> Result<Vec<u8>, YamlError> {
         let mut string = Vec::new();
         if self.src.peek() != b'!' {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 *mark,
                 "while scanning a tag, did not find expected '!'",
             ));
@@ -1653,7 +1650,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // It's either the '!' tag or not really a tag handle.  If it's a %TAG
             // directive, it's an error.  If it's a tag token, it must be a part of
             // URI.
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 *mark,
                 "while parsing a tag directive, did not find expected '!'",
             ));
@@ -1690,7 +1687,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if length == 0 {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 *mark,
                 "while parsing a tag, did not find expected tag URI",
             ));
@@ -1861,7 +1858,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             b'u' => code_length = 4,
             b'U' => code_length = 8,
             _ => {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     *start_mark,
                     "while parsing a quoted scalar, found unknown escape character",
                 ));
@@ -1876,7 +1873,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             for i in 0..code_length {
                 let c = self.src.peek_nth(i);
                 if !c.is_ascii_hexdigit() {
-                    return Err(YamlError::scanner_err(
+                    return Err(YamlError::new_str(
                         *start_mark,
                         "while parsing a quoted scalar, did not find expected hexadecimal number",
                     ));
@@ -1885,7 +1882,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
 
             let Some(ch) = char::from_u32(value) else {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     *start_mark,
                     "while parsing a quoted scalar, found invalid Unicode character escape code",
                 ));
@@ -1984,7 +1981,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.flow_level = self
             .flow_level
             .checked_add(1)
-            .ok_or_else(|| YamlError::scanner_err(self.mark, "recursion limit exceeded"))?;
+            .ok_or_else(|| YamlError::new_str(self.mark, "recursion limit exceeded"))?;
         Ok(())
     }
 
@@ -2010,7 +2007,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn remove_simple_key(&mut self) -> ScanResult {
         let last = self.simple_keys.last_mut().unwrap();
         if last.possible && last.required {
-            return Err(YamlError::scanner_err(self.mark, "simple key expected"));
+            return Err(YamlError::new_str(self.mark, "simple key expected"));
         }
 
         last.possible = false;
@@ -2045,7 +2042,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             let nc = self.src.peek_nth(2);
 
             if !(self.src.peek() == b'%' && c.is_ascii_hexdigit() && nc.is_ascii_hexdigit()) {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     *mark,
                     "while parsing a tag, found an invalid escape sequence",
                 ));
@@ -2059,7 +2056,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     _ if byte & 0xF0 == 0xE0 => 3,
                     _ if byte & 0xF8 == 0xF0 => 4,
                     _ => {
-                        return Err(YamlError::scanner_err(
+                        return Err(YamlError::new_str(
                             *mark,
                             "while parsing a tag, found an incorrect leading UTF-8 byte",
                         ));
@@ -2068,7 +2065,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 code = byte;
             } else {
                 if byte & 0xc0 != 0x80 {
-                    return Err(YamlError::scanner_err(
+                    return Err(YamlError::new_str(
                         *mark,
                         "while parsing a tag, found an incorrect trailing UTF-8 byte",
                     ));
@@ -2086,7 +2083,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         match char::from_u32(code) {
             Some(ch) => Ok(ch.to_string().as_bytes().to_vec()),
-            None => Err(YamlError::scanner_err(
+            None => Err(YamlError::new_str(
                 *mark,
                 "while parsing a tag, found an invalid UTF-8 codepoint",
             )),
@@ -2102,14 +2099,14 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.mark.col += n_chars as u32;
 
         if string.is_empty() {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 start_mark,
                 "while scanning a directive, could not find expected directive name",
             ));
         }
 
         if !is_blank_or_break(self.src.peek()) {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 start_mark,
                 "while scanning a directive, found unexpected non-alphabetical character",
             ));
@@ -2129,7 +2126,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let major = self.scan_version_directive_number(marker)?;
 
         if self.src.peek() != b'.' {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 *marker,
                 "while scanning a YAML directive, did not find expected digit or '.' character",
             ));
@@ -2162,13 +2159,13 @@ impl<'input, S: Source> Scanner<'input, S> {
         if self.src.next_is_blank_or_break() {
             Ok(Token {
                 span: Span::new(*mark, self.mark),
-                token_type: TokenType::TagDirective {
+                token_type: TokenType::Tag {
                     handle: Cow::Owned(unsafe { String::from_utf8_unchecked(handle) }),
-                    suffix: Cow::Owned(unsafe { String::from_utf8_unchecked(prefix) }),
+                    prefix: Cow::Owned(unsafe { String::from_utf8_unchecked(prefix) }),
                 },
             })
         } else {
-            Err(YamlError::scanner_err(
+            Err(YamlError::new_str(
                 *mark,
                 "while scanning TAG, did not find expected whitespace or line break",
             ))
@@ -2181,7 +2178,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         while self.src.peek().is_ascii_digit() {
             let digit = self.src.peek() - b'0';
             if length + 1 > 9 {
-                return Err(YamlError::scanner_err(
+                return Err(YamlError::new_str(
                     *mark,
                     "while scanning a YAML directive, found extremely long version number",
                 ));
@@ -2192,7 +2189,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if length == 0 {
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 *mark,
                 "while scanning a YAML directive, did not find expected version number",
             ));
@@ -2210,7 +2207,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.skip_non_blank();
         } else if !is_tag_char(self.src.peek()) {
             // Otherwise, check if the first global tag character is valid.
-            return Err(YamlError::scanner_err(
+            return Err(YamlError::new_str(
                 *start_mark,
                 "invalid global tag character",
             ));

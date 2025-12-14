@@ -4,7 +4,6 @@ use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::hint::unreachable_unchecked;
 use core::mem::take;
 use yam_common::DirectiveType;
 use yam_common::ScalarType;
@@ -2858,7 +2857,7 @@ impl LexerToken {
             ScalarLit => ScalarType::Literal,
             ScalarSingleQuote => ScalarType::SingleQuote,
             ScalarDoubleQuote => ScalarType::DoubleQuote,
-            _ => unreachable_unchecked(),
+            _ => unreachable!(),
         }
     }
 }

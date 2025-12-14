@@ -8,3 +8,5 @@ pub use tokenizer::Lexer;
 pub mod escaper;
 pub mod tokenizer;
 pub mod treebuild;
+
+pub mod saphyr_tokenizer;

@@ -46,6 +46,10 @@ pub fn as_hex(c: u8) -> u32 {
     }
 }
 
+pub(crate) fn is_tag_char(chr: u8) -> bool {
+    matches!(chr, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9')
+}
+
 #[inline]
 #[must_use]
 pub fn is_alpha(c: u8) -> bool {

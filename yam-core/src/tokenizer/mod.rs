@@ -5,11 +5,9 @@ pub use lexer::LexerToken;
 pub use reader::Reader;
 pub use str_reader::StrReader;
 
-mod char_utils;
 mod iterator;
 mod lexer;
 mod reader;
-mod scanner;
 mod str_reader;
 
 pub use iterator::assert_eq_event;
