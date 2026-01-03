@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 yam-core = {path = "../yam-core"}
 yam-common = { path = "../yam-common" }
+criterion = "0.8.1"
 
 [dev-dependencies]
 libtest-mimic = "0.6.0"
@@ -16,3 +17,6 @@ rstest = "0.26.1"
 name = "yaml_test_suite"
 harness = false
 
+[[bench]]
+name = "yaml_throughtput"
+harness = false
