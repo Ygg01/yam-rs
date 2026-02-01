@@ -6,9 +6,6 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use std::fmt::Write;
-use yam_common::YEvent;
-use yam_core::tokenizer::EventIterator;
 use yam_core::Parser;
 use yam_test_bench::{unescape_text, write_str_from_event};
 
@@ -25,36 +22,6 @@ struct TestData {
     emit_yaml: Option<PathBuf>,
 }
 
-fn perform_test(data: TestData, is_strict: bool) -> Result<(), Failed> {
-    let input_yaml = fs::read_to_string(data.input_yaml)?;
-    let mut actual_event = String::with_capacity(input_yaml.len());
-    let ev_iterator = EventIterator::from(&*input_yaml);
-    actual_event.push_str("+STR\r\n");
-    let mut is_error = false;
-    for ev in ev_iterator {
-        if matches!(ev, YEvent::Directive { .. }) {
-            continue;
-        }
-        if ev == YEvent::ErrorEvent {
-            is_error = true;
-            break;
-        }
-        write!(actual_event, "{ev:}")?;
-        actual_event.push_str("\r\n");
-    }
-    if !is_error {
-        actual_event.push_str("-STR\r\n");
-    }
-
-    if is_strict || !is_error {
-        let expected_event = adjusted_test_event(data.test_event)?;
-        assert_eq!(actual_event, expected_event);
-    } else {
-        assert_eq!(is_error, data.is_error);
-    }
-
-    Ok(())
-}
 const TEST: &str = "---\r\n[\r\n  [ a, [ [[b,c]]: d, e]]: 23\r\n]\r\n";
 
 fn perform_test_saphyr(data: TestData, _is_strict: bool) -> Result<(), Failed> {
