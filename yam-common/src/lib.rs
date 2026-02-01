@@ -1,7 +1,10 @@
+pub mod loader;
+
+pub use loader::{Entry, Mapping, Sequence, YamlDoc};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
-use std::str::{Utf8Error, from_utf8_unchecked};
+use std::str::Utf8Error;
 
 pub type Mark = Range<usize>;
 
@@ -148,141 +151,6 @@ pub enum DirectiveType {
     Yaml,
     Tag,
     Reserved,
-}
-
-#[derive(Clone, PartialEq)]
-pub enum YEvent<'a> {
-    DocStart,
-    DocEnd,
-    SeqStart {
-        tag: Option<Cow<'a, [u8]>>,
-        anchor: Option<Cow<'a, [u8]>>,
-    },
-    SeqEnd,
-    MapStart {
-        tag: Option<Cow<'a, [u8]>>,
-        anchor: Option<Cow<'a, [u8]>>,
-    },
-    MapEnd,
-    Directive {
-        directive_type: DirectiveType,
-        value: Cow<'a, [u8]>,
-    },
-    Scalar {
-        tag: Option<Cow<'a, [u8]>>,
-        anchor: Option<Cow<'a, [u8]>>,
-        scalar_type: ScalarType,
-        value: Cow<'a, [u8]>,
-    },
-    Alias(Cow<'a, [u8]>),
-    ErrorEvent,
-}
-
-impl Display for YEvent<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            YEvent::DocStart => {
-                write!(f, "+DOC")
-            }
-            YEvent::DocEnd => {
-                write!(f, "-DOC")
-            }
-            YEvent::SeqStart { tag, anchor } => {
-                write!(f, "+SEQ",)?;
-
-                if let Some(cow) = anchor {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{string}")?;
-                };
-                if let Some(cow) = tag {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{string}>")?;
-                };
-                Ok(())
-            }
-            YEvent::SeqEnd => {
-                write!(f, "-SEQ")
-            }
-            YEvent::MapStart { tag, anchor } => {
-                write!(f, "+MAP")?;
-                if let Some(cow) = anchor {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{string}")?;
-                };
-                if let Some(cow) = tag {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{string}>")?;
-                };
-                Ok(())
-            }
-            YEvent::MapEnd => {
-                write!(f, "-MAP")
-            }
-            YEvent::Directive {
-                directive_type,
-                value,
-            } => {
-                // SAFETY:
-                // SAFE as long as the slice is valid UTF8.
-                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                match directive_type {
-                    DirectiveType::Yaml => write!(f, "%YAML {val_str}"),
-                    _ => write!(f, "{val_str}"),
-                }
-            }
-            YEvent::Scalar {
-                scalar_type,
-                value,
-                tag,
-                anchor,
-            } => {
-                // SAFETY:
-                // SAFE as long as the slice is valid UTF8.
-                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                write!(f, "=VAL")?;
-
-                if let Some(cow) = anchor {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string: &str = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " &{string}")?;
-                };
-                if let Some(cow) = tag {
-                    // SAFETY:
-                    // SAFE as long as the slice is valid UTF8.
-                    let string = unsafe { from_utf8_unchecked(cow.as_ref()) };
-                    write!(f, " <{string}>")?;
-                };
-                match *scalar_type {
-                    ScalarType::Plain => write!(f, " :"),
-                    ScalarType::Folded => write!(f, " >"),
-                    ScalarType::Literal => write!(f, " |"),
-                    ScalarType::SingleQuote => write!(f, " \'"),
-                    ScalarType::DoubleQuote => write!(f, " \""),
-                }?;
-                write!(f, "{val_str}")?;
-
-                Ok(())
-            }
-            YEvent::ErrorEvent => {
-                write!(f, "ERR")
-            }
-            YEvent::Alias(value) => {
-                // SAFETY:
-                // SAFE as long as the slice is valid UTF8.
-                let val_str = unsafe { from_utf8_unchecked(value.as_ref()) };
-                write!(f, "=ALI *{val_str}")
-            }
-        }
-    }
 }
 
 /// A specialized `Result` type where the error is hard-wired to [`Error`].

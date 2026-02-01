@@ -1,6 +1,5 @@
 use crate::saphyr_tokenizer::char_utils::*;
 use crate::saphyr_tokenizer::source::Source;
-use TokenType::FlowSequenceEnd;
 use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use alloc::format;
@@ -8,7 +7,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use yam_common::ScalarType::Plain;
 use yam_common::TokenType::{
-    BlockEnd, FlowMappingEnd, FlowMappingStart, FlowSequenceStart, StreamEnd,
+    BlockEnd, FlowMappingEnd, FlowMappingStart, FlowSequenceEnd, FlowSequenceStart, StreamEnd,
 };
 use yam_common::{
     ChompIndicator, Marker, ScalarType, ScanResult, TokenType, YamlError, YamlResult,

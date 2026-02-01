@@ -1,64 +1,33 @@
-use alloc::borrow::Cow;
-use alloc::fmt::Display;
+use crate::saphyr_tokenizer::SpannedEventReceiver;
+use crate::saphyr_tokenizer::{Event, Source, StrSource};
+use crate::{Parser, Span};
 use alloc::vec::Vec;
+use yam_common::{YamlDoc, YamlError};
 
-use crate::treebuild::YamlToken::Scalar;
-
-pub enum YamlToken<'a, TAG = ()> {
-    // strings, booleans, numbers, nulls, all treated the same
-    Scalar(Cow<'a, [u8]>, TAG),
-
-    // flow style like `[x, x, x]`
-    // or block style like:
-    //     - x
-    //     - x
-    Sequence(Vec<YamlToken<'a, TAG>>, TAG),
-
-    // flow style like `{x: Y, a: B}`
-    // or block style like:
-    //     x: Y
-    //     a: B
-    Mapping(Vec<Entry<'a, TAG>>, TAG),
+#[derive(Default)]
+pub struct YamlLoader<'input> {
+    docs: Vec<YamlDoc<'input>>,
 }
 
-impl<TAG> Display for YamlToken<'_, TAG> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Scalar(val, _) => write!(f, "SCAL: {val:?}"),
-            Self::Sequence(val, _) => {
-                write!(f, "SEQ:")?;
-                for el in val {
-                    write!(f, "{el}")?;
-                }
-                Ok(())
-            }
-            Self::Mapping(val, _) => {
-                write!(f, "MAP:")?;
-                for entry in val {
-                    write!(f, "{} = {}", entry.key, entry.value)?;
-                }
-                Ok(())
-            }
-        }
+impl<'input> SpannedEventReceiver<'input> for YamlLoader<'input> {
+    fn on_event(&mut self, ev: Event<'input>, span: Span) {
+        todo!()
     }
 }
 
-impl<TAG: Default> Default for YamlToken<'_, TAG> {
-    fn default() -> Self {
-        Scalar(Cow::default(), TAG::default())
+impl YamlLoader<'_> {
+    pub fn load_parser<'a, I: Source>(
+        parser: &mut Parser<'a, I>,
+    ) -> Result<Vec<YamlDoc<'a>>, YamlError> {
+        let mut event_listener = YamlLoader::default();
+        parser.load(&mut event_listener, true)?;
+        Ok(event_listener.docs)
     }
-}
 
-pub struct Entry<'a, TAG> {
-    key: YamlToken<'a, TAG>,
-    value: YamlToken<'a, TAG>,
-}
-
-impl<TAG: Default> Default for Entry<'_, TAG> {
-    fn default() -> Self {
-        Entry {
-            key: YamlToken::default(),
-            value: YamlToken::default(),
-        }
+    pub fn load_from<'a, S: AsRef<str>>(input: S) -> Result<Vec<YamlDoc<'a>>, YamlError> {
+        let mut event_listener = YamlLoader::default();
+        let mut parser = Parser::new(StrSource::new(input.as_ref()));
+        parser.load(&mut event_listener, true)?;
+        Ok(event_listener.docs)
     }
 }

@@ -5,7 +5,7 @@
 //! YAML objects.
 
 use crate::saphyr_tokenizer::scanner::{Scanner, Span, Token};
-use crate::saphyr_tokenizer::source::{Source, StrSource};
+pub(crate) use crate::saphyr_tokenizer::source::{Source, StrSource};
 use alloc::{
     borrow::Cow,
     collections::BTreeMap,
