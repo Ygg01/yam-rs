@@ -2,7 +2,8 @@ pub mod consts;
 
 use std::borrow::Cow;
 use std::fmt::Write;
-use yam_core::saphyr_tokenizer::{ScalarValue, Source, Tag};
+use yam_common::Tag;
+use yam_core::saphyr_tokenizer::{ScalarValue, Source};
 use yam_core::{Parser, SaphyrEvent};
 
 ///

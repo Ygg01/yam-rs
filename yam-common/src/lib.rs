@@ -171,6 +171,7 @@ pub enum YamlError {
         mark: Marker,
         info: String,
     },
+    NoDocument,
 }
 
 impl YamlError {
@@ -187,5 +188,39 @@ impl From<Utf8Error> for YamlError {
     #[inline]
     fn from(error: Utf8Error) -> YamlError {
         YamlError::NonDecodable(Some(error))
+    }
+}
+
+/// A YAML tag.
+#[derive(Clone, PartialEq, Debug, Eq, Ord, PartialOrd, Hash)]
+pub struct Tag {
+    /// Handle of the tag (`!` included).
+    pub handle: String,
+    /// The suffix of the tag.
+    pub suffix: String,
+}
+
+impl Tag {
+    /// Returns whether the tag is a YAML tag from the core schema (`!!str`, `!!int`, ...).
+    ///
+    /// The YAML specification specifies [a list of
+    /// tags](https://yaml.org/spec/1.2.2/#103-core-schema) for the Core Schema. This function
+    /// checks whether _the handle_ (but not the suffix) is the handle for the YAML Core Schema.
+    ///
+    /// # Return
+    /// Returns `true` if the handle is `tag:yaml.org,2002`, `false` otherwise.
+    #[must_use]
+    pub fn is_yaml_core_schema(&self) -> bool {
+        self.handle == "tag:yaml.org,2002:"
+    }
+}
+
+impl Display for Tag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        if self.handle == "!" {
+            write!(f, "!{}", self.suffix)
+        } else {
+            write!(f, "{}!{}", self.handle, self.suffix)
+        }
     }
 }

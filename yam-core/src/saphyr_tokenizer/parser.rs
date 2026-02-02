@@ -12,8 +12,8 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::fmt::{Debug, Display};
-use yam_common::{Marker, ScalarType, TokenType, YamlError};
+use core::fmt::Debug;
+use yam_common::{Marker, ScalarType, Tag, TokenType, YamlError};
 
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct ScalarValue<'input> {
@@ -127,40 +127,6 @@ pub enum Event<'input> {
 impl<'input> Event<'input> {
     fn empty_scalar() -> Event<'input> {
         Event::Scalar(ScalarValue::empty_scalar())
-    }
-}
-
-/// A YAML tag.
-#[derive(Clone, PartialEq, Debug, Eq, Ord, PartialOrd, Hash)]
-pub struct Tag {
-    /// Handle of the tag (`!` included).
-    pub handle: String,
-    /// The suffix of the tag.
-    pub suffix: String,
-}
-
-impl Tag {
-    /// Returns whether the tag is a YAML tag from the core schema (`!!str`, `!!int`, ...).
-    ///
-    /// The YAML specification specifies [a list of
-    /// tags](https://yaml.org/spec/1.2.2/#103-core-schema) for the Core Schema. This function
-    /// checks whether _the handle_ (but not the suffix) is the handle for the YAML Core Schema.
-    ///
-    /// # Return
-    /// Returns `true` if the handle is `tag:yaml.org,2002`, `false` otherwise.
-    #[must_use]
-    pub fn is_yaml_core_schema(&self) -> bool {
-        self.handle == "tag:yaml.org,2002:"
-    }
-}
-
-impl Display for Tag {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        if self.handle == "!" {
-            write!(f, "!{}", self.suffix)
-        } else {
-            write!(f, "{}!{}", self.handle, self.suffix)
-        }
     }
 }
 
