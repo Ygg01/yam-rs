@@ -1,6 +1,6 @@
 pub mod loader;
 
-pub use loader::{Entry, Mapping, Sequence, YamlDoc};
+pub use loader::{Mapping, Sequence, YamlDoc, YamlEntry};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;

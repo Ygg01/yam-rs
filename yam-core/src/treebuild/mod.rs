@@ -1,15 +1,15 @@
 pub mod node;
 pub mod tree;
 
-use crate::Span;
-use crate::saphyr_tokenizer::Event;
+use crate::saphyr_tokenizer::{Event, Source, StrSource};
 use crate::saphyr_tokenizer::{ScalarValue, SpannedEventReceiver};
 use crate::treebuild::node::LoadableYamlNode;
+use crate::{Parser, Span};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use yam_common::{Marker, Tag, YamlDoc};
+use yam_common::{Marker, Tag, YamlDoc, YamlEntry, YamlError};
 
 pub struct YamlLoader<'input, Node>
 where
@@ -103,8 +103,38 @@ where
         self.docs
     }
 
-    pub(crate) fn insert_new_node(&self, _node: Node, _anchor_id: usize, _tag: Option<Cow<Tag>>) {
-        todo!()
+    pub(crate) fn insert_new_node(
+        &mut self,
+        mut node: Node,
+        anchor_id: usize,
+        tag: Option<Cow<'input, Tag>>,
+    ) {
+        if anchor_id > 0 {
+            self.anchor_map.insert(anchor_id, node.clone());
+        }
+        if let Some((parent_node, _, _)) = self.doc_stack.last_mut() {
+            if let Some(tag) = tag
+                && node.is_collection()
+                && !tag.is_yaml_core_schema()
+            {
+                node = node.into_tagged(tag);
+            }
+            if parent_node.is_sequence() {
+                parent_node.sequence_mut().push(node);
+            } else if parent_node.is_mapping() {
+                let curr_key = self.key_stack.last_mut().unwrap();
+
+                if curr_key.is_bad_value() {
+                    *curr_key = node;
+                } else {
+                    parent_node
+                        .mapping_mut()
+                        .push(YamlEntry::new(curr_key.take(), node));
+                }
+            }
+        } else {
+            self.doc_stack.push((node, anchor_id, tag));
+        }
     }
 
     fn insert_collection(&mut self, marker: Marker) {
@@ -119,17 +149,29 @@ where
         }
     }
 
-    // pub fn load_from<'a, S: AsRef<str>>(input: S) -> Result<Vec<YamlDoc<'a>>, YamlError> {
-    //     let mut event_listener = YamlLoader::<Node>::default();
-    //     let mut parser = Parser::new(StrSource::new(input.as_ref()));
-    //     parser.load(&mut event_listener, true)?;
-    //     Ok(event_listener.docs)
-    // }
-    //
-    // pub fn load_single<'a, S: AsRef<str>>(input: S) -> Result<YamlDoc<'a>, YamlError> {
-    //     let mut event_listener = YamlLoader::default();
-    //     let mut parser = Parser::new(StrSource::new(input.as_ref()));
-    //     parser.load(&mut event_listener, false)?;
-    //     event_listener.docs.first().cloned().ok_or(YamlError::NoDocument)
-    // }
+    pub fn load_from_parser<I: Source>(
+        parser: &mut Parser<'input, I>,
+    ) -> Result<Vec<Node>, YamlError> {
+        let mut loader = YamlLoader::default();
+        parser.load(&mut loader, true)?;
+        Ok(loader.into_documents())
+    }
+
+    pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Node>, YamlError> {
+        let mut event_listener = YamlLoader::default();
+        let mut parser = Parser::new(StrSource::new(input.as_ref()));
+        parser.load(&mut event_listener, true)?;
+        Ok(event_listener.docs)
+    }
+
+    pub fn load_single<S: AsRef<str>>(input: S) -> Result<Node, YamlError> {
+        let mut event_listener = YamlLoader::default();
+        let mut parser = Parser::new(StrSource::new(input.as_ref()));
+        parser.load(&mut event_listener, false)?;
+        event_listener
+            .docs
+            .first()
+            .cloned()
+            .ok_or(YamlError::NoDocument)
+    }
 }

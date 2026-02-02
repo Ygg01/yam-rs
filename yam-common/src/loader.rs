@@ -1,11 +1,12 @@
 use crate::{ScalarType, Tag};
 use std::borrow::Cow;
+use std::marker::PhantomData;
 
 /// Ordered sequence of one or more [`YamlDoc`]'s
 pub type Sequence<'a> = Vec<YamlDoc<'a>>;
 
 /// Sequence of key-value pairing of two [`YamlDoc`]s
-pub type Mapping<'a> = Vec<Entry<'a>>;
+pub type Mapping<'a> = Vec<YamlEntry<'a, YamlDoc<'a>>>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum YamlDoc<'input> {
@@ -118,7 +119,21 @@ fn parse_float(v: &str) -> Option<f64> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Entry<'input> {
-    key: YamlDoc<'input>,
-    value: YamlDoc<'input>,
+pub struct YamlEntry<'input, T>
+where
+    T: Clone,
+{
+    pub key: T,
+    pub value: T,
+    pub(crate) _marker: PhantomData<&'input ()>,
+}
+
+impl<'input, T: Clone> YamlEntry<'input, T> {
+    pub fn new(a: T, b: T) -> Self {
+        YamlEntry {
+            key: a,
+            value: b,
+            _marker: PhantomData,
+        }
+    }
 }
