@@ -75,18 +75,20 @@ where
                 value,
                 anchor_id,
                 tag,
-                ..
+                scalar_type,
             }) => {
-                let node =
-                    Node::from_bare_yaml(YamlDoc::from_cow_and_tag(value, &tag)).with_start(marker);
+                let node = match YamlDoc::from_cow_and_tag(value, scalar_type, &tag) {
+                    Some(n) => Node::from_bare_yaml(n).with_start(marker),
+                    None => Node::bad(span),
+                };
                 self.insert_new_node(node, anchor_id, tag)
             }
             Event::Alias(anchor_id) => {
-                let n = match self.anchor_map.get(&anchor_id) {
+                let node = match self.anchor_map.get(&anchor_id) {
                     Some(n) => n.clone(),
                     None => Node::bad(span),
                 };
-                self.insert_new_node(n, anchor_id, None)
+                self.insert_new_node(node, anchor_id, None)
             }
         };
     }
