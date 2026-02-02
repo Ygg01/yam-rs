@@ -1,5 +1,4 @@
 pub mod node;
-pub mod tree;
 
 use crate::saphyr_tokenizer::{Event, Source, StrSource};
 use crate::saphyr_tokenizer::{ScalarValue, SpannedEventReceiver};
@@ -77,10 +76,8 @@ where
                 tag,
                 scalar_type,
             }) => {
-                let node = match YamlDoc::from_cow_and_tag(value, scalar_type, &tag) {
-                    Some(n) => Node::from_bare_yaml(n).with_start(marker),
-                    None => Node::bad(span),
-                };
+                let node =
+                    Node::from_bare_yaml(YamlDoc::from_cow_and_tag(value, scalar_type, &tag));
                 self.insert_new_node(node, anchor_id, tag)
             }
             Event::Alias(anchor_id) => {

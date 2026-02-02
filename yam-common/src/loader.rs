@@ -1,3 +1,4 @@
+use crate::YamlDoc::BadValue;
 use crate::{ScalarType, Tag};
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -11,6 +12,7 @@ pub type Mapping<'a> = Vec<YamlEntry<'a, YamlDoc<'a>>>;
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum YamlDoc<'input> {
     #[default]
+    BadValue,
     Null,
     String(Cow<'input, str>),
     Bool(bool),
@@ -27,6 +29,8 @@ pub enum YamlDoc<'input> {
     //     x: Y
     //     a: B
     Mapping(Mapping<'input>),
+    Alias(usize),
+    Tagged(Cow<'input, Tag>, Box<YamlDoc<'input>>),
 }
 
 impl<'input> YamlDoc<'input> {
@@ -34,22 +38,24 @@ impl<'input> YamlDoc<'input> {
         value: Cow<'input, str>,
         scalar_type: ScalarType,
         tag: &Option<Cow<'input, Tag>>,
-    ) -> Option<YamlDoc<'input>> {
+    ) -> YamlDoc<'input> {
         if scalar_type != ScalarType::Plain {
-            return Some(Self::String(value));
+            return Self::String(value);
         }
         if let Some(tag) = tag
             && tag.is_yaml_core_schema()
         {
             return match &*tag.suffix {
                 "bool" => parse_bool(value),
-                "int" => value.parse().ok().map(YamlDoc::Integer),
+                "int" => value.parse().ok().map(YamlDoc::Integer).unwrap_or(BadValue),
                 "null" => parse_null(value),
-                "float" => parse_float(&value).map(YamlDoc::FloatingPoint),
-                _ => None,
+                "float" => parse_float(&value)
+                    .map(YamlDoc::FloatingPoint)
+                    .unwrap_or(BadValue),
+                _ => BadValue,
             };
         }
-        Some(Self::parse_from_cow(value))
+        Self::parse_from_cow(value)
     }
 
     #[must_use]
@@ -92,18 +98,18 @@ impl<'input> YamlDoc<'input> {
     }
 }
 
-fn parse_bool(v: Cow<str>) -> Option<YamlDoc> {
+fn parse_bool(v: Cow<str>) -> YamlDoc {
     match v.as_bytes() {
-        b"true" | b"True" | b"TRUE" => Some(YamlDoc::Bool(true)),
-        b"false" | b"False" | b"FALSE" => Some(YamlDoc::Bool(false)),
-        _ => None,
+        b"true" | b"True" | b"TRUE" => YamlDoc::Bool(true),
+        b"false" | b"False" | b"FALSE" => YamlDoc::Bool(false),
+        _ => YamlDoc::BadValue,
     }
 }
 
-fn parse_null(v: Cow<str>) -> Option<YamlDoc> {
+fn parse_null(v: Cow<str>) -> YamlDoc {
     match v.as_bytes() {
-        b"~" | b"null" => Some(YamlDoc::Null),
-        _ => None,
+        b"~" | b"null" => YamlDoc::Null,
+        _ => YamlDoc::BadValue,
     }
 }
 
