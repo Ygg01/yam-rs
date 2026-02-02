@@ -7,7 +7,7 @@ pub type WeakHandle<'input> = Weak<Node<'input>>;
 
 #[derive(Default)]
 pub struct Node<'input> {
-    data: YamlDoc<'input>,
-    parent: Cell<Option<WeakHandle<'input>>>,
-    children: RefCell<Vec<WeakHandle<'input>>>,
+    _data: YamlDoc<'input>,
+    _parent: Cell<Option<WeakHandle<'input>>>,
+    _children: RefCell<Vec<WeakHandle<'input>>>,
 }

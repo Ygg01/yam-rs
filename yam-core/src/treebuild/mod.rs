@@ -101,17 +101,17 @@ where
         self.docs
     }
 
-    pub(crate) fn insert_new_node(&self, p0: Node, p1: usize, p2: Option<Cow<Tag>>) {
+    pub(crate) fn insert_new_node(&self, _node: Node, _anchor_id: usize, _tag: Option<Cow<Tag>>) {
         todo!()
     }
 
     fn insert_collection(&mut self, marker: Marker) {
         if let Some((mut node, anchor_id, tag)) = self.doc_stack.pop() {
             node = node.with_end(marker);
-            if let Some(tag) = tag {
-                if !tag.is_yaml_core_schema() {
-                    node = node.into_tagged(tag);
-                }
+            if let Some(tag) = tag
+                && !tag.is_yaml_core_schema()
+            {
+                node = node.into_tagged(tag);
             }
             self.insert_new_node(node, anchor_id, None)
         }

@@ -253,8 +253,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn next_is_document_start(&mut self) -> bool {
-        let x = self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peek_nth(3));
-        x
+        self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peek_nth(3))
     }
 
     fn next_is_document_end(&mut self) -> bool {
@@ -1516,7 +1515,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 suffix = self.scan_tag_shorthand_suffix(
                     false,
                     is_secondary_handle,
-                    &b"".to_vec(),
+                    b"".as_ref(),
                     &start_mark,
                 )?;
             } else {
@@ -1609,7 +1608,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         &mut self,
         _directive: bool,
         _is_secondary: bool,
-        head: &Vec<u8>,
+        head: &[u8],
         mark: &Marker,
     ) -> Result<Vec<u8>, YamlError> {
         let mut length = head.len();
@@ -1969,7 +1968,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         if self.simple_key_allowed {
             let required = self.flow_level == 0
                 && self.indent == self.mark.col
-                && self.indents.last().map_or(false, |x| x.needs_block_end);
+                && self.indents.last().is_some_and(|x| x.needs_block_end);
 
             let sk = SimpleKey {
                 mark: self.mark,

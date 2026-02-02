@@ -30,8 +30,8 @@ pub enum YamlDoc<'input> {
 
 impl<'input> YamlDoc<'input> {
     pub fn from_cow_and_tag(
-        p0: Cow<'input, str>,
-        p1: &Option<Cow<'input, Tag>>,
+        _cow: Cow<'input, str>,
+        _tag: &Option<Cow<'input, Tag>>,
     ) -> YamlDoc<'input> {
         todo!()
     }
