@@ -22,8 +22,6 @@ struct TestData {
     emit_yaml: Option<PathBuf>,
 }
 
-const TEST: &str = "---\r\n[\r\n  [ a, [ [[b,c]]: d, e]]: 23\r\n]\r\n";
-
 fn perform_test_saphyr(data: TestData, _is_strict: bool) -> Result<(), Failed> {
     let input_yaml = fs::read_to_string(data.input_yaml)?;
     let mut actual_event = String::with_capacity(input_yaml.len());

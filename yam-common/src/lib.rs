@@ -1,4 +1,7 @@
+extern crate core;
+
 pub mod loader;
+pub mod node;
 
 pub use loader::{Mapping, Sequence, YamlDoc, YamlEntry};
 use std::borrow::Cow;
@@ -144,6 +147,25 @@ pub struct Marker {
     pub col: u32,
     /// Column of mark. One indexed.
     pub line: u32,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Eq, Default)]
+pub struct Span {
+    pub start: Marker,
+    pub end: Marker,
+}
+
+impl Span {
+    pub fn new(start: Marker, end: Marker) -> Self {
+        Span { start, end }
+    }
+
+    pub fn empty(mark: Marker) -> Self {
+        Span {
+            start: mark,
+            end: mark,
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]

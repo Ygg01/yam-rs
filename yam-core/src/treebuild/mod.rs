@@ -1,14 +1,14 @@
-pub mod node;
+pub mod spanned_node;
 
+use crate::Parser;
 use crate::saphyr_tokenizer::{Event, Source, StrSource};
 use crate::saphyr_tokenizer::{ScalarValue, SpannedEventReceiver};
-use crate::treebuild::node::LoadableYamlNode;
-use crate::{Parser, Span};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use yam_common::{Marker, Tag, YamlDoc, YamlEntry, YamlError};
+use yam_common::loader::LoadableYamlNode;
+use yam_common::{Marker, Span, Tag, YamlDoc, YamlEntry, YamlError};
 
 pub struct YamlLoader<'input, Node>
 where

@@ -3,7 +3,7 @@ extern crate alloc;
 extern crate core;
 extern crate yam_common;
 
-pub use saphyr_tokenizer::{Parser, Span};
+pub use saphyr_tokenizer::Parser;
 
 pub type SaphyrEvent<'input> = saphyr_tokenizer::Event<'input>;
 

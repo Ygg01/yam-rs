@@ -4,7 +4,7 @@
 //! compliance, and emits a stream of YAML events. This stream can for instance be used to create
 //! YAML objects.
 
-use crate::saphyr_tokenizer::scanner::{Scanner, Span, Token};
+use crate::saphyr_tokenizer::scanner::{Scanner, Token};
 pub(crate) use crate::saphyr_tokenizer::source::{Source, StrSource};
 use alloc::{
     borrow::Cow,
@@ -13,7 +13,7 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt::Debug;
-use yam_common::{Marker, ScalarType, Tag, TokenType, YamlError};
+use yam_common::{Marker, ScalarType, Span, Tag, TokenType, YamlError};
 
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct ScalarValue<'input> {

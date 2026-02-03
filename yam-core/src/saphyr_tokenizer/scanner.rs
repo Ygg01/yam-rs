@@ -10,7 +10,7 @@ use yam_common::TokenType::{
     BlockEnd, FlowMappingEnd, FlowMappingStart, FlowSequenceEnd, FlowSequenceStart, StreamEnd,
 };
 use yam_common::{
-    ChompIndicator, Marker, ScalarType, ScanResult, TokenType, YamlError, YamlResult,
+    ChompIndicator, Marker, ScalarType, ScanResult, Span, TokenType, YamlError, YamlResult,
 };
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -34,25 +34,6 @@ impl SkipTabs {
                 ..
             }
         )
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Debug, Eq, Default)]
-pub struct Span {
-    pub start: Marker,
-    pub end: Marker,
-}
-
-impl Span {
-    pub fn new(start: Marker, end: Marker) -> Self {
-        Span { start, end }
-    }
-
-    pub fn empty(mark: Marker) -> Self {
-        Span {
-            start: mark,
-            end: mark,
-        }
     }
 }
 
