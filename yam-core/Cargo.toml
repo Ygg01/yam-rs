@@ -12,7 +12,13 @@ categories = ["parsing"]
 keywords = ["yaml", "parser"]
 license = "MIT OR LGPL-3.0-only"
 readme = "README.md"
-authors = ["Ygg01 <y.laughing.man.y@gmail.com>"]
+authors = [
+    "Ygg01 <y.laughing.man.y@gmail.com>",
+    # Saphyr.rs authors
+    "David Aguilar <davvid@gmail.com>",
+    "Ethiraric <ethiraric@gmail.com>",
+    "Yuheng Chen <yuhengchen@sensetime.com>"
+]
 
 exclude =[
     "benches/*"
@@ -23,11 +29,8 @@ exclude =[
 
 
 [dependencies]
-memchr = "2.5.0"
-urlencoding = "2.1.2"
 # `no_std` map
 # Keep until https://github.com/rust-lang/rust/issues/27242 is resolved
-hashbrown = "0.15.3"
 yam-common = { path = "../yam-common" }
 
 [features]

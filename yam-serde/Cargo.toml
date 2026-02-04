@@ -1,0 +1,9 @@
+[package]
+name = "yam-serde"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_core = { version = "1.0.228", default-features = false }
+yam-core = { path = "../yam-core" }
+yam-common = { path = "../yam-common" }

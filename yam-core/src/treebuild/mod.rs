@@ -171,4 +171,15 @@ where
             .cloned()
             .ok_or(YamlError::NoDocument)
     }
+
+    pub fn load_single_from_parser<I: Source>(input: I) -> Result<Node, YamlError> {
+        let mut event_listener = YamlLoader::default();
+        let mut parser = Parser::new(input);
+        parser.load(&mut event_listener, false)?;
+        event_listener
+            .docs
+            .first()
+            .cloned()
+            .ok_or(YamlError::NoDocument)
+    }
 }

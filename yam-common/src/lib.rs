@@ -196,6 +196,23 @@ pub enum YamlError {
     NoDocument,
 }
 
+impl Display for YamlError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            YamlError::Utf8(utf8_error) => write!(f, "UTF-8 decoding error: {}", utf8_error),
+            YamlError::Io(io_error) => write!(f, "IO error: {}", io_error),
+            YamlError::UnexpectedEof => write!(f, "Unexpected end of file"),
+            YamlError::NonDecodable(utf8_error) => {
+                write!(f, "Non-decodable input: {:?}", utf8_error)
+            }
+            YamlError::ScannerErr { mark, info } => {
+                write!(f, "Scanner error at marker {:?}: {}", mark, info)
+            }
+            YamlError::NoDocument => write!(f, "No document found"),
+        }
+    }
+}
+
 impl YamlError {
     pub fn new_str(marker: Marker, info: &str) -> Self {
         YamlError::ScannerErr {
