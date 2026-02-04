@@ -1,7 +1,0 @@
-[package]
-name = "yam-table"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-yam-dark-core = { path = "../yam-dark-core" }

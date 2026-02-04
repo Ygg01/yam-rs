@@ -24,13 +24,10 @@ exclude =[
     "benches/*"
 ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 
 
 [dependencies]
-# `no_std` map
-# Keep until https://github.com/rust-lang/rust/issues/27242 is resolved
 yam-common = { path = "../yam-common" }
 
 [features]
