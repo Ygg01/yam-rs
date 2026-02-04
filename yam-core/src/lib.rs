@@ -12,4 +12,5 @@ pub type SaphyrEvent<'input> = saphyr_tokenizer::Event<'input>;
 pub mod escaper;
 pub mod treebuild;
 
+mod saphyr_emitter;
 pub mod saphyr_tokenizer;

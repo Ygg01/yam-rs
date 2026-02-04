@@ -72,4 +72,12 @@ impl<'input> LoadableYamlNode<'input> for SpannedYaml<'input> {
     fn take(&mut self) -> Self {
         core::mem::take(self)
     }
+
+    fn is_non_empty_collection(&self) -> bool {
+        match self.data {
+            YamlCloneNode::Sequence(ref s) => !s.is_empty(),
+            YamlCloneNode::Mapping(ref s) => !s.is_empty(),
+            _ => false,
+        }
+    }
 }

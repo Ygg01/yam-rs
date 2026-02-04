@@ -1,4 +1,3 @@
-use crate::YamlDoc::BadValue;
 use crate::{Marker, ScalarType, Span, Tag};
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -26,6 +25,8 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     fn is_bad_value(&self) -> bool;
 
     fn take(&mut self) -> Self;
+
+    fn is_non_empty_collection(&self) -> bool;
 
     fn is_collection(&self) -> bool {
         self.is_mapping() || self.is_sequence()
@@ -81,6 +82,14 @@ impl<'input> LoadableYamlNode<'input> for YamlDoc<'input> {
     fn take(&mut self) -> Self {
         mem::replace(self, YamlDoc::BadValue)
     }
+
+    fn is_non_empty_collection(&self) -> bool {
+        match self {
+            YamlDoc::Sequence(x) => !x.is_empty(),
+            YamlDoc::Mapping(x) => !x.is_empty(),
+            _ => false,
+        }
+    }
 }
 
 /// Ordered sequence of one or more [`YamlDoc`]'s
@@ -127,12 +136,16 @@ impl<'input> YamlDoc<'input> {
         {
             return match &*tag.suffix {
                 "bool" => parse_bool(value),
-                "int" => value.parse().ok().map(YamlDoc::Integer).unwrap_or(BadValue),
+                "int" => value
+                    .parse()
+                    .ok()
+                    .map(YamlDoc::Integer)
+                    .unwrap_or(YamlDoc::BadValue),
                 "null" => parse_null(value),
                 "float" => parse_float(&value)
                     .map(YamlDoc::FloatingPoint)
-                    .unwrap_or(BadValue),
-                _ => BadValue,
+                    .unwrap_or(YamlDoc::BadValue),
+                _ => YamlDoc::BadValue,
             };
         }
         Self::parse_from_cow(value)

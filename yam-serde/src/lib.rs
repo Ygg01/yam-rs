@@ -22,7 +22,7 @@ where
     Ok(value)
 }
 
-pub struct Deserializer<'a, R: Source> {
+struct Deserializer<'a, R: Source> {
     input: R,
     phantom_data: PhantomData<&'a ()>,
 }
