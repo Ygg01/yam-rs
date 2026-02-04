@@ -45,7 +45,7 @@ pub struct YamlEmitter<'a> {
 pub type EmitResult = Result<(), fmt::Error>;
 
 // from serialize::json
-fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> Result<(), fmt::Error> {
+fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> EmitResult {
     wr.write_str("\"")?;
 
     let bytes = v.as_bytes();
