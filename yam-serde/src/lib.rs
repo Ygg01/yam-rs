@@ -9,11 +9,28 @@ use serde_core::{de, forward_to_deserialize_any};
 use yam_common::loader::LoadableYamlNode;
 use yam_common::{Mapping, Sequence, YamlDoc, YamlError};
 use yam_core::Source;
+use yam_core::saphyr_tokenizer::StrSource;
 use yam_core::treebuild::YamlLoader;
+
+pub fn from_str<'a, T>(input: &'a str) -> Result<T, YamSerdeError>
+where
+    T: de::Deserialize<'a>,
+{
+    let de = Deserializer::new(StrSource::new(input));
+    let value = de::Deserialize::deserialize(de)?;
+
+    Ok(value)
+}
 
 pub struct Deserializer<'a, R: Source> {
     input: R,
     phantom_data: PhantomData<&'a ()>,
+}
+
+impl<'a> Deserializer<'a, StrSource<'a>> {
+    pub fn from_str<S: AsRef<str>>(input: &'a S) -> Self {
+        Self::new(StrSource::new(input.as_ref()))
+    }
 }
 
 impl<'a, R> Deserializer<'a, R>

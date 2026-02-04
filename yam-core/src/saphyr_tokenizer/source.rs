@@ -128,7 +128,7 @@ pub struct StrSource<'input> {
 }
 
 impl StrSource<'_> {
-    pub(crate) fn new(input: &str) -> StrSource<'_> {
+    pub fn new(input: &str) -> StrSource<'_> {
         StrSource {
             input: input.as_bytes(),
             pos: 0,
