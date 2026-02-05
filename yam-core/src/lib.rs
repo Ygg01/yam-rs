@@ -14,3 +14,4 @@ pub mod treebuild;
 
 mod saphyr_emitter;
 pub mod saphyr_tokenizer;
+pub mod util;

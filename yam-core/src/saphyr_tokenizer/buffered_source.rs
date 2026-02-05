@@ -1,8 +1,10 @@
 use crate::Source;
+use crate::saphyr_tokenizer::char_utils::is_break;
 use crate::saphyr_tokenizer::scanner::SkipTabs;
+use crate::util::u8x64_eq;
 use alloc::vec::Vec;
 use core::iter::Copied;
-use core::mem::MaybeUninit;
+use core::mem::{MaybeUninit, transmute};
 use core::slice;
 use core::slice::Iter;
 
@@ -35,6 +37,22 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
                 }
                 None => break,
             }
+        }
+    }
+
+    pub fn get_max_buf(&self) -> Option<[u8; 64]> {
+        if self.len < self.buf_max_len() {
+            return None;
+        }
+        let buf = unsafe { transmute::<[MaybeUninit<u8>; 64], [u8; 64]>(self.buf) };
+        Some(buf)
+    }
+
+    pub fn get_buf(&self) -> &[u8] {
+        unsafe {
+            // SAFETY: This is safe because self.len guarantees that the buf is initialized
+            // up to self.len position
+            slice::from_raw_parts(self.buf.as_ptr().cast(), self.len)
         }
     }
 }
@@ -103,7 +121,26 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
-        todo!()
+        let mut pos = None;
+        while let Some(x) = self.get_max_buf() {
+            // bitmask for \r or \n
+            let break_bitmask = u8x64_eq(&x, b'\n') | u8x64_eq(&x, b'\r');
+            let first_nl = break_bitmask.trailing_zeros() as usize;
+
+            if break_bitmask != 0 {
+                pos = Some(first_nl);
+                break;
+            }
+
+            vec.extend_from_slice(&x[..]);
+            self.skip(64)
+        }
+        let buf = self.get_buf();
+
+        // we get the value from while loop above, or we search remaining buf
+        let found_pos = pos.unwrap_or(buf.iter().position(|&c| is_break(c)).unwrap_or(0));
+        vec.extend_from_slice(&buf[..found_pos]);
+        self.skip(found_pos);
     }
 }
 

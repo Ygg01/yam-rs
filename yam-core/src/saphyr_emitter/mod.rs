@@ -1,22 +1,6 @@
 use core::fmt;
-use core::fmt::Display;
 use yam_common::loader::LoadableYamlNode;
 use yam_common::{Mapping, YamlDoc};
-
-/// An error when emitting YAML.
-#[derive(Copy, Clone, Debug)]
-pub enum EmitError {
-    /// A formatting error.
-    FmtError(fmt::Error),
-}
-
-impl Display for EmitError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            EmitError::FmtError(err) => write!(f, "Formatting error: {}", err),
-        }
-    }
-}
 
 /// The YAML serializer.
 ///
@@ -113,6 +97,7 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> EmitResult {
     Ok(())
 }
 
+#[allow(dead_code)]
 impl<'a> YamlEmitter<'a> {
     /// Create a new emitter serializing into `writer`.
     pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
