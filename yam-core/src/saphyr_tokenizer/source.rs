@@ -44,8 +44,6 @@ pub trait Source {
 
     fn buf_is_empty(&self) -> bool;
 
-    fn raw_read_non_breakz_ch(&mut self) -> &[u8];
-
     fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>);
     fn next_byte_is(&self, chr: u8) -> bool {
         chr == self.peek()
@@ -120,6 +118,7 @@ pub trait Source {
     fn next_is_alpha(&self) -> bool {
         is_alpha(self.peek())
     }
+    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
 }
 
 pub struct StrSource<'input> {
@@ -167,14 +166,14 @@ impl<'input> Source for StrSource<'input> {
         self.pos >= self.input.len()
     }
 
-    fn raw_read_non_breakz_ch(&mut self) -> &[u8] {
+    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
         let len = self.input[self.pos..]
             .iter()
             .position(|&c| is_break(c))
             .unwrap_or(0);
         let slice = &self.input[self.pos..self.pos + len];
         self.skip(len);
-        slice
+        vec.extend_from_slice(slice);
     }
 
     fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>) {

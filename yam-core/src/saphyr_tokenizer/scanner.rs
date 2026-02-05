@@ -1433,7 +1433,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // characters are appended here as their real size (1B for ascii, or up to 4 bytes for
             // UTF-8). We can then use the internal `line_buffer` `Vec` to push data into `string`
             // (using `String::push_str`).
-            line_buffer.extend_from_slice(self.src.raw_read_non_breakz_ch());
+            self.src.push_non_breakz_chr(line_buffer);
 
             // We need to manually update our position; we haven't called a `skip` function.
             let n_chars = line_buffer.len();
