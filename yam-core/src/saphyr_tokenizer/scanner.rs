@@ -234,11 +234,11 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn next_is_document_start(&mut self) -> bool {
-        self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peek_nth(3))
+        self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peek_n3())
     }
 
     fn next_is_document_end(&mut self) -> bool {
-        self.src.next_is_three(b'.') && is_blank_or_breakz(self.src.peek_nth(3))
+        self.src.next_is_three(b'.') && is_blank_or_breakz(self.src.peek_n3())
     }
 
     fn fetch_next_token(&mut self) -> ScanResult {
@@ -496,7 +496,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // generate BLOCK-SEQUENCE-START if indented
         self.roll_indent(mark.col, None, TokenType::BlockSequenceStart, mark);
         let found_tabs = self.skip_ws_to_eol(SkipTabs::Yes)?.found_tabs();
-        if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peek_nth(1)) {
+        if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peek_n1()) {
             return Err(YamlError::new_str(
                 self.mark,
                 "'-' must be followed by a valid YAML whitespace",
@@ -686,7 +686,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn fetch_flow_value(&mut self) -> ScanResult {
-        let nc = self.src.peek_nth(1);
+        let nc = self.src.peek_n1();
 
         // If we encounter a ':' inside a flow collection and it is not immediately
         // followed by a blank or breakz:
@@ -943,7 +943,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 break;
             }
 
-            if self.flow_level > 0 && self.src.peek() == b'-' && is_flow(self.src.peek_nth(1)) {
+            if self.flow_level > 0 && self.src.peek() == b'-' && is_flow(self.src.peek_n1()) {
                 return Err(YamlError::new_str(
                     self.mark,
                     "plain scalar cannot start with '-' followed by ,[]{}",
@@ -977,7 +977,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 // We can unroll the first iteration of the loop.
                 string.push(self.src.peek());
                 self.skip_non_blank();
-                string.reserve(self.src.bufmaxlen());
+                string.reserve(self.src.buf_max_len());
 
                 // Add content non-blank characters to the scalar.
                 let mut end = false;
@@ -986,7 +986,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // fetch. Note that `next_can_be_plain_scalar` needs 2 lookahead characters,
                     // hence the `for` loop looping `self.input.bufmaxlen() - 1` times.
                     // ? self.src.lookahead(self.src.bufmaxlen());
-                    for _ in 0..self.src.bufmaxlen() - 1 {
+                    for _ in 0..self.src.buf_max_len() - 1 {
                         if self.src.next_is_blank_or_breakz()
                             || !self.src.next_can_be_plain_scalar(self.flow_level > 0)
                         {
@@ -1484,7 +1484,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // Check if the tag is in the canonical form (verbatim).
         // self.input.lookahead(2);
 
-        if self.src.nth_byte_is(1, b'<') {
+        if self.src.next_next_byte_is(b'<') {
             suffix = self.scan_verbatim_tag(&start_mark)?;
         } else {
             // The tag has either the '!suffix' or the '!handle!suffix'
@@ -1663,7 +1663,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn skip_block_scalar_indent(&mut self, indent: u32, breaks: &mut Vec<u8>) {
         loop {
             // Consume all spaces. Tabs cannot be used as indentation.
-            if (indent as usize) < self.src.bufmaxlen() - 2 {
+            if (indent as usize) < self.src.buf_max_len() - 2 {
                 // ? self.src.lookahead(self.input.bufmaxlen());
                 while self.mark.col < indent && self.src.peek() == b' ' {
                     self.skip_blank();
@@ -1716,7 +1716,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         while !is_blank_or_breakz(self.src.peek()) {
             match self.src.peek() {
                 // Check for an escaped single quote.
-                b'\'' if self.src.peek_nth(1) == b'\'' && single => {
+                b'\'' if self.src.peek_n1() == b'\'' && single => {
                     string.push(b'\'');
                     self.skip_n_non_blank(2);
                 }
@@ -1724,7 +1724,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 b'\'' if single => break,
                 b'"' if !single => break,
                 // Check for an escaped line break.
-                b'\\' if !single && is_break(self.src.peek_nth(1)) => {
+                b'\\' if !single && is_break(self.src.peek_n1()) => {
                     // ? self.input.lookahead(3);
                     self.skip_non_blank();
                     self.skip_linebreak();
@@ -1759,7 +1759,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut code_length = 0usize;
         let mut ret = '\0';
 
-        match self.src.peek_nth(1) {
+        match self.src.peek_n1() {
             b'0' => ret = '\0',
             b'a' => ret = '\x07',
             b'b' => ret = '\x08',
@@ -1795,10 +1795,9 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // Consume an arbitrary escape code.
         if code_length > 0 {
-            // self.input.lookahead(code_length);
             let mut value = 0u32;
             for i in 0..code_length {
-                let c = self.src.peek_nth(i);
+                let c = self.src.peek_arbitrary(i);
                 if !c.is_ascii_hexdigit() {
                     return Err(YamlError::new_str(
                         *start_mark,
@@ -1969,8 +1968,8 @@ impl<'input, S: Source> Scanner<'input, S> {
         loop {
             // self.src.lookahead(3);
 
-            let c = self.src.peek_nth(1);
-            let nc = self.src.peek_nth(2);
+            let c = self.src.peek_n1();
+            let nc = self.src.peek_n2();
 
             if !(self.src.peek() == b'%' && c.is_ascii_hexdigit() && nc.is_ascii_hexdigit()) {
                 return Err(YamlError::new_str(

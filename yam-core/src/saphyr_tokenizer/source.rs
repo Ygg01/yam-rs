@@ -6,11 +6,24 @@ use alloc::vec::Vec;
 
 pub trait Source {
     #[must_use]
-    fn peek_nth(&self, n: usize) -> u8;
+    fn peek_arbitrary(&self, n: usize) -> u8;
 
     #[must_use]
-    fn peek(&self) -> u8 {
-        self.peek_nth(0)
+    fn peek(&self) -> u8;
+
+    #[must_use]
+    fn peek_n1(&self) -> u8 {
+        self.peek_arbitrary(1)
+    }
+
+    #[must_use]
+    fn peek_n2(&self) -> u8 {
+        self.peek_arbitrary(2)
+    }
+
+    #[must_use]
+    fn peek_n3(&self) -> u8 {
+        self.peek_arbitrary(3)
     }
 
     #[must_use]
@@ -19,7 +32,7 @@ pub trait Source {
     fn skip(&mut self, n: usize);
 
     #[must_use]
-    fn bufmaxlen(&self) -> usize {
+    fn buf_max_len(&self) -> usize {
         128
     }
 
@@ -49,16 +62,16 @@ pub trait Source {
         chr == self.peek()
     }
 
-    fn nth_byte_is(&self, n: usize, chr: u8) -> bool {
-        self.peek_nth(n) == chr
+    fn next_next_byte_is(&self, chr: u8) -> bool {
+        self.peek_n1() == chr
     }
 
     fn peek_two(&self) -> [u8; 2] {
-        [self.peek(), self.peek_nth(1)]
+        [self.peek(), self.peek_n1()]
     }
 
     fn next_is_three(&self, chr: u8) -> bool {
-        self.peek() == chr && self.peek_nth(1) == chr && self.peek_nth(2) == chr
+        self.peek() == chr && self.peek_n1() == chr && self.peek_n2() == chr
     }
 
     #[must_use]
@@ -99,7 +112,7 @@ pub trait Source {
     }
 
     fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
-        let nc = self.peek_nth(1);
+        let nc = self.peek_n1();
         match self.peek() {
             // indicators can end a plain scalar, see 7.3.3. Plain Style
             b':' if is_blank_or_breakz(nc) || (in_flow && is_flow(nc)) => false,
@@ -109,8 +122,7 @@ pub trait Source {
     }
 
     fn next_is_document_indicator(&self) -> bool {
-        (self.next_is_three(b'-') || self.next_is_three(b'.'))
-            && is_blank_or_breakz(self.peek_nth(3))
+        (self.next_is_three(b'-') || self.next_is_three(b'.')) && is_blank_or_breakz(self.peek_n3())
     }
 
     fn next_is_z(&self) -> bool;
@@ -136,7 +148,11 @@ impl StrSource<'_> {
 }
 
 impl<'input> Source for StrSource<'input> {
-    fn peek_nth(&self, n: usize) -> u8 {
+    fn peek_arbitrary(&self, n: usize) -> u8 {
+        debug_assert!(
+            n <= self.buf_max_len(),
+            "Can only support limited lookahead"
+        );
         match self.input.get(self.pos + n) {
             Some(x) => *x,
             None => b'\0',
@@ -164,16 +180,6 @@ impl<'input> Source for StrSource<'input> {
 
     fn buf_is_empty(&self) -> bool {
         self.pos >= self.input.len()
-    }
-
-    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
-        let len = self.input[self.pos..]
-            .iter()
-            .position(|&c| is_break(c))
-            .unwrap_or(0);
-        let slice = &self.input[self.pos..self.pos + len];
-        self.skip(len);
-        vec.extend_from_slice(slice);
     }
 
     fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>) {
@@ -220,5 +226,15 @@ impl<'input> Source for StrSource<'input> {
 
     fn next_is_z(&self) -> bool {
         self.buf_is_empty()
+    }
+
+    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
+        let len = self.input[self.pos..]
+            .iter()
+            .position(|&c| is_break(c))
+            .unwrap_or(0);
+        let slice = &self.input[self.pos..self.pos + len];
+        self.skip(len);
+        vec.extend_from_slice(slice);
     }
 }

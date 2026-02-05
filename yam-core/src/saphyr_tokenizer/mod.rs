@@ -1,3 +1,4 @@
+mod buffered_source;
 mod char_utils;
 mod parser;
 mod scanner;
