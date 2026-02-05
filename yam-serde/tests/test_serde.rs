@@ -11,7 +11,8 @@ pub struct Ex {
 fn test_deserialize() {
     let input = r#"
     a: "hello"
-    b: "world"#;
+    b: "world"
+    "#;
     let deserialized: Ex = yam_serde::from_str(input).unwrap();
     assert_eq!(deserialized.a, "hello");
     assert_eq!(deserialized.b, "world");
