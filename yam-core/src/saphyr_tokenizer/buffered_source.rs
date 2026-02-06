@@ -1,14 +1,14 @@
 use crate::Source;
 use crate::saphyr_tokenizer::char_utils::is_break;
 use crate::saphyr_tokenizer::scanner::SkipTabs;
-use crate::util::u8x64_eq;
+use crate::util::{BitOps, HIGH_NIBBLE_WS, LOW_NIBBLE_WS, U8X16, U8X32};
 use alloc::vec::Vec;
 use core::iter::Copied;
 use core::mem::{MaybeUninit, transmute};
 use core::slice;
 use core::slice::Iter;
 
-const MAX_LEN: usize = 64;
+const MAX_LEN: usize = 32;
 
 #[allow(dead_code)]
 pub struct BufferedBytesSource<T> {
@@ -40,11 +40,11 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
         }
     }
 
-    pub fn get_max_buf(&self) -> Option<[u8; 64]> {
+    pub fn get_max_buf(&self) -> Option<[u8; MAX_LEN]> {
         if self.len < self.buf_max_len() {
             return None;
         }
-        let buf = unsafe { transmute::<[MaybeUninit<u8>; 64], [u8; 64]>(self.buf) };
+        let buf = unsafe { transmute::<[MaybeUninit<u8>; MAX_LEN], [u8; MAX_LEN]>(self.buf) };
         Some(buf)
     }
 
@@ -120,7 +120,42 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>) {
-        todo!()
+        let mut encountered_tab = false;
+        let mut has_yaml_ws = false;
+        let mut chars_consumed = 0;
+
+        let low_nib_mask = U8X16::splat(0xF);
+        let high_nib_mask = U8X16::splat(0x7F);
+
+        while let Some(x) = self.get_max_buf() {
+            let (v0, v1) = U8X32::from_array(x).split();
+            let v_v0 = LOW_NIBBLE_WS.swizzle(v0 & low_nib_mask)
+                & high_nib_mask.swizzle((v0 >> 4) & high_nib_mask);
+            let v_v1 = HIGH_NIBBLE_WS.swizzle(v1 & low_nib_mask)
+                & high_nib_mask.swizzle((v1 >> 4) & high_nib_mask);
+
+            let sp = U8X32::merge(v_v0 & 0x04, v_v1 & 0x04).to_bitmask();
+            let nl = U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).to_bitmask();
+            let tab = U8X32::merge(v_v0 & 0x01, v_v1 & 0x01).to_bitmask();
+            let hash = U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).to_bitmask();
+
+            // bitmask for \r or \n
+            // let break_bitmask = u8x32_eq(&x, b'\n');
+            // let break_bitmask = u8x32_eq(&x, b'\r');
+            // let break_bitmask = u8x32_eq(&x, b' ');
+            // let break_bitmask = u8x32_eq(&x, b'\t');
+            // let break_bitmask = u8x32_eq(&x, b'#');
+            // let first_nl = break_bitmask.trailing_zeros() as usize;
+
+            self.skip(64)
+        }
+        (
+            chars_consumed,
+            Ok(SkipTabs::Result {
+                any_tabs: encountered_tab,
+                has_yaml_ws,
+            }),
+        )
     }
 
     fn next_is_z(&self) -> bool {
@@ -131,7 +166,8 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let mut pos = None;
         while let Some(x) = self.get_max_buf() {
             // bitmask for \r or \n
-            let break_bitmask = u8x64_eq(&x, b'\n') | u8x64_eq(&x, b'\r');
+            let fake_simd = U8X32::from_array(x);
+            let break_bitmask = fake_simd.comp_to_bitmask(b'\r') | fake_simd.comp_to_bitmask(b'\n');
             let first_nl = break_bitmask.trailing_zeros() as usize;
 
             if break_bitmask != 0 {
@@ -140,7 +176,7 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             }
 
             vec.extend_from_slice(&x[..]);
-            self.skip(64)
+            self.skip(MAX_LEN)
         }
         let buf = self.get_buf();
 
@@ -154,7 +190,7 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 #[cfg(test)]
 mod tests {
     use crate::Source;
-    use crate::saphyr_tokenizer::buffered_source::BufferedBytesSource;
+    use crate::saphyr_tokenizer::buffered_source::{BufferedBytesSource, MAX_LEN};
     use alloc::vec::Vec;
 
     #[test]
@@ -191,7 +227,7 @@ mod tests {
             Ut ornare efficitur nisl, sed ullamcorper risus feugiat at. 
             Aenean ut mi a nulla pellentesque aliquet quis vitae lorem. Vestibulum semper elit"#,
         );
-        assert_eq!(source.len, 64);
+        assert_eq!(source.len, MAX_LEN);
         assert_eq!(source.peek(), b'L');
         assert_eq!(source.peek_n1(), b'o');
 
