@@ -93,14 +93,21 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn skip(&mut self, n: usize) {
-        let consume = n.min(self.len);
-        let skip = n.saturating_sub(self.buf_max_len());
+        if n == 0 {
+            return;
+        }
 
-        self.input.nth(skip);
+        let consume = n.min(self.len);
+        let skip = n.saturating_sub(self.buf_max_len() + 1);
+
+        if skip > 0 {
+            self.input.nth(skip);
+        }
 
         self.buf.copy_within(consume..self.len, 0);
-        self.len = self.len.saturating_sub(consume);
 
+        let new_len = self.len.saturating_sub(consume);
+        self.len = new_len;
         self.fill_buf_to_max();
     }
 
@@ -148,6 +155,7 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 mod tests {
     use crate::Source;
     use crate::saphyr_tokenizer::buffered_source::BufferedBytesSource;
+    use alloc::vec::Vec;
 
     #[test]
     fn test_create() {
@@ -188,7 +196,7 @@ mod tests {
         assert_eq!(source.peek_n1(), b'o');
 
         // Skip characters to ornare vitae
-        source.skip(130);
+        source.skip(131);
         assert_eq!(source.peek(), b'o');
         assert_eq!(source.peek_n1(), b'r');
         assert_eq!(source.peek_n2(), b'n');
@@ -204,5 +212,30 @@ mod tests {
         source.skip(130);
         assert_eq!(source.peek(), b'\0');
         assert_eq!(source.peek_n1(), b'\0');
+    }
+
+    #[test]
+    fn test_push_breakz() {
+        let mut source = BufferedBytesSource::from_bstr(b"Lorem ipsum dolor sit amet,
+                                                        consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet,
+                                                        ornare vitae erat. Aenean bibendum arcu et risus auctor,");
+        let mut dest = Vec::new();
+        source.push_non_breakz_chr(&mut dest);
+        assert_eq!(source.peek(), b'\n');
+        assert_eq!(
+            str::from_utf8(&dest).unwrap(),
+            "Lorem ipsum dolor sit amet,"
+        );
+
+        // Skip newline
+        source.skip(1);
+
+        dest.clear();
+        source.push_non_breakz_chr(&mut dest);
+        assert_eq!(source.peek(), b'\n');
+        assert_eq!(
+            str::from_utf8(&dest).unwrap(),
+            "                                                        consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet,"
+        );
     }
 }
