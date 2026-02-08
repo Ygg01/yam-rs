@@ -119,13 +119,16 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.len == 0
     }
 
-    fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>) {
+    fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>) {
         let mut encountered_tab = false;
         let mut has_yaml_ws = false;
         let mut chars_consumed = 0;
 
         let low_nib_mask = U8X16::splat(0xF);
         let high_nib_mask = U8X16::splat(0x7F);
+        let ws_flag = 0x04 + (skip_tabs as u8);
+        let mut consume = 0u32;
+        let mut err_flag = false;
 
         while let Some(x) = self.get_max_buf() {
             let (v0, v1) = U8X32::from_array(x).split();
@@ -134,18 +137,19 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             let v_v1 = HIGH_NIBBLE_WS.swizzle(v1 & low_nib_mask)
                 & high_nib_mask.swizzle((v1 >> 4) & high_nib_mask);
 
-            let sp = U8X32::merge(v_v0 & 0x04, v_v1 & 0x04).to_bitmask();
+            let sp = U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag).to_bitmask();
             let nl = U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).to_bitmask();
-            let tab = U8X32::merge(v_v0 & 0x01, v_v1 & 0x01).to_bitmask();
             let hash = U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).to_bitmask();
 
-            // bitmask for \r or \n
-            // let break_bitmask = u8x32_eq(&x, b'\n');
-            // let break_bitmask = u8x32_eq(&x, b'\r');
-            // let break_bitmask = u8x32_eq(&x, b' ');
-            // let break_bitmask = u8x32_eq(&x, b'\t');
-            // let break_bitmask = u8x32_eq(&x, b'#');
-            // let first_nl = break_bitmask.trailing_zeros() as usize;
+            let invalid_comment = hash & !(sp << 1);
+            if invalid_comment != 0 {
+                consume = (invalid_comment | nl).trailing_zeros();
+                err_flag = true;
+                break;
+            }
+
+            has_yaml_ws |= sp != 0;
+            // ZZZZ
 
             self.skip(64)
         }

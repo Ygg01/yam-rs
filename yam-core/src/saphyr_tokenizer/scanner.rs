@@ -35,6 +35,11 @@ impl SkipTabs {
             }
         )
     }
+
+    #[must_use]
+    pub(crate) fn is_ignore_tabs(&self) -> bool {
+        matches!(self, SkipTabs::Yes)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -787,7 +792,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> Result<SkipTabs, YamlError> {
-        let (n_bytes, result) = self.src.skip_ws_to_eol(skip_tabs);
+        let (n_bytes, result) = self.src.skip_ws_to_eol(skip_tabs.is_ignore_tabs());
 
         self.mark.col += n_bytes;
         self.mark.pos += n_bytes as usize;

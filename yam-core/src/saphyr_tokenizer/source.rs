@@ -57,7 +57,7 @@ pub trait Source {
 
     fn buf_is_empty(&self) -> bool;
 
-    fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>);
+    fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>);
     fn next_byte_is(&self, chr: u8) -> bool {
         chr == self.peek()
     }
@@ -182,7 +182,7 @@ impl<'input> Source for StrSource<'input> {
         self.pos >= self.input.len()
     }
 
-    fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> (u32, Result<SkipTabs, &'static str>) {
+    fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>) {
         let mut encountered_tab = false;
         let mut has_yaml_ws = false;
         let mut chars_consumed = 0;
@@ -192,7 +192,7 @@ impl<'input> Source for StrSource<'input> {
                     has_yaml_ws = true;
                     self.skip(1);
                 }
-                b'\t' if skip_tabs != SkipTabs::No => {
+                b'\t' if skip_tabs => {
                     encountered_tab = true;
                     self.skip(1);
                 }
