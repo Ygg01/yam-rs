@@ -1,6 +1,7 @@
 use crate::Source;
-use crate::saphyr_tokenizer::char_utils::{is_break, is_breakz};
+use crate::saphyr_tokenizer::char_utils::is_break;
 use crate::saphyr_tokenizer::scanner::SkipTabs;
+use crate::saphyr_tokenizer::source::shared_skip_ws_to_eol;
 use crate::util::{BitOps, HIGH_NIBBLE_WS, LOW_NIBBLE_WS, U8X16, U8X32};
 use alloc::vec::Vec;
 use core::iter::Copied;
@@ -172,41 +173,7 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             return (consumed_bytes, Ok(skip_tabs_res));
         }
 
-        loop {
-            match self.peek() {
-                b' ' => {
-                    has_yaml_ws = true;
-                    self.skip(1);
-                }
-                b'\t' if skip_tab => {
-                    any_tabs = true;
-                    self.skip(1);
-                }
-                // YAML comments must be preceded by whitespace.
-                b'#' if !any_tabs && !has_yaml_ws => {
-                    return (
-                        consumed_bytes,
-                        Err("comments must be separated from other tokens by whitespace"),
-                    );
-                }
-                b'#' => {
-                    self.skip(1); // Skip over '#'
-                    while !is_breakz(self.peek()) {
-                        self.skip(1);
-                        consumed_bytes += 1;
-                    }
-                }
-                _ => break,
-            }
-            consumed_bytes += 1;
-        }
-        (
-            consumed_bytes,
-            Ok(SkipTabs::Result {
-                any_tabs,
-                has_yaml_ws,
-            }),
-        )
+        shared_skip_ws_to_eol(self, skip_tab, any_tabs, has_yaml_ws)
     }
 
     fn next_is_z(&self) -> bool {

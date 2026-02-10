@@ -133,6 +133,52 @@ pub trait Source {
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
 }
 
+#[inline]
+pub(crate) fn shared_skip_ws_to_eol<T: Source>(
+    x: &mut T,
+    skip_tabs: bool,
+    mut any_tabs: bool,
+    mut has_yaml_ws: bool,
+) -> (u32, Result<SkipTabs, &'static str>) {
+    let mut chars_consumed = 0;
+    loop {
+        match x.peek() {
+            b' ' => {
+                has_yaml_ws = true;
+                x.skip(1);
+            }
+            b'\t' if skip_tabs => {
+                any_tabs = true;
+                x.skip(1);
+            }
+            // YAML comments must be preceded by whitespace.
+            b'#' if !any_tabs && !has_yaml_ws => {
+                return (
+                    chars_consumed,
+                    Err("comments must be separated from other tokens by whitespace"),
+                );
+            }
+            b'#' => {
+                x.skip(1); // Skip over '#'
+                while !is_breakz(x.peek()) {
+                    x.skip(1);
+                    chars_consumed += 1;
+                }
+            }
+            _ => break,
+        }
+        chars_consumed += 1;
+    }
+
+    (
+        chars_consumed,
+        Ok(SkipTabs::Result {
+            any_tabs,
+            has_yaml_ws,
+        }),
+    )
+}
+
 pub struct StrSource<'input> {
     input: &'input [u8],
     pos: usize,
@@ -183,45 +229,7 @@ impl<'input> Source for StrSource<'input> {
     }
 
     fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>) {
-        let mut encountered_tab = false;
-        let mut has_yaml_ws = false;
-        let mut chars_consumed = 0;
-        loop {
-            match self.peek() {
-                b' ' => {
-                    has_yaml_ws = true;
-                    self.skip(1);
-                }
-                b'\t' if skip_tabs => {
-                    encountered_tab = true;
-                    self.skip(1);
-                }
-                // YAML comments must be preceded by whitespace.
-                b'#' if !encountered_tab && !has_yaml_ws => {
-                    return (
-                        chars_consumed,
-                        Err("comments must be separated from other tokens by whitespace"),
-                    );
-                }
-                b'#' => {
-                    self.skip(1); // Skip over '#'
-                    while !is_breakz(self.peek()) {
-                        self.skip(1);
-                        chars_consumed += 1;
-                    }
-                }
-                _ => break,
-            }
-            chars_consumed += 1;
-        }
-
-        (
-            chars_consumed,
-            Ok(SkipTabs::Result {
-                any_tabs: encountered_tab,
-                has_yaml_ws,
-            }),
-        )
+        shared_skip_ws_to_eol(self, skip_tabs, false, false)
     }
 
     fn next_is_z(&self) -> bool {
