@@ -2,20 +2,6 @@ use core::fmt;
 use yam_common::loader::LoadableYamlNode;
 use yam_common::{Mapping, YamlDoc};
 
-/// The YAML serializer.
-///
-/// ```
-/// # use saphyr::{LoadableYamlNode, Yaml, YamlEmitter};
-/// let input_string = "a: b\nc: d";
-/// let yaml = Yaml::load_from_str(input_string).unwrap();
-///
-/// let mut output = String::new();
-/// YamlEmitter::new(&mut output).dump(&yaml[0]).unwrap();
-///
-/// assert_eq!(output, r#"---
-/// a: b
-/// c: d"#);
-/// ```
 #[allow(clippy::module_name_repetitions)]
 pub struct YamlEmitter<'a> {
     writer: &'a mut dyn fmt::Write,
@@ -130,30 +116,6 @@ impl<'a> YamlEmitter<'a> {
         self.compact
     }
 
-    /// Render strings containing multiple lines in [literal style].
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use saphyr::{LoadableYamlNode, Yaml, YamlEmitter};
-    ///
-    /// let input = r#"{foo: "bar!\nbar!", baz: 42}"#;
-    /// let parsed = Yaml::load_from_str(input).unwrap();
-    /// eprintln!("{:?}", parsed);
-    ///
-    /// let mut output = String::new();
-    /// let mut emitter = YamlEmitter::new(&mut output);
-    /// emitter.multiline_strings(true);
-    /// emitter.dump(&parsed[0]).unwrap();
-    /// assert_eq!(output.as_str(), "\
-    /// ---
-    /// foo: |-
-    ///   bar!
-    ///   bar!
-    /// baz: 42");
-    /// ```
-    ///
-    /// [literal style]: https://yaml.org/spec/1.2/spec.html#id2795688
     pub fn multiline_strings(&mut self, multiline_strings: bool) {
         self.multiline_strings = multiline_strings;
     }

@@ -1,5 +1,5 @@
 use crate::Source;
-use crate::saphyr_tokenizer::char_utils::is_break;
+use crate::saphyr_tokenizer::char_utils::{is_break, is_breakz};
 use crate::saphyr_tokenizer::scanner::SkipTabs;
 use crate::util::{BitOps, HIGH_NIBBLE_WS, LOW_NIBBLE_WS, U8X16, U8X32};
 use alloc::vec::Vec;
@@ -119,16 +119,16 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.len == 0
     }
 
-    fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>) {
-        let mut encountered_tab = false;
+    //noinspection ALL
+    fn skip_ws_to_eol(&mut self, skip_tab: bool) -> (u32, Result<SkipTabs, &'static str>) {
         let mut has_yaml_ws = false;
-        let mut chars_consumed = 0;
+        let mut any_tabs = false;
+        let mut consumed_bytes = 0u32;
+        let mut skip_tabs_res = SkipTabs::No;
 
         let low_nib_mask = U8X16::splat(0xF);
         let high_nib_mask = U8X16::splat(0x7F);
-        let ws_flag = 0x04 + (skip_tabs as u8);
-        let mut consume = 0u32;
-        let mut err_flag = false;
+        let ws_flag = 0x04 + (skip_tab as u8);
 
         while let Some(x) = self.get_max_buf() {
             let (v0, v1) = U8X32::from_array(x).split();
@@ -137,26 +137,73 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             let v_v1 = HIGH_NIBBLE_WS.swizzle(v1 & low_nib_mask)
                 & high_nib_mask.swizzle((v1 >> 4) & high_nib_mask);
 
-            let sp = U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag).to_bitmask();
+            let sp = !U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag).to_bitmask();
             let nl = U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).to_bitmask();
             let hash = U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).to_bitmask();
 
             let invalid_comment = hash & !(sp << 1);
             if invalid_comment != 0 {
-                consume = (invalid_comment | nl).trailing_zeros();
-                err_flag = true;
+                let consume = (invalid_comment | nl).trailing_zeros();
+                consumed_bytes += consume;
+                self.skip(consume as usize);
+                skip_tabs_res = SkipTabs::Result {
+                    any_tabs,
+                    has_yaml_ws,
+                };
                 break;
             }
 
             has_yaml_ws |= sp != 0;
-            // ZZZZ
 
-            self.skip(64)
+            if sp != 0 {
+                let consume = nl.trailing_zeros().saturating_sub(sp.trailing_zeros());
+                consumed_bytes += consume;
+                skip_tabs_res = SkipTabs::Result {
+                    any_tabs,
+                    has_yaml_ws,
+                };
+                break;
+            }
+
+            self.skip(self.buf_max_len())
+        }
+
+        if matches!(skip_tabs_res, SkipTabs::Result { .. } | SkipTabs::Yes) {
+            return (consumed_bytes, Ok(skip_tabs_res));
+        }
+
+        loop {
+            match self.peek() {
+                b' ' => {
+                    has_yaml_ws = true;
+                    self.skip(1);
+                }
+                b'\t' if skip_tab => {
+                    any_tabs = true;
+                    self.skip(1);
+                }
+                // YAML comments must be preceded by whitespace.
+                b'#' if !any_tabs && !has_yaml_ws => {
+                    return (
+                        consumed_bytes,
+                        Err("comments must be separated from other tokens by whitespace"),
+                    );
+                }
+                b'#' => {
+                    self.skip(1); // Skip over '#'
+                    while !is_breakz(self.peek()) {
+                        self.skip(1);
+                        consumed_bytes += 1;
+                    }
+                }
+                _ => break,
+            }
+            consumed_bytes += 1;
         }
         (
-            chars_consumed,
+            consumed_bytes,
             Ok(SkipTabs::Result {
-                any_tabs: encountered_tab,
+                any_tabs,
                 has_yaml_ws,
             }),
         )
