@@ -246,3 +246,33 @@ impl<'input> Source for StrSource<'input> {
         vec.extend_from_slice(slice);
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::Source;
+    use crate::saphyr_tokenizer::buffered_source::BufferedBytesSource;
+    use crate::saphyr_tokenizer::scanner::SkipTabs;
+
+    const TEST_STR: &str = "                                      \
+                                    \n                     \
+                hello ";
+
+    #[test]
+    fn test_str_source() {
+        // let mut x = StrSource::new(TEST_STR);
+        // let (consume , skip) = x.skip_ws_to_eol(true);
+        // assert_eq!(consume, 38);
+        // assert_eq!(skip, Ok(SkipTabs::Result { has_yaml_ws: true, any_tabs: false}));
+
+        let mut x = BufferedBytesSource::from_str(TEST_STR);
+        let (consume, skip) = x.skip_ws_to_eol(true);
+        assert_eq!(consume, 38);
+        assert_eq!(
+            skip,
+            Ok(SkipTabs::Result {
+                has_yaml_ws: true,
+                any_tabs: false
+            })
+        );
+    }
+}

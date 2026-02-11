@@ -45,6 +45,28 @@ impl BitOps for U8X16 {
             | gen_u8_cmp!(self, 15 => cmp)
     }
 
+    #[doc(hidden)]
+    /// Compares each element of the `U8X16` with a given `u8` value.
+    /// If an element is equal to the given value, the corresponding element
+    /// in the resulting `U8X16` is set to `0xFF`; otherwise, it is set to `0x00`.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmp` - A `u8` value that each element of the `U8X16` will be compared against.
+    ///
+    /// # Returns
+    ///
+    /// A `U8X16` instance where each element is either `0xFF` if the corresponding
+    /// element in the original `U8X16` is equal to the `cmp` value, or `0x00` if it is not.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use yam_core::util::u8x16::U8X16;
+    /// let vector = U8X16::from_array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+    /// let result = vector.comp(10);
+    /// assert_eq!(result, U8X16::from_array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
+    /// ```
     fn comp(self, cmp: u8) -> Self {
         Self([
             gen_u8_cmp_all!(self, 0 => cmp),

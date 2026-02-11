@@ -68,6 +68,10 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
         x.fill_buf_to_max();
         x
     }
+
+    pub fn from_str(input: &'a str) -> Self {
+        Self::from_bstr(input.as_bytes())
+    }
 }
 impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     fn peek_arbitrary(&self, n: usize) -> u8 {
@@ -133,14 +137,18 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 
         while let Some(x) = self.get_max_buf() {
             let (v0, v1) = U8X32::from_array(x).split();
-            let v_v0 = LOW_NIBBLE_WS.swizzle(v0 & low_nib_mask)
-                & high_nib_mask.swizzle((v0 >> 4) & high_nib_mask);
-            let v_v1 = HIGH_NIBBLE_WS.swizzle(v1 & low_nib_mask)
-                & high_nib_mask.swizzle((v1 >> 4) & high_nib_mask);
 
-            let sp = !U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag).to_bitmask();
-            let nl = U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).to_bitmask();
-            let hash = U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).to_bitmask();
+            let v_v0 = LOW_NIBBLE_WS.swizzle(v0 & low_nib_mask)
+                & HIGH_NIBBLE_WS.swizzle((v0 >> 4) & high_nib_mask);
+            let v_v1 = LOW_NIBBLE_WS.swizzle(v1 & low_nib_mask)
+                & HIGH_NIBBLE_WS.swizzle((v1 >> 4) & high_nib_mask);
+
+            let v0_flag = (v_v0 & ws_flag).comp(0);
+            let sp = U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag)
+                .comp(0)
+                .to_bitmask();
+            let nl = U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
+            let hash = U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
 
             let invalid_comment = hash & !(sp << 1);
             if invalid_comment != 0 {

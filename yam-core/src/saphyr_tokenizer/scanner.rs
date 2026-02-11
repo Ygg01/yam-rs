@@ -13,7 +13,7 @@ use yam_common::{
     ChompIndicator, Marker, ScalarType, ScanResult, Span, TokenType, YamlError, YamlResult,
 };
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum SkipTabs {
     Yes,
     No,
