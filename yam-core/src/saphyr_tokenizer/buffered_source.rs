@@ -143,16 +143,15 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             let v_v1 = LOW_NIBBLE_WS.swizzle(v1 & low_nib_mask)
                 & HIGH_NIBBLE_WS.swizzle((v1 >> 4) & high_nib_mask);
 
-            let v0_flag = (v_v0 & ws_flag).comp(0);
-            let sp = U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag)
+            let sp = !U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag)
                 .comp(0)
                 .to_bitmask();
-            let nl = U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
-            let hash = U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
+            let nl = !U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
+            let hash = !U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
 
-            let invalid_comment = hash & !(sp << 1);
-            if invalid_comment != 0 {
-                let consume = (invalid_comment | nl).trailing_zeros();
+            let valid_comment = hash & !(sp << 1);
+            if valid_comment != 0 {
+                let consume = (valid_comment | nl).trailing_zeros();
                 consumed_bytes += consume;
                 self.skip(consume as usize);
                 skip_tabs_res = SkipTabs::Result {
@@ -164,7 +163,7 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 
             has_yaml_ws |= sp != 0;
 
-            if sp != 0 {
+            if nl != 0 {
                 let consume = nl.trailing_zeros().saturating_sub(sp.trailing_zeros());
                 consumed_bytes += consume;
                 skip_tabs_res = SkipTabs::Result {
@@ -174,7 +173,8 @@ impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
                 break;
             }
 
-            self.skip(self.buf_max_len())
+            self.skip(self.buf_max_len());
+            consumed_bytes += self.buf_max_len() as u32;
         }
 
         if matches!(skip_tabs_res, SkipTabs::Result { .. } | SkipTabs::Yes) {
