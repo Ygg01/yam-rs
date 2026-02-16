@@ -3,7 +3,6 @@ use yam_core::Parser;
 use yam_test_bench::write_str_from_event;
 
 const NESTED_YAML: &str = include_str!("nested.yaml");
-
 const BIG_TEXT: &str = include_str!("big_text.yaml");
 const SMALL_OBJECTS_YAML: &str = include_str!("small_objects.yaml");
 
