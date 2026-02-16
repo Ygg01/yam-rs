@@ -4,28 +4,79 @@ use crate::saphyr_tokenizer::char_utils::{
 use crate::saphyr_tokenizer::scanner::SkipTabs;
 use alloc::vec::Vec;
 
-pub trait Source {
+///
+/// A trait that defines a source of input data, with methods for peeking, skipping,
+/// and inspecting bytes and characters.
+///
+/// # Safety
+/// This is an unsafe trait because methods involve pushing raw Vec<u8> bytes before
+/// they are converted to UTF8 (possibly violating memory safety), and the methods for unsafely
+/// accessing the input source.
+///
+/// # Associated Methods
+/// - The trait provides methods to inspect upcoming bytes in the input source non-destructively.
+/// - It supports skipping bytes and extracting content based on specific conditions (e.g., alphanumeric content).
+///
+/// # Methods
+/// ## Peeking
+/// - `peekz_arbitrary(n: usize) -> u8`: Returns the byte at an arbitrary position `n` from the current position.
+/// - `peek_unsafe(n: usize) -> u8`: Unsafely retrieves the byte at an arbitrary position `n` from the current position. Must be handled carefully to avoid memory safety issues.
+/// - `peek_check(n: usize) -> Option<u8>`: Retrieves the byte at position `n` if it exists, otherwise returns `None`.
+/// - `peek() -> Option<u8>`: Retrieves the next byte without advancing the position.
+/// - `peekz() -> u8`: Returns the next byte, defaulting to `0` if unavailable.
+/// - `peekz_n1() -> u8`, `peekz_n2() -> u8`, `peekz_n3() -> u8`: Retrieves the first, second, or third upcoming byte, defaulting to `0` if unavailable.
+/// - `peek_char() -> char`: Returns the next character from the source.
+///
+/// ## Skipping and Buffer Control
+/// - `skip(n: usize)`: Skips `n` bytes in the source.
+/// - `buf_max_len() -> usize`: Returns the maximum recommended buffer length. Default is `128`.
+/// - `buf_is_empty() -> bool`: Checks if the buffer is empty.
+///
+/// ## Parsing Helpers
+/// - `fetch_while_is_alpha(out: &mut Vec<u8>) -> usize`: Fetches and appends all consecutive alphanumeric characters into `out`, returning the count.
+/// - `skip_while_blank() -> usize`: Skips all consecutive blank characters.
+/// - `skip_ws_to_eol(skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>)`: Skips whitespace characters until the end of the line, optionally skipping tabs.
+///
+/// ## Flow and Blank/Binary Checks
+/// - `next_is_flow() -> bool`: Checks if the next byte represents a `flow character.
+/// - `next_is_break() -> bool`: Checks if the next byte represents a `break` character.
+/// - `next_is_blank() -> bool`: Checks if the next byte represents a `blank` character.
+/// - `next_is_breakz() -> bool`: Checks if the next byte is a `break` or null-terminator (`'\0'`).
+/// - `next_is_blank_or_break() -> bool`: Checks if the next byte is either blank or a break.
+/// - `next_is_blank_or_breakz() -> bool`: Checks if the next byte is blank, a break, or a null-terminator (`'\0'`).
+pub unsafe trait Source {
     #[must_use]
-    fn peek_arbitrary(&self, n: usize) -> u8;
+    fn peekz_arbitrary(&self, n: usize) -> u8 {
+        self.peek_check(n).unwrap_or(0)
+    }
 
+    #[must_use]
+    unsafe fn peek_unsafe(&self, n: usize) -> u8;
+
+    #[must_use]
+    fn peek_check(&self, n: usize) -> Option<u8>;
+
+    #[must_use]
     fn peek(&self) -> Option<u8>;
 
     #[must_use]
-    fn peekz(&self) -> u8;
+    fn peekz(&self) -> u8 {
+        self.peekz_arbitrary(0)
+    }
 
     #[must_use]
     fn peekz_n1(&self) -> u8 {
-        self.peek_arbitrary(1)
+        self.peekz_arbitrary(1)
     }
 
     #[must_use]
     fn peekz_n2(&self) -> u8 {
-        self.peek_arbitrary(2)
+        self.peekz_arbitrary(2)
     }
 
     #[must_use]
     fn peekz_n3(&self) -> u8 {
-        self.peek_arbitrary(3)
+        self.peekz_arbitrary(3)
     }
 
     #[must_use]
@@ -110,7 +161,10 @@ pub trait Source {
     }
 
     fn next_is_blank_or_breakz(&self) -> bool {
-        is_blank_or_break(self.peekz()) || self.peekz() == b'\0'
+        match self.peek_check(0) {
+            None => true,
+            Some(x) => is_blank_or_break(x),
+        }
     }
 
     fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
@@ -196,27 +250,17 @@ impl StrSource<'_> {
     }
 }
 
-impl<'input> Source for StrSource<'input> {
-    fn peek_arbitrary(&self, n: usize) -> u8 {
-        debug_assert!(
-            n <= self.buf_max_len(),
-            "Can only support limited lookahead"
-        );
-        match self.input.get(self.pos + n) {
-            Some(x) => *x,
-            None => b'\0',
-        }
+unsafe impl<'input> Source for StrSource<'input> {
+    unsafe fn peek_unsafe(&self, n: usize) -> u8 {
+        unsafe { *self.input.get_unchecked(self.pos + n) }
+    }
+
+    fn peek_check(&self, n: usize) -> Option<u8> {
+        self.input.get(self.pos + n).copied()
     }
 
     fn peek(&self) -> Option<u8> {
         self.input.get(self.pos).copied()
-    }
-
-    fn peekz(&self) -> u8 {
-        match self.input.get(self.pos) {
-            Some(x) => *x,
-            None => b'\0',
-        }
     }
 
     fn peek_char(&self) -> char {

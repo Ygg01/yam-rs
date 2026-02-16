@@ -1796,7 +1796,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         if code_length > 0 {
             let mut value = 0u32;
             for i in 0..code_length {
-                let c = self.src.peek_arbitrary(i);
+                let c = self.src.peekz_arbitrary(i);
                 if !c.is_ascii_hexdigit() {
                     return Err(YamlError::new_str(
                         *start_mark,
@@ -2145,6 +2145,13 @@ impl<'input, S: Source> Scanner<'input, S> {
                 self.skip_non_blank();
             }
         }
+
+        // if self.src.peekz() == b'%' {
+        //     string.extend(self.scan_uri_escapes(start_mark)?);
+        // } else {
+        //     string.push(self.src.peekz());
+        //     self.skip_non_blank();
+        // }
         Ok(())
     }
 

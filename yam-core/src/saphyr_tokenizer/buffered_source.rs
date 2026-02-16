@@ -73,24 +73,24 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
         Self::from_bstr(input.as_bytes())
     }
 }
-impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
-    fn peek_arbitrary(&self, n: usize) -> u8 {
+unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
+    unsafe fn peek_unsafe(&self, n: usize) -> u8 {
+        unsafe { self.buf[n].assume_init() }
+    }
+
+    fn peek_check(&self, n: usize) -> Option<u8> {
         debug_assert!(n < self.buf_max_len());
         if n >= self.len {
-            return b'\0';
+            return None;
         }
-        unsafe { self.buf[n].assume_init() }
+        unsafe { Some(self.peek_unsafe(n)) }
     }
 
     fn peek(&self) -> Option<u8> {
         if self.len < 1 {
             return None;
         }
-        unsafe { Some(self.buf[0].assume_init()) }
-    }
-
-    fn peekz(&self) -> u8 {
-        self.peek_arbitrary(0)
+        unsafe { Some(self.peek_unsafe(0)) }
     }
 
     fn peek_char(&self) -> char {
