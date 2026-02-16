@@ -979,7 +979,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 }
 
                 // We can unroll the first iteration of the loop.
-                string.push(self.src.peekz(0));
+                string.push(self.src.peek_checked(0).unwrap_or(b' '));
                 self.skip_non_blank();
                 string.reserve(self.src.buf_max_len());
 
@@ -997,7 +997,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                             end = true;
                             break;
                         }
-                        string.push(self.src.peekz(0));
+                        string.push(self.src.peek_checked(0).unwrap_or(b' '));
                         self.skip_non_blank();
                     }
                 }
@@ -1017,7 +1017,8 @@ impl<'input, S: Source> Scanner<'input, S> {
             while self.src.next_is_blank_or_break() {
                 if self.src.next_is_blank() {
                     if !self.leading_whitespace {
-                        self.buf_whitespaces.push(self.src.peekz(0));
+                        self.buf_whitespaces
+                            .push(self.src.peek_checked(0).unwrap_or(b' '));
                         self.skip_blank();
                     } else if self.mark.col < indent && self.src.peekz(0) == b'\t' {
                         // Tabs in an indentation columns are allowed if and only if the line is
@@ -1142,7 +1143,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                         }
                         self.skip_blank();
                     } else {
-                        whitespaces.push(self.src.peekz(0));
+                        whitespaces.push(self.src.peek_checked(0).unwrap_or(b' '));
                         self.skip_blank();
                     }
                 } else {
@@ -1420,7 +1421,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>, line_buffer: &mut Vec<u8>) {
         // Start by evaluating characters in the buffer.
         while !self.src.buf_is_empty() && !self.src.next_is_break() {
-            string.push(self.src.peekz(0));
+            string.push(self.src.peek_checked(0).unwrap_or(b' '));
             // We may technically skip non-blank characters. However, the only distinction is
             // to determine what is leading whitespace and what is not. Here, we read the
             // contents of the line until either eof or a linebreak. We know we will not read
@@ -1562,7 +1563,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             ));
         }
 
-        string.push(self.src.peekz(0));
+        string.push(b'!');
         self.skip_non_blank();
 
         let n_chars = self.src.fetch_while_is_alpha(&mut string);
@@ -1571,7 +1572,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // Check if the trailing character is '!' and copy it.
         if self.src.peekz(0) == b'!' {
-            string.push(self.src.peekz(0));
+            string.push(b'!');
             self.skip_non_blank();
         } else if directive && string != b"!" {
             // It's either the '!' tag or not really a tag handle.  If it's a %TAG
@@ -1606,7 +1607,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             if self.src.peekz(0) == b'%' {
                 string.extend_from_slice(&self.scan_uri_escapes(mark)?);
             } else {
-                string.push(self.src.peekz(0));
+                string.push(self.src.peek_checked(0).unwrap_or(b' '));
                 self.skip_non_blank();
             }
 
@@ -2147,12 +2148,6 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         }
 
-        // if self.src.peekz() == b'%' {
-        //     string.extend(self.scan_uri_escapes(start_mark)?);
-        // } else {
-        //     string.push(self.src.peekz());
-        //     self.skip_non_blank();
-        // }
         Ok(())
     }
 
@@ -2161,7 +2156,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         if self.src.peekz(0) == b'!' {
             // If we have a local tag, insert and skip `!`.
-            string.push(self.src.peekz(0));
+            string.push(b'!');
             self.skip_non_blank();
         } else if !is_tag_char(self.src.peekz(0)) {
             // Otherwise, check if the first global tag character is valid.
