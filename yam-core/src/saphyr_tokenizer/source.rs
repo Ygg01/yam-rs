@@ -47,17 +47,14 @@ use alloc::vec::Vec;
 pub unsafe trait Source {
     #[must_use]
     fn peekz(&self, n: usize) -> u8 {
-        self.peek_check(n).unwrap_or(0)
+        self.peek_checked(n).unwrap_or(0)
     }
 
     #[must_use]
     unsafe fn peek_unsafe(&self, n: usize) -> u8;
 
     #[must_use]
-    fn peek_check(&self, n: usize) -> Option<u8>;
-
-    #[must_use]
-    fn peek(&self) -> Option<u8>;
+    fn peek_checked(&self, n: usize) -> Option<u8>;
 
     #[must_use]
     fn peek_char(&self) -> char;
@@ -141,7 +138,7 @@ pub unsafe trait Source {
     }
 
     fn next_is_blank_or_breakz(&self) -> bool {
-        match self.peek_check(0) {
+        match self.peek_checked(0) {
             None => true,
             Some(x) => is_blank_or_break(x),
         }
@@ -234,12 +231,8 @@ unsafe impl<'input> Source for StrSource<'input> {
         unsafe { *self.input.get_unchecked(self.pos + n) }
     }
 
-    fn peek_check(&self, n: usize) -> Option<u8> {
+    fn peek_checked(&self, n: usize) -> Option<u8> {
         self.input.get(self.pos + n).copied()
-    }
-
-    fn peek(&self) -> Option<u8> {
-        self.input.get(self.pos).copied()
     }
 
     fn peek_char(&self) -> char {

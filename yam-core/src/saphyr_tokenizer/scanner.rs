@@ -2136,7 +2136,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         string: &mut Vec<u8>,
         start_mark: &Marker,
     ) -> Result<(), YamlError> {
-        match self.src.peek() {
+        match self.src.peek_checked(0) {
             Some(b'%') => string.extend_from_slice(&self.scan_uri_escapes(start_mark)?),
             Some(pek) => {
                 string.push(pek);

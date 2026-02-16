@@ -78,19 +78,12 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         unsafe { self.buf[n].assume_init() }
     }
 
-    fn peek_check(&self, n: usize) -> Option<u8> {
+    fn peek_checked(&self, n: usize) -> Option<u8> {
         debug_assert!(n < self.buf_max_len());
         if n >= self.len {
             return None;
         }
         unsafe { Some(self.peek_unsafe(n)) }
-    }
-
-    fn peek(&self) -> Option<u8> {
-        if self.len < 1 {
-            return None;
-        }
-        unsafe { Some(self.peek_unsafe(0)) }
     }
 
     fn peek_char(&self) -> char {
