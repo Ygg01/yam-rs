@@ -233,15 +233,15 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn next_char_is(&mut self, chr: u8) -> bool {
-        self.src.peekz() == chr
+        self.src.peekz(0) == chr
     }
 
     fn next_is_document_start(&mut self) -> bool {
-        self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peekz_n3())
+        self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peekz(3))
     }
 
     fn next_is_document_end(&mut self) -> bool {
-        self.src.next_is_three(b'.') && is_blank_or_breakz(self.src.peekz_n3())
+        self.src.next_is_three(b'.') && is_blank_or_breakz(self.src.peekz(3))
     }
 
     fn fetch_next_token(&mut self) -> ScanResult {
@@ -499,7 +499,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // generate BLOCK-SEQUENCE-START if indented
         self.roll_indent(mark.col, None, TokenType::BlockSequenceStart, mark);
         let found_tabs = self.skip_ws_to_eol(SkipTabs::Yes)?.found_tabs();
-        if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peekz_n1()) {
+        if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peekz(1)) {
             return Err(YamlError::new_str(
                 self.mark,
                 "'-' must be followed by a valid YAML whitespace",
@@ -551,7 +551,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         self.skip_non_blank();
         self.skip_yaml_whitespace()?;
-        if self.src.peekz() == b'\t' {
+        if self.src.peekz(0) == b'\t' {
             return Err(YamlError::new_str(
                 self.mark,
                 "tabs disallowed in this context",
@@ -568,7 +568,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn skip_yaml_whitespace(&mut self) -> ScanResult {
         let mut need_whitespace = true;
         loop {
-            match self.src.peekz() {
+            match self.src.peekz(0) {
                 b' ' => {
                     self.skip_blank();
 
@@ -609,9 +609,9 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // Skip over ':'.
         self.skip_non_blank();
-        if self.src.peekz() == b'\t'
+        if self.src.peekz(0) == b'\t'
             && !self.skip_ws_to_eol(SkipTabs::Yes)?.has_valid_yaml_ws()
-            && (self.src.peekz() == b'-' || self.src.next_is_alpha())
+            && (self.src.peekz(0) == b'-' || self.src.next_is_alpha())
         {
             return Err(YamlError::new_str(
                 self.mark,
@@ -689,7 +689,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn fetch_flow_value(&mut self) -> ScanResult {
-        let nc = self.src.peekz_n1();
+        let nc = self.src.peekz(1);
 
         // If we encounter a ':' inside a flow collection and it is not immediately
         // followed by a blank or breakz:
@@ -839,7 +839,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn skip_to_next_token(&mut self) -> ScanResult {
         loop {
-            match self.src.peekz() {
+            match self.src.peekz(0) {
                 // Tabs may not be used as indentation.
                 // "Indentation" only exists as long as a block is started, but does not exist
                 // inside of flow-style constructs. Tabs are allowed as part of leading
@@ -942,11 +942,12 @@ impl<'input, S: Source> Scanner<'input, S> {
         loop {
             // ? self.input.lookahead(4);
             let next_is_document_indicator = self.src.next_is_document_indicator();
-            if (self.leading_whitespace && next_is_document_indicator) || self.src.peekz() == b'#' {
+            if (self.leading_whitespace && next_is_document_indicator) || self.src.peekz(0) == b'#'
+            {
                 break;
             }
 
-            if self.flow_level > 0 && self.src.peekz() == b'-' && is_flow(self.src.peekz_n1()) {
+            if self.flow_level > 0 && self.src.peekz(0) == b'-' && is_flow(self.src.peekz(1)) {
                 return Err(YamlError::new_str(
                     self.mark,
                     "plain scalar cannot start with '-' followed by ,[]{}",
@@ -978,7 +979,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 }
 
                 // We can unroll the first iteration of the loop.
-                string.push(self.src.peekz());
+                string.push(self.src.peekz(0));
                 self.skip_non_blank();
                 string.reserve(self.src.buf_max_len());
 
@@ -996,7 +997,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                             end = true;
                             break;
                         }
-                        string.push(self.src.peekz());
+                        string.push(self.src.peekz(0));
                         self.skip_non_blank();
                     }
                 }
@@ -1016,9 +1017,9 @@ impl<'input, S: Source> Scanner<'input, S> {
             while self.src.next_is_blank_or_break() {
                 if self.src.next_is_blank() {
                     if !self.leading_whitespace {
-                        self.buf_whitespaces.push(self.src.peekz());
+                        self.buf_whitespaces.push(self.src.peekz(0));
                         self.skip_blank();
-                    } else if self.mark.col < indent && self.src.peekz() == b'\t' {
+                    } else if self.mark.col < indent && self.src.peekz(0) == b'\t' {
                         // Tabs in an indentation columns are allowed if and only if the line is
                         // empty. Skip to the end of the line.
                         self.skip_ws_to_eol(SkipTabs::Yes)?;
@@ -1122,7 +1123,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 &start_mark,
             )?;
 
-            match self.src.peekz() {
+            match self.src.peekz(0) {
                 b'\'' if single => break,
                 b'"' if !single => break,
                 _ => {}
@@ -1133,7 +1134,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 if self.src.next_is_blank() {
                     // Consume a space or a tab character.
                     if leading_blanks {
-                        if self.src.peekz() == b'\t' && self.mark.col < self.indent {
+                        if self.src.peekz(0) == b'\t' && self.mark.col < self.indent {
                             return Err(YamlError::new_str(
                                 self.mark,
                                 "tab cannot be used as indentation",
@@ -1141,7 +1142,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                         }
                         self.skip_blank();
                     } else {
-                        whitespaces.push(self.src.peekz());
+                        whitespaces.push(self.src.peekz(0));
                         self.skip_blank();
                     }
                 } else {
@@ -1184,7 +1185,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
         // Ensure there is no invalid trailing content.
         self.skip_ws_to_eol(SkipTabs::Yes)?;
-        match self.src.peekz() {
+        match self.src.peekz(0) {
             // These can be encountered in flow sequences or mappings.
             b',' | b'}' | b']' if self.flow_level > 0 => {}
             // An end-of-line / end-of-stream is fine. No trailing content.
@@ -1238,37 +1239,37 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
         self.unroll_non_block_indents();
 
-        if self.src.peekz() == b'+' || self.src.peekz() == b'-' {
-            if self.src.peekz() == b'+' {
+        if self.src.peekz(0) == b'+' || self.src.peekz(0) == b'-' {
+            if self.src.peekz(0) == b'+' {
                 chomping = ChompIndicator::Keep;
             } else {
                 chomping = ChompIndicator::Strip;
             }
             self.skip_non_blank();
             // ? self.src.lookahead(1);
-            if self.src.peekz().is_ascii_digit() {
-                if self.src.peekz() == b'0' {
+            if self.src.peekz(0).is_ascii_digit() {
+                if self.src.peekz(0) == b'0' {
                     return Err(YamlError::new_str(
                         start_mark,
                         "while scanning a block scalar, found an indentation indicator equal to 0",
                     ));
                 }
-                increment = (self.src.peekz() - b'0') as usize;
+                increment = (self.src.peekz(0) - b'0') as usize;
                 self.skip_non_blank();
             }
-        } else if self.src.peekz().is_ascii_digit() {
-            if self.src.peekz() == b'0' {
+        } else if self.src.peekz(0).is_ascii_digit() {
+            if self.src.peekz(0) == b'0' {
                 return Err(YamlError::new_str(
                     start_mark,
                     "while scanning a block scalar, found an indentation indicator equal to 0",
                 ));
             }
 
-            increment = (self.src.peekz() - b'0') as usize;
+            increment = (self.src.peekz(0) - b'0') as usize;
             self.skip_non_blank();
-            // ? self.src.lookahead(1);
-            if self.src.peekz() == b'+' || self.src.peekz() == b'-' {
-                if self.src.peekz() == b'+' {
+
+            if self.src.peekz(0) == b'+' || self.src.peekz(0) == b'-' {
+                if self.src.peekz(0) == b'+' {
                     chomping = ChompIndicator::Keep;
                 } else {
                     chomping = ChompIndicator::Strip;
@@ -1293,7 +1294,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.read_break(&mut chomping_break);
         }
 
-        if self.src.peekz() == b'\t' {
+        if self.src.peekz(0) == b'\t' {
             return Err(YamlError::new_str(
                 start_mark,
                 "a block scalar content cannot start with a tab",
@@ -1419,7 +1420,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>, line_buffer: &mut Vec<u8>) {
         // Start by evaluating characters in the buffer.
         while !self.src.buf_is_empty() && !self.src.next_is_break() {
-            string.push(self.src.peekz());
+            string.push(self.src.peekz(0));
             // We may technically skip non-blank characters. However, the only distinction is
             // to determine what is leading whitespace and what is not. Here, we read the
             // contents of the line until either eof or a linebreak. We know we will not read
@@ -1456,8 +1457,8 @@ impl<'input, S: Source> Scanner<'input, S> {
         let start_mark = self.mark;
 
         self.skip_non_blank();
-        while is_anchor_char(self.src.peekz()) {
-            string.push(self.src.peekz());
+        while is_anchor_char(self.src.peekz(0)) {
+            string.push(self.src.peekz(0));
             self.skip_non_blank();
         }
 
@@ -1515,7 +1516,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         }
 
-        if is_blank_or_breakz(self.src.peekz()) || (self.flow_level > 0 && self.src.next_is_flow())
+        if is_blank_or_breakz(self.src.peekz(0)) || (self.flow_level > 0 && self.src.next_is_flow())
         {
             // XXX: ex 7.2, an empty scalar can follow a secondary tag
             Ok(Token {
@@ -1537,11 +1538,11 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
 
         let mut string = Vec::new();
-        while is_uri_char(self.src.peekz()) {
+        while is_uri_char(self.src.peekz(0)) {
             self.uri_scans_or_non_blank(&mut string, start_mark)?;
         }
 
-        if self.src.peekz() != b'>' {
+        if self.src.peekz(0) != b'>' {
             return Err(YamlError::new_str(
                 *start_mark,
                 "while scanning a verbatim tag, did not find the expected '>'",
@@ -1554,14 +1555,14 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn scan_tag_handle(&mut self, directive: bool, mark: &Marker) -> Result<Vec<u8>, YamlError> {
         let mut string = Vec::new();
-        if self.src.peekz() != b'!' {
+        if self.src.peekz(0) != b'!' {
             return Err(YamlError::new_str(
                 *mark,
                 "while scanning a tag, did not find expected '!'",
             ));
         }
 
-        string.push(self.src.peekz());
+        string.push(self.src.peekz(0));
         self.skip_non_blank();
 
         let n_chars = self.src.fetch_while_is_alpha(&mut string);
@@ -1569,8 +1570,8 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.mark.col += n_chars as u32;
 
         // Check if the trailing character is '!' and copy it.
-        if self.src.peekz() == b'!' {
-            string.push(self.src.peekz());
+        if self.src.peekz(0) == b'!' {
+            string.push(self.src.peekz(0));
             self.skip_non_blank();
         } else if directive && string != b"!" {
             // It's either the '!' tag or not really a tag handle.  If it's a %TAG
@@ -1600,12 +1601,12 @@ impl<'input, S: Source> Scanner<'input, S> {
             string.extend_from_slice(&head[1..]);
         }
 
-        while is_tag_char(self.src.peekz()) {
+        while is_tag_char(self.src.peekz(0)) {
             // Check if it is a URI-escape sequence.
-            if self.src.peekz() == b'%' {
+            if self.src.peekz(0) == b'%' {
                 string.extend_from_slice(&self.scan_uri_escapes(mark)?);
             } else {
-                string.push(self.src.peekz());
+                string.push(self.src.peekz(0));
                 self.skip_non_blank();
             }
 
@@ -1626,7 +1627,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut max_indent = 0;
         loop {
             // Consume all spaces. Tabs cannot be used as indentation.
-            while self.src.peekz() == b' ' {
+            while self.src.peekz(0) == b' ' {
                 self.skip_blank();
             }
 
@@ -1664,7 +1665,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // Consume all spaces. Tabs cannot be used as indentation.
             if (indent as usize) < self.src.buf_max_len() - 2 {
                 // ? self.src.lookahead(self.input.bufmaxlen());
-                while self.mark.col < indent && self.src.peekz() == b' ' {
+                while self.mark.col < indent && self.src.peekz(0) == b' ' {
                     self.skip_blank();
                 }
             } else {
@@ -1672,7 +1673,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // ? self.input.lookahead(self.input.bufmaxlen());
                     while !self.src.buf_is_empty()
                         && self.mark.col < indent
-                        && self.src.peekz() == b' '
+                        && self.src.peekz(0) == b' '
                     {
                         self.skip_blank();
                     }
@@ -1680,7 +1681,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // reached content or EOF; that is, the buffer is not empty and the next
                     // character is not a space.
                     if self.mark.col == indent
-                        || (!self.src.buf_is_empty() && self.src.peekz() != b' ')
+                        || (!self.src.buf_is_empty() && self.src.peekz(0) != b' ')
                     {
                         break;
                     }
@@ -1712,10 +1713,10 @@ impl<'input, S: Source> Scanner<'input, S> {
         start_mark: &Marker,
     ) -> Result<(), YamlError> {
         // ? self.input.lookahead(2);
-        while !is_blank_or_breakz(self.src.peekz()) {
-            match self.src.peekz() {
+        while !is_blank_or_breakz(self.src.peekz(0)) {
+            match self.src.peekz(0) {
                 // Check for an escaped single quote.
-                b'\'' if self.src.peekz_n1() == b'\'' && single => {
+                b'\'' if self.src.peekz(1) == b'\'' && single => {
                     string.push(b'\'');
                     self.skip_n_non_blank(2);
                 }
@@ -1723,7 +1724,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 b'\'' if single => break,
                 b'"' if !single => break,
                 // Check for an escaped line break.
-                b'\\' if !single && is_break(self.src.peekz_n1()) => {
+                b'\\' if !single && is_break(self.src.peekz(1)) => {
                     // ? self.input.lookahead(3);
                     self.skip_non_blank();
                     self.skip_linebreak();
@@ -1758,7 +1759,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut code_length = 0usize;
         let mut ret = '\0';
 
-        match self.src.peekz_n1() {
+        match self.src.peekz(1) {
             b'0' => ret = '\0',
             b'a' => ret = '\x07',
             b'b' => ret = '\x08',
@@ -1796,7 +1797,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         if code_length > 0 {
             let mut value = 0u32;
             for i in 0..code_length {
-                let c = self.src.peekz_arbitrary(i);
+                let c = self.src.peekz(i);
                 if !c.is_ascii_hexdigit() {
                     return Err(YamlError::new_str(
                         *start_mark,
@@ -1967,10 +1968,10 @@ impl<'input, S: Source> Scanner<'input, S> {
         loop {
             // self.src.lookahead(3);
 
-            let c = self.src.peekz_n1();
-            let nc = self.src.peekz_n2();
+            let c = self.src.peekz(1);
+            let nc = self.src.peekz(2);
 
-            if !(self.src.peekz() == b'%' && c.is_ascii_hexdigit() && nc.is_ascii_hexdigit()) {
+            if !(self.src.peekz(0) == b'%' && c.is_ascii_hexdigit() && nc.is_ascii_hexdigit()) {
                 return Err(YamlError::new_str(
                     *mark,
                     "while parsing a tag, found an invalid escape sequence",
@@ -2034,7 +2035,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             ));
         }
 
-        if !is_blank_or_break(self.src.peekz()) {
+        if !is_blank_or_break(self.src.peekz(0)) {
             return Err(YamlError::new_str(
                 start_mark,
                 "while scanning a directive, found unexpected non-alphabetical character",
@@ -2054,7 +2055,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         let major = self.scan_version_directive_number(marker)?;
 
-        if self.src.peekz() != b'.' {
+        if self.src.peekz(0) != b'.' {
             return Err(YamlError::new_str(
                 *marker,
                 "while scanning a YAML directive, did not find expected digit or '.' character",
@@ -2106,8 +2107,8 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_version_directive_number(&mut self, mark: &Marker) -> Result<u8, YamlError> {
         let mut val = 0;
         let mut length = 0usize;
-        while self.src.peekz().is_ascii_digit() {
-            let digit = self.src.peekz() - b'0';
+        while self.src.peekz(0).is_ascii_digit() {
+            let digit = self.src.peekz(0) - b'0';
             if length + 1 > 9 {
                 return Err(YamlError::new_str(
                     *mark,
@@ -2158,11 +2159,11 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_tag_prefix(&mut self, start_mark: &Marker) -> Result<Vec<u8>, YamlError> {
         let mut string = Vec::new();
 
-        if self.src.peekz() == b'!' {
+        if self.src.peekz(0) == b'!' {
             // If we have a local tag, insert and skip `!`.
-            string.push(self.src.peekz());
+            string.push(self.src.peekz(0));
             self.skip_non_blank();
-        } else if !is_tag_char(self.src.peekz()) {
+        } else if !is_tag_char(self.src.peekz(0)) {
             // Otherwise, check if the first global tag character is valid.
             return Err(YamlError::new_str(
                 *start_mark,
@@ -2172,7 +2173,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.uri_scans_or_non_blank(&mut string, start_mark)?;
         }
 
-        while is_uri_char(self.src.peekz()) {
+        while is_uri_char(self.src.peekz(0)) {
             self.uri_scans_or_non_blank(&mut string, start_mark)?;
         }
 

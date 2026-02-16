@@ -46,7 +46,7 @@ use alloc::vec::Vec;
 /// - `next_is_blank_or_breakz() -> bool`: Checks if the next byte is blank, a break, or a null-terminator (`'\0'`).
 pub unsafe trait Source {
     #[must_use]
-    fn peekz_arbitrary(&self, n: usize) -> u8 {
+    fn peekz(&self, n: usize) -> u8 {
         self.peek_check(n).unwrap_or(0)
     }
 
@@ -60,26 +60,6 @@ pub unsafe trait Source {
     fn peek(&self) -> Option<u8>;
 
     #[must_use]
-    fn peekz(&self) -> u8 {
-        self.peekz_arbitrary(0)
-    }
-
-    #[must_use]
-    fn peekz_n1(&self) -> u8 {
-        self.peekz_arbitrary(1)
-    }
-
-    #[must_use]
-    fn peekz_n2(&self) -> u8 {
-        self.peekz_arbitrary(2)
-    }
-
-    #[must_use]
-    fn peekz_n3(&self) -> u8 {
-        self.peekz_arbitrary(3)
-    }
-
-    #[must_use]
     fn peek_char(&self) -> char;
 
     fn skip(&mut self, n: usize);
@@ -91,9 +71,9 @@ pub unsafe trait Source {
 
     fn fetch_while_is_alpha(&mut self, out: &mut Vec<u8>) -> usize {
         let mut n_chars = 0;
-        while is_alpha(self.peekz()) {
+        while is_alpha(self.peekz(0)) {
             n_chars += 1;
-            out.push(self.peekz());
+            out.push(self.peekz(0));
             self.skip(1);
         }
         n_chars
@@ -101,7 +81,7 @@ pub unsafe trait Source {
 
     fn skip_while_blank(&mut self) -> usize {
         let mut n_chars = 0;
-        while is_blank(self.peekz()) {
+        while is_blank(self.peekz(0)) {
             n_chars += 1;
             self.skip(1);
         }
@@ -112,44 +92,44 @@ pub unsafe trait Source {
 
     fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>);
     fn next_byte_is(&self, chr: u8) -> bool {
-        chr == self.peekz()
+        chr == self.peekz(0)
     }
 
     fn next_next_byte_is(&self, chr: u8) -> bool {
-        self.peekz_n1() == chr
+        self.peekz(1) == chr
     }
 
     fn peek_two(&self) -> [u8; 2] {
-        [self.peekz(), self.peekz_n1()]
+        [self.peekz(0), self.peekz(1)]
     }
 
     fn next_is_three(&self, chr: u8) -> bool {
-        self.peekz() == chr && self.peekz_n1() == chr && self.peekz_n2() == chr
+        self.peekz(0) == chr && self.peekz(1) == chr && self.peekz(2) == chr
     }
 
     #[must_use]
     fn next_is_flow(&self) -> bool {
-        is_flow(self.peekz())
+        is_flow(self.peekz(0))
     }
 
     #[must_use]
     fn next_is_break(&self) -> bool {
-        is_break(self.peekz())
+        is_break(self.peekz(0))
     }
 
     #[must_use]
     fn next_is_blank(&self) -> bool {
-        is_blank(self.peekz())
+        is_blank(self.peekz(0))
     }
 
     #[must_use]
     fn next_is_breakz(&self) -> bool {
-        is_break(self.peekz()) || self.peekz() == b'\0'
+        is_break(self.peekz(0)) || self.peekz(0) == b'\0'
     }
 
     fn skip_while_non_breakz(&mut self) -> usize {
         let mut count = 0;
-        while !is_break(self.peekz()) {
+        while !is_break(self.peekz(0)) {
             count += 1;
             self.skip(1);
         }
@@ -157,7 +137,7 @@ pub unsafe trait Source {
     }
 
     fn next_is_blank_or_break(&self) -> bool {
-        is_blank_or_break(self.peekz())
+        is_blank_or_break(self.peekz(0))
     }
 
     fn next_is_blank_or_breakz(&self) -> bool {
@@ -168,8 +148,8 @@ pub unsafe trait Source {
     }
 
     fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
-        let nc = self.peekz_n1();
-        match self.peekz() {
+        let nc = self.peekz(1);
+        match self.peekz(0) {
             // indicators can end a plain scalar, see 7.3.3. Plain Style
             b':' if is_blank_or_breakz(nc) || (in_flow && is_flow(nc)) => false,
             c if in_flow && is_flow(c) => false,
@@ -178,14 +158,13 @@ pub unsafe trait Source {
     }
 
     fn next_is_document_indicator(&self) -> bool {
-        (self.next_is_three(b'-') || self.next_is_three(b'.'))
-            && is_blank_or_breakz(self.peekz_n3())
+        (self.next_is_three(b'-') || self.next_is_three(b'.')) && is_blank_or_breakz(self.peekz(3))
     }
 
     fn next_is_z(&self) -> bool;
 
     fn next_is_alpha(&self) -> bool {
-        is_alpha(self.peekz())
+        is_alpha(self.peekz(0))
     }
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
 }
@@ -199,7 +178,7 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
 ) -> (u32, Result<SkipTabs, &'static str>) {
     let mut chars_consumed = 0;
     loop {
-        match x.peekz() {
+        match x.peekz(0) {
             b' ' => {
                 has_yaml_ws = true;
                 x.skip(1);
@@ -217,7 +196,7 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
             }
             b'#' => {
                 x.skip(1); // Skip over '#'
-                while !is_breakz(x.peekz()) {
+                while !is_breakz(x.peekz(0)) {
                     x.skip(1);
                     chars_consumed += 1;
                 }

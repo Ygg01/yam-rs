@@ -230,24 +230,24 @@ mod tests {
     fn test_create() {
         let source = BufferedBytesSource::from_bstr(b"Hello, world!");
         assert_eq!(source.len, 13);
-        assert_eq!(source.peekz(), b'H');
-        assert_eq!(source.peekz_n1(), b'e');
+        assert_eq!(source.peekz(0), b'H');
+        assert_eq!(source.peekz(1), b'e');
     }
 
     #[test]
     fn test_skip() {
         let mut source = BufferedBytesSource::from_bstr(b"Hello, world!");
         assert_eq!(source.len, 13);
-        assert_eq!(source.peekz(), b'H');
-        assert_eq!(source.peekz_n1(), b'e');
+        assert_eq!(source.peekz(0), b'H');
+        assert_eq!(source.peekz(1), b'e');
 
         source.skip(3);
-        assert_eq!(source.peekz(), b'l');
-        assert_eq!(source.peekz_n1(), b'o');
+        assert_eq!(source.peekz(0), b'l');
+        assert_eq!(source.peekz(1), b'o');
 
         source.skip(4);
-        assert_eq!(source.peekz(), b'w');
-        assert_eq!(source.peekz_n1(), b'o');
+        assert_eq!(source.peekz(0), b'w');
+        assert_eq!(source.peekz(1), b'o');
     }
 
     #[test]
@@ -261,26 +261,26 @@ mod tests {
             Aenean ut mi a nulla pellentesque aliquet quis vitae lorem. Vestibulum semper elit"#,
         );
         assert_eq!(source.len, MAX_LEN);
-        assert_eq!(source.peekz(), b'L');
-        assert_eq!(source.peekz_n1(), b'o');
+        assert_eq!(source.peekz(0), b'L');
+        assert_eq!(source.peekz(1), b'o');
 
         // Skip characters to ornare vitae
         source.skip(131);
-        assert_eq!(source.peekz(), b'o');
-        assert_eq!(source.peekz_n1(), b'r');
-        assert_eq!(source.peekz_n2(), b'n');
+        assert_eq!(source.peekz(0), b'o');
+        assert_eq!(source.peekz(1), b'r');
+        assert_eq!(source.peekz(2), b'n');
     }
 
     #[test]
     fn test_create_empty() {
         let mut source = BufferedBytesSource::from_bstr(b"");
         assert_eq!(source.len, 0);
-        assert_eq!(source.peekz(), b'\0');
-        assert_eq!(source.peekz_n1(), b'\0');
+        assert_eq!(source.peekz(0), b'\0');
+        assert_eq!(source.peekz(1), b'\0');
 
         source.skip(130);
-        assert_eq!(source.peekz(), b'\0');
-        assert_eq!(source.peekz_n1(), b'\0');
+        assert_eq!(source.peekz(0), b'\0');
+        assert_eq!(source.peekz(1), b'\0');
     }
 
     #[test]
@@ -290,7 +290,7 @@ mod tests {
                                                         ornare vitae erat. Aenean bibendum arcu et risus auctor,");
         let mut dest = Vec::new();
         source.push_non_breakz_chr(&mut dest);
-        assert_eq!(source.peekz(), b'\n');
+        assert_eq!(source.peekz(0), b'\n');
         assert_eq!(
             str::from_utf8(&dest).unwrap(),
             "Lorem ipsum dolor sit amet,"
@@ -301,7 +301,7 @@ mod tests {
 
         dest.clear();
         source.push_non_breakz_chr(&mut dest);
-        assert_eq!(source.peekz(), b'\n');
+        assert_eq!(source.peekz(0), b'\n');
         assert_eq!(
             str::from_utf8(&dest).unwrap(),
             "                                                        consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet,"
