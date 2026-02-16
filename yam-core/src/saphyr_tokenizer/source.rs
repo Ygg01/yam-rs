@@ -8,21 +8,23 @@ pub trait Source {
     #[must_use]
     fn peek_arbitrary(&self, n: usize) -> u8;
 
-    #[must_use]
-    fn peek(&self) -> u8;
+    fn peek(&self) -> Option<u8>;
 
     #[must_use]
-    fn peek_n1(&self) -> u8 {
+    fn peekz(&self) -> u8;
+
+    #[must_use]
+    fn peekz_n1(&self) -> u8 {
         self.peek_arbitrary(1)
     }
 
     #[must_use]
-    fn peek_n2(&self) -> u8 {
+    fn peekz_n2(&self) -> u8 {
         self.peek_arbitrary(2)
     }
 
     #[must_use]
-    fn peek_n3(&self) -> u8 {
+    fn peekz_n3(&self) -> u8 {
         self.peek_arbitrary(3)
     }
 
@@ -38,9 +40,9 @@ pub trait Source {
 
     fn fetch_while_is_alpha(&mut self, out: &mut Vec<u8>) -> usize {
         let mut n_chars = 0;
-        while is_alpha(self.peek()) {
+        while is_alpha(self.peekz()) {
             n_chars += 1;
-            out.push(self.peek());
+            out.push(self.peekz());
             self.skip(1);
         }
         n_chars
@@ -48,7 +50,7 @@ pub trait Source {
 
     fn skip_while_blank(&mut self) -> usize {
         let mut n_chars = 0;
-        while is_blank(self.peek()) {
+        while is_blank(self.peekz()) {
             n_chars += 1;
             self.skip(1);
         }
@@ -59,44 +61,44 @@ pub trait Source {
 
     fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>);
     fn next_byte_is(&self, chr: u8) -> bool {
-        chr == self.peek()
+        chr == self.peekz()
     }
 
     fn next_next_byte_is(&self, chr: u8) -> bool {
-        self.peek_n1() == chr
+        self.peekz_n1() == chr
     }
 
     fn peek_two(&self) -> [u8; 2] {
-        [self.peek(), self.peek_n1()]
+        [self.peekz(), self.peekz_n1()]
     }
 
     fn next_is_three(&self, chr: u8) -> bool {
-        self.peek() == chr && self.peek_n1() == chr && self.peek_n2() == chr
+        self.peekz() == chr && self.peekz_n1() == chr && self.peekz_n2() == chr
     }
 
     #[must_use]
     fn next_is_flow(&self) -> bool {
-        is_flow(self.peek())
+        is_flow(self.peekz())
     }
 
     #[must_use]
     fn next_is_break(&self) -> bool {
-        is_break(self.peek())
+        is_break(self.peekz())
     }
 
     #[must_use]
     fn next_is_blank(&self) -> bool {
-        is_blank(self.peek())
+        is_blank(self.peekz())
     }
 
     #[must_use]
     fn next_is_breakz(&self) -> bool {
-        is_break(self.peek()) || self.peek() == b'\0'
+        is_break(self.peekz()) || self.peekz() == b'\0'
     }
 
     fn skip_while_non_breakz(&mut self) -> usize {
         let mut count = 0;
-        while !is_break(self.peek()) {
+        while !is_break(self.peekz()) {
             count += 1;
             self.skip(1);
         }
@@ -104,16 +106,16 @@ pub trait Source {
     }
 
     fn next_is_blank_or_break(&self) -> bool {
-        is_blank_or_break(self.peek())
+        is_blank_or_break(self.peekz())
     }
 
     fn next_is_blank_or_breakz(&self) -> bool {
-        is_blank_or_break(self.peek()) || self.peek() == b'\0'
+        is_blank_or_break(self.peekz()) || self.peekz() == b'\0'
     }
 
     fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
-        let nc = self.peek_n1();
-        match self.peek() {
+        let nc = self.peekz_n1();
+        match self.peekz() {
             // indicators can end a plain scalar, see 7.3.3. Plain Style
             b':' if is_blank_or_breakz(nc) || (in_flow && is_flow(nc)) => false,
             c if in_flow && is_flow(c) => false,
@@ -122,13 +124,14 @@ pub trait Source {
     }
 
     fn next_is_document_indicator(&self) -> bool {
-        (self.next_is_three(b'-') || self.next_is_three(b'.')) && is_blank_or_breakz(self.peek_n3())
+        (self.next_is_three(b'-') || self.next_is_three(b'.'))
+            && is_blank_or_breakz(self.peekz_n3())
     }
 
     fn next_is_z(&self) -> bool;
 
     fn next_is_alpha(&self) -> bool {
-        is_alpha(self.peek())
+        is_alpha(self.peekz())
     }
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
 }
@@ -142,7 +145,7 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
 ) -> (u32, Result<SkipTabs, &'static str>) {
     let mut chars_consumed = 0;
     loop {
-        match x.peek() {
+        match x.peekz() {
             b' ' => {
                 has_yaml_ws = true;
                 x.skip(1);
@@ -160,7 +163,7 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
             }
             b'#' => {
                 x.skip(1); // Skip over '#'
-                while !is_breakz(x.peek()) {
+                while !is_breakz(x.peekz()) {
                     x.skip(1);
                     chars_consumed += 1;
                 }
@@ -205,7 +208,11 @@ impl<'input> Source for StrSource<'input> {
         }
     }
 
-    fn peek(&self) -> u8 {
+    fn peek(&self) -> Option<u8> {
+        self.input.get(self.pos).copied()
+    }
+
+    fn peekz(&self) -> u8 {
         match self.input.get(self.pos) {
             Some(x) => *x,
             None => b'\0',

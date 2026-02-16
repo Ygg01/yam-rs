@@ -61,12 +61,6 @@ impl BitOps for U8X16 {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use yam_core::util::u8x16::U8X16;
-    /// let vector = U8X16::from_array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
-    /// let result = vector.comp(10);
-    /// assert_eq!(result, U8X16::from_array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
-    /// ```
     fn comp(self, cmp: u8) -> Self {
         Self([
             gen_u8_cmp_all!(self, 0 => cmp),

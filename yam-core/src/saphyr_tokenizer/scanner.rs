@@ -6,9 +6,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use yam_common::ScalarType::Plain;
-use yam_common::TokenType::{
-    BlockEnd, FlowMappingEnd, FlowMappingStart, FlowSequenceEnd, FlowSequenceStart, StreamEnd,
-};
+
 use yam_common::{
     ChompIndicator, Marker, ScalarType, ScanResult, Span, TokenType, YamlError, YamlResult,
 };
@@ -161,7 +159,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     start: Marker::default(),
                     end: Marker::default(),
                 },
-                token_type: StreamEnd,
+                token_type: TokenType::StreamEnd,
             });
         }
 
@@ -171,7 +169,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         let tok = match self.tokens.pop_front() {
             Some(tok) => {
-                if tok.token_type == StreamEnd {
+                if tok.token_type == TokenType::StreamEnd {
                     self.stream_end_reached = true;
                 }
                 Ok(tok)
@@ -185,7 +183,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         if matches!(
             tok,
             Ok(Token {
-                token_type: StreamEnd,
+                token_type: TokenType::StreamEnd,
                 ..
             })
         ) {
@@ -235,15 +233,15 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn next_char_is(&mut self, chr: u8) -> bool {
-        self.src.peek() == chr
+        self.src.peekz() == chr
     }
 
     fn next_is_document_start(&mut self) -> bool {
-        self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peek_n3())
+        self.src.next_is_three(b'-') && is_blank_or_breakz(self.src.peekz_n3())
     }
 
     fn next_is_document_end(&mut self) -> bool {
-        self.src.next_is_three(b'.') && is_blank_or_breakz(self.src.peek_n3())
+        self.src.next_is_three(b'.') && is_blank_or_breakz(self.src.peekz_n3())
     }
 
     fn fetch_next_token(&mut self) -> ScanResult {
@@ -334,10 +332,10 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn fetch_main_loop(&mut self) -> ScanResult {
         let c = self.src.peek_two();
         match c {
-            [b'[', _] => self.fetch_flow_collection_start(FlowSequenceStart),
-            [b'{', _] => self.fetch_flow_collection_start(FlowMappingStart),
-            [b']', _] => self.fetch_flow_collection_end(FlowSequenceEnd),
-            [b'}', _] => self.fetch_flow_collection_end(FlowMappingEnd),
+            [b'[', _] => self.fetch_flow_collection_start(TokenType::FlowSequenceStart),
+            [b'{', _] => self.fetch_flow_collection_start(TokenType::FlowMappingStart),
+            [b']', _] => self.fetch_flow_collection_end(TokenType::FlowSequenceEnd),
+            [b'}', _] => self.fetch_flow_collection_end(TokenType::FlowMappingEnd),
             [b',', _] => self.fetch_flow_entry(),
             [b'-', x] if is_blank_or_breakz(x) => self.fetch_block_entry(),
             [b'?', x] if is_blank_or_breakz(x) => self.fetch_key(),
@@ -382,7 +380,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let start_mark = self.mark;
         self.skip_non_blank();
 
-        if token_type == FlowMappingStart {
+        if token_type == TokenType::FlowMappingStart {
             self.flow_mapping_started = true;
         } else {
             self.implicit_flow_mapping_states
@@ -403,7 +401,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         self.simple_key_allowed = false;
 
-        if matches!(token_type, FlowSequenceEnd) {
+        if matches!(token_type, TokenType::FlowSequenceEnd) {
             self.end_implicit_mapping(self.mark);
             self.implicit_flow_mapping_states.pop();
         }
@@ -430,7 +428,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             let span = self.get_span(mark);
             self.tokens.push_back(Token {
                 span,
-                token_type: FlowMappingEnd,
+                token_type: TokenType::FlowMappingEnd,
             })
         }
     }
@@ -501,7 +499,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // generate BLOCK-SEQUENCE-START if indented
         self.roll_indent(mark.col, None, TokenType::BlockSequenceStart, mark);
         let found_tabs = self.skip_ws_to_eol(SkipTabs::Yes)?.found_tabs();
-        if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peek_n1()) {
+        if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peekz_n1()) {
             return Err(YamlError::new_str(
                 self.mark,
                 "'-' must be followed by a valid YAML whitespace",
@@ -553,7 +551,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         self.skip_non_blank();
         self.skip_yaml_whitespace()?;
-        if self.src.peek() == b'\t' {
+        if self.src.peekz() == b'\t' {
             return Err(YamlError::new_str(
                 self.mark,
                 "tabs disallowed in this context",
@@ -570,7 +568,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn skip_yaml_whitespace(&mut self) -> ScanResult {
         let mut need_whitespace = true;
         loop {
-            match self.src.peek() {
+            match self.src.peekz() {
                 b' ' => {
                     self.skip_blank();
 
@@ -611,9 +609,9 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // Skip over ':'.
         self.skip_non_blank();
-        if self.src.peek() == b'\t'
+        if self.src.peekz() == b'\t'
             && !self.skip_ws_to_eol(SkipTabs::Yes)?.has_valid_yaml_ws()
-            && (self.src.peek() == b'-' || self.src.next_is_alpha())
+            && (self.src.peekz() == b'-' || self.src.next_is_alpha())
         {
             return Err(YamlError::new_str(
                 self.mark,
@@ -639,7 +637,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     sk.token_number - self.tokens_parsed,
                     Token {
                         span: Span::empty(sk.mark),
-                        token_type: FlowMappingStart,
+                        token_type: TokenType::FlowMappingStart,
                     },
                 );
             }
@@ -659,7 +657,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             if is_implicit_flow_mapping {
                 self.tokens.push_back(Token {
                     span: Span::empty(start_mark),
-                    token_type: FlowMappingStart,
+                    token_type: TokenType::FlowMappingStart,
                 });
             }
             // The ':' indicator follows a complex key.
@@ -691,7 +689,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn fetch_flow_value(&mut self) -> ScanResult {
-        let nc = self.src.peek_n1();
+        let nc = self.src.peekz_n1();
 
         // If we encounter a ':' inside a flow collection and it is not immediately
         // followed by a blank or breakz:
@@ -841,7 +839,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn skip_to_next_token(&mut self) -> ScanResult {
         loop {
-            match self.src.peek() {
+            match self.src.peekz() {
                 // Tabs may not be used as indentation.
                 // "Indentation" only exists as long as a block is started, but does not exist
                 // inside of flow-style constructs. Tabs are allowed as part of leading
@@ -944,11 +942,11 @@ impl<'input, S: Source> Scanner<'input, S> {
         loop {
             // ? self.input.lookahead(4);
             let next_is_document_indicator = self.src.next_is_document_indicator();
-            if (self.leading_whitespace && next_is_document_indicator) || self.src.peek() == b'#' {
+            if (self.leading_whitespace && next_is_document_indicator) || self.src.peekz() == b'#' {
                 break;
             }
 
-            if self.flow_level > 0 && self.src.peek() == b'-' && is_flow(self.src.peek_n1()) {
+            if self.flow_level > 0 && self.src.peekz() == b'-' && is_flow(self.src.peekz_n1()) {
                 return Err(YamlError::new_str(
                     self.mark,
                     "plain scalar cannot start with '-' followed by ,[]{}",
@@ -980,7 +978,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 }
 
                 // We can unroll the first iteration of the loop.
-                string.push(self.src.peek());
+                string.push(self.src.peekz());
                 self.skip_non_blank();
                 string.reserve(self.src.buf_max_len());
 
@@ -998,7 +996,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                             end = true;
                             break;
                         }
-                        string.push(self.src.peek());
+                        string.push(self.src.peekz());
                         self.skip_non_blank();
                     }
                 }
@@ -1018,9 +1016,9 @@ impl<'input, S: Source> Scanner<'input, S> {
             while self.src.next_is_blank_or_break() {
                 if self.src.next_is_blank() {
                     if !self.leading_whitespace {
-                        self.buf_whitespaces.push(self.src.peek());
+                        self.buf_whitespaces.push(self.src.peekz());
                         self.skip_blank();
-                    } else if self.mark.col < indent && self.src.peek() == b'\t' {
+                    } else if self.mark.col < indent && self.src.peekz() == b'\t' {
                         // Tabs in an indentation columns are allowed if and only if the line is
                         // empty. Skip to the end of the line.
                         self.skip_ws_to_eol(SkipTabs::Yes)?;
@@ -1124,7 +1122,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 &start_mark,
             )?;
 
-            match self.src.peek() {
+            match self.src.peekz() {
                 b'\'' if single => break,
                 b'"' if !single => break,
                 _ => {}
@@ -1135,7 +1133,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 if self.src.next_is_blank() {
                     // Consume a space or a tab character.
                     if leading_blanks {
-                        if self.src.peek() == b'\t' && self.mark.col < self.indent {
+                        if self.src.peekz() == b'\t' && self.mark.col < self.indent {
                             return Err(YamlError::new_str(
                                 self.mark,
                                 "tab cannot be used as indentation",
@@ -1143,7 +1141,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                         }
                         self.skip_blank();
                     } else {
-                        whitespaces.push(self.src.peek());
+                        whitespaces.push(self.src.peekz());
                         self.skip_blank();
                     }
                 } else {
@@ -1186,7 +1184,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
         // Ensure there is no invalid trailing content.
         self.skip_ws_to_eol(SkipTabs::Yes)?;
-        match self.src.peek() {
+        match self.src.peekz() {
             // These can be encountered in flow sequences or mappings.
             b',' | b'}' | b']' if self.flow_level > 0 => {}
             // An end-of-line / end-of-stream is fine. No trailing content.
@@ -1240,37 +1238,37 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
         self.unroll_non_block_indents();
 
-        if self.src.peek() == b'+' || self.src.peek() == b'-' {
-            if self.src.peek() == b'+' {
+        if self.src.peekz() == b'+' || self.src.peekz() == b'-' {
+            if self.src.peekz() == b'+' {
                 chomping = ChompIndicator::Keep;
             } else {
                 chomping = ChompIndicator::Strip;
             }
             self.skip_non_blank();
             // ? self.src.lookahead(1);
-            if self.src.peek().is_ascii_digit() {
-                if self.src.peek() == b'0' {
+            if self.src.peekz().is_ascii_digit() {
+                if self.src.peekz() == b'0' {
                     return Err(YamlError::new_str(
                         start_mark,
                         "while scanning a block scalar, found an indentation indicator equal to 0",
                     ));
                 }
-                increment = (self.src.peek() - b'0') as usize;
+                increment = (self.src.peekz() - b'0') as usize;
                 self.skip_non_blank();
             }
-        } else if self.src.peek().is_ascii_digit() {
-            if self.src.peek() == b'0' {
+        } else if self.src.peekz().is_ascii_digit() {
+            if self.src.peekz() == b'0' {
                 return Err(YamlError::new_str(
                     start_mark,
                     "while scanning a block scalar, found an indentation indicator equal to 0",
                 ));
             }
 
-            increment = (self.src.peek() - b'0') as usize;
+            increment = (self.src.peekz() - b'0') as usize;
             self.skip_non_blank();
             // ? self.src.lookahead(1);
-            if self.src.peek() == b'+' || self.src.peek() == b'-' {
-                if self.src.peek() == b'+' {
+            if self.src.peekz() == b'+' || self.src.peekz() == b'-' {
+                if self.src.peekz() == b'+' {
                     chomping = ChompIndicator::Keep;
                 } else {
                     chomping = ChompIndicator::Strip;
@@ -1295,7 +1293,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.read_break(&mut chomping_break);
         }
 
-        if self.src.peek() == b'\t' {
+        if self.src.peekz() == b'\t' {
             return Err(YamlError::new_str(
                 start_mark,
                 "a block scalar content cannot start with a tab",
@@ -1421,7 +1419,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>, line_buffer: &mut Vec<u8>) {
         // Start by evaluating characters in the buffer.
         while !self.src.buf_is_empty() && !self.src.next_is_break() {
-            string.push(self.src.peek());
+            string.push(self.src.peekz());
             // We may technically skip non-blank characters. However, the only distinction is
             // to determine what is leading whitespace and what is not. Here, we read the
             // contents of the line until either eof or a linebreak. We know we will not read
@@ -1458,8 +1456,8 @@ impl<'input, S: Source> Scanner<'input, S> {
         let start_mark = self.mark;
 
         self.skip_non_blank();
-        while is_anchor_char(self.src.peek()) {
-            string.push(self.src.peek());
+        while is_anchor_char(self.src.peekz()) {
+            string.push(self.src.peekz());
             self.skip_non_blank();
         }
 
@@ -1517,7 +1515,8 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         }
 
-        if is_blank_or_breakz(self.src.peek()) || (self.flow_level > 0 && self.src.next_is_flow()) {
+        if is_blank_or_breakz(self.src.peekz()) || (self.flow_level > 0 && self.src.next_is_flow())
+        {
             // XXX: ex 7.2, an empty scalar can follow a secondary tag
             Ok(Token {
                 span: Span::new(start_mark, self.mark),
@@ -1538,16 +1537,11 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
 
         let mut string = Vec::new();
-        while is_uri_char(self.src.peek()) {
-            if self.src.peek() == b'%' {
-                string.extend(self.scan_uri_escapes(start_mark)?);
-            } else {
-                string.push(self.src.peek());
-                self.skip_non_blank();
-            }
+        while is_uri_char(self.src.peekz()) {
+            self.uri_scans_or_non_blank(&mut string, start_mark)?;
         }
 
-        if self.src.peek() != b'>' {
+        if self.src.peekz() != b'>' {
             return Err(YamlError::new_str(
                 *start_mark,
                 "while scanning a verbatim tag, did not find the expected '>'",
@@ -1560,14 +1554,14 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn scan_tag_handle(&mut self, directive: bool, mark: &Marker) -> Result<Vec<u8>, YamlError> {
         let mut string = Vec::new();
-        if self.src.peek() != b'!' {
+        if self.src.peekz() != b'!' {
             return Err(YamlError::new_str(
                 *mark,
                 "while scanning a tag, did not find expected '!'",
             ));
         }
 
-        string.push(self.src.peek());
+        string.push(self.src.peekz());
         self.skip_non_blank();
 
         let n_chars = self.src.fetch_while_is_alpha(&mut string);
@@ -1575,8 +1569,8 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.mark.col += n_chars as u32;
 
         // Check if the trailing character is '!' and copy it.
-        if self.src.peek() == b'!' {
-            string.push(self.src.peek());
+        if self.src.peekz() == b'!' {
+            string.push(self.src.peekz());
             self.skip_non_blank();
         } else if directive && string != b"!" {
             // It's either the '!' tag or not really a tag handle.  If it's a %TAG
@@ -1606,12 +1600,12 @@ impl<'input, S: Source> Scanner<'input, S> {
             string.extend_from_slice(&head[1..]);
         }
 
-        while is_tag_char(self.src.peek()) {
+        while is_tag_char(self.src.peekz()) {
             // Check if it is a URI-escape sequence.
-            if self.src.peek() == b'%' {
+            if self.src.peekz() == b'%' {
                 string.extend_from_slice(&self.scan_uri_escapes(mark)?);
             } else {
-                string.push(self.src.peek());
+                string.push(self.src.peekz());
                 self.skip_non_blank();
             }
 
@@ -1632,7 +1626,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut max_indent = 0;
         loop {
             // Consume all spaces. Tabs cannot be used as indentation.
-            while self.src.peek() == b' ' {
+            while self.src.peekz() == b' ' {
                 self.skip_blank();
             }
 
@@ -1670,7 +1664,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // Consume all spaces. Tabs cannot be used as indentation.
             if (indent as usize) < self.src.buf_max_len() - 2 {
                 // ? self.src.lookahead(self.input.bufmaxlen());
-                while self.mark.col < indent && self.src.peek() == b' ' {
+                while self.mark.col < indent && self.src.peekz() == b' ' {
                     self.skip_blank();
                 }
             } else {
@@ -1678,7 +1672,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // ? self.input.lookahead(self.input.bufmaxlen());
                     while !self.src.buf_is_empty()
                         && self.mark.col < indent
-                        && self.src.peek() == b' '
+                        && self.src.peekz() == b' '
                     {
                         self.skip_blank();
                     }
@@ -1686,7 +1680,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // reached content or EOF; that is, the buffer is not empty and the next
                     // character is not a space.
                     if self.mark.col == indent
-                        || (!self.src.buf_is_empty() && self.src.peek() != b' ')
+                        || (!self.src.buf_is_empty() && self.src.peekz() != b' ')
                     {
                         break;
                     }
@@ -1718,10 +1712,10 @@ impl<'input, S: Source> Scanner<'input, S> {
         start_mark: &Marker,
     ) -> Result<(), YamlError> {
         // ? self.input.lookahead(2);
-        while !is_blank_or_breakz(self.src.peek()) {
-            match self.src.peek() {
+        while !is_blank_or_breakz(self.src.peekz()) {
+            match self.src.peekz() {
                 // Check for an escaped single quote.
-                b'\'' if self.src.peek_n1() == b'\'' && single => {
+                b'\'' if self.src.peekz_n1() == b'\'' && single => {
                     string.push(b'\'');
                     self.skip_n_non_blank(2);
                 }
@@ -1729,7 +1723,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 b'\'' if single => break,
                 b'"' if !single => break,
                 // Check for an escaped line break.
-                b'\\' if !single && is_break(self.src.peek_n1()) => {
+                b'\\' if !single && is_break(self.src.peekz_n1()) => {
                     // ? self.input.lookahead(3);
                     self.skip_non_blank();
                     self.skip_linebreak();
@@ -1764,7 +1758,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut code_length = 0usize;
         let mut ret = '\0';
 
-        match self.src.peek_n1() {
+        match self.src.peekz_n1() {
             b'0' => ret = '\0',
             b'a' => ret = '\x07',
             b'b' => ret = '\x08',
@@ -1838,7 +1832,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 let span = Span::empty(self.mark);
                 self.tokens.push_back(Token {
                     span,
-                    token_type: BlockEnd,
+                    token_type: TokenType::BlockEnd,
                 })
             }
         }
@@ -1973,10 +1967,10 @@ impl<'input, S: Source> Scanner<'input, S> {
         loop {
             // self.src.lookahead(3);
 
-            let c = self.src.peek_n1();
-            let nc = self.src.peek_n2();
+            let c = self.src.peekz_n1();
+            let nc = self.src.peekz_n2();
 
-            if !(self.src.peek() == b'%' && c.is_ascii_hexdigit() && nc.is_ascii_hexdigit()) {
+            if !(self.src.peekz() == b'%' && c.is_ascii_hexdigit() && nc.is_ascii_hexdigit()) {
                 return Err(YamlError::new_str(
                     *mark,
                     "while parsing a tag, found an invalid escape sequence",
@@ -2040,7 +2034,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             ));
         }
 
-        if !is_blank_or_break(self.src.peek()) {
+        if !is_blank_or_break(self.src.peekz()) {
             return Err(YamlError::new_str(
                 start_mark,
                 "while scanning a directive, found unexpected non-alphabetical character",
@@ -2060,7 +2054,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         let major = self.scan_version_directive_number(marker)?;
 
-        if self.src.peek() != b'.' {
+        if self.src.peekz() != b'.' {
             return Err(YamlError::new_str(
                 *marker,
                 "while scanning a YAML directive, did not find expected digit or '.' character",
@@ -2112,8 +2106,8 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn scan_version_directive_number(&mut self, mark: &Marker) -> Result<u8, YamlError> {
         let mut val = 0;
         let mut length = 0usize;
-        while self.src.peek().is_ascii_digit() {
-            let digit = self.src.peek() - b'0';
+        while self.src.peekz().is_ascii_digit() {
+            let digit = self.src.peekz() - b'0';
             if length + 1 > 9 {
                 return Err(YamlError::new_str(
                     *mark,
@@ -2135,35 +2129,44 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(val)
     }
 
+    #[inline]
+    fn uri_scans_or_non_blank(
+        &mut self,
+        string: &mut Vec<u8>,
+        start_mark: &Marker,
+    ) -> Result<(), YamlError> {
+        match self.src.peek() {
+            Some(b'%') => string.extend_from_slice(&self.scan_uri_escapes(start_mark)?),
+            Some(pek) => {
+                string.push(pek);
+                self.skip_non_blank();
+            }
+            None => {
+                self.skip_non_blank();
+            }
+        }
+        Ok(())
+    }
+
     fn scan_tag_prefix(&mut self, start_mark: &Marker) -> Result<Vec<u8>, YamlError> {
         let mut string = Vec::new();
 
-        if self.src.peek() == b'!' {
+        if self.src.peekz() == b'!' {
             // If we have a local tag, insert and skip `!`.
-            string.push(self.src.peek());
+            string.push(self.src.peekz());
             self.skip_non_blank();
-        } else if !is_tag_char(self.src.peek()) {
+        } else if !is_tag_char(self.src.peekz()) {
             // Otherwise, check if the first global tag character is valid.
             return Err(YamlError::new_str(
                 *start_mark,
                 "invalid global tag character",
             ));
-        } else if self.src.peek() == b'%' {
-            // If it is valid and an escape sequence, escape it.
-            string.extend(self.scan_uri_escapes(start_mark)?);
         } else {
-            // Otherwise, push the first character.
-            string.push(self.src.peek());
-            self.skip_non_blank();
+            self.uri_scans_or_non_blank(&mut string, start_mark)?;
         }
 
-        while is_uri_char(self.src.peek()) {
-            if self.src.peek() == b'%' {
-                string.extend(self.scan_uri_escapes(start_mark)?);
-            } else {
-                string.push(self.src.peek());
-                self.skip_non_blank();
-            }
+        while is_uri_char(self.src.peekz()) {
+            self.uri_scans_or_non_blank(&mut string, start_mark)?;
         }
 
         Ok(string)
