@@ -9,7 +9,6 @@ const SMALL_OBJECTS_YAML: &str = include_str!("small_objects.yaml");
 
 fn bench_noop(c: &mut Criterion) {
     let mut group = c.benchmark_group("noop-bench");
-    group.throughput(Throughput::Bytes(1));
     group.bench_function("noop", |b| b.iter(noop));
     group.finish();
 }
@@ -20,7 +19,7 @@ fn bench_big_text(c: &mut Criterion) {
     // precision and counteract the resulting noise.
     let mut buff = String::with_capacity(BIG_TEXT.len());
     group
-        .sample_size(10)
+        .sample_size(50)
         .throughput(Throughput::Bytes(BIG_TEXT.len() as u64));
     group.bench_function("saphyr", |b| {
         b.iter(|| {
@@ -40,7 +39,7 @@ fn bench_nested(c: &mut Criterion) {
     // precision and counteract the resulting noise.
     let mut buff = String::with_capacity(NESTED_YAML.len());
     group
-        .sample_size(10)
+        .sample_size(50)
         .throughput(Throughput::Bytes(NESTED_YAML.len() as u64));
     group.bench_function("saphyr", |b| {
         b.iter(|| {
@@ -60,7 +59,7 @@ fn bench_small_object(c: &mut Criterion) {
     // precision and counteract the resulting noise.
     let mut buff = String::with_capacity(SMALL_OBJECTS_YAML.len());
     group
-        .sample_size(10)
+        .sample_size(50)
         .throughput(Throughput::Bytes(SMALL_OBJECTS_YAML.len() as u64));
     group.bench_function("saphyr", |b| {
         b.iter(|| {
