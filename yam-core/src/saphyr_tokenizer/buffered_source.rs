@@ -19,6 +19,7 @@ pub struct BufferedBytesSource<T> {
 }
 
 impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
+    #[allow(dead_code)]
     pub fn new(input: T) -> Self {
         let mut x = Self {
             input,
@@ -58,6 +59,7 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
     pub fn from_bstr(input: &'a [u8]) -> Self {
         let mut x = Self {
@@ -127,7 +129,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     //noinspection ALL
     fn skip_ws_to_eol(&mut self, skip_tab: bool) -> (u32, Result<SkipTabs, &'static str>) {
         let mut has_yaml_ws = false;
-        let mut any_tabs = false;
+        let any_tabs = false;
         let mut consumed_bytes = 0u32;
         let mut skip_tabs_res = SkipTabs::No;
 
@@ -182,10 +184,6 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         }
 
         shared_skip_ws_to_eol(self, skip_tab, any_tabs, has_yaml_ws)
-    }
-
-    fn next_is_z(&self) -> bool {
-        self.buf_is_empty()
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {

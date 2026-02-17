@@ -330,8 +330,9 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn fetch_main_loop(&mut self) -> ScanResult {
-        let c = self.src.peek_two();
-        match c {
+        let c = self.src.peekz(0);
+        let nc = self.src.peekz(1);
+        match [c, nc] {
             [b'[', _] => self.fetch_flow_collection_start(TokenType::FlowSequenceStart),
             [b'{', _] => self.fetch_flow_collection_start(TokenType::FlowMappingStart),
             [b']', _] => self.fetch_flow_collection_end(TokenType::FlowSequenceEnd),
@@ -499,7 +500,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // generate BLOCK-SEQUENCE-START if indented
         self.roll_indent(mark.col, None, TokenType::BlockSequenceStart, mark);
         let found_tabs = self.skip_ws_to_eol(SkipTabs::Yes)?.found_tabs();
-        if found_tabs && self.src.next_byte_is(b'-') && is_blank_or_break(self.src.peekz(1)) {
+        if found_tabs && (b'-' == self.src.peekz(0)) && is_blank_or_break(self.src.peekz(1)) {
             return Err(YamlError::new_str(
                 self.mark,
                 "'-' must be followed by a valid YAML whitespace",
@@ -507,8 +508,8 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         self.skip_ws_to_eol(SkipTabs::No)?;
-        // ? self.input.lookahead(1);
-        if self.src.next_is_break() || self.src.next_is_flow() {
+
+        if is_break(self.src.peekz(0)) || is_flow(self.src.peekz(0)) {
             self.roll_one_col_indent();
         }
 
@@ -611,7 +612,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_non_blank();
         if self.src.peekz(0) == b'\t'
             && !self.skip_ws_to_eol(SkipTabs::Yes)?.has_valid_yaml_ws()
-            && (self.src.peekz(0) == b'-' || self.src.next_is_alpha())
+            && (self.src.peekz(0) == b'-' || is_alpha(self.src.peekz(0)))
         {
             return Err(YamlError::new_str(
                 self.mark,
@@ -771,7 +772,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn finish_document(&mut self) -> ScanResult {
         self.fetch_document_indicator(TokenType::DocumentEnd)?;
         self.skip_ws_to_eol(SkipTabs::Yes)?;
-        if !self.src.next_is_breakz() {
+        if !is_breakz(self.src.peekz(0)) {
             Err(YamlError::new_str(
                 self.mark,
                 "Invalid content after document end marker",
@@ -799,7 +800,9 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     #[inline]
     fn skip_linebreak(&mut self) {
-        match self.src.peek_two() {
+        let c = self.src.peekz(0);
+        let nc = self.src.peekz(1);
+        match [c, nc] {
             [b'\r', b'\n'] => {
                 self.mark.pos += 2;
                 self.mark.col = 1;
@@ -853,7 +856,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 {
                     self.skip_ws_to_eol(SkipTabs::Yes)?;
                     // If we have content on that line with a tab, return an error.
-                    if !self.src.next_is_breakz() {
+                    if !is_breakz(self.src.peekz(0)) {
                         return Err(YamlError::new_str(
                             self.mark,
                             "tabs disallowed within this context (block indentation)",
@@ -908,7 +911,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         self.skip_ws_to_eol(SkipTabs::Yes)?;
 
-        if self.src.next_is_break() {
+        if is_break(self.src.peekz(0)) {
             // self.src.lookahead(2);
             self.skip_linebreak();
             Ok(tok)
@@ -954,7 +957,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 ));
             }
 
-            if !self.src.next_is_blank_or_breakz()
+            if !is_blank_or_breakz(self.src.peekz(0))
                 && self.src.next_can_be_plain_scalar(self.flow_level > 0)
             {
                 if self.leading_whitespace {
@@ -991,7 +994,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // hence the `for` loop looping `self.input.bufmaxlen() - 1` times.
                     // ? self.src.lookahead(self.src.bufmaxlen());
                     for _ in 0..self.src.buf_max_len() - 1 {
-                        if self.src.next_is_blank_or_breakz()
+                        if is_blank_or_breakz(self.src.peekz(0))
                             || !self.src.next_can_be_plain_scalar(self.flow_level > 0)
                         {
                             end = true;
@@ -1008,14 +1011,13 @@ impl<'input, S: Source> Scanner<'input, S> {
             //  - We reach eof
             //  - We reach ": "
             //  - We find a flow character in a flow context
-            if !(self.src.next_is_blank() || self.src.next_is_break()) {
+            if !(is_blank(self.src.peekz(0)) || is_break(self.src.peekz(0))) {
                 break;
             }
 
             // Process blank characters.
-            // ? self.input.lookahead(2);
-            while self.src.next_is_blank_or_break() {
-                if self.src.next_is_blank() {
+            while is_blank_or_break(self.src.peekz(0)) {
+                if is_blank(self.src.peekz(0)) {
                     if !self.leading_whitespace {
                         self.buf_whitespaces
                             .push(self.src.peek_checked(0).unwrap_or(b' '));
@@ -1024,7 +1026,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                         // Tabs in an indentation columns are allowed if and only if the line is
                         // empty. Skip to the end of the line.
                         self.skip_ws_to_eol(SkipTabs::Yes)?;
-                        if !self.src.next_is_breakz() {
+                        if !is_breakz(self.src.peekz(0)) {
                             return Err(YamlError::new_str(
                                 start_mark,
                                 "while scanning a plain scalar, found a tab",
@@ -1102,7 +1104,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 ));
             }
 
-            if self.src.next_is_z() {
+            if self.src.peek_checked(0).is_none() {
                 return Err(YamlError::new_str(
                     start_mark,
                     "while scanning a quoted scalar, found unexpected end of stream",
@@ -1131,8 +1133,8 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
 
             // Consume blank characters.
-            while self.src.next_is_blank() || self.src.next_is_break() {
-                if self.src.next_is_blank() {
+            while is_blank(self.src.peekz(0)) || is_break(self.src.peekz(0)) {
+                if is_blank(self.src.peekz(0)) {
                     // Consume a space or a tab character.
                     if leading_blanks {
                         if self.src.peekz(0) == b'\t' && self.mark.col < self.indent {
@@ -1283,14 +1285,14 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // Check if we are at the end of the line.
         // self.input.lookahead(1);
-        if !self.src.next_is_breakz() {
+        if !is_breakz(self.src.peekz(0)) {
             return Err(YamlError::new_str(
                 start_mark,
                 "while scanning a block scalar, did not find expected comment or line break",
             ));
         }
 
-        if self.src.next_is_break() {
+        if is_break(self.src.peekz(0)) {
             // self.src.lookahead(2);
             self.read_break(&mut chomping_break);
         }
@@ -1321,7 +1323,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // ```yaml
         // - |+
         // ```
-        if self.src.next_is_z() {
+        if self.src.peek_checked(0).is_none() {
             let contents = match chomping {
                 // We strip trailing linebreaks. Nothing remain.
                 ChompIndicator::Strip => Vec::new(),
@@ -1354,7 +1356,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         let mut line_buffer = Vec::with_capacity(100);
         let start_mark = self.mark;
-        while self.mark.col == indent && !self.src.next_is_z() {
+        while self.mark.col == indent && !self.src.peek_checked(0).is_none() {
             if indent == 1 {
                 // self.src.lookahead(4);
                 if self.next_is_document_end() {
@@ -1363,7 +1365,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
 
             // We are at the first content character of a content line.
-            trailing_blank = self.src.next_is_blank();
+            trailing_blank = is_blank(self.src.peekz(0));
             if !literal && !leading_break.is_empty() && !leading_blank && !trailing_blank {
                 string.extend_from_slice(&trailing_breaks);
                 if trailing_breaks.is_empty() {
@@ -1377,13 +1379,13 @@ impl<'input, S: Source> Scanner<'input, S> {
             leading_break.clear();
             trailing_breaks.clear();
 
-            leading_blank = self.src.next_is_blank();
+            leading_blank = is_blank(self.src.peekz(0));
 
             self.scan_block_scalar_content_line(&mut string, &mut line_buffer);
 
             // break on EOF
-            // ? self.input.lookahead(2);
-            if self.src.next_is_z() {
+
+            if self.src.peek_checked(0).is_none() {
                 break;
             }
 
@@ -1400,7 +1402,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             // last line was indented at least as the rest of the scalar, then we need to consider
             // there is a newline.
             let is_greater_col = self.mark.col > indent.max(1);
-            if self.src.next_is_z() && is_greater_col {
+            if self.src.peek_checked(0).is_none() && is_greater_col {
                 string.push(b'\n');
             }
         }
@@ -1420,7 +1422,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>, line_buffer: &mut Vec<u8>) {
         // Start by evaluating characters in the buffer.
-        while !self.src.buf_is_empty() && !self.src.next_is_break() {
+        while !self.src.buf_is_empty() && !is_break(self.src.peekz(0)) {
             string.push(self.src.peek_checked(0).unwrap_or(b' '));
             // We may technically skip non-blank characters. However, the only distinction is
             // to determine what is leading whitespace and what is not. Here, we read the
@@ -1517,7 +1519,8 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         }
 
-        if is_blank_or_breakz(self.src.peekz(0)) || (self.flow_level > 0 && self.src.next_is_flow())
+        if is_blank_or_breakz(self.src.peekz(0))
+            || (self.flow_level > 0 && is_flow(self.src.peekz(0)))
         {
             // XXX: ex 7.2, an empty scalar can follow a secondary tag
             Ok(Token {
@@ -1636,7 +1639,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 max_indent = self.mark.col;
             }
 
-            if self.src.next_is_break() {
+            if is_break(self.src.peekz(0)) {
                 // If our current line is empty, skip over the break and continue looping.
                 // self.src.lookahead(2);
                 self.read_break(breaks);
@@ -1691,7 +1694,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
 
             // If our current line is empty, skip over the break and continue looping.
-            if self.src.next_is_break() {
+            if is_break(self.src.peekz(0)) {
                 self.read_break(breaks);
             } else {
                 // Otherwise, we have a content line. Return control.
@@ -2089,9 +2092,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             .map_err(|_| YamlError::new_str(*mark, "Error decoding tag prefix as UTF-8"))?
             .into();
 
-        // self.src.lookahead(1);
-
-        if self.src.next_is_blank_or_break() {
+        if is_blank_or_break(self.src.peekz(0)) {
             Ok(Token {
                 span: Span::new(*mark, self.mark),
                 // SAFETY: handle and prefix must not contain invalid UTF8

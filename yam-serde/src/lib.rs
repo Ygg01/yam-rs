@@ -27,6 +27,7 @@ struct Deserializer<'a, R: Source> {
     phantom_data: PhantomData<&'a ()>,
 }
 
+#[allow(dead_code)]
 impl<'a> Deserializer<'a, StrSource<'a>> {
     pub fn from_str<S: AsRef<str>>(input: &'a S) -> Self {
         Self::new(StrSource::new(input.as_ref()))

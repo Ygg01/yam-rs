@@ -5,6 +5,7 @@ use core::ops::{Add, BitAnd, Index, Shr};
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct U8X32([u8; 32]);
 
+#[allow(dead_code)]
 impl U8X32 {
     fn splat(input: u8) -> Self {
         Self([input; 32])
