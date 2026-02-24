@@ -131,6 +131,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let mut has_yaml_ws = false;
         let any_tabs = false;
         let mut consumed_bytes = 0u32;
+        let mut consume = 0u32;
         let mut skip_tabs_res = SkipTabs::No;
 
         let low_nib_mask = U8X16::splat(0xF);
@@ -138,6 +139,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let ws_flag = 0x04 + (skip_tab as u8);
 
         while let Some(x) = self.get_max_buf() {
+            consume = 0;
             let (v0, v1) = U8X32::from_array(x).split();
 
             let v_v0 = LOW_NIBBLE_WS.swizzle(v0 & low_nib_mask)
@@ -151,22 +153,12 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             let nl = !U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
             let hash = !U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
 
-            let valid_comment = hash & !(sp << 1);
-            if valid_comment != 0 {
-                let consume = (valid_comment | nl).trailing_zeros();
-                consumed_bytes += consume;
-                self.skip(consume as usize);
-                skip_tabs_res = SkipTabs::Result {
-                    any_tabs,
-                    has_yaml_ws,
-                };
-                break;
-            }
+            let end_of_line = (hash & !(sp << 1)) | nl;
 
             has_yaml_ws |= sp != 0;
 
-            if nl != 0 {
-                let consume = nl.trailing_zeros().saturating_sub(sp.trailing_zeros());
+            if end_of_line != 0 {
+                consume = end_of_line.trailing_zeros();
                 consumed_bytes += consume;
                 skip_tabs_res = SkipTabs::Result {
                     any_tabs,
@@ -178,12 +170,13 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             self.skip(self.buf_max_len());
             consumed_bytes += self.buf_max_len() as u32;
         }
+        self.skip(consume as usize);
 
         if matches!(skip_tabs_res, SkipTabs::Result { .. } | SkipTabs::Yes) {
             return (consumed_bytes, Ok(skip_tabs_res));
         }
 
-        shared_skip_ws_to_eol(self, skip_tab, any_tabs, has_yaml_ws)
+        shared_skip_ws_to_eol(self, skip_tab, consumed_bytes, any_tabs, has_yaml_ws)
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
@@ -297,5 +290,27 @@ mod tests {
             str::from_utf8(&dest).unwrap(),
             "                                                        consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet,"
         );
+    }
+
+    const YAML_WS_TABS: &str = "                                                                        \t\t         \
+                    test";
+
+    #[test]
+    fn test_tabs() {
+        let mut source = BufferedBytesSource::from_str(YAML_WS_TABS);
+        assert_eq!(source.peekz(0), b' ');
+        let res1 = source.skip_ws_to_eol(true);
+        assert!(res1.1.is_ok());
+        assert_eq!(res1.0, 83);
+
+        let skip_tabs = res1.1.unwrap();
+        assert!(skip_tabs.found_tabs());
+        assert!(skip_tabs.has_valid_yaml_ws());
+
+        let mut source = BufferedBytesSource::from_str(YAML_WS_TABS);
+        assert_eq!(source.peekz(0), b' ');
+        let res2 = source.skip_ws_to_eol(false);
+        assert!(res2.1.is_ok());
+        assert_eq!(res2.0, 72);
     }
 }

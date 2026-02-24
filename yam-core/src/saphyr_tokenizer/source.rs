@@ -122,10 +122,10 @@ pub unsafe trait Source {
 pub(crate) fn shared_skip_ws_to_eol<T: Source>(
     x: &mut T,
     skip_tabs: bool,
+    mut bytes_consumed: u32,
     mut any_tabs: bool,
     mut has_yaml_ws: bool,
 ) -> (u32, Result<SkipTabs, &'static str>) {
-    let mut chars_consumed = 0;
     loop {
         match x.peekz(0) {
             b' ' => {
@@ -139,7 +139,7 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
             // YAML comments must be preceded by whitespace.
             b'#' if !any_tabs && !has_yaml_ws => {
                 return (
-                    chars_consumed,
+                    bytes_consumed,
                     Err("comments must be separated from other tokens by whitespace"),
                 );
             }
@@ -147,16 +147,16 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
                 x.skip(1); // Skip over '#'
                 while !is_breakz(x.peekz(0)) {
                     x.skip(1);
-                    chars_consumed += 1;
+                    bytes_consumed += 1;
                 }
             }
             _ => break,
         }
-        chars_consumed += 1;
+        bytes_consumed += 1;
     }
 
     (
-        chars_consumed,
+        bytes_consumed,
         Ok(SkipTabs::Result {
             any_tabs,
             has_yaml_ws,
@@ -204,7 +204,7 @@ unsafe impl<'input> Source for StrSource<'input> {
     }
 
     fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>) {
-        shared_skip_ws_to_eol(self, skip_tabs, false, false)
+        shared_skip_ws_to_eol(self, skip_tabs, 0, false, false)
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
