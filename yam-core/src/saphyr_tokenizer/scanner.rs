@@ -576,7 +576,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                     need_whitespace = false;
                 }
                 b'\n' | b'\r' => {
-                    // ? self.src.lookahead(2);
                     self.skip_linebreak();
                     if self.flow_level == 0 {
                         self.simple_key_allowed = true;
@@ -865,7 +864,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                 }
                 b'\t' | b' ' => self.skip_blank(),
                 b'\n' | b'\r' => {
-                    // ? self.src.lookahead(2);
                     self.skip_linebreak();
                     if self.flow_level == 0 {
                         self.simple_key_allowed = true;
@@ -912,7 +910,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_ws_to_eol(SkipTabs::Yes)?;
 
         if is_break(self.src.peekz(0)) {
-            // self.src.lookahead(2);
             self.skip_linebreak();
             Ok(tok)
         } else {
@@ -992,7 +989,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                     // Fill the buffer once and process all characters in the buffer until the next
                     // fetch. Note that `next_can_be_plain_scalar` needs 2 lookahead characters,
                     // hence the `for` loop looping `self.input.bufmaxlen() - 1` times.
-                    // ? self.src.lookahead(self.src.bufmaxlen());
                     for _ in 0..self.src.buf_max_len() - 1 {
                         if is_blank_or_breakz(self.src.peekz(0))
                             || !self.src.next_can_be_plain_scalar(self.flow_level > 0)
@@ -1048,7 +1044,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                         self.leading_whitespace = true;
                     }
                 }
-                // ? self.src.lookahead(2);
             }
 
             // check indentation level
@@ -1095,7 +1090,6 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         loop {
             /* Check for a document indicator. */
-            // ? self.src.lookahead(4);
 
             if self.mark.col == 1 && self.src.next_is_document_indicator() {
                 return Err(YamlError::new_str(
@@ -1149,7 +1143,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                         self.skip_blank();
                     }
                 } else {
-                    // ? self.src.lookahead(2);
                     // Check if it is a first line break.
                     if leading_blanks {
                         self.read_break(&mut trailing_breaks);
@@ -1249,7 +1242,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                 chomping = ChompIndicator::Strip;
             }
             self.skip_non_blank();
-            // ? self.src.lookahead(1);
             if self.src.peekz(0).is_ascii_digit() {
                 if self.src.peekz(0) == b'0' {
                     return Err(YamlError::new_str(
@@ -1284,7 +1276,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.skip_ws_to_eol(SkipTabs::Yes)?;
 
         // Check if we are at the end of the line.
-        // self.input.lookahead(1);
         if !is_breakz(self.src.peekz(0)) {
             return Err(YamlError::new_str(
                 start_mark,
@@ -1293,7 +1284,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if is_break(self.src.peekz(0)) {
-            // self.src.lookahead(2);
             self.read_break(&mut chomping_break);
         }
 
@@ -1358,7 +1348,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         let start_mark = self.mark;
         while self.mark.col == indent && !self.src.peek_checked(0).is_none() {
             if indent == 1 {
-                // self.src.lookahead(4);
                 if self.next_is_document_end() {
                     break;
                 }
@@ -1641,7 +1630,6 @@ impl<'input, S: Source> Scanner<'input, S> {
 
             if is_break(self.src.peekz(0)) {
                 // If our current line is empty, skip over the break and continue looping.
-                // self.src.lookahead(2);
                 self.read_break(breaks);
             } else {
                 // Otherwise, we have a content line. Return control.
@@ -1668,7 +1656,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         loop {
             // Consume all spaces. Tabs cannot be used as indentation.
             if (indent as usize) < self.src.buf_max_len() - 2 {
-                // ? self.src.lookahead(self.input.bufmaxlen());
                 while self.mark.col < indent && self.src.peekz(0) == b' ' {
                     self.skip_blank();
                 }
@@ -1970,8 +1957,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut width = 0usize;
         let mut code = 0u32;
         loop {
-            // self.src.lookahead(3);
-
             let c = self.src.peekz(1);
             let nc = self.src.peekz(2);
 
