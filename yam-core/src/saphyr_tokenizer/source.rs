@@ -102,6 +102,15 @@ pub unsafe trait Source {
         count
     }
 
+    fn skip_and_accumulate_to_eol(&mut self, accumulator: &mut Vec<u8>) {
+        while let Some(x) = self.peek_checked(0)
+            && !is_break(x)
+        {
+            accumulator.push(x);
+            self.skip(1);
+        }
+    }
+
     fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
         let nc = self.peekz(1);
         match self.peekz(0) {

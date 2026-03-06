@@ -43,7 +43,11 @@ where
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let marker = span.start;
         match ev {
-            Event::DocumentStart(_) | Event::Nothing | Event::StreamStart | Event::StreamEnd => {}
+            Event::DocumentStart(_)
+            | Event::Nothing
+            | Event::StreamStart
+            | Event::StreamEnd
+            | Event::Comment(_) => {}
             Event::DocumentEnd => match self.doc_stack.pop() {
                 Some((doc, ..)) => self.docs.push(doc),
                 None => self.docs.push(Node::bad(span)),

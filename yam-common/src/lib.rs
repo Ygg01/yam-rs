@@ -74,6 +74,7 @@ pub enum TokenType<'input> {
     FlowEntry,
     Key,
     Value,
+    Comment(Cow<'input, str>),
     FlowSequenceStart,
     FlowSequenceEnd,
     FlowMappingStart,

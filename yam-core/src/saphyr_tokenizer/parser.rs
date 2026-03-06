@@ -102,6 +102,8 @@ pub enum Event<'input> {
         /// The anchor ID the alias refers to.
         usize,
     ),
+    /// Comment in code
+    Comment(Cow<'input, str>),
     /// Value, style, `anchor_id`, tag
     Scalar(ScalarValue<'input>),
     /// The start of a YAML sequence (array).
@@ -808,6 +810,21 @@ impl<'input, T: Source> Parser<'input, T> {
             } if indentless_sequence => {
                 self.state = State::IndentlessSequenceEntry;
                 Ok((Event::SequenceStart(anchor_id, tag), span))
+            }
+            Token {
+                token_type: TokenType::Comment(_),
+                ..
+            } => {
+                self.pop_state();
+                if let Token {
+                    span,
+                    token_type: TokenType::Comment(comment),
+                } = self.fetch_token()
+                {
+                    Ok((Event::Comment(comment), span))
+                } else {
+                    unreachable!()
+                }
             }
             Token {
                 token_type: TokenType::Scalar { .. },

@@ -583,9 +583,8 @@ impl<'input, S: Source> Scanner<'input, S> {
                     need_whitespace = false;
                 }
                 b'#' => {
-                    let comment_length = self.src.skip_while_non_breakz();
-                    self.mark.pos += comment_length;
-                    self.mark.col = self.mark.col.saturating_add(comment_length as u32);
+                    let token = self.scan_comment()?;
+                    self.tokens.push_back(token);
                 }
                 _ => break,
             }
@@ -870,9 +869,8 @@ impl<'input, S: Source> Scanner<'input, S> {
                     }
                 }
                 b'#' => {
-                    let comment_length = self.src.skip_while_non_breakz();
-                    self.mark.pos += comment_length;
-                    self.mark.col += comment_length as u32;
+                    let comment = self.scan_comment()?;
+                    self.tokens.push_back(comment);
                 }
                 _ => break,
             }
@@ -1406,6 +1404,21 @@ impl<'input, S: Source> Scanner<'input, S> {
                 scalar_type,
                 value: Cow::Owned(unsafe { String::from_utf8_unchecked(string) }),
             },
+        })
+    }
+
+    fn scan_comment(&mut self) -> Result<Token<'input>, YamlError> {
+        let start = self.mark;
+        let mut string = Vec::with_capacity(100);
+        self.src.skip_and_accumulate_to_eol(&mut string);
+        self.mark.pos += string.len();
+        self.mark.col += string.len() as u32;
+
+        Ok(Token {
+            span: Span::new(start, self.mark),
+            token_type: TokenType::Comment(Cow::Owned(unsafe {
+                String::from_utf8_unchecked(string)
+            })),
         })
     }
 
