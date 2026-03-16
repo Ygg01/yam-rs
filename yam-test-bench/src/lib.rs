@@ -26,15 +26,11 @@ pub fn assert_eq_event_case_saph(input: &str, events: &str) {
     }
 }
 
-pub fn write_str_from_event<T: Source>(
-    line: &mut String,
-    parser: &mut Parser<T>,
-    emit_stream_token: bool,
-) {
+pub fn write_str_from_event<T: Source>(line: &mut String, parser: &mut Parser<T>, emit_all: bool) {
     while let Some(Ok((ev, _))) = parser.next() {
         let _ = match ev {
-            SaphyrEvent::StreamStart if emit_stream_token => write!(line, "+STR"),
-            SaphyrEvent::StreamEnd if emit_stream_token => write!(line, "\n-STR"),
+            SaphyrEvent::StreamStart if emit_all => write!(line, "+STR"),
+            SaphyrEvent::StreamEnd if emit_all => write!(line, "\n-STR"),
             SaphyrEvent::DocumentStart(_) => write!(line, "\n+DOC"),
             SaphyrEvent::DocumentEnd => write!(line, "\n-DOC"),
             SaphyrEvent::Alias(anchor_id) => {
@@ -70,11 +66,11 @@ pub fn write_str_from_event<T: Source>(
     }
     if let Some(Err(err)) = parser.next() {
         line.push_str("\nERR");
-        if emit_stream_token {
+        if emit_all {
             write!(line, "{:?}", err).unwrap()
         }
     }
-    if emit_stream_token {
+    if emit_all {
         line.push('\n');
     }
 }

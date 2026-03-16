@@ -571,6 +571,20 @@ impl<'input, T: Source> Parser<'input, T> {
                 Ok((Event::StreamEnd, span))
             }
             Token {
+                token_type: TokenType::Comment(..),
+                ..
+            } => {
+                if let Token {
+                    span,
+                    token_type: TokenType::Comment(comment),
+                } = self.fetch_token()
+                {
+                    Ok((Event::Comment(comment), span))
+                } else {
+                    unreachable!()
+                }
+            }
+            Token {
                 token_type:
                     TokenType::VersionDirective { .. }
                     | TokenType::TagDirective { .. }
@@ -815,7 +829,6 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::Comment(_),
                 ..
             } => {
-                self.pop_state();
                 if let Token {
                     span,
                     token_type: TokenType::Comment(comment),
@@ -899,8 +912,22 @@ impl<'input, T: Source> Parser<'input, T> {
         // skip BlockMappingStart
         if first {
             let _ = self.peek_token()?;
-            //self.marks.push(tok.0);
+
             self.skip();
+
+            if let Token {
+                token_type: TokenType::Comment(..),
+                ..
+            } = self.peek_token()?
+                && let Token {
+                    span,
+                    token_type: TokenType::Comment(comment),
+                } = self.fetch_token()
+            {
+                // Ensure we don't skip next entry on repeat entry
+                self.state = State::BlockMappingKey;
+                return Ok((Event::Comment(comment), span));
+            }
         }
         match *self.peek_token()? {
             Token {
@@ -937,6 +964,20 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.skip();
                 Ok((Event::MappingEnd, span))
             }
+            Token {
+                token_type: TokenType::Comment(..),
+                ..
+            } => {
+                if let Token {
+                    span,
+                    token_type: TokenType::Comment(comment),
+                } = self.fetch_token()
+                {
+                    Ok((Event::Comment(comment), span))
+                } else {
+                    unreachable!()
+                }
+            }
             Token { span, .. } => Err(YamlError::new_str(
                 span.start,
                 "while parsing a block mapping, did not find expected key",
@@ -962,6 +1003,20 @@ impl<'input, T: Source> Parser<'input, T> {
                     self.state = State::BlockMappingKey;
                     // empty scalar
                     Ok((Event::empty_scalar(), span))
+                } else if let Token {
+                    token_type: TokenType::Comment(..),
+                    ..
+                } = *self.peek_token()?
+                {
+                    if let Token {
+                        span,
+                        token_type: TokenType::Comment(comment),
+                    } = self.fetch_token()
+                    {
+                        Ok((Event::Comment(comment), span))
+                    } else {
+                        unreachable!()
+                    }
                 } else {
                     self.push_state(State::BlockMappingKey);
                     self.parse_node(true, true)

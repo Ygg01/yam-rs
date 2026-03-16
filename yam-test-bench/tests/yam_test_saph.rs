@@ -198,8 +198,7 @@ fn run_block_tests(#[case] input: &str, #[case] expected_events: &str) {
 
 #[test]
 fn block_comment() {
-    // assert_eq_event_case_saph(X1_RZP5_INPUT, X1_RZP5_EVENTS);
-    assert_eq_event_case_saph(X1_NKF9_INPUT, X1_NKF9_EVENTS);
+    assert_eq_event_case_saph(X1_RZP5_INPUT, X1_RZP5_EVENTS);
 }
 
 #[rstest]
