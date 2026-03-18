@@ -31,5 +31,6 @@ exclude =[
 yam-common = { path = "../yam-common" }
 
 [features]
-no-inline = []
+default = []
+comments = []
 

@@ -102,8 +102,10 @@ pub enum Event<'input> {
         /// The anchor ID the alias refers to.
         usize,
     ),
+    #[cfg(feature = "comments")]
     /// Comment in code
     Comment(Cow<'input, str>),
+
     /// Value, style, `anchor_id`, tag
     Scalar(ScalarValue<'input>),
     /// The start of a YAML sequence (array).
@@ -570,20 +572,11 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.skip();
                 Ok((Event::StreamEnd, span))
             }
+            #[cfg(feature = "comments")]
             Token {
                 token_type: TokenType::Comment(..),
                 ..
-            } => {
-                if let Token {
-                    span,
-                    token_type: TokenType::Comment(comment),
-                } = self.fetch_token()
-                {
-                    Ok((Event::Comment(comment), span))
-                } else {
-                    unreachable!()
-                }
-            }
+            } => self.extract_comment(),
             Token {
                 token_type:
                     TokenType::VersionDirective { .. }
@@ -604,6 +597,22 @@ impl<'input, T: Source> Parser<'input, T> {
                 // explicit document
                 self.explicit_document_start()
             }
+        }
+    }
+
+    #[cfg(feature = "comments")]
+    fn extract_comment<'a>(&mut self) -> ParseResult<'a>
+    where
+        'input: 'a,
+    {
+        if let Token {
+            span,
+            token_type: TokenType::Comment(comment),
+        } = self.fetch_token()
+        {
+            Ok((Event::Comment(comment), span))
+        } else {
+            unreachable!()
         }
     }
 
@@ -825,20 +834,11 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.state = State::IndentlessSequenceEntry;
                 Ok((Event::SequenceStart(anchor_id, tag), span))
             }
+            #[cfg(feature = "comments")]
             Token {
                 token_type: TokenType::Comment(_),
                 ..
-            } => {
-                if let Token {
-                    span,
-                    token_type: TokenType::Comment(comment),
-                } = self.fetch_token()
-                {
-                    Ok((Event::Comment(comment), span))
-                } else {
-                    unreachable!()
-                }
-            }
+            } => self.extract_comment(),
             Token {
                 token_type: TokenType::Scalar { .. },
                 ..
@@ -915,18 +915,15 @@ impl<'input, T: Source> Parser<'input, T> {
 
             self.skip();
 
+            #[cfg(feature = "comments")]
             if let Token {
                 token_type: TokenType::Comment(..),
                 ..
             } = self.peek_token()?
-                && let Token {
-                    span,
-                    token_type: TokenType::Comment(comment),
-                } = self.fetch_token()
             {
                 // Ensure we don't skip next entry on repeat entry
                 self.state = State::BlockMappingKey;
-                return Ok((Event::Comment(comment), span));
+                return self.extract_comment();
             }
         }
         match *self.peek_token()? {
@@ -964,20 +961,11 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.skip();
                 Ok((Event::MappingEnd, span))
             }
+            #[cfg(feature = "comments")]
             Token {
                 token_type: TokenType::Comment(..),
                 ..
-            } => {
-                if let Token {
-                    span,
-                    token_type: TokenType::Comment(comment),
-                } = self.fetch_token()
-                {
-                    Ok((Event::Comment(comment), span))
-                } else {
-                    unreachable!()
-                }
-            }
+            } => self.extract_comment(),
             Token { span, .. } => Err(YamlError::new_str(
                 span.start,
                 "while parsing a block mapping, did not find expected key",
@@ -1003,21 +991,16 @@ impl<'input, T: Source> Parser<'input, T> {
                     self.state = State::BlockMappingKey;
                     // empty scalar
                     Ok((Event::empty_scalar(), span))
-                } else if let Token {
-                    token_type: TokenType::Comment(..),
-                    ..
-                } = *self.peek_token()?
-                {
-                    if let Token {
-                        span,
-                        token_type: TokenType::Comment(comment),
-                    } = self.fetch_token()
-                    {
-                        Ok((Event::Comment(comment), span))
-                    } else {
-                        unreachable!()
-                    }
                 } else {
+                    #[cfg(feature = "comments")]
+                    if let Token {
+                        token_type: TokenType::Comment(_),
+                        ..
+                    } = self.peek_token()?
+                    {
+                        return self.extract_comment();
+                    }
+
                     self.push_state(State::BlockMappingKey);
                     self.parse_node(true, true)
                 }
