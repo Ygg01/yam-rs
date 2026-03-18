@@ -322,23 +322,3 @@ fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
 fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_saph(input, expected_events);
 }
-
-// #[rstest]
-// #[case::docs_exact_simple1(SIMPLE_DOC_INPUT, SIMPLE_DOC_EVENTS)]
-// #[case::docs_exact_simple2(SIMPLE_DOC2_INPUT, SIMPLE_DOC2_EVENTS)]
-// #[case::docs_exact_empty1(EMPTY1_INPUT, EMPTY_EVENTS)]
-// #[case::docs_exact_empty2(EMPTY2_INPUT, EMPTY_EVENTS)]
-// #[case::docs_exact_no_doc(NO_DOC_INPUT, NO_DOC_EVENTS)]
-// #[case::docs_exact_err_multidoc(ERR_MULTIDOC_INPUT, ERR_MULTIDOC_EVENTS)]
-// #[case::docs_exact_err_post(POST_DOC_ERR_INPUT, POST_DOC_ERR_EVENTS)]
-// #[case::docs_exact_err_input(DOC_MAP_ERR_INPUT, DOC_MAP_ERR_EVENTS)]
-// #[case::docs_exact_3hfz(X1_3HFZ_INPUT, X1_3HFZ_EVENTS)]
-// #[case::docs_exact_9hcy(X1_9HCY_INPUT, X1_9HCY_EVENTS)]
-// #[case::docs_exact_eb22(X1_EB22_INPUT, X1_EB22_EVENTS)]
-// #[case::docs_exact_err_directive1(ERR_DIRECTIVE1_INPUT, ERR_DIRECTIVE1_EVENTS)]
-// #[case::docs_exact_err_directive2(ERR_DIRECTIVE2_INPUT, ERR_DIRECTIVE2_EVENTS)]
-// #[case::docs_exact_err_directive3(ERR_DIRECTIVE3_INPUT, ERR_DIRECTIVE3_EVENTS)]
-// #[case::docs_exact_err_directive4(ERR_DIRECTIVE4_INPUT, ERR_DIRECTIVE4_EVENTS)]
-// fn run_docs_exact_test(#[case] input: &str, #[case] expected_events: &str) {
-//     assert_eq_event_case_saph(input, expected_events);
-// }
