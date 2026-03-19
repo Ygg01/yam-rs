@@ -584,9 +584,9 @@ impl<'input, S: Source> Scanner<'input, S> {
                     need_whitespace = false;
                 }
                 b'#' => {
-                    let token = self.scan_comment()?;
+                    let _token = self.scan_comment()?;
                     #[cfg(feature = "comments")]
-                    self.tokens.push_back(token);
+                    self.tokens.push_back(_token);
                 }
                 _ => break,
             }

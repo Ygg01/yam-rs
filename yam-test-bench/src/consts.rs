@@ -553,13 +553,13 @@ pub const EMPTY_KEY_MAP2_INPUT: &str = r"
  a";
 pub const EMPTY_KEY_MAP2_1_INPUT: &str = r"
 : a";
-pub const EMPTY_KEY_MAP2_EVENTS: &str = r#"
+pub const EMPTY_KEY_MAP2_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :
 =VAL :a
 -MAP
--DOC"#;
+-DOC";
 pub const MIX_EMPTY_MAP_INPUT: &str = r"
  a:
    x
@@ -908,12 +908,12 @@ pub const ERR_INVALID_KEY2_INPUT: &str = r#"
    b
  "c
   x""#;
-pub const ERR_INVALID_KEY2_EVENTS: &str = r#"
+pub const ERR_INVALID_KEY2_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :a
 =VAL :b
-ERR"#;
+ERR";
 pub const ERR_INVALID_KEY3_INPUT: &str = r"
 top1:
   key1: val1
@@ -1723,12 +1723,12 @@ pub const X1_7LBH_INPUT: &str = r#"
 a: b
 "c
  d": 1"#;
-pub const X1_7LBH_EVENTS: &str = r#"
+pub const X1_7LBH_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :a
 =VAL :b
-ERR"#;
+ERR";
 pub const X1_U44R_INPUT: &str = r#"
 map:
   a: "1"
@@ -2044,12 +2044,12 @@ pub const X2_M5DY_EVENTS: &str = r"
 =VAL :c
 -MAP
 -DOC";
-pub const X1_RZP5_INPUT: &str = r#"
+pub const X1_RZP5_INPUT: &str = r"
 ? # lala
  - seq1
 
-"#;
-pub const X1_RZP5_EVENTS: &str = r#"
+";
+pub const X1_RZP5_EVENTS: &str = r"
 +DOC
 +MAP
 +SEQ
@@ -2057,7 +2057,7 @@ pub const X1_RZP5_EVENTS: &str = r#"
 -SEQ
 =VAL :
 -MAP
--DOC"#;
+-DOC";
 pub const EMPTY_DOC_ERR_INPUT: &str = r#"
 # test"
   # test
@@ -2216,13 +2216,13 @@ Document
 ---
 # Empty
 ...";
-pub const X1_6ZKB_EVENTS: &str = r#"
+pub const X1_6ZKB_EVENTS: &str = r"
 +DOC
 =VAL :Document
 -DOC
 +DOC
 =VAL :
--DOC"#;
+-DOC";
 pub const MULTI_DOC3_INPUT: &str = r"
 ---
 ---";
@@ -2284,17 +2284,17 @@ ERR
 +DOC
 =VAL <tag:example.com,2000:app/foo> "bar
 -DOC"#;
-pub const X1_EB22_INPUT: &str = r#"
+pub const X1_EB22_INPUT: &str = r"
 ---
 scalar1 # comment
-%YAML 1.2"#;
-pub const X1_EB22_EVENTS: &str = r#"
+%YAML 1.2";
+pub const X1_EB22_EVENTS: &str = r"
 +DOC
 =VAL :scalar1
 -DOC
 ERR
 %YAML 1.2
-ERR"#;
+ERR";
 pub const DQUOTE_STR_ESC1_INPUT: &str = r#"
  "double quote (\")""#;
 pub const DQUOTE_STR_ESC_EVENTS: &str = r#"
@@ -2356,10 +2356,10 @@ pub const DQUOTE_STR_EVENTS: &str = r#"
 +DOC
 =VAL "double quote
 -DOC"#;
-pub const DQUOTE_MULTI_INPUT: &str = r##"
+pub const DQUOTE_MULTI_INPUT: &str = r#"
  "test
 
-   tab" "##;
+   tab" "#;
 pub const DQUOTE_MULTI_EVENTS: &str = r#"
 +DOC
 =VAL "test\ntab
@@ -2377,10 +2377,10 @@ pub const DQUOTE_MULTI1_EVENTS: &str = r#"
 =VAL "foobar baz 
 -MAP
 -DOC"#;
-pub const DQUOTE_MULTI2_INPUT: &str = r##"
+pub const DQUOTE_MULTI2_INPUT: &str = r#"
  - "double   
              
- quote" "##;
+ quote" "#;
 pub const DQUOTE_MULTI2_EVENTS: &str = r#"
 +DOC
 +SEQ
@@ -2399,25 +2399,25 @@ pub const DQUOTE_END_INPUT: &str = r#"
 "
 ---
 ""#;
-pub const DQUOTE_END_EVENTS: &str = r#"
+pub const DQUOTE_END_EVENTS: &str = r"
 +DOC
-ERR"#;
+ERR";
 pub const DQUOTE_ERR2_INPUT: &str = r#"
 "\c"
 "#;
-pub const DQUOTE_ERR2_EVENTS: &str = r#"
+pub const DQUOTE_ERR2_EVENTS: &str = r"
 +DOC
-ERR"#;
+ERR";
 pub const DQUOTE_MISS_EOF_INPUT: &str = r#"
 ---
 key: "missing
 
 "#;
-pub const DQUOTE_MISS_EOF_EVENTS: &str = r#"
+pub const DQUOTE_MISS_EOF_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :key
-ERR"#;
+ERR";
 pub const DQUOTE_INDENT_ERR_INPUT: &str = r#"
 ---
 quoted: "a
@@ -2425,11 +2425,11 @@ b
 c"
 
 "#;
-pub const DQUOTE_INDENT_ERR_EVENTS: &str = r#"
+pub const DQUOTE_INDENT_ERR_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :quoted
-ERR"#;
+ERR";
 pub const DQUOTE_COMMENT_ERR_INPUT: &str = r##"
 ---
 "quote"# invalid comment
@@ -2596,8 +2596,8 @@ pub const X1_9MMW_EVENTS: &str = r#"
 -MAP
 -SEQ
 -DOC"#;
-pub const X2_9MMW_INPUT: &str = r#"
-[ {JSON: like}:adjacent ]"#;
+pub const X2_9MMW_INPUT: &str = r"
+[ {JSON: like}:adjacent ]";
 pub const X2_9MMW_EVENTS: &str = r"
 +DOC
 +SEQ
@@ -2875,7 +2875,7 @@ pub const X1_8UDB_INPUT: &str = r"
 [
 single: pair,
 ]";
-pub const X1_8UDB_EVENTS: &str = r#"
+pub const X1_8UDB_EVENTS: &str = r"
 +DOC
 +SEQ
 +MAP
@@ -2883,7 +2883,7 @@ pub const X1_8UDB_EVENTS: &str = r#"
 =VAL :pair
 -MAP
 -SEQ
--DOC"#;
+-DOC";
 pub const X2_8UDB_INPUT: &str = r"
 [[ ],
 single: pair,]";

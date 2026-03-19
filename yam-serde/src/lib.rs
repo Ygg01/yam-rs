@@ -12,6 +12,67 @@ use yam_core::Source;
 use yam_core::saphyr_tokenizer::StrSource;
 use yam_core::treebuild::YamlLoader;
 
+///
+/// Attempts to deserialize a value of type `T` from a given YAML string slice.
+///
+/// This function takes a string slice as input and attempts to deserialize it
+/// into the specified type `T` using the `Deserialize` trait from the `serde`
+/// library. The deserialization process may fail if the input string is not
+/// valid YAML or if it does not conform to the structure of type `T`.
+///
+/// # Type Parameters
+///
+/// * `T`: The type into which the given YAML string will be deserialized.
+///   `T` must implement the `Deserialize<'a>` trait.
+///
+/// # Parameters
+///
+/// * `input`: A string slice containing the YAML-encoded data to deserialize.
+///
+/// # Returns
+///
+/// * `Ok(T)`: Returns an object of type `T` if the deserialization is successful.
+/// * `Err(YamSerdeError)`: Returns a `YamSerdeError` if the deserialization fails.
+///
+/// # Errors
+///
+/// This function will return a `YamSerdeError` if:
+/// * The input string is not valid YAML.
+/// * The structure or data in the YAML string does not match the structure of type `T`.
+///
+/// # Example
+///
+/// ```rust
+/// use yamserde::{from_str, YamSerdeError};
+/// use serde::Deserialize;
+///
+/// #[derive(Deserialize, Debug)]
+/// struct Config {
+///     host: String,
+///     port: u16,
+/// }
+///
+/// fn main() -> Result<(), YamSerdeError> {
+///     let yaml_data = r#"
+///         host: localhost
+///         port: 8080
+///     "#;
+///
+///     let config: Config = from_str(yaml_data)?;
+///     println!("Parsed config: {:?}", config);
+///     Ok(())
+/// }
+/// ```
+///
+/// In this example, the `from_str` function is used to parse a YAML string into
+/// a `Config` struct. If the parsing is successful, the function returns the
+/// struct; otherwise, it returns an error.
+///
+/// # Note
+///
+/// This function uses `Deserializer` and `StrSource` internally for processing
+/// the YAML input.
+/// ```
 pub fn from_str<'a, T>(input: &'a str) -> Result<T, YamSerdeError>
 where
     T: de::Deserialize<'a>,
@@ -34,7 +95,7 @@ impl<'a> Deserializer<'a, StrSource<'a>> {
     }
 }
 
-impl<'a, R> Deserializer<'a, R>
+impl<R> Deserializer<'_, R>
 where
     R: Source,
 {
@@ -55,8 +116,8 @@ pub enum YamSerdeError {
 impl Display for YamSerdeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            YamSerdeError::Custom(x) => write!(f, "Custom error: {}", x)?,
-            YamSerdeError::ParsingError(yaml_error) => write!(f, "Parsing error: {}", yaml_error)?,
+            YamSerdeError::Custom(x) => write!(f, "Custom error: {x}")?,
+            YamSerdeError::ParsingError(yaml_error) => write!(f, "Parsing error: {yaml_error}")?,
         }
         Ok(())
     }

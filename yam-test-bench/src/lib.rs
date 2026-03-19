@@ -36,8 +36,8 @@ pub fn write_str_from_event<T: Source>(line: &mut String, parser: &mut Parser<T>
             SaphyrEvent::Alias(anchor_id) => {
                 let anchor = parser
                     .get_anchor(anchor_id)
-                    .map_or(String::default(), |x| x.to_string());
-                write!(line, "\n=ALI *{}", anchor)
+                    .map_or(String::default(), ToString::to_string);
+                write!(line, "\n=ALI *{anchor}")
             }
             SaphyrEvent::Scalar(ScalarValue {
                 value,
@@ -67,7 +67,7 @@ pub fn write_str_from_event<T: Source>(line: &mut String, parser: &mut Parser<T>
     if let Some(Err(err)) = parser.next() {
         line.push_str("\nERR");
         if emit_all {
-            write!(line, "{:?}", err).unwrap()
+            write!(line, "{err:?}").unwrap();
         }
     }
     if emit_all {
@@ -92,7 +92,7 @@ fn extract_tag_full(tag: Option<Cow<Tag>>) -> String {
 fn extract_anchor<T: Source>(parser: &Parser<T>, anchor_id: usize) -> String {
     let anchor = if let Some(cow) = parser.get_anchor(anchor_id) {
         let mut out = String::with_capacity(cow.len() + 2);
-        write!(out, " &{}", cow).unwrap();
+        write!(out, " &{cow}").unwrap();
         out
     } else {
         String::default()
@@ -106,6 +106,11 @@ enum EscapeState {
     Slash,
 }
 
+/// Test method for unescaping test cases.
+///
+/// # Panics
+/// When unescaping the text it's expected to be
+#[must_use]
 pub fn unescape_text(text: &str) -> String {
     let mut output = Vec::with_capacity(text.len());
     let chars = text.as_bytes();
@@ -140,5 +145,5 @@ pub fn unescape_text(text: &str) -> String {
         }
     }
 
-    String::from_utf8(output).unwrap()
+    String::from_utf8(output).expect("Expected to escape valid UTF-8")
 }
