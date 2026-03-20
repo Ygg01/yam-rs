@@ -104,6 +104,7 @@ impl<'input> TokenType<'input> {
     /// # Safety
     ///
     /// The passed Vec<u8> must contain only valid UTF-8.
+    #[must_use]
     pub unsafe fn new_tag_unchecked(handle_raw: Vec<u8>, suffix_raw: Vec<u8>) -> TokenType<'input> {
         unsafe {
             TokenType::Tag {
@@ -117,6 +118,7 @@ impl<'input> TokenType<'input> {
     /// # Safety
     ///
     /// The passed Vec<u8> must contain only valid UTF-8.
+    #[must_use]
     pub unsafe fn new_tag_directive_unchecked(
         handle_raw: Vec<u8>,
         prefix_raw: Vec<u8>,
@@ -157,10 +159,12 @@ pub struct Span {
 }
 
 impl Span {
+    #[must_use]
     pub fn new(start: Marker, end: Marker) -> Self {
         Span { start, end }
     }
 
+    #[must_use]
     pub fn empty(mark: Marker) -> Self {
         Span {
             start: mark,
@@ -200,14 +204,14 @@ pub enum YamlError {
 impl Display for YamlError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            YamlError::Utf8(utf8_error) => write!(f, "UTF-8 decoding error: {}", utf8_error),
-            YamlError::Io(io_error) => write!(f, "IO error: {}", io_error),
+            YamlError::Utf8(utf8_error) => write!(f, "UTF-8 decoding error: {utf8_error}"),
+            YamlError::Io(io_error) => write!(f, "IO error: {io_error}"),
             YamlError::UnexpectedEof => write!(f, "Unexpected end of file"),
             YamlError::NonDecodable(utf8_error) => {
-                write!(f, "Non-decodable input: {:?}", utf8_error)
+                write!(f, "Non-decodable input: {utf8_error:?}")
             }
             YamlError::ScannerErr { mark, info } => {
-                write!(f, "Scanner error at marker {:?}: {}", mark, info)
+                write!(f, "Scanner error at marker {mark:?}: {info}")
             }
             YamlError::NoDocument => write!(f, "No document found"),
         }
@@ -215,6 +219,25 @@ impl Display for YamlError {
 }
 
 impl YamlError {
+    /// Creates a new `YamlError::ScannerErr` instance with the provided marker and informational string.
+    ///
+    /// # Parameters
+    /// - `marker`: A `Marker` value that indicates the position or context of the error.
+    /// - `info`: A string slice containing descriptive information about the error.
+    ///
+    /// # Returns
+    /// A new instance of `YamlError` with the variant `ScannerErr`.
+    ///
+    /// # Attributes
+    /// - `#[must_use]`: Indicates that the return value of this function must be used by the caller.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_common::{Marker, YamlError};
+    /// let marker = Marker { pos: 0, col: 1, line: 1}; // Example Marker initialization
+    /// let error = YamlError::new_str(marker, "Unexpected token in YAML.");
+    /// ```
+    #[must_use]
     pub fn new_str(marker: Marker, info: &str) -> Self {
         YamlError::ScannerErr {
             mark: marker,
@@ -273,6 +296,7 @@ impl Display for Tag {
 ///   | [#x10000-#x10FFFF]                     /* 32 bit */
 /// ```
 #[inline]
+#[must_use]
 pub fn is_valid_literal_block_scalar(string: &str) -> bool {
     string.chars().all(|character: char|
         matches!(character, '\t' | '\n' | '\x20'..='\x7e' | '\u{0085}' | '\u{00a0}'..='\u{d7fff}'))

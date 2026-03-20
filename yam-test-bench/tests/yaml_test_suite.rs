@@ -113,7 +113,8 @@ fn collect_test(
         }
     }
     if !is_dir {
-        let test = Trial::test(format!("{} ({})", dir_name, &test_data.desc), move || {
+        let desc = &test_data.desc;
+        let test = Trial::test(format!("{dir_name} ({desc})"), move || {
             perform_test_saphyr(test_data, is_strict)
         });
         tests.push(test);

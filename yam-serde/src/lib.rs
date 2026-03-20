@@ -43,7 +43,7 @@ use yam_core::treebuild::YamlLoader;
 /// # Example
 ///
 /// ```rust
-/// use yamserde::{from_str, YamSerdeError};
+/// use yam_serde::{from_str, YamSerdeError};
 /// use serde::Deserialize;
 ///
 /// #[derive(Deserialize, Debug)]
@@ -144,7 +144,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let doc = match YamlLoader::<YamlDoc<'de>>::load_single_from_parser(self.input) {
+        let doc = match YamlLoader::<YamlDoc<'de>>::load_single_source(self.input) {
             Ok(x) => x,
             Err(e) => return Err(YamSerdeError::ParsingError(e)),
         };

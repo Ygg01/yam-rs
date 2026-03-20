@@ -16,16 +16,25 @@ pub trait BitOps {
 
     fn comp_to_bitmask(self, cmp: u8) -> Self::ByteOut;
 
+    #[must_use]
     fn comp(self, cmp: u8) -> Self;
+
+    #[must_use]
     fn to_bitmask(&self) -> Self::ByteOut;
 
+    #[must_use]
     fn swizzle(self, other: Self) -> Self;
 
+    #[must_use]
     fn and(self, other: Self) -> Self;
 
+    #[must_use]
     fn and_byte(self, other: u8) -> Self;
 
+    #[must_use]
     fn shift_right(self, rhs: usize) -> Self;
+
+    #[must_use]
     fn add_other(self, other: Self) -> Self;
 }
 

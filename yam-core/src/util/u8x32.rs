@@ -1,4 +1,4 @@
-use crate::util::macros::*;
+use crate::util::macros::{bitmask, gen_u8_cmp, gen_u8_cmp_all, swizzle};
 use crate::util::{BitOps, U8X16};
 use core::ops::{Add, BitAnd, Index, Shr};
 

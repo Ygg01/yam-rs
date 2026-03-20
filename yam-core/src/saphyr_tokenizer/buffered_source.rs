@@ -126,7 +126,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.len == 0
     }
 
-    //noinspection ALL
+    #[allow(clippy::cast_possible_truncation)]
     fn skip_ws_to_eol(&mut self, skip_tab: bool) -> (u32, Result<SkipTabs, &'static str>) {
         let mut has_yaml_ws = false;
         let any_tabs = false;
@@ -136,7 +136,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 
         let low_nib_mask = U8X16::splat(0xF);
         let high_nib_mask = U8X16::splat(0x7F);
-        let ws_flag = 0x04 + (skip_tab as u8);
+        let ws_flag = 0x04 + u8::from(skip_tab);
 
         while let Some(x) = self.get_max_buf() {
             consume = 0;
@@ -193,7 +193,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             }
 
             vec.extend_from_slice(&x[..]);
-            self.skip(MAX_LEN)
+            self.skip(MAX_LEN);
         }
         let buf = self.get_buf();
 

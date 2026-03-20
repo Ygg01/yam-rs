@@ -753,6 +753,7 @@ impl<'input, T: Source> Parser<'input, T> {
         new_id
     }
 
+    #[allow(clippy::too_many_lines)]
     fn parse_node<'a>(&mut self, block: bool, indentless_sequence: bool) -> ParseResult<'a>
     where
         'input: 'a,
@@ -1375,6 +1376,7 @@ impl<'input, T: Source> Iterator for Parser<'input, T> {
 }
 
 impl<'input> Parser<'input, StrSource<'input>> {
+    #[must_use]
     pub fn new_from_str(input: &'input str) -> Self {
         Parser::new(StrSource::new(input))
     }

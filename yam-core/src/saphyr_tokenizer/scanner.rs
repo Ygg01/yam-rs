@@ -1,4 +1,7 @@
-use crate::saphyr_tokenizer::char_utils::*;
+use crate::saphyr_tokenizer::char_utils::{
+    as_hex, is_alpha, is_anchor_char, is_blank, is_blank_or_break, is_blank_or_breakz, is_break,
+    is_breakz, is_flow, is_tag_char, is_uri_char,
+};
 use crate::saphyr_tokenizer::source::Source;
 use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
@@ -19,12 +22,12 @@ pub enum SkipTabs {
 }
 
 impl SkipTabs {
-    pub(crate) fn found_tabs(&self) -> bool {
+    pub(crate) fn found_tabs(self) -> bool {
         matches!(self, SkipTabs::Result { any_tabs: true, .. })
     }
 
     #[must_use]
-    pub(crate) fn has_valid_yaml_ws(&self) -> bool {
+    pub(crate) fn has_valid_yaml_ws(self) -> bool {
         matches!(
             self,
             SkipTabs::Result {
@@ -35,7 +38,7 @@ impl SkipTabs {
     }
 
     #[must_use]
-    pub(crate) fn is_ignore_tabs(&self) -> bool {
+    pub(crate) fn is_ignore_tabs(self) -> bool {
         matches!(self, SkipTabs::Yes)
     }
 }
@@ -84,6 +87,7 @@ enum ImplicitMappingState {
     Inside,
 }
 
+#[allow(clippy::struct_excessive_bools)] // TODO maybe too much bools?
 pub struct Scanner<'input, S> {
     src: S,
     pub(crate) mark: Marker,
@@ -430,7 +434,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.tokens.push_back(Token {
                 span,
                 token_type: TokenType::FlowMappingEnd,
-            })
+            });
         }
     }
 
@@ -584,7 +588,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     need_whitespace = false;
                 }
                 b'#' => {
-                    let _token = self.scan_comment()?;
+                    let _token = self.scan_comment();
                     #[cfg(feature = "comments")]
                     self.tokens.push_back(_token);
                 }
@@ -772,16 +776,17 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn finish_document(&mut self) -> ScanResult {
         self.fetch_document_indicator(TokenType::DocumentEnd)?;
         self.skip_ws_to_eol(SkipTabs::Yes)?;
-        if !is_breakz(self.src.peekz(0)) {
+        if is_breakz(self.src.peekz(0)) {
+            Ok(())
+        } else {
             Err(YamlError::new_str(
                 self.mark,
                 "Invalid content after document end marker",
             ))
-        } else {
-            Ok(())
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn skip_n_non_blank(&mut self, count: usize) {
         self.src.skip(count);
 
@@ -840,6 +845,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         !self.indents.is_empty()
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn skip_to_next_token(&mut self) -> ScanResult {
         loop {
             match self.src.peekz(0) {
@@ -882,6 +888,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn scan_directive(&mut self) -> YamlResult<Token<'input>> {
         let start_mark = self.mark;
         self.skip_non_blank();
@@ -1220,6 +1227,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         })
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::too_many_lines)]
     fn scan_block_scalar(&mut self, literal: bool) -> Result<Token<'input>, YamlError> {
         let start_mark = self.mark;
         let mut chomping = ChompIndicator::Clip;
@@ -1356,7 +1364,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         let mut line_buffer = Vec::with_capacity(100);
         let start_mark = self.mark;
-        while self.mark.col == indent && !self.src.peek_checked(0).is_none() {
+        while self.mark.col == indent && self.src.peek_checked(0).is_some() {
             if indent == 1 {
                 // self.src.lookahead(4);
                 if self.next_is_document_end() {
@@ -1420,6 +1428,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         })
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>, line_buffer: &mut Vec<u8>) {
         // Start by evaluating characters in the buffer.
         while !self.src.buf_is_empty() && !is_break(self.src.peekz(0)) {
@@ -1557,6 +1566,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(string)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn scan_tag_handle(&mut self, directive: bool, mark: &Marker) -> Result<Vec<u8>, YamlError> {
         let mut string = Vec::new();
         if self.src.peekz(0) != b'!' {
@@ -1838,7 +1848,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 self.tokens.push_back(Token {
                     span,
                     token_type: TokenType::BlockEnd,
-                })
+                });
             }
         }
     }
@@ -1848,7 +1858,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         col: u32,
         number: Option<usize>,
         token_type: TokenType<'input>,
-        _mark: Marker,
+        mark: Marker,
     ) {
         if self.flow_level > 0 {
             return;
@@ -1868,7 +1878,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 needs_block_end: true,
             });
             self.indent = col;
-            let span = Span::empty(_mark);
+            let span = Span::empty(mark);
             match number {
                 Some(n) => self.insert_token(n - self.tokens_parsed, Token { span, token_type }),
                 None => self.tokens.push_back(Token { span, token_type }),
@@ -2024,6 +2034,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn scan_directive_name(&mut self) -> Result<Vec<u8>, YamlError> {
         let start_mark = self.mark;
         let mut string = Vec::new();
@@ -2049,6 +2060,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(string)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn scan_version_directive_value(
         &mut self,
         marker: &Marker,
@@ -2075,6 +2087,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         })
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn scan_tag_directive_value(&mut self, mark: &Marker) -> Result<Token<'input>, YamlError> {
         let n_blanks = self.src.skip_while_blank();
         self.mark.pos += n_blanks;
@@ -2176,19 +2189,20 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(string)
     }
 
-    fn scan_comment(&mut self) -> Result<Token<'input>, YamlError> {
+    #[allow(clippy::cast_possible_truncation)]
+    fn scan_comment(&mut self) -> Token<'input> {
         let start = self.mark;
         let mut string = Vec::with_capacity(100);
         self.src.skip_and_accumulate_to_eol(&mut string);
         self.mark.pos += string.len();
         self.mark.col += string.len() as u32;
 
-        Ok(Token {
+        Token {
             span: Span::new(start, self.mark),
             token_type: TokenType::Comment(Cow::Owned(unsafe {
                 String::from_utf8_unchecked(string)
             })),
-        })
+        }
     }
 }
 

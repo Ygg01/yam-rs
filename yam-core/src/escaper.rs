@@ -56,7 +56,6 @@ where
                 }
                 EscapeControl::Skip(x) => {
                     self.pos += x as usize + find_pos;
-                    continue;
                 }
                 EscapeControl::Break => {
                     return None;

@@ -12,6 +12,7 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     fn sequence_mut(&mut self) -> &mut Vec<Self>;
     fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self>>;
 
+    #[must_use]
     fn bad(_: Span) -> Self {
         Self::bad_value()
     }
@@ -24,6 +25,7 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
 
     fn is_bad_value(&self) -> bool;
 
+    #[must_use]
     fn take(&mut self) -> Self;
 
     fn is_non_empty_collection(&self) -> bool;
@@ -31,10 +33,13 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     fn is_collection(&self) -> bool {
         self.is_mapping() || self.is_sequence()
     }
+
+    #[must_use]
     fn with_start(self, _: Marker) -> Self {
         self
     }
 
+    #[must_use]
     fn with_end(self, _: Marker) -> Self {
         self
     }
@@ -139,12 +144,9 @@ impl<'input> YamlDoc<'input> {
                 "int" => value
                     .parse()
                     .ok()
-                    .map(YamlDoc::Integer)
-                    .unwrap_or(YamlDoc::BadValue),
+                    .map_or(YamlDoc::BadValue, YamlDoc::Integer),
                 "null" => parse_null(value),
-                "float" => parse_float(&value)
-                    .map(YamlDoc::FloatingPoint)
-                    .unwrap_or(YamlDoc::BadValue),
+                "float" => parse_float(&value).map_or(YamlDoc::BadValue, YamlDoc::FloatingPoint),
                 _ => YamlDoc::BadValue,
             };
         }
@@ -163,7 +165,7 @@ impl<'input> YamlDoc<'input> {
         };
         if let Some(x) = early_check {
             return x;
-        };
+        }
 
         match bytes {
             [b'0', b'x', ..] => {
@@ -191,7 +193,8 @@ impl<'input> YamlDoc<'input> {
     }
 }
 
-fn parse_bool(v: Cow<str>) -> YamlDoc {
+#[allow(clippy::needless_pass_by_value)]
+fn parse_bool(v: Cow<str>) -> YamlDoc<'static> {
     match v.as_bytes() {
         b"true" | b"True" | b"TRUE" => YamlDoc::Bool(true),
         b"false" | b"False" | b"FALSE" => YamlDoc::Bool(false),
@@ -199,7 +202,8 @@ fn parse_bool(v: Cow<str>) -> YamlDoc {
     }
 }
 
-fn parse_null(v: Cow<str>) -> YamlDoc {
+#[allow(clippy::needless_pass_by_value)]
+fn parse_null(v: Cow<str>) -> YamlDoc<'static> {
     match v.as_bytes() {
         b"~" | b"null" => YamlDoc::Null,
         _ => YamlDoc::BadValue,
@@ -227,7 +231,7 @@ where
     pub(crate) _marker: PhantomData<&'input ()>,
 }
 
-impl<'input, T: Clone> YamlEntry<'input, T> {
+impl<T: Clone> YamlEntry<'_, T> {
     pub fn new(a: T, b: T) -> Self {
         YamlEntry {
             key: a,

@@ -50,7 +50,7 @@ where
     T: From<YamlDoc<'input>> + Clone,
 {
     fn from_sequence(sequence: Sequence<'input>) -> YamlCloneNode<'input, T> {
-        YamlCloneNode::Sequence(sequence.into_iter().map(|x| x.into()).collect())
+        YamlCloneNode::Sequence(sequence.into_iter().map(Into::into).collect())
     }
 
     fn from_mapping(mapping: Mapping<'input>) -> YamlCloneNode<'input, T> {

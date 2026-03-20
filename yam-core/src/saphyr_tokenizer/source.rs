@@ -46,6 +46,30 @@ pub unsafe trait Source {
         self.peek_checked(n).unwrap_or(0)
     }
 
+    ///
+    /// Peeks a byte from the specified position `n` within the underlying data structure
+    /// without performing bounds checking or other safety checks. This function provides
+    /// direct, unsafe access to the data by bypassing normal safeguards.
+    ///
+    /// # Safety
+    ///
+    /// This function is `unsafe` because:
+    /// - The caller must ensure that the index `n` is within bounds of the underlying data.
+    /// - Accessing an invalid index may result in undefined behavior, such as memory corruption
+    ///   or a program crash.
+    ///
+    /// # Parameters
+    /// - `n`: The zero-based index of the byte to read from the data structure.
+    ///
+    /// # Returns
+    /// - `u8`: The byte located at the specified index `n`.
+    ///
+    /// # Attributes
+    /// - `#[must_use]`: The return value of this function must not be ignored.
+    ///
+    /// # Examples
+    /// ```
+    /// ```
     #[must_use]
     unsafe fn peek_unsafe(&self, n: usize) -> u8;
 
@@ -179,6 +203,28 @@ pub struct StrSource<'input> {
 }
 
 impl StrSource<'_> {
+    ///
+    /// Creates a new instance of `StrSource` from a given string slice.
+    ///
+    /// # Parameters
+    /// - `input`: A string slice that serves as the source for the `StrSource` instance.
+    ///
+    /// # Returns
+    /// Returns a new `StrSource` instance initialized with the provided string slice.
+    /// The string slice is internally converted to bytes and a starting position of 0 is set.
+    ///
+    /// # Attributes
+    /// - `#[must_use]`: Indicates that the returned `StrSource` instance must be used,
+    ///   otherwise a warning will be emitted by the compiler.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::saphyr_tokenizer::StrSource;
+    /// use crate::yam_core::Source;
+    /// let source = StrSource::new("example");
+    /// assert_eq!(source.peek_char(),'e');
+    /// ```
+    #[must_use]
     pub fn new(input: &str) -> StrSource<'_> {
         StrSource {
             input: input.as_bytes(),
@@ -187,7 +233,7 @@ impl StrSource<'_> {
     }
 }
 
-unsafe impl<'input> Source for StrSource<'input> {
+unsafe impl Source for StrSource<'_> {
     unsafe fn peek_unsafe(&self, n: usize) -> u8 {
         unsafe { *self.input.get_unchecked(self.pos + n) }
     }
@@ -201,7 +247,7 @@ unsafe impl<'input> Source for StrSource<'input> {
         let mut bytes = unsafe {
             str::from_utf8_unchecked(self.input.get_unchecked(self.pos..self.pos + 4)).chars()
         };
-        bytes.next().unwrap()
+        bytes.next().unwrap_or('\u{FFFD}')
     }
 
     fn skip(&mut self, n: usize) {
