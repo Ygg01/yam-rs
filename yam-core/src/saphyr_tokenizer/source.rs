@@ -107,7 +107,11 @@ pub unsafe trait Source {
 
     fn buf_is_empty(&self) -> bool;
 
-    fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>);
+    fn skip_ws_to_eol(
+        &mut self,
+        skip_tabs: bool,
+        prev_ws: bool,
+    ) -> (u32, Result<SkipTabs, &'static str>);
 
     fn next_next_byte_is(&self, chr: u8) -> bool {
         self.peekz(1) == chr
@@ -119,7 +123,7 @@ pub unsafe trait Source {
 
     fn skip_while_non_breakz(&mut self) -> usize {
         let mut count = 0;
-        while !is_break(self.peekz(0)) {
+        while !is_breakz(self.peekz(0)) {
             count += 1;
             self.skip(1);
         }
@@ -176,8 +180,12 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
                     Err("comments must be separated from other tokens by whitespace"),
                 );
             }
+            #[cfg(feature = "comment")]
+            b'#' => break,
+            #[cfg(not(feature = "comment"))]
             b'#' => {
-                x.skip(1); // Skip over '#'
+                // Skip `#`
+                x.skip(1);
                 while !is_breakz(x.peekz(0)) {
                     x.skip(1);
                     bytes_consumed += 1;
@@ -258,8 +266,12 @@ unsafe impl Source for StrSource<'_> {
         self.pos >= self.input.len()
     }
 
-    fn skip_ws_to_eol(&mut self, skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>) {
-        shared_skip_ws_to_eol(self, skip_tabs, 0, false, false)
+    fn skip_ws_to_eol(
+        &mut self,
+        skip_tabs: bool,
+        has_yaml_ws: bool,
+    ) -> (u32, Result<SkipTabs, &'static str>) {
+        shared_skip_ws_to_eol(self, skip_tabs, 0, false, has_yaml_ws)
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
@@ -291,7 +303,7 @@ mod test {
         // assert_eq!(skip, Ok(SkipTabs::Result { has_yaml_ws: true, any_tabs: false}));
 
         let mut x = BufferedBytesSource::from_str(TEST_STR);
-        let (consume, skip) = x.skip_ws_to_eol(true);
+        let (consume, skip) = x.skip_ws_to_eol(true, false);
         assert_eq!(consume, 38);
         assert_eq!(
             skip,

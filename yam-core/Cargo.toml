@@ -32,5 +32,5 @@ yam-common = { path = "../yam-common" }
 
 [features]
 default = []
-comments = []
+comment = []
 

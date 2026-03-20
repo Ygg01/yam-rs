@@ -17,7 +17,7 @@ pub fn assert_eq_event_case_saph(input: &str, events: &str) {
     let mut line = String::new();
     let mut parser = Parser::new_from_str(input);
 
-    write_str_from_event(&mut line, &mut parser, false);
+    write_str_from_event(&mut line, &mut parser, FormatOpts::default());
     let expected_err = events.ends_with("ERR");
     let actual_err = events.ends_with("ERR");
     assert_eq!(actual_err, expected_err);
@@ -26,18 +26,74 @@ pub fn assert_eq_event_case_saph(input: &str, events: &str) {
     }
 }
 
-pub fn write_str_from_event<T: Source>(line: &mut String, parser: &mut Parser<T>, emit_all: bool) {
+pub fn assert_eq_event_case_with_opts(input: &str, events: &str, emit_opt: FormatOpts) {
+    let mut line = String::new();
+    let mut parser = Parser::new_from_str(input);
+
+    write_str_from_event(&mut line, &mut parser, emit_opt);
+    let expected_err = events.ends_with("ERR");
+    let actual_err = events.ends_with("ERR");
+    assert_eq!(actual_err, expected_err);
+    if !expected_err {
+        assert_eq!(line, unescape_text(events), "Error in case: {input}");
+    }
+}
+
+#[derive(Default)]
+pub enum FormatOpts {
+    #[default]
+    YamlFormat,
+    InlineTest,
+    InlineTestDetailed,
+}
+
+impl FormatOpts {
+    #[must_use]
+    pub fn emit_err(&self) -> bool {
+        match self {
+            FormatOpts::YamlFormat => false,
+            FormatOpts::InlineTest => false,
+            FormatOpts::InlineTestDetailed => true,
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn is_inline(&self) -> bool {
+        match self {
+            FormatOpts::YamlFormat => false,
+            FormatOpts::InlineTest | FormatOpts::InlineTestDetailed => true,
+        }
+    }
+
+    #[must_use]
+    pub fn emit_stream(&self) -> bool {
+        match self {
+            FormatOpts::YamlFormat => true,
+            FormatOpts::InlineTest => false,
+            FormatOpts::InlineTestDetailed => false,
+        }
+    }
+}
+
+pub fn write_str_from_event<T: Source>(
+    line: &mut String,
+    parser: &mut Parser<T>,
+    emit_opt: FormatOpts,
+) {
+    if !emit_opt.emit_stream() {
+        line.push('\n');
+    }
     while let Some(Ok((ev, _))) = parser.next() {
         let _ = match ev {
-            SaphyrEvent::StreamStart if emit_all => write!(line, "+STR"),
-            SaphyrEvent::StreamEnd if emit_all => write!(line, "\n-STR"),
-            SaphyrEvent::DocumentStart(_) => write!(line, "\n+DOC"),
-            SaphyrEvent::DocumentEnd => write!(line, "\n-DOC"),
+            SaphyrEvent::StreamStart if emit_opt.emit_stream() => writeln!(line, "+STR"),
+            SaphyrEvent::StreamEnd if emit_opt.emit_stream() => writeln!(line, "-STR"),
+            SaphyrEvent::DocumentStart(_) => writeln!(line, "+DOC"),
+            SaphyrEvent::DocumentEnd => writeln!(line, "-DOC"),
             SaphyrEvent::Alias(anchor_id) => {
                 let anchor = parser
                     .get_anchor(anchor_id)
                     .map_or(String::default(), ToString::to_string);
-                write!(line, "\n=ALI *{anchor}")
+                writeln!(line, "=ALI *{anchor}")
             }
             SaphyrEvent::Scalar(ScalarValue {
                 value,
@@ -47,31 +103,30 @@ pub fn write_str_from_event<T: Source>(line: &mut String, parser: &mut Parser<T>
             }) => {
                 let anchor = extract_anchor(parser, anchor_id);
                 let tag_info = extract_tag_full(tag);
-                write!(line, "\n=VAL{anchor}{tag_info} {scalar_type}{value}")
+                writeln!(line, "=VAL{anchor}{tag_info} {scalar_type}{value}")
             }
             SaphyrEvent::SequenceStart(anchor_id, tag) => {
                 let tag_info = extract_tag_full(tag);
                 let anchor = extract_anchor(parser, anchor_id);
-                write!(line, "\n+SEQ{anchor}{tag_info}")
+                writeln!(line, "+SEQ{anchor}{tag_info}")
             }
-            SaphyrEvent::SequenceEnd => write!(line, "\n-SEQ"),
+            SaphyrEvent::SequenceEnd => writeln!(line, "-SEQ"),
             SaphyrEvent::MappingStart(anchor_id, tag) => {
                 let tag_info = extract_tag_full(tag);
                 let anchor = extract_anchor(parser, anchor_id);
-                write!(line, "\n+MAP{anchor}{tag_info}")
+                writeln!(line, "+MAP{anchor}{tag_info}")
             }
-            SaphyrEvent::MappingEnd => write!(line, "\n-MAP"),
+            SaphyrEvent::MappingEnd => writeln!(line, "-MAP"),
             _ => write!(line, ""),
         };
     }
     if let Some(Err(err)) = parser.next() {
-        line.push_str("\nERR");
-        if emit_all {
-            write!(line, "{err:?}").unwrap();
+        if emit_opt.emit_err() {
+            writeln!(line, "ERR {err:?}").unwrap();
         }
     }
-    if emit_all {
-        line.push('\n');
+    if emit_opt.is_inline() {
+        *line = line.trim_end().into();
     }
 }
 
