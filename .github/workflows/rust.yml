@@ -27,5 +27,5 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
-    - name: Run tests (no-default-features)
-      run: cargo nextest run
+    - name: Run tests "${{matrix.rustflags}}"
+      run: cargo nextest run "${{matrix.rustflags}}"
