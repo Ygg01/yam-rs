@@ -28,4 +28,4 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run tests "${{matrix.rustflags}}"
-      run: cargo nextest run "${{matrix.rustflags}}"
+      run: cargo nextest run ${{matrix.rustflags}}
