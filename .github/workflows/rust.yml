@@ -11,14 +11,21 @@ env:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macOS-latest
+        rustflags:
+          - ""
+          - "--features=comment"
 
-    runs-on: [ubuntu-latest, windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
-      run: cargo nextest run 
-    - name: Run tests comments
-      run: cargo nextest run --features=comment
+    - name: Run tests (no-default-features)
+      run: cargo nextest run
