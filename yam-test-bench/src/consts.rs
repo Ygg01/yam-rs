@@ -3114,3 +3114,130 @@ pub const X1_FRK4_EVENTS: &str = r"
 =VAL :bar
 -MAP
 -DOC";
+
+pub const X1_BEC7_INPUT: &str = r#"
+%YAML 1.3 # Attempt parsing
+          # with a warning
+---
+"foo""#;
+
+pub const X1_BEC7_EVENTS: &str = r#"
++DOC
+=VAL "foo
+-DOC"#;
+
+pub const X1_K3WX_INPUT: &str = r#"
+---
+{ "foo" # comment
+  :bar }
+"#;
+
+pub const X1_K3WX_EVENTS: &str = r#"
++DOC
++MAP
+=VAL "foo
+=VAL :bar
+-MAP
+-DOC"#;
+
+pub const X1_XWKD_INPUT: &str = r#"
+a: "double
+  quotes" # lala"#;
+pub const X1_XWKD_EVENTS: &str = r#"
++DOC
++MAP
+=VAL :a
+=VAL "double quotes
+-MAP
+-DOC"#;
+
+pub const X2_XWKD_INPUT: &str = r#"
+b: plain
+ value  # lala"#;
+
+pub const X2_1_XWKD_INPUT: &str = r#"
+b : plain
+ value  # lala"#;
+
+pub const X2_XWKD_EVENTS: &str = r#"
++DOC
++MAP
+=VAL :b
+=VAL :plain value
+-MAP
+-DOC"#;
+
+pub const X3_XWKD_INPUT: &str = r"
+? # c1
+ - seq1
+: # c2
+ - #c3
+  seq2";
+
+pub const X3_XWKD_EVENTS: &str = r"
++DOC
++MAP
++SEQ
+=VAL :seq1
+-SEQ
++SEQ
+=VAL :seq2
+-SEQ
+-MAP
+-DOC";
+
+pub const X1_P2AD_INPUT: &str = r"
+- | # Empty header↓
+ literal";
+
+pub const X1_P2AD_EVENTS: &str = r#"
++DOC
++SEQ
+=VAL |literal\n
+-SEQ
+-DOC"#;
+
+pub const X2_P2AD_INPUT: &str = r"
+- >1 # Indentation indicator↓
+  folded";
+
+pub const X2_P2AD_EVENTS: &str = r#"
++DOC
++SEQ
+=VAL > folded\n
+-SEQ
+-DOC"#;
+
+pub const X3_P2AD_INPUT: &str = r"
+- |+ # Chomping indicator↓
+ keep";
+
+pub const X3_P2AD_EVENTS: &str = r"
++DOC
++SEQ
+=VAL |keep\n
+-SEQ
+-DOC";
+
+pub const X4_P2AD_INPUT: &str = r"
+- >1- # Both indicators↓
+  strip";
+
+pub const X4_P2AD_EVENTS: &str = r"
++DOC
++SEQ
+=VAL > strip
+-SEQ
+-DOC";
+
+pub const X1_RTP8_INPUT: &str = r"
+%YAML 1.2
+---
+Document
+... # Suffix
+";
+
+pub const X1_RTP8_EVENTS: &str = r"
++DOC
+=VAL :Document
+-DOC";

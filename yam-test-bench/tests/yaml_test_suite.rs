@@ -7,7 +7,7 @@ use std::{fs, io};
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use yam_core::Parser;
-use yam_test_bench::{unescape_text, write_str_from_event};
+use yam_test_bench::{unescape_text, write_str_from_event, FormatOpts};
 
 const TEST_SIZE: usize = 440;
 
@@ -22,15 +22,24 @@ struct TestData {
     emit_yaml: Option<PathBuf>,
 }
 
-fn perform_test_saphyr(data: TestData, _is_strict: bool) -> Result<(), Failed> {
+fn perform_test_saphyr(data: TestData) -> Result<(), Failed> {
     let input_yaml = fs::read_to_string(data.input_yaml)?;
     let mut actual_event = String::with_capacity(input_yaml.len());
     let mut parser = Parser::new_from_str(&input_yaml);
-    write_str_from_event(&mut actual_event, &mut parser, true);
+    write_str_from_event(&mut actual_event, &mut parser, FormatOpts::YamlFormat);
+
     let actual_error = !actual_event.contains("-STR");
     let expected_event = adjusted_test_event(data.test_event)?;
 
-    assert_eq!(actual_error, data.is_error);
+    let result = if data.is_error {
+        "an error"
+    } else {
+        "a successful parse"
+    };
+    assert_eq!(
+        actual_error, data.is_error,
+        "Expected the result to be {result}."
+    );
     if !data.is_error {
         assert_eq!(actual_event, expected_event);
     }
@@ -52,7 +61,6 @@ fn collect_test_suite(
     path: &Path,
     ignore_list: Vec<&str>,
     tests: &mut Vec<Trial>,
-    is_strict: bool,
 ) -> Result<(), Box<dyn Error>> {
     for entry in fs::read_dir(path)? {
         let entry = entry?;
@@ -64,7 +72,7 @@ fn collect_test_suite(
             .into_string()
             .expect("non-UTF8 string in path");
         if file_type.is_dir() && !ignore_list.contains(&&*dir_name) {
-            collect_test(dir_name, &test_dir_path, &ignore_list, tests, is_strict)?;
+            collect_test(dir_name, &test_dir_path, &ignore_list, tests)?;
         }
     }
     Ok(())
@@ -75,7 +83,6 @@ fn collect_test(
     test_dir_path: &PathBuf,
     ignore_list: &Vec<&str>,
     tests: &mut Vec<Trial>,
-    is_strict: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut test_data = TestData::default();
     let mut is_dir = false;
@@ -93,7 +100,7 @@ fn collect_test(
                 .expect("non-UTF8 string in path");
             let dir_name = format!("{dir_name}/{sub_dir}");
             let subdir_path = entry.path();
-            collect_test(dir_name, &subdir_path, ignore_list, tests, is_strict)?;
+            collect_test(dir_name, &subdir_path, ignore_list, tests)?;
             is_dir = true;
         } else {
             match &*filename {
@@ -115,7 +122,7 @@ fn collect_test(
     if !is_dir {
         let desc = &test_data.desc;
         let test = Trial::test(format!("{dir_name} ({desc})"), move || {
-            perform_test_saphyr(test_data, is_strict)
+            perform_test_saphyr(test_data)
         });
         tests.push(test);
     }
@@ -123,13 +130,9 @@ fn collect_test(
     Ok(())
 }
 
-fn collect_tests(
-    path: &Path,
-    filter_list: Vec<&str>,
-    is_strict: bool,
-) -> Result<Vec<Trial>, Box<dyn Error>> {
+fn collect_tests(path: &Path, filter_list: Vec<&str>) -> Result<Vec<Trial>, Box<dyn Error>> {
     let mut tests = Vec::with_capacity(TEST_SIZE);
-    collect_test_suite(path, filter_list, &mut tests, is_strict)?;
+    collect_test_suite(path, filter_list, &mut tests)?;
     Ok(tests)
 }
 
@@ -141,7 +144,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     path.push("tests");
     path.push("yaml-test-suite");
 
-    let tests = collect_tests(&path, filter_list, false)?;
+    let tests = collect_tests(&path, filter_list)?;
 
     libtest_mimic::run(&args, tests).exit();
     // Ok(())

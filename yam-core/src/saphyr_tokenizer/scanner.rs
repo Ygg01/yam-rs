@@ -392,7 +392,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                 .push(ImplicitMappingState::Possible);
         }
 
-        self.skip_ws_to_eol(SkipTabs::Yes)?;
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
 
         let span = self.get_span(start_mark);
         self.tokens.push_back(Token { span, token_type });
@@ -413,7 +413,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         let start_mark = self.mark;
         self.skip_non_blank();
-        self.skip_ws_to_eol(SkipTabs::Yes)?;
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
 
         if self.flow_level > 0 {
             self.adjacent_value_allowed_at = self.mark.pos;
@@ -456,7 +456,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         let start_mark = self.mark;
         self.skip_non_blank();
-        self.skip_ws_to_eol(SkipTabs::Yes)?;
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
 
         let span = self.get_span(start_mark);
         self.tokens.push_back(Token {
@@ -503,15 +503,15 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // generate BLOCK-SEQUENCE-START if indented
         self.roll_indent(mark.col, None, TokenType::BlockSequenceStart, mark);
-        let found_tabs = self.skip_ws_to_eol(SkipTabs::Yes)?.found_tabs();
-        if found_tabs && (b'-' == self.src.peekz(0)) && is_blank_or_break(self.src.peekz(1)) {
+        let res = self.skip_ws_to_eol(SkipTabs::Yes, false)?;
+        if res.found_tabs() && (b'-' == self.src.peekz(0)) && is_blank_or_break(self.src.peekz(1)) {
             return Err(YamlError::new_str(
                 self.mark,
                 "'-' must be followed by a valid YAML whitespace",
             ));
         }
 
-        self.skip_ws_to_eol(SkipTabs::No)?;
+        self.skip_ws_to_eol(SkipTabs::No, res.has_valid_yaml_ws())?;
 
         if is_break(self.src.peekz(0)) || is_flow(self.src.peekz(0)) {
             self.roll_one_col_indent();
@@ -588,9 +588,17 @@ impl<'input, S: Source> Scanner<'input, S> {
                     need_whitespace = false;
                 }
                 b'#' => {
-                    let _token = self.scan_comment();
-                    #[cfg(feature = "comments")]
-                    self.tokens.push_back(_token);
+                    #[cfg(feature = "comment")]
+                    {
+                        let token = self.scan_comment();
+                        self.tokens.push_back(token);
+                    }
+                    #[cfg(not(feature = "comment"))]
+                    {
+                        let comment_length = self.src.skip_while_non_breakz();
+                        self.mark.pos += comment_length;
+                        self.mark.col += comment_length as u32;
+                    }
                 }
                 _ => break,
             }
@@ -615,7 +623,9 @@ impl<'input, S: Source> Scanner<'input, S> {
         // Skip over ':'.
         self.skip_non_blank();
         if self.src.peekz(0) == b'\t'
-            && !self.skip_ws_to_eol(SkipTabs::Yes)?.has_valid_yaml_ws()
+            && !self
+                .skip_ws_to_eol(SkipTabs::Yes, false)?
+                .has_valid_yaml_ws()
             && (self.src.peekz(0) == b'-' || is_alpha(self.src.peekz(0)))
         {
             return Err(YamlError::new_str(
@@ -740,9 +750,8 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn fetch_block_scalar(&mut self, is_literal: bool) -> ScanResult {
         self.save_simple_key();
         self.simple_key_allowed = true;
-        let tok = self.scan_block_scalar(is_literal)?;
+        self.scan_block_scalar(is_literal)?;
 
-        self.tokens.push_back(tok);
         Ok(())
     }
 
@@ -775,8 +784,8 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn finish_document(&mut self) -> ScanResult {
         self.fetch_document_indicator(TokenType::DocumentEnd)?;
-        self.skip_ws_to_eol(SkipTabs::Yes)?;
-        if is_breakz(self.src.peekz(0)) {
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
+        if is_breakz(self.src.peekz(0)) || self.src.peekz(0) == b'#' {
             Ok(())
         } else {
             Err(YamlError::new_str(
@@ -795,8 +804,12 @@ impl<'input, S: Source> Scanner<'input, S> {
         self.leading_whitespace = false;
     }
 
-    fn skip_ws_to_eol(&mut self, skip_tabs: SkipTabs) -> Result<SkipTabs, YamlError> {
-        let (n_bytes, result) = self.src.skip_ws_to_eol(skip_tabs.is_ignore_tabs());
+    fn skip_ws_to_eol(
+        &mut self,
+        skip_tabs: SkipTabs,
+        prev_ws: bool,
+    ) -> Result<SkipTabs, YamlError> {
+        let (n_bytes, result) = self.src.skip_ws_to_eol(skip_tabs.is_ignore_tabs(), prev_ws);
 
         self.mark.col += n_bytes;
         self.mark.pos += n_bytes as usize;
@@ -860,7 +873,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                         && self.leading_whitespace
                         && self.mark.col < self.indent =>
                 {
-                    self.skip_ws_to_eol(SkipTabs::Yes)?;
+                    self.skip_ws_to_eol(SkipTabs::Yes, false)?;
                     // If we have content on that line with a tab, return an error.
                     if !is_breakz(self.src.peekz(0)) {
                         return Err(YamlError::new_str(
@@ -916,9 +929,9 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         };
 
-        self.skip_ws_to_eol(SkipTabs::Yes)?;
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
 
-        if is_break(self.src.peekz(0)) {
+        if is_break(self.src.peekz(0)) || self.src.peekz(0) == b'#' {
             // self.src.lookahead(2);
             self.skip_linebreak();
             Ok(tok)
@@ -1032,7 +1045,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     } else if self.mark.col < indent && self.src.peekz(0) == b'\t' {
                         // Tabs in an indentation columns are allowed if and only if the line is
                         // empty. Skip to the end of the line.
-                        self.skip_ws_to_eol(SkipTabs::Yes)?;
+                        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
                         if !is_breakz(self.src.peekz(0)) {
                             return Err(YamlError::new_str(
                                 start_mark,
@@ -1194,7 +1207,8 @@ impl<'input, S: Source> Scanner<'input, S> {
         // Eat the right quote.
         self.skip_non_blank();
         // Ensure there is no invalid trailing content.
-        self.skip_ws_to_eol(SkipTabs::Yes)?;
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
+
         match self.src.peekz(0) {
             // These can be encountered in flow sequences or mappings.
             b',' | b'}' | b']' if self.flow_level > 0 => {}
@@ -1205,6 +1219,11 @@ impl<'input, S: Source> Scanner<'input, S> {
             b':' if self.flow_level == 0 && start_mark.line == self.mark.line => {}
             // Inside a flow context, this is allowed.
             b':' if self.flow_level > 0 => {}
+            #[cfg(feature = "comment")]
+            b'#' => {
+                let comment = self.scan_comment();
+                self.tokens.push_back(comment);
+            }
             _ => {
                 return Err(YamlError::new_str(
                     self.mark,
@@ -1228,7 +1247,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     #[allow(clippy::cast_possible_truncation, clippy::too_many_lines)]
-    fn scan_block_scalar(&mut self, literal: bool) -> Result<Token<'input>, YamlError> {
+    fn scan_block_scalar(&mut self, literal: bool) -> Result<(), YamlError> {
         let start_mark = self.mark;
         let mut chomping = ChompIndicator::Clip;
         let mut increment: usize = 0;
@@ -1289,7 +1308,12 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         }
 
-        self.skip_ws_to_eol(SkipTabs::Yes)?;
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
+        #[cfg(feature = "comment")]
+        if self.src.peekz(0) == b'#' {
+            let comment = self.scan_comment();
+            self.tokens.push_back(comment);
+        }
 
         // Check if we are at the end of the line.
         // self.input.lookahead(1);
@@ -1346,13 +1370,14 @@ impl<'input, S: Source> Scanner<'input, S> {
                 // Otherwise, the newline after chomping is ignored.
                 ChompIndicator::Keep => trailing_breaks,
             };
-            return Ok(Token {
+            self.tokens.push_back(Token {
                 span: self.get_span(start_mark),
                 token_type: TokenType::Scalar {
                     scalar_type,
                     value: unsafe { Cow::Owned(String::from_utf8_unchecked(contents)) },
                 },
             });
+            return Ok(());
         }
 
         if self.mark.col < indent && self.mark.col > self.indent {
@@ -1418,14 +1443,14 @@ impl<'input, S: Source> Scanner<'input, S> {
         if chomping == ChompIndicator::Keep {
             string.extend_from_slice(&trailing_breaks);
         }
-
-        Ok(Token {
+        self.tokens.push_back(Token {
             span: Span::new(start_mark, self.mark),
             token_type: TokenType::Scalar {
                 scalar_type,
                 value: Cow::Owned(unsafe { String::from_utf8_unchecked(string) }),
             },
-        })
+        });
+        Ok(())
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -2189,6 +2214,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(string)
     }
 
+    #[cfg(feature = "comment")]
     #[allow(clippy::cast_possible_truncation)]
     fn scan_comment(&mut self) -> Token<'input> {
         let start = self.mark;

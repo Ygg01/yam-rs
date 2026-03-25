@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use yam_core::Parser;
-use yam_test_bench::write_str_from_event;
+use yam_test_bench::{write_str_from_event, FormatOpts};
 
 const NESTED_YAML: &str = include_str!("nested.yaml");
 const BIG_TEXT: &str = include_str!("big_text.yaml");
@@ -26,7 +26,7 @@ fn bench_big_text(c: &mut Criterion) {
         b.iter(|| {
             buff.clear();
             let mut parser = Parser::new_from_str(BIG_TEXT);
-            write_str_from_event(&mut buff, &mut parser, false);
+            write_str_from_event(&mut buff, &mut parser, FormatOpts::YamlFormat);
             assert!(!buff.is_empty());
         })
     });
@@ -46,7 +46,7 @@ fn bench_nested(c: &mut Criterion) {
         b.iter(|| {
             buff.clear();
             let mut parser = Parser::new_from_str(NESTED_YAML);
-            write_str_from_event(&mut buff, &mut parser, false);
+            write_str_from_event(&mut buff, &mut parser, FormatOpts::YamlFormat);
             assert!(!buff.is_empty());
         })
     });
@@ -66,7 +66,7 @@ fn bench_small_object(c: &mut Criterion) {
         b.iter(|| {
             buff.clear();
             let mut parser = Parser::new_from_str(SMALL_OBJECTS_YAML);
-            write_str_from_event(&mut buff, &mut parser, false);
+            write_str_from_event(&mut buff, &mut parser, FormatOpts::YamlFormat);
             assert!(!buff.is_empty());
         })
     });

@@ -1,13 +1,8 @@
 use yam_test_bench::consts::*;
 
 use rstest::rstest;
-use yam_test_bench::assert_eq_event_case_saph;
 use yam_test_bench::consts::{SQUOTE_STR1_INPUT, SQUOTE_STR_EVENTS};
-
-#[test]
-fn test_single() {
-    assert_eq_event_case_saph(NESTED_MAPS_INPUT, NESTED_MAPS_EVENTS);
-}
+use yam_test_bench::{assert_eq_event_case_with_opts, FormatOpts};
 
 #[rstest]
 // Scalar
@@ -193,12 +188,7 @@ fn test_single() {
 #[case::block_3alj_x1(X1_3ALJ_INPUT, X_3ALJ_EVENTS)]
 #[case::block_3alj_x2(X2_3ALJ_INPUT, X_3ALJ_EVENTS)]
 fn run_block_tests(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_saph(input, expected_events);
-}
-
-#[test]
-fn block_comment() {
-    assert_eq_event_case_saph(X1_RZP5_INPUT, X1_RZP5_EVENTS);
+    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
 }
 
 #[rstest]
@@ -238,7 +228,7 @@ fn block_comment() {
 #[case::test_escape2(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS)]
 #[case::test_escape3(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS)]
 fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_saph(input, expected_events);
+    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
 }
 
 #[rstest]
@@ -309,7 +299,7 @@ fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
 #[case::flow_5t43(X1_5T43_INPUT, X1_5T43_EVENTS)]
 #[case::flow_frk4(X1_FRK4_INPUT, X1_FRK4_EVENTS)]
 fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_saph(input, expected_events);
+    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
 }
 
 #[rstest]
@@ -319,6 +309,30 @@ fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
 #[case::docs_multi_doc3(MULTI_DOC4_INPUT, MULTI_DOC4_EVENTS)]
 #[case::docs_footer(FOOTER_INPUT, FOOTER_EVENTS)]
 #[case::docs_6zkb(X1_6ZKB_INPUT, X1_6ZKB_EVENTS)]
+#[case::docs_bec7(X1_BEC7_INPUT, X1_BEC7_EVENTS)]
 fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_saph(input, expected_events);
+    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
+}
+
+#[rstest]
+#[case::docs_comment1(X1_K3WX_INPUT, X1_K3WX_EVENTS)]
+#[case::docs_various_trailing1(X1_XWKD_INPUT, X1_XWKD_EVENTS)]
+#[case::docs_various_trailing2(X2_XWKD_INPUT, X2_XWKD_EVENTS)]
+#[case::docs_various_trailing3(X2_1_XWKD_INPUT, X2_XWKD_EVENTS)]
+#[case::docs_various_trailing4(X3_XWKD_INPUT, X3_XWKD_EVENTS)]
+#[case::comments_example_8_1_1(X1_P2AD_INPUT, X1_P2AD_EVENTS)]
+#[case::comments_example_8_1_2(X2_P2AD_INPUT, X2_P2AD_EVENTS)]
+#[case::comments_example_8_1_3(X3_P2AD_INPUT, X3_P2AD_EVENTS)]
+#[case::comments_example_8_1_4(X4_P2AD_INPUT, X4_P2AD_EVENTS)]
+fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
+    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
+}
+
+#[test]
+fn run_docs() {
+    assert_eq_event_case_with_opts(
+        X1_RZP5_INPUT,
+        X1_RZP5_EVENTS,
+        FormatOpts::InlineTestDetailed,
+    );
 }

@@ -127,8 +127,11 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    fn skip_ws_to_eol(&mut self, skip_tab: bool) -> (u32, Result<SkipTabs, &'static str>) {
-        let mut has_yaml_ws = false;
+    fn skip_ws_to_eol(
+        &mut self,
+        skip_tab: bool,
+        mut has_yaml_ws: bool,
+    ) -> (u32, Result<SkipTabs, &'static str>) {
         let any_tabs = false;
         let mut consumed_bytes = 0u32;
         let mut consume = 0u32;
@@ -299,7 +302,7 @@ mod tests {
     fn test_tabs() {
         let mut source = BufferedBytesSource::from_str(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
-        let res1 = source.skip_ws_to_eol(true);
+        let res1 = source.skip_ws_to_eol(true, false);
         assert!(res1.1.is_ok());
         assert_eq!(res1.0, 83);
 
@@ -309,7 +312,7 @@ mod tests {
 
         let mut source = BufferedBytesSource::from_str(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
-        let res2 = source.skip_ws_to_eol(false);
+        let res2 = source.skip_ws_to_eol(false, false);
         assert!(res2.1.is_ok());
         assert_eq!(res2.0, 72);
     }
