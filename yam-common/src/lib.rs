@@ -103,7 +103,7 @@ impl<'input> TokenType<'input> {
     ///
     /// # Safety
     ///
-    /// The passed Vec<u8> must contain only valid UTF-8.
+    /// The passed `Vec<u8>` must contain only valid UTF-8.
     #[must_use]
     pub unsafe fn new_tag_unchecked(handle_raw: Vec<u8>, suffix_raw: Vec<u8>) -> TokenType<'input> {
         unsafe {
@@ -117,7 +117,7 @@ impl<'input> TokenType<'input> {
     ///
     /// # Safety
     ///
-    /// The passed Vec<u8> must contain only valid UTF-8.
+    /// The passed `Vec<u8>` must contain only valid UTF-8.
     #[must_use]
     pub unsafe fn new_tag_directive_unchecked(
         handle_raw: Vec<u8>,
@@ -296,6 +296,7 @@ impl Display for Tag {
 ///   | [#x10000-#x10FFFF]                     /* 32 bit */
 /// ```
 #[inline]
+#[doc(hidden)]
 #[must_use]
 pub fn is_valid_literal_block_scalar(string: &str) -> bool {
     string.chars().all(|character: char|

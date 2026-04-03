@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 /// and inspecting bytes and characters.
 ///
 /// # Safety
-/// This is an unsafe trait because methods involve pushing raw Vec<u8> bytes before
+/// This is an unsafe trait because methods involve pushing raw `Vec<u8>` bytes before
 /// they are converted to UTF8 (possibly violating memory safety), and the methods for unsafely
 /// accessing the input source.
 ///
@@ -19,27 +19,31 @@ use alloc::vec::Vec;
 ///
 /// # Methods
 /// ## Peeking
-/// - `peekz_arbitrary(n: usize) -> u8`: Returns the byte at an arbitrary position `n` from the current position.
+/// - `peekz(n: usize) -> u8`: Returns the byte at an arbitrary position `n` from the current position.
 /// - `peek_unsafe(n: usize) -> u8`: Unsafely retrieves the byte at an arbitrary position `n` from the current position. Must be handled carefully to avoid memory safety issues.
-/// - `peek_check(n: usize) -> Option<u8>`: Retrieves the byte at position `n` if it exists, otherwise returns `None`.
-/// - `peek() -> Option<u8>`: Retrieves the next byte without advancing the position.
-/// - `peekz() -> u8`: Returns the next byte, defaulting to `0` if unavailable.
-/// - `peekz_n1() -> u8`, `peekz_n2() -> u8`, `peekz_n3() -> u8`: Retrieves the first, second, or third upcoming byte, defaulting to `0` if unavailable.
+/// - `peek_checked(n: usize) -> Option<u8>`: Retrieves the byte at position `n` if it exists, otherwise returns `None`.
 /// - `peek_char() -> char`: Returns the next character from the source.
 ///
-/// ## Skipping and Buffer Control
-/// - `skip(n: usize)`: Skips `n` bytes in the source.
+/// ## Buffer control
 /// - `buf_max_len() -> usize`: Returns the maximum recommended buffer length. Default is `128`.
 /// - `buf_is_empty() -> bool`: Checks if the buffer is empty.
 ///
+/// ## Skipping
+/// - `skip(n: usize)`: Skips `n` bytes in the source.
+/// - `skip_while_blank() -> usize`: Skips all consecutive blank characters.
+/// - `skip_ws_to_eol(skip_tabs: bool, prev_ws: bool) -> (u32, Result<SkipTabs, &'static str>)`: Skips whitespace characters until the end of the line, optionally skipping tabs.
+/// - `skip_while_non_breakz() -> usize`: skips all non-break characters
+/// - `skip_and_accumulate_to_eol(buf: &mut Vec<u8>)`
+///
 /// ## Parsing Helpers
 /// - `fetch_while_is_alpha(out: &mut Vec<u8>) -> usize`: Fetches and appends all consecutive alphanumeric characters into `out`, returning the count.
-/// - `skip_while_blank() -> usize`: Skips all consecutive blank characters.
-/// - `skip_ws_to_eol(skip_tabs: bool) -> (u32, Result<SkipTabs, &'static str>)`: Skips whitespace characters until the end of the line, optionally skipping tabs.
+/// - `push_non_breakz_chr(out: &mut Vec<u8>) -> usize`: Fetches and appends all consecutive alphanumeric characters into `out`, returning the count.
 ///
 /// ## Flow and Blank/Binary Checks
-/// - `next_is_blank_or_break() -> bool`: Checks if the next byte is either blank or a break.
-/// - `next_is_blank_or_breakz() -> bool`: Checks if the next byte is blank, a break, or a null-terminator (`'\0'`).
+/// - `next_next_byte_is(chr: u8) -> bool`: Checks if the 2nd byte is exactly the same as chr
+/// - `next_three_is(chr: u8) -> bool`: Checks if the next three consecutive characters are chr.
+/// - `next_can_be_plain_scalar(in_flow: bool) -> bool`: Checks if the next characters can be plain scalar. `in_flow` it determines if its plain scalar in flow or block mode.
+/// - `next_is_document_indicator() -> bool`: Checks if the next characters form a document indicator.
 pub unsafe trait Source {
     #[must_use]
     fn peekz(&self, n: usize) -> u8 {
@@ -67,9 +71,6 @@ pub unsafe trait Source {
     /// # Attributes
     /// - `#[must_use]`: The return value of this function must not be ignored.
     ///
-    /// # Examples
-    /// ```
-    /// ```
     #[must_use]
     unsafe fn peek_unsafe(&self, n: usize) -> u8;
 
@@ -79,12 +80,12 @@ pub unsafe trait Source {
     #[must_use]
     fn peek_char(&self) -> char;
 
-    fn skip(&mut self, n: usize);
-
     #[must_use]
     fn buf_max_len(&self) -> usize {
         128
     }
+
+    fn buf_is_empty(&self) -> bool;
 
     fn fetch_while_is_alpha(&mut self, out: &mut Vec<u8>) -> usize {
         let mut n_chars = 0;
@@ -96,6 +97,10 @@ pub unsafe trait Source {
         n_chars
     }
 
+    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
+
+    fn skip(&mut self, n: usize);
+
     fn skip_while_blank(&mut self) -> usize {
         let mut n_chars = 0;
         while is_blank(self.peekz(0)) {
@@ -105,21 +110,11 @@ pub unsafe trait Source {
         n_chars
     }
 
-    fn buf_is_empty(&self) -> bool;
-
     fn skip_ws_to_eol(
         &mut self,
         skip_tabs: bool,
         prev_ws: bool,
     ) -> (u32, Result<SkipTabs, &'static str>);
-
-    fn next_next_byte_is(&self, chr: u8) -> bool {
-        self.peekz(1) == chr
-    }
-
-    fn next_is_three(&self, chr: u8) -> bool {
-        self.peekz(0) == chr && self.peekz(1) == chr && self.peekz(2) == chr
-    }
 
     fn skip_while_non_breakz(&mut self) -> usize {
         let mut count = 0;
@@ -139,6 +134,14 @@ pub unsafe trait Source {
         }
     }
 
+    fn next_next_byte_is(&self, chr: u8) -> bool {
+        self.peekz(1) == chr
+    }
+
+    fn next_is_three(&self, chr: u8) -> bool {
+        self.peekz(0) == chr && self.peekz(1) == chr && self.peekz(2) == chr
+    }
+
     fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
         let nc = self.peekz(1);
         match self.peekz(0) {
@@ -152,7 +155,6 @@ pub unsafe trait Source {
     fn next_is_document_indicator(&self) -> bool {
         (self.next_is_three(b'-') || self.next_is_three(b'.')) && is_blank_or_breakz(self.peekz(3))
     }
-    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
 }
 
 #[inline]
@@ -258,20 +260,8 @@ unsafe impl Source for StrSource<'_> {
         bytes.next().unwrap_or('\u{FFFD}')
     }
 
-    fn skip(&mut self, n: usize) {
-        self.pos += n;
-    }
-
     fn buf_is_empty(&self) -> bool {
         self.pos >= self.input.len()
-    }
-
-    fn skip_ws_to_eol(
-        &mut self,
-        skip_tabs: bool,
-        has_yaml_ws: bool,
-    ) -> (u32, Result<SkipTabs, &'static str>) {
-        shared_skip_ws_to_eol(self, skip_tabs, 0, false, has_yaml_ws)
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
@@ -282,6 +272,18 @@ unsafe impl Source for StrSource<'_> {
         let slice = &self.input[self.pos..self.pos + len];
         self.skip(len);
         vec.extend_from_slice(slice);
+    }
+
+    fn skip(&mut self, n: usize) {
+        self.pos += n;
+    }
+
+    fn skip_ws_to_eol(
+        &mut self,
+        skip_tabs: bool,
+        has_yaml_ws: bool,
+    ) -> (u32, Result<SkipTabs, &'static str>) {
+        shared_skip_ws_to_eol(self, skip_tabs, 0, false, has_yaml_ws)
     }
 }
 

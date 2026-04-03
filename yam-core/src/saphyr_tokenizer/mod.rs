@@ -4,7 +4,8 @@ mod parser;
 mod scanner;
 mod source;
 
-pub(crate) use parser::SpannedEventReceiver;
+pub use parser::EventReceiver;
+pub use parser::SpannedEventReceiver;
 pub use parser::{Event, Parser, ScalarValue};
 pub use source::Source;
 pub use source::StrSource;

@@ -12,7 +12,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::fmt::Debug;
+use core::fmt::{Debug, Display, Formatter};
 use yam_common::{Marker, ScalarType, Span, Tag, TokenType, YamlError};
 
 #[derive(Clone, PartialEq, Debug, Eq)]
@@ -21,6 +21,12 @@ pub struct ScalarValue<'input> {
     pub scalar_type: ScalarType,
     pub anchor_id: usize,
     pub tag: Option<Cow<'input, Tag>>,
+}
+
+impl Display for ScalarValue<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{0}", self.value)
+    }
 }
 
 impl<'input> ScalarValue<'input> {
@@ -170,6 +176,55 @@ pub struct Parser<'input, T: Source> {
     keep_tags: bool,
 }
 
+///
+/// A trait representing a receiver that processes YAML events emitted by a parser.
+///
+/// Types implementing this trait can define custom behavior for handling
+/// individual YAML events provided by the parser.
+///
+/// # Type Parameters
+///
+/// * `'input` - The lifetime tied to the input data being parsed.
+///
+/// # Required Methods
+///
+/// ## `on_event`
+///
+/// ```rust
+/// fn on_event(&mut self, ev: Event<'input>);
+/// ```
+///
+/// Called for each YAML event emitted by the parser.
+///
+/// # Arguments
+///
+/// * `ev` - A YAML [`Event`] instance representing the parsed event to be handled (e.g.,
+///   MappingStart, ScalarValue, MappingEnd, etc.).
+///
+/// Implementations of this method can define how the event should be processed.
+///
+/// # Notes:
+/// Some events like Comments are only present if the feature `comment` has been turned on.
+///
+/// # Example
+///
+/// ```rust
+/// use yam_core::saphyr_tokenizer::Event;
+/// use yam_core::EventReceiver;
+/// struct MyEventReceiver;
+///
+/// impl<'input> EventReceiver<'input> for MyEventReceiver {
+///     fn on_event(&mut self, ev: Event<'input>) {
+///         match ev {
+///             Event::Scalar(value) => println!("Scalar value: {}", value),
+///             Event::MappingStart(..) => println!("Start of a mapping"),
+///             Event::MappingEnd => println!("End of a mapping"),
+///             _ => println!("Other event"),
+///         }
+///     }
+/// }
+/// ```
+///
 pub trait EventReceiver<'input> {
     /// Handler called for each YAML event that is emitted by the parser.
     fn on_event(&mut self, ev: Event<'input>);
@@ -178,6 +233,56 @@ pub trait EventReceiver<'input> {
 /// Trait to be implemented for using the low-level parsing API.
 ///
 /// Functionally similar to [`EventReceiver`], but receives a [`Span`] as well as the event.
+///
+/// A trait representing a receiver that processes YAML events emitted by a parser.
+///
+/// Types implementing this trait can define custom behavior for handling
+/// individual YAML events provided by the parser.
+///
+/// # Type Parameters
+///
+/// * `'input` - The lifetime tied to the input data being parsed.
+///
+/// # Required Methods
+///
+/// ## `on_event`
+///
+/// ```rust
+/// fn on_event(&mut self, ev: Event<'input>);
+/// ```
+///
+/// Called for each YAML event emitted by the parser.
+///
+/// # Arguments
+///
+/// * `ev` - A YAML [`Event`] instance representing the parsed event to be handled (e.g.,
+///   MappingStart, ScalarValue, MappingEnd, etc.).
+///
+/// Implementations of this method can define how the event should be processed.
+///
+/// # Notes:
+/// Some events like Comments are only present if the feature `comment` has been turned on.
+///
+/// # Example
+///
+/// ```rust
+/// use yam_common::Span;
+/// use yam_core::saphyr_tokenizer::Event;
+/// use yam_core::SpannedEventReceiver;
+/// struct MySpannedEventReceiver;
+///
+/// impl<'input> SpannedEventReceiver<'input> for MySpannedEventReceiver {
+///     fn on_event(&mut self, ev: Event<'input>, _span: Span) {
+///         match ev {
+///             Event::Scalar(value) => println!("Scalar value: {}", value),
+///             Event::MappingStart(..) => println!("Start of a mapping"),
+///             Event::MappingEnd => println!("End of a mapping"),
+///             _ => println!("Other event"),
+///         }
+///     }
+/// }
+/// ```
+///
 pub trait SpannedEventReceiver<'input> {
     /// Handler called for each event that occurs.
     fn on_event(&mut self, ev: Event<'input>, span: Span);

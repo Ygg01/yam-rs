@@ -102,6 +102,38 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         bytes.next().unwrap()
     }
 
+    fn buf_max_len(&self) -> usize {
+        MAX_LEN
+    }
+
+    fn buf_is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
+        let mut pos = None;
+        while let Some(x) = self.get_max_buf() {
+            // bitmask for \r or \n
+            let fake_simd = U8X32::from_array(x);
+            let break_bitmask = fake_simd.comp_to_bitmask(b'\r') | fake_simd.comp_to_bitmask(b'\n');
+            let first_nl = break_bitmask.trailing_zeros() as usize;
+
+            if break_bitmask != 0 {
+                pos = Some(first_nl);
+                break;
+            }
+
+            vec.extend_from_slice(&x[..]);
+            self.skip(MAX_LEN);
+        }
+        let buf = self.get_buf();
+
+        // we get the value from while loop above, or we search remaining buf
+        let found_pos = pos.unwrap_or(buf.iter().position(|&c| is_break(c)).unwrap_or(0));
+        vec.extend_from_slice(&buf[..found_pos]);
+        self.skip(found_pos);
+    }
+
     fn skip(&mut self, n: usize) {
         if n == 0 {
             return;
@@ -119,14 +151,6 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let new_len = self.len.saturating_sub(consume);
         self.len = new_len;
         self.fill_buf_to_max();
-    }
-
-    fn buf_max_len(&self) -> usize {
-        MAX_LEN
-    }
-
-    fn buf_is_empty(&self) -> bool {
-        self.len == 0
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -183,30 +207,6 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         }
 
         shared_skip_ws_to_eol(self, skip_tab, consumed_bytes, any_tabs, has_yaml_ws)
-    }
-
-    fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
-        let mut pos = None;
-        while let Some(x) = self.get_max_buf() {
-            // bitmask for \r or \n
-            let fake_simd = U8X32::from_array(x);
-            let break_bitmask = fake_simd.comp_to_bitmask(b'\r') | fake_simd.comp_to_bitmask(b'\n');
-            let first_nl = break_bitmask.trailing_zeros() as usize;
-
-            if break_bitmask != 0 {
-                pos = Some(first_nl);
-                break;
-            }
-
-            vec.extend_from_slice(&x[..]);
-            self.skip(MAX_LEN);
-        }
-        let buf = self.get_buf();
-
-        // we get the value from while loop above, or we search remaining buf
-        let found_pos = pos.unwrap_or(buf.iter().position(|&c| is_break(c)).unwrap_or(0));
-        vec.extend_from_slice(&buf[..found_pos]);
-        self.skip(found_pos);
     }
 }
 

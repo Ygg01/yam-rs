@@ -72,7 +72,7 @@ use yam_core::treebuild::YamlLoader;
 ///
 /// This function uses `Deserializer` and `StrSource` internally for processing
 /// the YAML input.
-/// ```
+///
 pub fn from_str<'a, T>(input: &'a str) -> Result<T, YamSerdeError>
 where
     T: de::Deserialize<'a>,
