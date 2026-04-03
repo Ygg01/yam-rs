@@ -1,14 +1,3 @@
-//! ```rust
-//!         Parser::new(StrSource::new(input.as_ref()));
-//!         parser.load(&mut event_listener, true)?;
-//!
-//!         match event_listener.docs.into_iter().next() {
-//!             Some(document) => Ok(document),
-//!             None => Err(YamlError::new("No document found in the YAML input")),
-//!         }
-//!     }
-//! }
-//! ```
 //!
 //! ### Module `spanned_node`
 //! This module contains the implementation of a YAML loader capable of processing YAML input and converting it into structured document nodes using the `SpannedEventReceiver` trait.

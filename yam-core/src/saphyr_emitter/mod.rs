@@ -280,9 +280,9 @@ impl<'a> YamlEmitter<'a> {
     /// If `inline` is true, then the preceding characters are distinct
     /// and short enough to respect the compact flag.
     fn emit_val(&mut self, inline: bool, val: &YamlDoc) -> EmitResult {
-        match *val {
-            YamlDoc::Sequence(ref v) => {
-                if (inline && self.compact) || v.is_empty() {
+        macro_rules! write_collection {
+            ($v:expr ) => {
+                if (inline && self.compact) || $v.is_empty() {
                     write!(self.writer, " ")?;
                 } else {
                     writeln!(self.writer)?;
@@ -290,17 +290,16 @@ impl<'a> YamlEmitter<'a> {
                     self.write_indent()?;
                     self.level -= 1;
                 }
+            };
+        }
+
+        match *val {
+            YamlDoc::Sequence(ref v) => {
+                write_collection!(v);
                 self.emit_sequence(v)
             }
             YamlDoc::Mapping(ref h) => {
-                if (inline && self.compact) || h.is_empty() {
-                    write!(self.writer, " ")?;
-                } else {
-                    writeln!(self.writer)?;
-                    self.level += 1;
-                    self.write_indent()?;
-                    self.level -= 1;
-                }
+                write_collection!(h);
                 self.emit_mapping(h)
             }
             _ => {

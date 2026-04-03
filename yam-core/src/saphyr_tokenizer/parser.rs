@@ -4,7 +4,6 @@
 //! compliance, and emits a stream of YAML events. This stream can for instance be used to create
 //! YAML objects.
 
-use crate::saphyr_tokenizer::parser::State::BlockNode;
 use crate::saphyr_tokenizer::scanner::{Scanner, Token};
 pub(crate) use crate::saphyr_tokenizer::source::{Source, StrSource};
 use alloc::{
@@ -50,6 +49,7 @@ impl<'input> ScalarValue<'input> {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Debug, Eq)]
 enum State {
     StreamStart,
@@ -1263,7 +1263,7 @@ impl<'input, T: Source> Parser<'input, T> {
                     } = self.peek_token()?
                     {
                         self.push_state(State::BlockSequenceEntry);
-                        self.state = BlockNode;
+                        self.state = State::BlockNode;
                         return self.extract_comment();
                     }
 
