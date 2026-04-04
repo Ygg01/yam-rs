@@ -3,8 +3,8 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use yam_common::{Span, Tag, YamlDoc, YamlEntry};
 
-use yam_common::loader::LoadableYamlNode;
-use yam_common::node::YamlCloneNode;
+use yam_common::LoadableYamlNode;
+use yam_common::YamlCloneNode;
 
 #[derive(PartialEq, Clone, Default)]
 pub struct SpannedYaml<'input> {

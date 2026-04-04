@@ -131,7 +131,7 @@ use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use yam_common::loader::LoadableYamlNode;
+use yam_common::LoadableYamlNode;
 use yam_common::{Marker, Span, Tag, YamlDoc, YamlEntry, YamlError};
 
 pub struct YamlLoader<'input, Node>

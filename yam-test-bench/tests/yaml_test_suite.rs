@@ -26,7 +26,7 @@ fn perform_test_saphyr(data: TestData) -> Result<(), Failed> {
     let input_yaml = fs::read_to_string(data.input_yaml)?;
     let mut actual_event = String::with_capacity(input_yaml.len());
     let mut parser = Parser::new_from_str(&input_yaml);
-    write_str_from_event(&mut actual_event, &mut parser, FormatOpts::YamlFormat);
+    write_str_from_event(&mut actual_event, &mut parser, &FormatOpts::YamlFormat);
 
     let actual_error = !actual_event.contains("-STR");
     let expected_event = adjusted_test_event(data.test_event)?;

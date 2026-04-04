@@ -1,8 +1,10 @@
 extern crate core;
+#[deny(missing_docs)]
+pub(crate) mod loader;
+pub(crate) mod node;
 
-pub mod loader;
-pub mod node;
-
+pub use crate::loader::LoadableYamlNode;
+pub use crate::node::YamlCloneNode;
 pub use loader::{Mapping, Sequence, YamlDoc, YamlEntry};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};

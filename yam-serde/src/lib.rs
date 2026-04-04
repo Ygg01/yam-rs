@@ -6,7 +6,7 @@ use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use serde_core::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_core::{de, forward_to_deserialize_any};
-use yam_common::loader::LoadableYamlNode;
+use yam_common::LoadableYamlNode;
 use yam_common::{Mapping, Sequence, YamlDoc, YamlError};
 use yam_core::Source;
 use yam_core::saphyr_tokenizer::StrSource;

@@ -570,6 +570,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn skip_yaml_whitespace(&mut self) -> ScanResult {
         let mut need_whitespace = true;
         loop {

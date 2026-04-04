@@ -17,7 +17,7 @@ pub fn assert_eq_event_case_saph(input: &str, events: &str) {
     let mut line = String::new();
     let mut parser = Parser::new_from_str(input);
 
-    write_str_from_event(&mut line, &mut parser, FormatOpts::default());
+    write_str_from_event(&mut line, &mut parser, &FormatOpts::default());
     let expected_err = events.ends_with("ERR");
     let actual_err = events.ends_with("ERR");
     assert_eq!(actual_err, expected_err);
@@ -26,7 +26,8 @@ pub fn assert_eq_event_case_saph(input: &str, events: &str) {
     }
 }
 
-pub fn assert_eq_event_case_with_opts(input: &str, events: &str, emit_opt: FormatOpts) {
+#[doc(hidden)]
+pub fn assert_eq_event_case_with_opts(input: &str, events: &str, emit_opt: &FormatOpts) {
     let mut line = String::new();
     let mut parser = Parser::new_from_str(input);
 
@@ -51,8 +52,7 @@ impl FormatOpts {
     #[must_use]
     pub fn emit_err(&self) -> bool {
         match self {
-            FormatOpts::YamlFormat => false,
-            FormatOpts::InlineTest => false,
+            FormatOpts::YamlFormat | FormatOpts::InlineTest => false,
             FormatOpts::InlineTestDetailed => true,
         }
     }
@@ -69,8 +69,7 @@ impl FormatOpts {
     pub fn emit_stream(&self) -> bool {
         match self {
             FormatOpts::YamlFormat => true,
-            FormatOpts::InlineTest => false,
-            FormatOpts::InlineTestDetailed => false,
+            FormatOpts::InlineTest | FormatOpts::InlineTestDetailed => false,
         }
     }
 }
@@ -78,7 +77,7 @@ impl FormatOpts {
 pub fn write_str_from_event<T: Source>(
     line: &mut String,
     parser: &mut Parser<T>,
-    emit_opt: FormatOpts,
+    emit_opt: &FormatOpts,
 ) {
     if !emit_opt.emit_stream() {
         line.push('\n');

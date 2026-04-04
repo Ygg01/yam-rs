@@ -3151,21 +3151,21 @@ pub const X1_XWKD_EVENTS: &str = r#"
 -MAP
 -DOC"#;
 
-pub const X2_XWKD_INPUT: &str = r#"
+pub const X2_XWKD_INPUT: &str = r"
 b: plain
- value  # lala"#;
+ value  # lala";
 
-pub const X2_1_XWKD_INPUT: &str = r#"
+pub const X2_1_XWKD_INPUT: &str = r"
 b : plain
- value  # lala"#;
+ value  # lala";
 
-pub const X2_XWKD_EVENTS: &str = r#"
+pub const X2_XWKD_EVENTS: &str = r"
 +DOC
 +MAP
 =VAL :b
 =VAL :plain value
 -MAP
--DOC"#;
+-DOC";
 
 pub const X3_XWKD_INPUT: &str = r"
 ? # c1
@@ -3190,23 +3190,23 @@ pub const X1_P2AD_INPUT: &str = r"
 - | # Empty header↓
  literal";
 
-pub const X1_P2AD_EVENTS: &str = r#"
+pub const X1_P2AD_EVENTS: &str = r"
 +DOC
 +SEQ
 =VAL |literal\n
 -SEQ
--DOC"#;
+-DOC";
 
 pub const X2_P2AD_INPUT: &str = r"
 - >1 # Indentation indicator↓
   folded";
 
-pub const X2_P2AD_EVENTS: &str = r#"
+pub const X2_P2AD_EVENTS: &str = r"
 +DOC
 +SEQ
 =VAL > folded\n
 -SEQ
--DOC"#;
+-DOC";
 
 pub const X3_P2AD_INPUT: &str = r"
 - |+ # Chomping indicator↓

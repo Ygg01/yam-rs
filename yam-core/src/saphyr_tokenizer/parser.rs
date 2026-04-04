@@ -199,7 +199,7 @@ pub struct Parser<'input, T: Source> {
 /// # Arguments
 ///
 /// * `ev` - A YAML [`Event`] instance representing the parsed event to be handled (e.g.,
-///   MappingStart, ScalarValue, MappingEnd, etc.).
+///   `MappingStart`, `ScalarValue`, `MappingEnd`, etc.).
 ///
 /// Implementations of this method can define how the event should be processed.
 ///
@@ -256,7 +256,7 @@ pub trait EventReceiver<'input> {
 /// # Arguments
 ///
 /// * `ev` - A YAML [`Event`] instance representing the parsed event to be handled (e.g.,
-///   MappingStart, ScalarValue, MappingEnd, etc.).
+///   `MappingStart`, `ScalarValue`, `MappingEnd`, etc.).
 ///
 /// Implementations of this method can define how the event should be processed.
 ///
@@ -382,6 +382,20 @@ impl<'input, T: Source> Parser<'input, T> {
         Some(tok)
     }
 
+    /// Retrieves a reference to an anchor string based on the given anchor ID.
+    ///
+    /// # Parameters
+    /// - `anchor_id`: A `usize` representing the unique identifier of the anchor to retrieve.
+    ///
+    /// # Returns
+    /// - `Option<&Cow<'input, str>>`:
+    ///   - Returns `Some(&Cow<'input, str>)` if an anchor with the specified `anchor_id` exists.
+    ///   - Returns `None` if no such anchor is found.
+    ///
+    /// # Behavior
+    /// - Iterates through the `anchors` collection to find a tuple where the second element matches the given `anchor_id`.
+    /// - If a match is found, returns a reference to the first element of the tuple.
+    /// - If no match is found, returns `None`.
     pub fn get_anchor(&self, anchor_id: usize) -> Option<&Cow<'input, str>> {
         self.anchors.iter().find(|x| *x.1 == anchor_id).map(|x| x.0)
     }
@@ -401,7 +415,21 @@ impl<'input, T: Source> Parser<'input, T> {
         }
     }
 
-    /// Peek at the next token from the scanner.
+    /// Peeks at the current token in the YAML scanner without consuming it.
+    ///
+    /// This function checks whether a token is already cached in the `self.token` field.
+    /// If no token is cached, it scans the input to retrieve the next token and caches it.
+    /// If a token is already cached, it returns a reference to the cached token.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&Token<'_>)` - A reference to the current token if successful.
+    /// * `Err(YamlError)` - An error if scanning the next token fails.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an `Err(YamlError)` if scanning the next token encounters any issues.
+    ///
     fn peek_token(&mut self) -> Result<&Token<'_>, YamlError> {
         match self.token {
             None => {
@@ -412,9 +440,21 @@ impl<'input, T: Source> Parser<'input, T> {
         }
     }
 
-    /// Extract and return the next token from the scanner.
+    /// Scans and retrieves the next token from the YAML input stream.
     ///
-    /// This function does _not_ make use of `self.token`.
+    /// This method attempts to fetch the next token using the underlying scanner. If no token is
+    /// available, it checks for an error in the scanner. If the scanner encountered an error
+    /// previously, that error is returned. If the scanner has no error but has reached the end of
+    /// the input, an `unexpected eof` (`end of file`) error is returned.
+    ///
+    /// # Returns
+    /// - `Ok(Token<'input>)`: The next token successfully scanned.
+    /// - `Err(YamlError)`: An error encountered during scanning, including EOF or a previous scanner error.
+    ///
+    /// # Errors
+    /// - Returns `YamlError` if:
+    ///   - The scanner has reached the end of the input with no more tokens.
+    ///   - A scanner error has occurred during tokenization.
     fn scan_next_token(&mut self) -> Result<Token<'input>, YamlError> {
         let token = self.scanner.next();
         match token {
@@ -1166,20 +1206,19 @@ impl<'input, T: Source> Parser<'input, T> {
                         {
                             self.state = State::FlowMappingValue;
                             return Ok((Event::empty_scalar(), span));
-                        } else {
-                            #[cfg(feature = "comment")]
-                            if let Token {
-                                token_type: TokenType::Comment(_),
-                                ..
-                            } = *self.peek_token()?
-                            {
-                                self.state = State::FlowMappingFirstKeyCont;
-                                return self.extract_comment();
-                            }
-
-                            self.push_state(State::FlowMappingValue);
-                            return self.parse_node(false, false);
                         }
+                        #[cfg(feature = "comment")]
+                        if let Token {
+                            token_type: TokenType::Comment(_),
+                            ..
+                        } = *self.peek_token()?
+                        {
+                            self.state = State::FlowMappingFirstKeyCont;
+                            return self.extract_comment();
+                        }
+
+                        self.push_state(State::FlowMappingValue);
+                        return self.parse_node(false, false);
                     } else if let Token {
                         span,
                         token_type: TokenType::Value,
@@ -1192,7 +1231,6 @@ impl<'input, T: Source> Parser<'input, T> {
                         ..
                     } = *self.peek_token()?
                     {
-                        ()
                     } else {
                         self.push_state(State::FlowMappingEmptyValue);
                         return self.parse_node(false, false);
@@ -1507,12 +1545,12 @@ enum KeyFlow {
 
 impl KeyFlow {
     #[inline]
-    pub(crate) fn is_first(&self) -> bool {
+    pub(crate) fn is_first(self) -> bool {
         matches!(self, KeyFlow::FirstKey)
     }
 
     #[inline]
-    pub(crate) fn is_non_first(&self) -> bool {
+    pub(crate) fn is_non_first(self) -> bool {
         matches!(self, KeyFlow::NonFirstKey)
     }
 }

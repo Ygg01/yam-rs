@@ -188,7 +188,7 @@ use yam_test_bench::{assert_eq_event_case_with_opts, FormatOpts};
 #[case::block_3alj_x1(X1_3ALJ_INPUT, X_3ALJ_EVENTS)]
 #[case::block_3alj_x2(X2_3ALJ_INPUT, X_3ALJ_EVENTS)]
 fn run_block_tests(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
+    assert_eq_event_case_with_opts(input, expected_events, &FormatOpts::InlineTest);
 }
 
 #[rstest]
@@ -228,7 +228,7 @@ fn run_block_tests(#[case] input: &str, #[case] expected_events: &str) {
 #[case::test_escape2(DQUOTE_ESC2_INPUT, DQUOTE_ESC2_EVENTS)]
 #[case::test_escape3(DQUOTE_STR_ESC1_INPUT, DQUOTE_STR_ESC_EVENTS)]
 fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
+    assert_eq_event_case_with_opts(input, expected_events, &FormatOpts::InlineTest);
 }
 
 #[rstest]
@@ -299,7 +299,7 @@ fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
 #[case::flow_5t43(X1_5T43_INPUT, X1_5T43_EVENTS)]
 #[case::flow_frk4(X1_FRK4_INPUT, X1_FRK4_EVENTS)]
 fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
+    assert_eq_event_case_with_opts(input, expected_events, &FormatOpts::InlineTest);
 }
 
 #[rstest]
@@ -311,7 +311,7 @@ fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
 #[case::docs_6zkb(X1_6ZKB_INPUT, X1_6ZKB_EVENTS)]
 #[case::docs_bec7(X1_BEC7_INPUT, X1_BEC7_EVENTS)]
 fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
+    assert_eq_event_case_with_opts(input, expected_events, &FormatOpts::InlineTest);
 }
 
 #[rstest]
@@ -325,7 +325,7 @@ fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
 #[case::comments_example_8_1_3(X3_P2AD_INPUT, X3_P2AD_EVENTS)]
 #[case::comments_example_8_1_4(X4_P2AD_INPUT, X4_P2AD_EVENTS)]
 fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
-    assert_eq_event_case_with_opts(input, expected_events, FormatOpts::InlineTest);
+    assert_eq_event_case_with_opts(input, expected_events, &FormatOpts::InlineTest);
 }
 
 #[test]
@@ -333,6 +333,6 @@ fn run_docs() {
     assert_eq_event_case_with_opts(
         X1_RZP5_INPUT,
         X1_RZP5_EVENTS,
-        FormatOpts::InlineTestDetailed,
+        &FormatOpts::InlineTestDetailed,
     );
 }
