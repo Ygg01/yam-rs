@@ -86,8 +86,8 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     /// # Example
     /// ```rust
     /// use yam_common::YamlDoc;
-    ///
-    /// let yaml_doc: YamlDoc = parse_yaml("key: value").unwrap();
+    /// use yam_common::LoadableYamlNode;
+    /// let yaml_doc: YamlDoc = YamlDoc::from_bare_yaml(YamlDoc::Null);
     /// ```
     ///
     /// # Note
@@ -105,11 +105,12 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     ///
     /// # Examples
     /// ```rust
-    /// // Assuming there is a type `MyStruct` implementing this method:
     /// use yam_common::YamlDoc;
+    /// use yam_common::LoadableYamlNode;
+    ///
     /// let mut instance = YamlDoc::Sequence(vec![YamlDoc::Bool(true)]);
     /// let sequence = instance.sequence_mut();
-    /// sequence.push(vec![YamlDoc::Bool(false)]);
+    /// sequence.push(YamlDoc::Bool(false));
     /// ```
     fn sequence_mut(&mut self) -> &mut Vec<Self>;
 
@@ -124,15 +125,17 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     ///
     /// # Examples
     /// ```rust
-    /// // Assuming there is a type `MyStruct` implementing this method:
+    ///
+    /// use std::borrow::Cow;
     /// use yam_common::YamlDoc;
     /// use yam_common::YamlEntry;
+    /// use yam_common::LoadableYamlNode;
     ///
-    /// let entry1 = YamlEntry::new(YamlDoc::String("key"), YamlDoc::String("value"));
-    /// let entry2 = YamlEntry::new(YamlDoc::String("another_key"), YamlDoc::String("value2"));
+    /// let entry1 = YamlEntry::new("key".into(), "value".into());
+    /// let entry2 = YamlEntry::new("another_key".into(), "value2".into());
     /// let mut instance = YamlDoc::Mapping(vec![entry1]);
     /// let sequence = instance.mapping_mut();
-    /// sequence.push(vec![YamlDoc::Bool(false)]);
+    /// sequence.push(entry2);
     /// ```
     fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self>>;
 
@@ -185,6 +188,7 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     ///
     /// ```rust
     /// use yam_common::YamlDoc;
+    /// use yam_common::LoadableYamlNode;
     ///
     /// let example = YamlDoc::Bool(true);
     /// assert!(!example.is_sequence());
@@ -207,6 +211,7 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     ///
     /// ```rust
     /// use yam_common::YamlDoc;
+    /// use yam_common::LoadableYamlNode;
     ///
     /// let example = YamlDoc::Bool(true);
     /// assert!(!example.is_mapping());
@@ -230,6 +235,7 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     ///
     /// ```rust
     /// use yam_common::YamlDoc;
+    /// use yam_common::LoadableYamlNode;
     ///
     /// let example = YamlDoc::BadValue;
     /// assert!(example.is_bad_value());
@@ -253,11 +259,12 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq {
     /// # Example
     /// ```rust
     /// use yam_common::YamlDoc;
+    /// use yam_common::LoadableYamlNode;
     /// let mut value = YamlDoc::Bool(true);
     /// let previous_value = value.take();
     ///
     /// assert_eq!(previous_value, YamlDoc::Bool(true));
-    /// assert_eq!(value, YamlDoc::Null);
+    /// assert_eq!(value, YamlDoc::BadValue);
     /// ```
     #[must_use]
     fn take(&mut self) -> Self;
@@ -372,7 +379,7 @@ impl<'input> LoadableYamlNode<'input> for YamlDoc<'input> {
     }
 
     fn take(&mut self) -> Self {
-        mem::replace(self, YamlDoc::BadValue)
+        mem::take(self)
     }
 
     fn is_non_empty_collection(&self) -> bool {
@@ -428,6 +435,8 @@ pub type Mapping<'a> = Vec<YamlEntry<'a, YamlDoc<'a>>>;
 ///
 /// ```rust
 /// use std::borrow::Cow;
+/// use yam_common::LoadableYamlNode;
+/// use yam_common::YamlDoc;
 ///
 /// let yaml_string = YamlDoc::String(Cow::Borrowed("example"));
 /// let yaml_bool = YamlDoc::Bool(true);
@@ -440,10 +449,10 @@ pub type Mapping<'a> = Vec<YamlEntry<'a, YamlDoc<'a>>>;
 ///
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum YamlDoc<'input> {
+    #[default]
     /// Invalid value for `YamlDoc`
     BadValue,
     /// Represents a `null` value for `YamlDoc`
-    #[default]
     Null,
     /// Represents a YAML string value.
     String(Cow<'input, str>),
@@ -514,14 +523,14 @@ impl<'input> YamlDoc<'input> {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use your_crate::{YamlDoc, ScalarType, Tag};
+    /// use yam_common::{LoadableYamlNode, YamlDoc, ScalarType, Tag};
     ///
     /// let value = Cow::Borrowed("true");
     /// let scalar_type = ScalarType::Plain;
-    /// let tag = Some(Cow::Borrowed(Tag::new("tag:yaml.org,2002:bool")));
+    /// let tag = Some(Cow::Owned(Tag::new("tag:yaml.org,2002:", "bool")));
     ///
     /// let doc = YamlDoc::from_cow_and_tag(value, scalar_type, &tag);
-    /// // doc will be YamlDoc::Boolean(true)
+    ///
     /// ```
     ///
     /// # Notes
@@ -603,6 +612,54 @@ impl<'input> YamlDoc<'input> {
     }
 }
 
+impl From<&str> for YamlDoc<'_> {
+    fn from(value: &str) -> Self {
+        YamlDoc::String(Cow::Owned(value.into()))
+    }
+}
+
+impl From<i64> for YamlDoc<'_> {
+    fn from(value: i64) -> Self {
+        YamlDoc::Integer(value)
+    }
+}
+
+impl From<i32> for YamlDoc<'_> {
+    fn from(value: i32) -> Self {
+        YamlDoc::Integer(value.into())
+    }
+}
+
+impl From<i16> for YamlDoc<'_> {
+    fn from(value: i16) -> Self {
+        YamlDoc::Integer(value.into())
+    }
+}
+
+impl From<i8> for YamlDoc<'_> {
+    fn from(value: i8) -> Self {
+        YamlDoc::Integer(value.into())
+    }
+}
+
+impl From<f64> for YamlDoc<'_> {
+    fn from(value: f64) -> Self {
+        YamlDoc::FloatingPoint(value)
+    }
+}
+
+impl From<f32> for YamlDoc<'_> {
+    fn from(value: f32) -> Self {
+        YamlDoc::FloatingPoint(value.into())
+    }
+}
+
+impl From<bool> for YamlDoc<'_> {
+    fn from(value: bool) -> Self {
+        YamlDoc::Bool(value)
+    }
+}
+
 #[allow(clippy::needless_pass_by_value)]
 fn parse_bool(v: Cow<str>) -> YamlDoc<'static> {
     match v.as_bytes() {
@@ -647,26 +704,14 @@ fn parse_float(v: &str) -> Option<f64> {
 ///  - `'input`: Lifetime parameter used by the `_marker` field to link the `YamlEntry` instance
 ///    with a specific lifetime context.
 ///  - `T`: Generic type representing the key and value in the YAML entry. It must implement `Clone`.
-///
-///  # Derives
-///  - `Debug`: Enables formatting the `YamlEntry` using the `{:?}` formatter for debugging purposes.
-///  - `Clone`: Allows creating a duplicate of the `YamlEntry`.
-///  - `PartialEq`: Enables equality comparisons for `YamlEntry` instances.
-///
-/// # Fields
-/// - `key`: Represents the key of the YAML entry. It is of type `T`.
-/// - `value`: Represents the value of the YAML entry. It is of type `T`.
-/// - `_marker`: A `PhantomData` field tied to the `'input` lifetime. This helps manage lifetime
-///   relationships in scenarios involving borrowed data.
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct YamlEntry<'input, T>
 where
     T: Clone,
 {
-    /// Key entry
+    /// Represents the key of the YAML entry. It is of type `T`.
     pub key: T,
-    /// Value entry
+    /// Represents the value of the YAML entry. It is of type `T`.
     pub value: T,
     pub(crate) _marker: PhantomData<&'input ()>,
 }

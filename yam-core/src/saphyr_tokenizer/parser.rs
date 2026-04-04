@@ -190,7 +190,7 @@ pub struct Parser<'input, T: Source> {
 ///
 /// ## `on_event`
 ///
-/// ```rust
+/// ```non_run
 /// fn on_event(&mut self, ev: Event<'input>);
 /// ```
 ///
@@ -247,7 +247,7 @@ pub trait EventReceiver<'input> {
 ///
 /// ## `on_event`
 ///
-/// ```rust
+/// ```non_run
 /// fn on_event(&mut self, ev: Event<'input>);
 /// ```
 ///

@@ -74,9 +74,9 @@ use std::borrow::Cow;
 ///
 #[derive(Debug, Default, PartialEq, Clone)]
 pub enum YamlCloneNode<'input, Node: Clone> {
+    #[default]
     /// Invalid value for `YamlDoc`
     BadValue,
-    #[default]
     /// Represents a `null` value for `YamlDoc`
     Null,
     /// Represents a YAML string value.

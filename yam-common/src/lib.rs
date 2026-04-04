@@ -8,11 +8,9 @@ pub use crate::node::YamlCloneNode;
 pub use loader::{Mapping, Sequence, YamlDoc, YamlEntry};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-use std::ops::Range;
 use std::str::Utf8Error;
 
-pub type Mark = Range<usize>;
-
+/// Represents the different types of scalar values in YAML with distinct formatting styles.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ScalarType {
     /// Unquoted string type like:
@@ -63,6 +61,18 @@ impl Display for ScalarType {
     }
 }
 
+///
+/// Represents the different types of tokens that can be encountered in the input stream.
+///
+/// This enum is designed for use in tokenizing structured data formats, particularly YAML.
+/// Variants describe the specific types of tokens, including structural markers (`StreamStart`, `DocumentStart`),
+/// compound structures (`BlockSequenceStart`, `FlowMappingStart`), and specific data values (`Scalar`, `Alias`).
+///
+/// Supports cloning, equality comparison, and debug printing.
+///
+/// # Type Parameters
+/// - `'input`: Lifetime of the input data, used for borrowed data within certain token variants.
+///
 #[derive(Clone, PartialEq, Debug)]
 pub enum TokenType<'input> {
     StreamStart,
@@ -144,19 +154,30 @@ pub enum ChompIndicator {
     Keep,
 }
 
+/// Represents a marker within an input string for tracking position.
+///
+/// The `Marker` struct is often used to store information about a
+/// specific location in text-based data. It keeps track of the byte
+/// index, as well as the one-indexed column and line numbers.
+///
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Marker {
-    /// index in bytes of the input string.
+    /// The zero-based index in bytes of the input string.
     pub pos: usize,
-    /// Column of mark. One indexed.
+    ///  The one-indexed column number corresponding to the marker's position.
+    ///  This is useful for reporting the horizontal location of the marker.
     pub col: u32,
-    /// Column of mark. One indexed.
+    /// The one-indexed line number corresponding to the marker's position.
+    /// This is often used when tracking the vertical location of the marker.
     pub line: u32,
 }
 
+/// Span that denotes a start and end of a token
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Default)]
 pub struct Span {
+    /// Start of the `Span`.
     pub start: Marker,
+    /// End of the `Span`.
     pub end: Marker,
 }
 
@@ -175,31 +196,65 @@ impl Span {
     }
 }
 
+///
+/// Represents the type of directives that can be encountered.
+///
+/// * `Tag` - Represents a Tag directive, which is used to associate a handle with a URI prefix for shorthand node tags in YAML.
+/// * `Reserved` - Represents a reserved directive type, which is not defined by the YAML 1.2 specification but is reserved for future use or custom extensions.
+///
+///
 #[derive(Copy, Clone, PartialEq)]
 pub enum DirectiveType {
+    /// Represents a YAML directive, typically used to define version or encoding information in a YAML document. For example:
+    /// ```yaml
+    /// %YAML 1.1
+    /// #^------^
+    /// ```
     Yaml,
+    /// Represents a Tag directive, which is used to associate a handle with a URI prefix for shorthand node tags in YAML. For example:
+    /// ```yaml
+    /// %TAG ! !foo
+    /// #^--------^
+    /// ```
     Tag,
+    /// Anything eles that might appear in directive.
     Reserved,
 }
 
-/// A specialized `Result` type where the error is hard-wired to [`Error`].
-///
-/// [`Error`]: enum.Error.html
+/// A specialized `Result` type where the error is hard-wired to [`YamlError`].
 pub type YamlResult<T> = Result<T, YamlError>;
+/// A result often returned by the YamlScanner. It's hard-wired to [`YamlError`].
 pub type ScanResult = Result<(), YamlError>;
 
+/// Enumeration representing all YAML errors
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum YamlError {
+    /// Error when decoding to UTF8
     Utf8(Utf8Error),
+    /// Io error when accessing the input.
     Io(String),
+    /// Didn't expect and end of file at that position.
     UnexpectedEof,
     /// Input decoding error. If `encoding` feature is disabled, contains `None`,
     /// otherwise contains the UTF-8 decoding error
     NonDecodable(Option<Utf8Error>),
-    ScannerErr {
-        mark: Marker,
-        info: String,
-    },
+    ///
+    /// Represents an error encountered during scanning or parsing operations.
+    ///
+    /// `ScannerErr` includes information about the location of the error and a
+    /// description of what went wrong.
+    ///
+    /// # Fields
+    /// - `mark: Marker`
+    ///   Indicates the location or position in the scanned input where the error occurred.
+    ///   This provides context for debugging or fixing the issue by pointing out where
+    ///   the problem lies.
+    ///
+    /// - `info: String`
+    ///   A description or message detailing the nature of the error. This provides a human-readable
+    ///   explanation of what caused the error, aiding in understanding and resolving the issue.
+    ScannerErr { mark: Marker, info: String },
+    /// Expected a document but found none.
     NoDocument,
 }
 
@@ -266,6 +321,29 @@ pub struct Tag {
 }
 
 impl Tag {
+    ///
+    /// Creates a new instance with the specified handle and suffix.
+    ///
+    /// # Parameters
+    ///
+    /// * `handle` - A `String` representing the main identifier or name to initialize.
+    /// * `suffix` - A `String` value appended or associated with the `handle`.
+    ///
+    /// # Returns
+    /// Will create a new tag instance
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use yam_common::Tag;
+    /// let instance = Tag::new("example_handle", "example_suffix");
+    /// ```
+    pub fn new<S: Into<String>>(handle: S, suffix: S) -> Self {
+        let handle: String = handle.into();
+        let suffix = suffix.into();
+        Tag { handle, suffix }
+    }
+
     /// Returns whether the tag is a YAML tag from the core schema (`!!str`, `!!int`, ...).
     ///
     /// The YAML specification specifies [a list of
