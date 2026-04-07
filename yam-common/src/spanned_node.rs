@@ -1,6 +1,4 @@
-use crate::{
-    LoadableYamlNode, NodeMapping, NodeSequence, Span, Tag, YamlDoc, YamlDocAccess, YamlEntry,
-};
+use crate::{LoadableYamlNode, Span, Tag, YamlDoc, YamlDocAccess, YamlEntry};
 use crate::{NodeType, YamlCloneNode};
 use std::borrow::Cow;
 
@@ -21,34 +19,8 @@ impl<'input> From<YamlDoc<'input>> for SpannedYaml<'input> {
 
 impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
     type Node = SpannedYaml<'input>;
-
-    fn is_bad_value(&self) -> bool {
-        matches!(self.data, YamlCloneNode::BadValue)
-    }
-
-    fn is_null(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Null)
-    }
-
-    fn is_string(&self) -> bool {
-        matches!(self.data, YamlCloneNode::String(_))
-    }
-
-    fn is_bool(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Bool(_))
-    }
-
-    fn is_floating_point(&self) -> bool {
-        matches!(self.data, YamlCloneNode::FloatingPoint(_))
-    }
-
-    fn is_integer(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Integer(_))
-    }
-
-    fn is_alias(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Alias(_))
-    }
+    type SequenceNode = Vec<SpannedYaml<'input>>;
+    type MappingNode = Vec<YamlEntry<'input, SpannedYaml<'input>>>;
 
     fn is_non_empty_collection(&self) -> bool {
         match &self.data {
@@ -56,14 +28,6 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
             YamlCloneNode::Mapping(m) => !m.is_empty(),
             _ => false,
         }
-    }
-
-    fn is_mapping(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Mapping(_))
-    }
-
-    fn is_sequence(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Sequence(_))
     }
 
     fn as_bool(&self) -> Option<bool> {
@@ -108,28 +72,28 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
         }
     }
 
-    fn as_sequence(&self) -> Option<&NodeSequence<Self::Node>> {
+    fn as_sequence(&self) -> Option<&Self::SequenceNode> {
         match &self.data {
             YamlCloneNode::Sequence(x) => Some(x),
             _ => None,
         }
     }
 
-    fn as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>> {
+    fn as_sequence_mut(&mut self) -> Option<&mut Self::SequenceNode> {
         match &mut self.data {
             YamlCloneNode::Sequence(x) => Some(x),
             _ => None,
         }
     }
 
-    fn as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>> {
+    fn as_mapping(&self) -> Option<&Self::MappingNode> {
         match &self.data {
             YamlCloneNode::Mapping(x) => Some(x),
             _ => None,
         }
     }
 
-    fn as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>> {
+    fn as_mapping_mut(&mut self) -> Option<&mut Self::MappingNode> {
         match &mut self.data {
             YamlCloneNode::Mapping(x) => Some(x),
             _ => None,
@@ -157,7 +121,7 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
         }
     }
 
-    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self>> {
+    fn mapping_mut(&mut self) -> &mut Self::MappingNode {
         match self.data {
             YamlCloneNode::Mapping(ref mut s) => s,
             _ => panic!("Cannot get mapping_mut for non-mappingdata data"),
@@ -210,14 +174,14 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
         }
     }
 
-    fn into_mapping(self) -> Option<NodeMapping<'input, Self::Node>> {
+    fn into_mapping(self) -> Option<Self::MappingNode> {
         match self.data {
             YamlCloneNode::Mapping(mapping) => Some(mapping),
             _ => None,
         }
     }
 
-    fn into_sequence(self) -> Option<NodeSequence<Self::Node>> {
+    fn into_sequence(self) -> Option<Self::SequenceNode> {
         match self.data {
             YamlCloneNode::Sequence(seq) => Some(seq),
             _ => None,

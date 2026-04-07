@@ -14,12 +14,6 @@ use core::fmt::{Display, Formatter};
 use core::str::Utf8Error;
 pub use yaml_doc::{Mapping, Sequence, YamlDoc, YamlEntry};
 
-/// Return type of the `YamlDocAccess` sequence methods.
-pub type NodeSequence<Node> = Vec<Node>;
-
-/// Return type fo the `YamlDocAccess` mapping methods.
-pub type NodeMapping<'input, Node> = Vec<YamlEntry<'input, Node>>;
-
 /// Represents the different types of scalar values in YAML with distinct formatting styles.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ScalarType {
@@ -369,7 +363,7 @@ impl Tag {
 }
 
 impl Display for Tag {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if self.handle == "!" {
             write!(f, "!{}", self.suffix)
         } else {
@@ -478,6 +472,9 @@ pub enum NodeType {
 pub trait YamlDocAccess<'input> {
     /// Type of node used in Sequence or Mapping
     type Node: Clone;
+
+    type SequenceNode;
+    type MappingNode;
 
     /// Determines whether the current node is a bad value.
     ///
@@ -751,7 +748,7 @@ pub trait YamlDocAccess<'input> {
     /// * `Option<&NodeSequence<Self::Node>>` -
     ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
     ///
-    fn as_sequence(&self) -> Option<&NodeSequence<Self::Node>>;
+    fn as_sequence(&self) -> Option<&Self::SequenceNode>;
 
     /// Returns a mutable reference to the sequence of nodes (`NodeSequence`).
     ///
@@ -763,7 +760,7 @@ pub trait YamlDocAccess<'input> {
     /// * `Option<&mut NodeSequence<Self::Node>>` -
     ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
     ///
-    fn as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>>;
+    fn as_sequence_mut(&mut self) -> Option<&mut Self::SequenceNode>;
 
     /// Returns an optional reference to the mapping of nodes (`NodeMapping`).
     ///
@@ -775,7 +772,7 @@ pub trait YamlDocAccess<'input> {
     /// * `Option<&mut NodeMapping<Self::Node>>` -
     ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
     ///
-    fn as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>>;
+    fn as_mapping(&self) -> Option<&Self::MappingNode>;
 
     /// Returns a mutable reference to the mapping of nodes (`NodeMapping`).
     ///
@@ -787,7 +784,7 @@ pub trait YamlDocAccess<'input> {
     /// * `Option<&mut NodeMapping<Self::Node>>` -
     ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
     ///
-    fn as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>>;
+    fn as_mapping_mut(&mut self) -> Option<&mut Self::MappingNode>;
 
     /// Converts the current instance into an `Option` containing a string slice (`&str`).
     ///
@@ -827,7 +824,7 @@ pub trait YamlDocAccess<'input> {
     /// let sequence = instance.sequence_mut();
     /// sequence.push(YamlDoc::Bool(false));
     /// ```
-    fn sequence_mut(&mut self) -> &mut Vec<Self::Node>;
+    fn sequence_mut(&mut self) -> &mut Self::SequenceNode;
 
     /// Provides mutable access to the mapping within the implementing type.
     ///
@@ -855,7 +852,7 @@ pub trait YamlDocAccess<'input> {
     /// let sequence = instance.mapping_mut();
     /// sequence.push(entry2);
     /// ```
-    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self::Node>>;
+    fn mapping_mut(&mut self) -> &mut Self::MappingNode;
 
     /// Retrieves the `Tag` associated with the current instance, if it exists.
     ///
@@ -953,7 +950,7 @@ pub trait YamlDocAccess<'input> {
     ///   avoid receiving `None`.
     ///  # See also
     ///   [`YamlDocAccess::is_mapping`]
-    fn into_mapping(self) -> Option<NodeMapping<'input, Self::Node>>;
+    fn into_mapping(self) -> Option<Self::MappingNode>;
 
     ///  Converts the current structure into a `NodeSequence`, if possible.
     ///
@@ -974,7 +971,7 @@ pub trait YamlDocAccess<'input> {
     /// # See also
     ///   [`YamlDocAccess::is_sequence`]
     ///
-    fn into_sequence(self) -> Option<NodeSequence<Self::Node>>;
+    fn into_sequence(self) -> Option<Self::SequenceNode>;
 }
 
 ///

@@ -183,7 +183,13 @@ where
 
 impl<'input, Node> SpannedEventReceiver<'input> for YamlLoader<'input, Node>
 where
-    Node: LoadableYamlNode<'input> + YamlDocAccess<'input, Node = Node>,
+    Node: LoadableYamlNode<'input>
+        + YamlDocAccess<
+            'input,
+            Node = Node,
+            SequenceNode = Vec<Node>,
+            MappingNode = Vec<YamlEntry<'input, Node>>,
+        >,
 {
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let marker = span.start;
@@ -242,7 +248,13 @@ where
 
 impl<'input, Node> YamlLoader<'input, Node>
 where
-    Node: LoadableYamlNode<'input> + YamlDocAccess<'input, Node = Node>,
+    Node: LoadableYamlNode<'input>
+        + YamlDocAccess<
+            'input,
+            Node = Node,
+            SequenceNode = Vec<Node>,
+            MappingNode = Vec<YamlEntry<'input, Node>>,
+        >,
 {
     #[must_use]
     pub fn into_documents(self) -> Vec<Node> {

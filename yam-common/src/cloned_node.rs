@@ -1,5 +1,5 @@
 use crate::yaml_doc::NodeType;
-use crate::{Mapping, NodeMapping, NodeSequence, Sequence, Tag, YamlDoc, YamlDocAccess, YamlEntry};
+use crate::{Mapping, Sequence, Tag, YamlDoc, YamlDocAccess, YamlEntry};
 use std::borrow::Cow;
 use std::ops::{Index, IndexMut};
 
@@ -73,6 +73,8 @@ where
     Node: Clone + YamlDocAccess<'input>,
 {
     type Node = Node;
+    type SequenceNode = Vec<Node>;
+    type MappingNode = Vec<YamlEntry<'input, Node>>;
 
     fn is_non_empty_collection(&self) -> bool {
         match self {
@@ -124,28 +126,28 @@ where
         }
     }
 
-    fn as_sequence(&self) -> Option<&NodeSequence<Self::Node>> {
+    fn as_sequence(&self) -> Option<&Self::SequenceNode> {
         match self {
             YamlCloneNode::Sequence(x) => Some(x),
             _ => None,
         }
     }
 
-    fn as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>> {
+    fn as_sequence_mut(&mut self) -> Option<&mut Self::SequenceNode> {
         match self {
             YamlCloneNode::Sequence(x) => Some(x),
             _ => None,
         }
     }
 
-    fn as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>> {
+    fn as_mapping(&self) -> Option<&Self::MappingNode> {
         match self {
             YamlCloneNode::Mapping(x) => Some(x),
             _ => None,
         }
     }
 
-    fn as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>> {
+    fn as_mapping_mut(&mut self) -> Option<&mut Self::MappingNode> {
         match self {
             YamlCloneNode::Mapping(x) => Some(x),
             _ => None,
@@ -166,7 +168,7 @@ where
         }
     }
 
-    fn sequence_mut(&mut self) -> &mut Vec<Node> {
+    fn sequence_mut(&mut self) -> &mut Self::SequenceNode {
         match self {
             YamlCloneNode::Sequence(seq) => seq,
             _ => core::panic!("Expected sequence got {:?}", self.get_type()),
@@ -237,14 +239,14 @@ where
         }
     }
 
-    fn into_mapping(self) -> Option<NodeMapping<'input, Self::Node>> {
+    fn into_mapping(self) -> Option<Self::MappingNode> {
         match self {
             YamlCloneNode::Mapping(mapping) => Some(mapping),
             _ => None,
         }
     }
 
-    fn into_sequence(self) -> Option<NodeSequence<Self::Node>> {
+    fn into_sequence(self) -> Option<Self::SequenceNode> {
         match self {
             YamlCloneNode::Sequence(seq) => Some(seq),
             _ => None,
@@ -339,9 +341,9 @@ where
         match self {
             YamlCloneNode::Sequence(sequence) => sequence.index_mut(index),
             YamlCloneNode::Mapping(mapping) => {
-                let find_key = mapping
-                    .iter_mut()
-                    .find(|x| x.key.as_i64() == Some(index as i64));
+                let key_int =
+                    i64::try_from(index).expect("Expected key to be lesser than `i64::max`");
+                let find_key = mapping.iter_mut().find(|x| x.key.as_i64() == Some(key_int));
                 &mut find_key
                     .unwrap_or_else(|| panic!("Key {index} not found in `YamlCloneNode` mapping"))
                     .value
