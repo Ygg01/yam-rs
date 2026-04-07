@@ -1,4 +1,4 @@
-use crate::{LoadableYamlNode, Span, Tag, YamlDoc, YamlDocAccess, YamlEntry};
+use crate::{LoadableYamlNode, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
 use crate::{NodeType, YamlCloneNode};
 use std::borrow::Cow;
 
@@ -72,31 +72,31 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
         }
     }
 
-    fn as_sequence(&self) -> Option<&Self::SequenceNode> {
+    fn as_sequence(&self) -> Result<&Vec<SpannedYaml<'input>>, YamlAccessError> {
         match &self.data {
-            YamlCloneNode::Sequence(x) => Some(x),
-            _ => None,
+            YamlCloneNode::Sequence(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedSequence),
         }
     }
 
-    fn as_sequence_mut(&mut self) -> Option<&mut Self::SequenceNode> {
+    fn as_sequence_mut(&mut self) -> Result<&mut Self::SequenceNode, YamlAccessError> {
         match &mut self.data {
-            YamlCloneNode::Sequence(x) => Some(x),
-            _ => None,
+            YamlCloneNode::Sequence(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedSequence),
         }
     }
 
-    fn as_mapping(&self) -> Option<&Self::MappingNode> {
+    fn as_mapping(&self) -> Result<&Self::MappingNode, YamlAccessError> {
         match &self.data {
-            YamlCloneNode::Mapping(x) => Some(x),
-            _ => None,
+            YamlCloneNode::Mapping(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedMapping),
         }
     }
 
-    fn as_mapping_mut(&mut self) -> Option<&mut Self::MappingNode> {
+    fn as_mapping_mut(&mut self) -> Result<&mut Self::MappingNode, YamlAccessError> {
         match &mut self.data {
-            YamlCloneNode::Mapping(x) => Some(x),
-            _ => None,
+            YamlCloneNode::Mapping(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedMapping),
         }
     }
 

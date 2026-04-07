@@ -1,4 +1,4 @@
-use crate::{LoadableYamlNode, NodeType, ScalarType, Tag, YamlDocAccess};
+use crate::{LoadableYamlNode, NodeType, ScalarType, Tag, YamlAccessError, YamlDocAccess};
 
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -60,31 +60,31 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
         }
     }
 
-    fn as_sequence(&self) -> Option<&Self::SequenceNode> {
+    fn as_sequence(&self) -> Result<&Self::SequenceNode, YamlAccessError> {
         match self {
-            YamlDoc::Sequence(x) => Some(x),
-            _ => None,
+            YamlDoc::Sequence(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedSequence),
         }
     }
 
-    fn as_sequence_mut(&mut self) -> Option<&mut Self::SequenceNode> {
+    fn as_sequence_mut(&mut self) -> Result<&mut Self::SequenceNode, YamlAccessError> {
         match self {
-            YamlDoc::Sequence(x) => Some(x),
-            _ => None,
+            YamlDoc::Sequence(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedSequence),
         }
     }
 
-    fn as_mapping(&self) -> Option<&Self::MappingNode> {
+    fn as_mapping(&self) -> Result<&Self::MappingNode, YamlAccessError> {
         match self {
-            YamlDoc::Mapping(x) => Some(x),
-            _ => None,
+            YamlDoc::Mapping(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedMapping),
         }
     }
 
-    fn as_mapping_mut(&mut self) -> Option<&mut Self::MappingNode> {
+    fn as_mapping_mut(&mut self) -> Result<&mut Self::MappingNode, YamlAccessError> {
         match self {
-            YamlDoc::Mapping(x) => Some(x),
-            _ => None,
+            YamlDoc::Mapping(x) => Ok(x),
+            _ => Err(YamlAccessError::ExpectedMapping),
         }
     }
 
@@ -525,7 +525,7 @@ impl<T: Clone> YamlEntry<'_, T> {
         }
     }
 }
-
+#[allow(clippy::cast_possible_wrap)]
 impl<'input> Index<usize> for YamlDoc<'input> {
     type Output = YamlDoc<'input>;
 
@@ -543,9 +543,9 @@ impl<'input> Index<usize> for YamlDoc<'input> {
         match self {
             YamlDoc::Sequence(sequence) => sequence.index(index),
             YamlDoc::Mapping(mapping) => {
-                let key_int =
-                    i64::try_from(index).expect("Expected key to be lesser than `i64::max`");
-                let find_key = mapping.iter().find(|x| x.key.as_i64() == Some(key_int));
+                let find_key = mapping
+                    .iter()
+                    .find(|x| x.key.as_i64() == Some(index as i64));
                 &find_key
                     .unwrap_or_else(|| panic!("Key {index} not found in `YamlCloneNode` mapping"))
                     .value
@@ -554,7 +554,7 @@ impl<'input> Index<usize> for YamlDoc<'input> {
         }
     }
 }
-
+#[allow(clippy::cast_possible_wrap)]
 impl<'input> IndexMut<usize> for YamlDoc<'input> {
     /// Perform index by integer.
     ///
@@ -570,9 +570,9 @@ impl<'input> IndexMut<usize> for YamlDoc<'input> {
         match self {
             YamlDoc::Sequence(sequence) => sequence.index_mut(index),
             YamlDoc::Mapping(mapping) => {
-                let key_int =
-                    i64::try_from(index).expect("Expected key to be lesser than `i64::max`");
-                let find_key = mapping.iter_mut().find(|x| x.key.as_i64() == Some(key_int));
+                let find_key = mapping
+                    .iter_mut()
+                    .find(|x| x.key.as_i64() == Some(index as i64));
                 &mut find_key
                     .unwrap_or_else(|| panic!("Key {index} not found in `YamlCloneNode` mapping"))
                     .value

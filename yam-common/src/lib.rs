@@ -1,8 +1,9 @@
 extern crate alloc;
 extern crate core;
+#[deny(missing_docs)]
 pub(crate) mod cloned_node;
 pub mod spanned_node;
-#[deny(missing_docs)]
+
 pub(crate) mod yaml_doc;
 
 pub use crate::cloned_node::YamlCloneNode;
@@ -419,6 +420,12 @@ pub enum NodeType {
     Sequence,
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum YamlAccessError {
+    ExpectedMapping,
+    ExpectedSequence,
+}
+
 ///   Trait that provides access and utility functions for interacting with a YAML document's structure and nodes.
 ///
 ///  This trait establishes a unified interface for working with YAML nodes, allowing you to inspect,
@@ -746,10 +753,12 @@ pub trait YamlDocAccess<'input> {
     /// `None` is returned.
     ///
     /// # Returns
-    /// * `Option<&NodeSequence<Self::Node>>` -
-    ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
+    /// * `Result<&Self::SequenceNode, YamlAccessError>` -
+    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Sequence`.
     ///
-    fn as_sequence(&self) -> Option<&Self::SequenceNode>;
+    /// # Errors
+    /// If calling `as_sequence` on a non-mapping node.
+    fn as_sequence(&self) -> Result<&Self::SequenceNode, YamlAccessError>;
 
     /// Returns a mutable reference to the sequence of nodes (`NodeSequence`).
     ///
@@ -758,10 +767,11 @@ pub trait YamlDocAccess<'input> {
     /// `None` is returned.
     ///
     /// # Returns
-    /// * `Option<&mut NodeSequence<Self::Node>>` -
-    ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
-    ///
-    fn as_sequence_mut(&mut self) -> Option<&mut Self::SequenceNode>;
+    /// * `Result<&mut Self::SequenceNode, YamlAccessError>` -
+    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Sequence`.
+    /// # Errors
+    /// If calling `as_sequence_mut` on a non-sequence node.
+    fn as_sequence_mut(&mut self) -> Result<&mut Self::SequenceNode, YamlAccessError>;
 
     /// Returns an optional reference to the mapping of nodes (`NodeMapping`).
     ///
@@ -770,10 +780,12 @@ pub trait YamlDocAccess<'input> {
     /// `None` is returned.
     ///
     /// # Returns
-    /// * `Option<&mut NodeMapping<Self::Node>>` -
-    ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
+    /// * `Result<&Self::MappingNode, YamlAccessError>` -
+    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Mapping`.
     ///
-    fn as_mapping(&self) -> Option<&Self::MappingNode>;
+    /// # Errors
+    /// If calling `as_mapping` on a non-mapping node.
+    fn as_mapping(&self) -> Result<&Self::MappingNode, YamlAccessError>;
 
     /// Returns a mutable reference to the mapping of nodes (`NodeMapping`).
     ///
@@ -782,10 +794,12 @@ pub trait YamlDocAccess<'input> {
     /// `None` is returned.
     ///
     /// # Returns
-    /// * `Option<&mut NodeMapping<Self::Node>>` -
-    ///   A reference to the node sequence wrapped in `Some` if it exists, or `None` otherwise.
+    /// * `Result<&mut Self::MappingNode, YamlAccessError>` -
+    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Mapping`.
     ///
-    fn as_mapping_mut(&mut self) -> Option<&mut Self::MappingNode>;
+    /// # Errors
+    /// If calling `as_mapping_mut` on a non-mapping node.
+    fn as_mapping_mut(&mut self) -> Result<&mut Self::MappingNode, YamlAccessError>;
 
     /// Converts the current instance into an `Option` containing a string slice (`&str`).
     ///
