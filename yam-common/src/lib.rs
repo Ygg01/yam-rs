@@ -472,8 +472,9 @@ pub enum NodeType {
 pub trait YamlDocAccess<'input> {
     /// Type of node used in Sequence or Mapping
     type Node: Clone;
-
+    /// Type of sequence node being used.
     type SequenceNode;
+    /// Type of mapping node being used.
     type MappingNode;
 
     /// Determines whether the current node is a bad value.

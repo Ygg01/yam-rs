@@ -1,5 +1,5 @@
-use crate::LoadableYamlNode;
-pub(crate) use crate::{NodeType, ScalarType, Tag, YamlDocAccess};
+use crate::{LoadableYamlNode, NodeType, ScalarType, Tag, YamlDocAccess};
+
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::mem;

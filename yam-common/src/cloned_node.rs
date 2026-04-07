@@ -1,5 +1,4 @@
-use crate::yaml_doc::NodeType;
-use crate::{Mapping, Sequence, Tag, YamlDoc, YamlDocAccess, YamlEntry};
+use crate::{Mapping, NodeType, Sequence, Tag, YamlDoc, YamlDocAccess, YamlEntry};
 use std::borrow::Cow;
 use std::ops::{Index, IndexMut};
 
