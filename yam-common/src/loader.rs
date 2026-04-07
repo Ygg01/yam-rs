@@ -200,51 +200,6 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq + YamlDocAccess<'input> {
     fn with_end(self, _marker: Marker) -> Self {
         self
     }
-
-    /// Provides mutable access to the sequence within the implementing type.
-    ///
-    /// This method allows for getting a mutable reference to a `Vec` associated with
-    /// the implementing type. This enables modification of the underlying vector, such
-    /// as adding, removing, or altering elements.
-    ///
-    /// # Returns
-    /// A mutable reference to a `Vec` of the type implementing this method.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use yam_common::YamlDoc;
-    /// use yam_common::LoadableYamlNode;
-    ///
-    /// let mut instance = YamlDoc::Sequence(vec![YamlDoc::Bool(true)]);
-    /// let sequence = instance.sequence_mut();
-    /// sequence.push(YamlDoc::Bool(false));
-    /// ```
-    fn sequence_mut(&mut self) -> &mut Vec<Self>;
-
-    /// Provides mutable access to the mapping within the implementing type.
-    ///
-    /// This method allows for getting a mutable reference to a `Vec` of `YamlEntry` associated with
-    /// the implementing type. This enables modification of the underlying vector, such
-    /// as adding, removing, or altering elements.
-    ///
-    /// # Returns
-    /// A mutable reference to a `Vec` of the type implementing this method.
-    ///
-    /// # Examples
-    /// ```rust
-    ///
-    /// use std::borrow::Cow;
-    /// use yam_common::YamlDoc;
-    /// use yam_common::YamlEntry;
-    /// use yam_common::LoadableYamlNode;
-    ///
-    /// let entry1 = YamlEntry::new("key".into(), "value".into());
-    /// let entry2 = YamlEntry::new("another_key".into(), "value2".into());
-    /// let mut instance = YamlDoc::Mapping(vec![entry1]);
-    /// let sequence = instance.mapping_mut();
-    /// sequence.push(entry2);
-    /// ```
-    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self>>;
 }
 
 /// Return type of the `YamlDocAccess` sequence methods.
@@ -615,6 +570,57 @@ pub trait YamlDocAccess<'input> {
     ///
     fn as_str_mut(&mut self) -> Option<&mut str>;
 
+    /// Provides mutable access to the sequence within the implementing type.
+    ///
+    /// This method allows for getting a mutable reference to a `Vec` associated with
+    /// the implementing type. This enables modification of the underlying vector, such
+    /// as adding, removing, or altering elements.
+    ///
+    /// # Panics
+    /// If called on a node that isn't a mapping.
+    ///
+    /// # Returns
+    /// A mutable reference to a `Vec` of the type implementing this method.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use yam_common::YamlDoc;
+    /// use yam_common::LoadableYamlNode;
+    ///
+    /// let mut instance = YamlDoc::Sequence(vec![YamlDoc::Bool(true)]);
+    /// let sequence = instance.sequence_mut();
+    /// sequence.push(YamlDoc::Bool(false));
+    /// ```
+    fn sequence_mut(&mut self) -> &mut Vec<Self::Node>;
+
+    /// Provides mutable access to the mapping within the implementing type.
+    ///
+    /// This method allows for getting a mutable reference to a `Vec` of `YamlEntry` associated with
+    /// the implementing type. This enables modification of the underlying vector, such
+    /// as adding, removing, or altering elements.
+    ///
+    /// # Returns
+    /// A mutable reference to a `Vec` of the type implementing this method.
+    ///
+    /// # Panics
+    /// If called on a node that isn't a mapping.
+    ///
+    /// # Examples
+    /// ```rust
+    ///
+    /// use std::borrow::Cow;
+    /// use yam_common::YamlDoc;
+    /// use yam_common::YamlEntry;
+    /// use yam_common::LoadableYamlNode;
+    ///
+    /// let entry1 = YamlEntry::new("key".into(), "value".into());
+    /// let entry2 = YamlEntry::new("another_key".into(), "value2".into());
+    /// let mut instance = YamlDoc::Mapping(vec![entry1]);
+    /// let sequence = instance.mapping_mut();
+    /// sequence.push(entry2);
+    /// ```
+    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self::Node>>;
+
     /// Retrieves the `Tag` associated with the current instance, if it exists.
     ///
     /// # Returns
@@ -786,71 +792,136 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
     }
 
     fn as_i64_mut(&mut self) -> Option<&mut i64> {
-        todo!()
+        match self {
+            YamlDoc::Integer(x) => Some(x),
+            _ => None,
+        }
     }
 
     fn as_f64(&self) -> Option<f64> {
-        todo!()
+        match self {
+            YamlDoc::FloatingPoint(x) => Some(*x),
+            _ => None,
+        }
     }
 
     fn as_f64_mut(&mut self) -> Option<&mut f64> {
-        todo!()
+        match self {
+            YamlDoc::FloatingPoint(x) => Some(x),
+            _ => None,
+        }
     }
 
     fn as_sequence(&self) -> Option<&NodeSequence<Self::Node>> {
-        todo!()
+        match self {
+            YamlDoc::Sequence(x) => Some(x),
+            _ => None,
+        }
     }
 
     fn as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>> {
-        todo!()
+        match self {
+            YamlDoc::Sequence(x) => Some(x),
+            _ => None,
+        }
     }
 
     fn as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>> {
-        todo!()
+        match self {
+            YamlDoc::Mapping(x) => Some(x),
+            _ => None,
+        }
     }
 
     fn as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>> {
-        todo!()
+        match self {
+            YamlDoc::Mapping(x) => Some(x),
+            _ => None,
+        }
     }
 
     fn as_str(&self) -> Option<&str> {
-        todo!()
+        match self {
+            YamlDoc::String(x) => Some(x.as_ref()),
+            _ => None,
+        }
     }
 
     fn as_str_mut(&mut self) -> Option<&mut str> {
-        todo!()
+        match self {
+            &mut YamlDoc::String(ref mut v) => Some(v.to_mut()),
+            _ => None,
+        }
+    }
+
+    fn sequence_mut(&mut self) -> &mut Vec<Self> {
+        match self {
+            YamlDoc::Sequence(seq) => seq,
+            _ => core::panic!("Expected sequence got {:?}", self),
+        }
+    }
+
+    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self>> {
+        match self {
+            YamlDoc::Mapping(map) => map,
+            _ => core::panic!("Expected mapping got {:?}", self),
+        }
     }
 
     fn get_tag(&self) -> Option<Tag> {
-        todo!()
+        match self {
+            YamlDoc::Tagged(tag, ..) => Some(Tag::new(&tag.handle, &tag.suffix)),
+            _ => None,
+        }
     }
 
     fn into_bool(self) -> Option<bool> {
-        todo!()
+        match self {
+            YamlDoc::Bool(b) => Some(b),
+            _ => None,
+        }
     }
 
     fn into_string(self) -> Option<String> {
-        todo!()
+        match self {
+            YamlDoc::String(s) => Some(s.to_string()),
+            _ => None,
+        }
     }
 
     fn into_cow(self) -> Option<Cow<'input, str>> {
-        todo!()
+        match self {
+            YamlDoc::String(s) => Some(s),
+            _ => None,
+        }
     }
 
     fn into_f64(self) -> Option<f64> {
-        todo!()
+        match self {
+            YamlDoc::FloatingPoint(f) => Some(f),
+            _ => None,
+        }
     }
 
     fn into_i64(self) -> Option<i64> {
-        todo!()
+        match self {
+            YamlDoc::Integer(i) => Some(i),
+            _ => None,
+        }
     }
 
     fn into_mapping(self) -> Option<NodeMapping<'input, Self::Node>> {
-        todo!()
+        match self {
+            YamlDoc::Mapping(mapping) => Some(mapping),
+            _ => None,
+        }
     }
 
     fn into_sequence(self) -> Option<NodeSequence<Self::Node>> {
-        todo!()
+        match self {
+            YamlDoc::Sequence(seq) => Some(seq),
+            _ => None,
+        }
     }
 }
 
@@ -869,20 +940,6 @@ impl<'input> LoadableYamlNode<'input> for YamlDoc<'input> {
 
     fn take(&mut self) -> Self {
         mem::take(self)
-    }
-
-    fn sequence_mut(&mut self) -> &mut Vec<Self> {
-        match self {
-            YamlDoc::Sequence(seq) => seq,
-            _ => core::panic!("Expected sequence got {:?}", self),
-        }
-    }
-
-    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self>> {
-        match self {
-            YamlDoc::Mapping(map) => map,
-            _ => core::panic!("Expected sequence got {:?}", self),
-        }
     }
 }
 
@@ -974,7 +1031,7 @@ impl<'input> YamlDoc<'input> {
     /// # Returns
     ///
     /// - If the `scalar_type` is not [`ScalarType::Plain`], this function directly returns a
-    ///   [`YamlDoc::String`] with the provided `value`.
+    ///  [`YamlDoc::String`] with the provided `value`.
     ///
     /// - If a `tag` is provided and it is valid according to the YAML core schema, the method
     ///   attempts to interpret the value based on the `tag.suffix`:
