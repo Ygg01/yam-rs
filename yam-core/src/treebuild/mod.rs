@@ -131,7 +131,7 @@ use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use yam_common::LoadableYamlNode;
+use yam_common::{LoadableYamlNode, YamlDocAccess};
 use yam_common::{Marker, Span, Tag, YamlDoc, YamlEntry, YamlError};
 
 /// A struct responsible for loading and parsing YAML documents, while maintaining
@@ -184,7 +184,7 @@ where
 
 impl<'input, Node> SpannedEventReceiver<'input> for YamlLoader<'input, Node>
 where
-    Node: LoadableYamlNode<'input>,
+    Node: LoadableYamlNode<'input> + YamlDocAccess<'input, Node = Node>,
 {
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let marker = span.start;
@@ -243,7 +243,7 @@ where
 
 impl<'input, Node> YamlLoader<'input, Node>
 where
-    Node: LoadableYamlNode<'input>,
+    Node: LoadableYamlNode<'input> + YamlDocAccess<'input, Node = Node>,
 {
     #[must_use]
     pub fn into_documents(self) -> Vec<Node> {
