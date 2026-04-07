@@ -134,6 +134,28 @@ use core::marker::PhantomData;
 use yam_common::LoadableYamlNode;
 use yam_common::{Marker, Span, Tag, YamlDoc, YamlEntry, YamlError};
 
+/// A struct responsible for loading and parsing YAML documents, while maintaining
+/// internal state for tracking document structure and node relationships.
+///
+/// # Generic Parameters
+/// - `'input`: The lifetime of the input data being processed.
+/// - `Node`: A type that implements the `LoadableYamlNode` trait and represents
+///   a YAML node during the loading process.
+///
+///
+/// # Usage
+/// This struct is intended to be used as an entry point for converting input into [`LoadableYamlNode`].
+/// Most common yaml node being [`YamlDoc`]
+///
+/// # Example
+/// ```rust
+/// use yam_common::YamlDoc;
+/// use yam_core::YamlLoader;
+///
+/// let yaml_str = "{a : b, c: d}";
+/// let doc = YamlLoader::<YamlDoc>::load_from(yaml_str).expect("Valid input YAML");
+///
+/// ```
 pub struct YamlLoader<'input, Node>
 where
     Node: LoadableYamlNode<'input>,

@@ -1,7 +1,8 @@
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::vec::Vec;
-use yam_common::{Span, Tag, YamlDoc, YamlEntry};
+use yam_common::{Span, Tag, YamlDoc, YamlDocAccess, YamlEntry};
 
 use yam_common::LoadableYamlNode;
 use yam_common::YamlCloneNode;
@@ -18,6 +19,130 @@ impl<'input> From<YamlDoc<'input>> for SpannedYaml<'input> {
             data: yaml_data.into(),
             span: Span::default(),
         }
+    }
+}
+
+impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
+    type Node = SpannedYaml<'input>;
+
+    fn is_bad_value(&self) -> bool {
+        todo!()
+    }
+
+    fn is_null(&self) -> bool {
+        todo!()
+    }
+
+    fn is_string(&self) -> bool {
+        todo!()
+    }
+
+    fn is_bool(&self) -> bool {
+        todo!()
+    }
+
+    fn is_floating_point(&self) -> bool {
+        todo!()
+    }
+
+    fn is_integer(&self) -> bool {
+        todo!()
+    }
+
+    fn is_alias(&self) -> bool {
+        todo!()
+    }
+
+    fn is_non_empty_collection(&self) -> bool {
+        todo!()
+    }
+
+    fn is_mapping(&self) -> bool {
+        todo!()
+    }
+
+    fn is_sequence(&self) -> bool {
+        todo!()
+    }
+
+    fn as_bool(&self) -> Option<bool> {
+        todo!()
+    }
+
+    fn as_bool_mut(&mut self) -> Option<&mut bool> {
+        todo!()
+    }
+
+    fn as_i64(&self) -> Option<i64> {
+        todo!()
+    }
+
+    fn as_i64_mut(&mut self) -> Option<&mut i64> {
+        todo!()
+    }
+
+    fn as_f64(&self) -> Option<f64> {
+        todo!()
+    }
+
+    fn as_f64_mut(&mut self) -> Option<&mut f64> {
+        todo!()
+    }
+
+    fn as_sequence(&self) -> Option<&yam_common::NodeSequence<Self::Node>> {
+        todo!()
+    }
+
+    fn as_sequence_mut(&mut self) -> Option<&mut yam_common::NodeSequence<Self::Node>> {
+        todo!()
+    }
+
+    fn as_mapping(&self) -> Option<&yam_common::NodeMapping<'input, Self::Node>> {
+        todo!()
+    }
+
+    fn as_mapping_mut(&mut self) -> Option<&yam_common::NodeMapping<'input, Self::Node>> {
+        todo!()
+    }
+
+    fn as_str(&self) -> Option<&str> {
+        todo!()
+    }
+
+    fn as_str_mut(&mut self) -> Option<&mut str> {
+        todo!()
+    }
+
+    fn get_tag(&self) -> Option<Tag> {
+        todo!()
+    }
+
+    fn into_bool(self) -> Option<bool> {
+        todo!()
+    }
+
+    fn into_string(self) -> Option<String> {
+        todo!()
+    }
+
+    fn into_cow(self) -> Option<Cow<'input, str>> {
+        todo!()
+    }
+
+    fn into_f64(self) -> Option<f64> {
+        todo!()
+    }
+
+    fn into_i64(self) -> Option<i64> {
+        todo!()
+    }
+
+    fn into_mapping(self) -> Option<yam_common::NodeMapping<'input, Self::Node>> {
+        todo!()
+    }
+
+    fn into_sequence(self) -> Option<yam_common::NodeSequence<Self::Node>> {
+        todo!()
     }
 }
 
@@ -57,27 +182,7 @@ impl<'input> LoadableYamlNode<'input> for SpannedYaml<'input> {
         }
     }
 
-    fn is_sequence(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Sequence(_))
-    }
-
-    fn is_mapping(&self) -> bool {
-        matches!(self.data, YamlCloneNode::Mapping(_))
-    }
-
-    fn is_bad_value(&self) -> bool {
-        matches!(self.data, YamlCloneNode::BadValue)
-    }
-
     fn take(&mut self) -> Self {
         core::mem::take(self)
-    }
-
-    fn is_non_empty_collection(&self) -> bool {
-        match self.data {
-            YamlCloneNode::Sequence(ref s) => !s.is_empty(),
-            YamlCloneNode::Mapping(ref s) => !s.is_empty(),
-            _ => false,
-        }
     }
 }

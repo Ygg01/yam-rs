@@ -15,55 +15,6 @@ use std::borrow::Cow;
 /// * `Node`: Generic parameter for representing nested or child nodes. It must
 ///   implement the `Clone` trait.
 ///
-/// # Variants
-///
-/// * `BadValue`:  
-///   An invalid value for YAML documents. This variant can represent an
-///   uninitialized or erroneous state for a YAML node.
-///
-/// * `Null`:  
-///   Represents a `null` value in the YAML document. This is the default variant.
-///
-/// * `String(Cow<'input, str>)`:  
-///   Represents a YAML string value. The string can either be owned or borrowed,
-///   thanks to the use of `Cow`.
-///
-/// * `Bool(bool)`:  
-///   Represents a boolean value (`true` or `false`) in the YAML document.
-///
-/// * `FloatingPoint(f64)`:  
-///   Represents a floating-point number in the YAML document.
-///
-/// * `Integer(i64)`:  
-///   Represents an integer number in the YAML document.
-///
-/// * `Sequence(Vec<Node>)`:  
-///   Represents a sequence (list) of YAML values. It can appear in either
-///   flow style (e.g., `[x, x, x]`) or block style:
-///   ```yaml
-///   - x
-///   - x
-///   - x
-///   ```
-///   Each item in the sequence is represented as a `Node`.
-///
-/// * `Mapping(Vec<YamlEntry<'input, Node>>)`:
-///   Represents a mapping (key-value pairs) of YAML values. It can appear in
-///   either flow style (e.g., `{x: Y, a: B}`) or block style:
-///   ```yaml
-///   x: Y
-///   a: B
-///   ```
-///   Each key-value pair is represented as a `YamlEntry`.
-///
-/// * `Alias(usize)`:  
-///   Represents an alias to another YAML node. The alias is denoted by
-///   a reference to the index or position of the node it points to.
-///
-/// * `Tagged(Cow<'input, Tag>, Box<Node>)`:  
-///   Represents a tagged YAML value. It includes both a `Tag` (using `Cow`
-///   for borrowed or owned strings) and a boxed node as its value.
-///
 /// # Traits Implementations
 ///
 /// * `Default`: The default value for `YamlCloneNode` is the `Null` variant.
@@ -111,7 +62,7 @@ pub enum YamlCloneNode<'input, Node: Clone> {
     Mapping(Vec<YamlEntry<'input, Node>>),
     /// Represents a pointer to another node like `[*lol, *lol]`
     Alias(usize),
-    /// Tagged YamlDoc value, contains a [`Tag`] and a node that's a [`Box<Node>`]
+    /// Tagged `YamlDoc` value, contains a [`Tag`] and a node that's a [`Box<Node>`]
     Tagged(Cow<'input, Tag>, Box<Node>),
 }
 

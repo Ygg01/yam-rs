@@ -1,5 +1,5 @@
+use crate::yam_common::YamlDocAccess;
 use core::fmt;
-pub use yam_common::LoadableYamlNode;
 use yam_common::{Mapping, YamlDoc};
 
 #[allow(clippy::module_name_repetitions)]

@@ -4,6 +4,9 @@ pub(crate) mod loader;
 pub(crate) mod node;
 
 pub use crate::loader::LoadableYamlNode;
+pub use crate::loader::NodeMapping;
+pub use crate::loader::NodeSequence;
+pub use crate::loader::YamlDocAccess;
 pub use crate::node::YamlCloneNode;
 pub use loader::{Mapping, Sequence, YamlDoc, YamlEntry};
 use std::borrow::Cow;
@@ -143,7 +146,7 @@ impl<'input> TokenType<'input> {
         }
     }
 }
-
+/// Chomp indicator of target block scalar
 #[derive(PartialEq, Clone, Copy)]
 pub enum ChompIndicator {
     /// `-` final line break and any trailing empty lines are excluded from the scalar’s content
@@ -223,7 +226,7 @@ pub enum DirectiveType {
 
 /// A specialized `Result` type where the error is hard-wired to [`YamlError`].
 pub type YamlResult<T> = Result<T, YamlError>;
-/// A result often returned by the YamlScanner. It's hard-wired to [`YamlError`].
+/// A result often returned by the `YamlScanner`. It's hard-wired to [`YamlError`].
 pub type ScanResult = Result<(), YamlError>;
 
 /// Enumeration representing all YAML errors
