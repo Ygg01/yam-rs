@@ -1,11 +1,8 @@
-use alloc::borrow::Cow;
-use alloc::boxed::Box;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use yam_common::{NodeMapping, NodeSequence, Span, Tag, YamlDoc, YamlDocAccess, YamlEntry};
-
-use yam_common::LoadableYamlNode;
-use yam_common::YamlCloneNode;
+use crate::{
+    LoadableYamlNode, NodeMapping, NodeSequence, Span, Tag, YamlDoc, YamlDocAccess, YamlEntry,
+};
+use crate::{NodeType, YamlCloneNode};
+use std::borrow::Cow;
 
 #[derive(PartialEq, Clone, Default)]
 pub struct SpannedYaml<'input> {
@@ -111,14 +108,14 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
         }
     }
 
-    fn as_sequence(&self) -> Option<&yam_common::NodeSequence<Self::Node>> {
+    fn as_sequence(&self) -> Option<&NodeSequence<Self::Node>> {
         match &self.data {
             YamlCloneNode::Sequence(x) => Some(x),
             _ => None,
         }
     }
 
-    fn as_sequence_mut(&mut self) -> Option<&mut yam_common::NodeSequence<Self::Node>> {
+    fn as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>> {
         match &mut self.data {
             YamlCloneNode::Sequence(x) => Some(x),
             _ => None,
@@ -173,6 +170,11 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
             _ => None,
         }
     }
+
+    fn get_type(&self) -> NodeType {
+        self.data.get_type()
+    }
+
     fn into_bool(self) -> Option<bool> {
         match self.data {
             YamlCloneNode::Bool(b) => Some(b),

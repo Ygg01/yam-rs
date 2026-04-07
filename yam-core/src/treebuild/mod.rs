@@ -122,7 +122,6 @@
 //! ---
 //!
 //! This documentation provides an overview of the `YamlLoader` functionality, detailed descriptions of its methods, and example usage scenarios for loading and parsing YAML input into structured nodes.
-pub mod spanned_node;
 
 use crate::Parser;
 use crate::saphyr_tokenizer::{Event, Source, StrSource};
