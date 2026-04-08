@@ -10,6 +10,14 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
     type SequenceNode = Vec<Self::Node>;
     type MappingNode = Vec<YamlEntry<'input, YamlDoc<'input>>>;
 
+    fn from_usize(index: usize) -> Self {
+        YamlDoc::Integer(index as i64)
+    }
+
+    fn from_str(index: &str) -> Self {
+        YamlDoc::String(Cow::Owned(index.to_string()))
+    }
+
     fn is_non_empty_collection(&self) -> bool {
         match self {
             YamlDoc::Sequence(s) => !s.is_empty(),
@@ -95,6 +103,20 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
         }
     }
 
+    fn as_cow(&self) -> Option<&Cow<'input, str>> {
+        match self {
+            YamlDoc::String(cow) => Some(cow),
+            _ => None,
+        }
+    }
+
+    fn as_cow_mut(&mut self) -> Option<&mut Cow<'input, str>> {
+        match self {
+            YamlDoc::String(cow) => Some(cow),
+            _ => None,
+        }
+    }
+
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match self {
             &mut YamlDoc::String(ref mut v) => Some(v.to_mut()),
@@ -138,37 +160,9 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
         }
     }
 
-    fn into_bool(self) -> Option<bool> {
-        match self {
-            YamlDoc::Bool(b) => Some(b),
-            _ => None,
-        }
-    }
-
     fn into_string(self) -> Option<String> {
         match self {
             YamlDoc::String(s) => Some(s.to_string()),
-            _ => None,
-        }
-    }
-
-    fn into_cow(self) -> Option<Cow<'input, str>> {
-        match self {
-            YamlDoc::String(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    fn into_f64(self) -> Option<f64> {
-        match self {
-            YamlDoc::FloatingPoint(f) => Some(f),
-            _ => None,
-        }
-    }
-
-    fn into_i64(self) -> Option<i64> {
-        match self {
-            YamlDoc::Integer(i) => Some(i),
             _ => None,
         }
     }

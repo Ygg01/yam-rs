@@ -22,6 +22,20 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
     type SequenceNode = Vec<SpannedYaml<'input>>;
     type MappingNode = Vec<YamlEntry<'input, SpannedYaml<'input>>>;
 
+    fn from_usize(index: usize) -> Self {
+        SpannedYaml {
+            span: Span::default(),
+            data: YamlCloneNode::Integer(index as i64),
+        }
+    }
+
+    fn from_str(index: &str) -> Self {
+        SpannedYaml {
+            span: Span::default(),
+            data: YamlCloneNode::String(Cow::Owned(index.to_string())),
+        }
+    }
+
     fn is_non_empty_collection(&self) -> bool {
         match &self.data {
             YamlCloneNode::Sequence(s) => !s.is_empty(),
@@ -103,6 +117,20 @@ impl<'input> YamlDocAccess<'input> for SpannedYaml<'input> {
     fn as_str(&self) -> Option<&str> {
         match &self.data {
             YamlCloneNode::String(x) => Some(x.as_ref()),
+            _ => None,
+        }
+    }
+
+    fn as_cow(&self) -> Option<&Cow<'input, str>> {
+        match &self.data {
+            YamlCloneNode::String(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    fn as_cow_mut(&mut self) -> Option<&mut Cow<'input, str>> {
+        match &mut self.data {
+            YamlCloneNode::String(x) => Some(x),
             _ => None,
         }
     }

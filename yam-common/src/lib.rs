@@ -1,9 +1,12 @@
 extern crate alloc;
 extern crate core;
+
 #[deny(missing_docs)]
 pub(crate) mod cloned_node;
 pub mod spanned_node;
 
+#[cfg(feature = "hashed_node")]
+mod hash_node;
 pub(crate) mod yaml_doc;
 
 pub use crate::cloned_node::YamlCloneNode;
@@ -13,6 +16,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::fmt::{Display, Formatter};
 use core::str::Utf8Error;
+use std::mem;
 pub use yaml_doc::{Mapping, Sequence, YamlDoc, YamlEntry};
 
 /// Represents the different types of scalar values in YAML with distinct formatting styles.
@@ -476,7 +480,7 @@ pub enum YamlAccessError {
 ///  - `into_i64(self) -> Option<i64>`: Converts the node into an integer value if possible.
 ///  - `into_mapping(self) -> Option<NodeMapping<'input, Self::Node>>`: Converts the node into a mapping if possible.
 ///  - `into_sequence(self) -> Option<NodeSequence<Self::Node>>`: Converts the node into a sequence if possible.
-pub trait YamlDocAccess<'input> {
+pub trait YamlDocAccess<'input>: Sized {
     /// Type of node used in Sequence or Mapping
     type Node: Clone;
     /// Type of sequence node being used.
@@ -500,6 +504,10 @@ pub trait YamlDocAccess<'input> {
     fn is_bad_value(&self) -> bool {
         matches!(self.get_type(), NodeType::Bad)
     }
+
+    fn from_usize(index: usize) -> Self;
+
+    fn from_str(index: &str) -> Self;
 
     /// Determines whether the current node is a null value.
     ///
@@ -809,6 +817,22 @@ pub trait YamlDocAccess<'input> {
     /// - `None` otherwise.
     fn as_str(&self) -> Option<&str>;
 
+    /// Converts the current instance into an `Option` containing a `Cow<str>`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(&`Cow<str>`)` if the underlying node is string
+    /// - `None` otherwise.
+    fn as_cow(&self) -> Option<&Cow<'input, str>>;
+
+    /// Converts the current instance into an `Option` containing a `Cow<str>`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(&`Cow<str>`)` if the underlying node is string
+    /// - `None` otherwise.
+    fn as_cow_mut(&mut self) -> Option<&mut Cow<'input, str>>;
+
     /// Returns a mutable reference `Option` containing an underlying string slice (`&str`).
     ///
     /// # Returns
@@ -905,7 +929,9 @@ pub trait YamlDocAccess<'input> {
     ///   depending on the implementation.
     /// - `None` if the conversion is not possible or represents an invalid state.
     ///
-    fn into_bool(self) -> Option<bool>;
+    fn into_bool(self) -> Option<bool> {
+        self.as_bool()
+    }
 
     /// Converts the value of the type implementing this method into an `Option<String>`.
     ///
@@ -922,7 +948,12 @@ pub trait YamlDocAccess<'input> {
     /// - `Some(true)` or `Some(false)` if the node is a string
     /// - `None` if the conversion is not possible or represents an invalid state.
     ///
-    fn into_cow(self) -> Option<Cow<'input, str>>;
+    fn into_cow(mut self) -> Option<Cow<'input, str>> {
+        match self.as_cow_mut() {
+            Some(x) => Some(mem::take(x)),
+            None => None,
+        }
+    }
 
     /// Converts the value of the implementing type into an `Option<f64>`.
     ///
@@ -934,7 +965,9 @@ pub trait YamlDocAccess<'input> {
     /// This function is particularly useful when working with types that may need
     /// to be represented as `f64` for numerical computations or interoperability.
     ///
-    fn into_f64(self) -> Option<f64>;
+    fn into_f64(self) -> Option<f64> {
+        self.as_f64()
+    }
 
     /// Converts the value of the implementing type into an `Option<i64>`.
     ///
@@ -946,7 +979,9 @@ pub trait YamlDocAccess<'input> {
     /// This function is particularly useful when working with types that may need
     /// to be represented as `f64` for numerical computations or interoperability.
     ///
-    fn into_i64(self) -> Option<i64>;
+    fn into_i64(self) -> Option<i64> {
+        self.as_i64()
+    }
 
     ///  Converts the current structure into a `NodeMapping`, if possible.
     ///
