@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use yam_core::Parser;
+use yam_core::parsing::Parser;
 use yam_test_bench::{unescape_text, write_str_from_event, FormatOpts};
 
 const TEST_SIZE: usize = 440;

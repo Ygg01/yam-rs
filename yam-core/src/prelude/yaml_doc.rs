@@ -208,8 +208,7 @@ pub type Mapping<'a> = Vec<YamlEntry<'a, YamlDoc<'a>>>;
 ///
 /// ```rust
 /// use std::borrow::Cow;
-/// use yam_common::LoadableYamlNode;
-/// use yam_common::YamlDoc;
+/// use yam_core::{YamlLoader, YamlDoc};
 ///
 /// let yaml_string = YamlDoc::String(Cow::Borrowed("example"));
 /// let yaml_bool = YamlDoc::Bool(true);
@@ -296,7 +295,8 @@ impl<'input> YamlDoc<'input> {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use yam_common::{LoadableYamlNode, YamlDoc, ScalarType, Tag};
+    /// use yam_core::prelude::{ScalarType, Tag, LoadableYamlNode};
+    /// use yam_core::{YamlDoc};
     ///
     /// let value = Cow::Borrowed("true");
     /// let scalar_type = ScalarType::Plain;

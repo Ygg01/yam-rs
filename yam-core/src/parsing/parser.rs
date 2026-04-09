@@ -4,9 +4,9 @@
 //! compliance, and emits a stream of YAML events. This stream can for instance be used to create
 //! YAML objects.
 
+use crate::parsing::scanner::{Scanner, Token};
+pub(crate) use crate::parsing::source::{Source, StrSource};
 use crate::prelude::{Marker, ScalarType, Span, Tag, TokenType, YamlError};
-use crate::saphyr_tokenizer::scanner::{Scanner, Token};
-pub(crate) use crate::saphyr_tokenizer::source::{Source, StrSource};
 use alloc::{
     borrow::Cow,
     collections::BTreeMap,
@@ -209,8 +209,8 @@ pub struct Parser<'input, T: Source> {
 /// # Example
 ///
 /// ```rust
-/// use yam_core::saphyr_tokenizer::Event;
-/// use yam_core::EventReceiver;
+/// use yam_core::parsing::{EventReceiver};
+/// use yam_core::Event;
 /// struct MyEventReceiver;
 ///
 /// impl<'input> EventReceiver<'input> for MyEventReceiver {
@@ -266,9 +266,8 @@ pub trait EventReceiver<'input> {
 /// # Example
 ///
 /// ```rust
-/// use yam_common::Span;
-/// use yam_core::saphyr_tokenizer::Event;
-/// use yam_core::SpannedEventReceiver;
+/// use yam_core::parsing::{Event, SpannedEventReceiver};
+/// use yam_core::prelude::Span;
 /// struct MySpannedEventReceiver;
 ///
 /// impl<'input> SpannedEventReceiver<'input> for MySpannedEventReceiver {

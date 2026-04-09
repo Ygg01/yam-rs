@@ -1,7 +1,7 @@
-use crate::saphyr_tokenizer::Source;
-use crate::saphyr_tokenizer::char_utils::is_break;
-use crate::saphyr_tokenizer::scanner::SkipTabs;
-use crate::saphyr_tokenizer::source::shared_skip_ws_to_eol;
+use crate::parsing::Source;
+use crate::parsing::char_utils::is_break;
+use crate::parsing::scanner::SkipTabs;
+use crate::parsing::source::shared_skip_ws_to_eol;
 use crate::util::{BitOps, HIGH_NIBBLE_WS, LOW_NIBBLE_WS, U8X16, U8X32};
 use alloc::vec::Vec;
 use core::iter::Copied;
@@ -212,8 +212,8 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::saphyr_tokenizer::Source;
-    use crate::saphyr_tokenizer::buffered_source::{BufferedBytesSource, MAX_LEN};
+    use crate::parsing::Source;
+    use crate::parsing::buffered_source::{BufferedBytesSource, MAX_LEN};
     use alloc::vec::Vec;
 
     #[test]

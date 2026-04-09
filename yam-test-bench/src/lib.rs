@@ -2,9 +2,9 @@ pub mod consts;
 
 use std::borrow::Cow;
 use std::fmt::Write;
+use yam_core::parsing::Event;
+use yam_core::parsing::{Parser, ScalarValue, Source};
 use yam_core::prelude::Tag;
-use yam_core::saphyr_tokenizer::{Parser, ScalarValue, Source};
-use yam_core::SaphyrEvent;
 
 ///
 /// Assert that in for given input, the parser generates expected set of events
@@ -84,17 +84,17 @@ pub fn write_str_from_event<T: Source>(
     }
     while let Some(Ok((ev, _))) = parser.next() {
         let _ = match ev {
-            SaphyrEvent::StreamStart if emit_opt.emit_stream() => writeln!(line, "+STR"),
-            SaphyrEvent::StreamEnd if emit_opt.emit_stream() => writeln!(line, "-STR"),
-            SaphyrEvent::DocumentStart(_) => writeln!(line, "+DOC"),
-            SaphyrEvent::DocumentEnd => writeln!(line, "-DOC"),
-            SaphyrEvent::Alias(anchor_id) => {
+            Event::StreamStart if emit_opt.emit_stream() => writeln!(line, "+STR"),
+            Event::StreamEnd if emit_opt.emit_stream() => writeln!(line, "-STR"),
+            Event::DocumentStart(_) => writeln!(line, "+DOC"),
+            Event::DocumentEnd => writeln!(line, "-DOC"),
+            Event::Alias(anchor_id) => {
                 let anchor = parser
                     .get_anchor(anchor_id)
                     .map_or(String::default(), ToString::to_string);
                 writeln!(line, "=ALI *{anchor}")
             }
-            SaphyrEvent::Scalar(ScalarValue {
+            Event::Scalar(ScalarValue {
                 value,
                 scalar_type,
                 anchor_id,
@@ -104,18 +104,18 @@ pub fn write_str_from_event<T: Source>(
                 let tag_info = extract_tag_full(tag);
                 writeln!(line, "=VAL{anchor}{tag_info} {scalar_type}{value}")
             }
-            SaphyrEvent::SequenceStart(anchor_id, tag) => {
+            Event::SequenceStart(anchor_id, tag) => {
                 let tag_info = extract_tag_full(tag);
                 let anchor = extract_anchor(parser, anchor_id);
                 writeln!(line, "+SEQ{anchor}{tag_info}")
             }
-            SaphyrEvent::SequenceEnd => writeln!(line, "-SEQ"),
-            SaphyrEvent::MappingStart(anchor_id, tag) => {
+            Event::SequenceEnd => writeln!(line, "-SEQ"),
+            Event::MappingStart(anchor_id, tag) => {
                 let tag_info = extract_tag_full(tag);
                 let anchor = extract_anchor(parser, anchor_id);
                 writeln!(line, "+MAP{anchor}{tag_info}")
             }
-            SaphyrEvent::MappingEnd => writeln!(line, "-MAP"),
+            Event::MappingEnd => writeln!(line, "-MAP"),
             _ => write!(line, ""),
         };
     }

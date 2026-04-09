@@ -1,7 +1,7 @@
-use crate::saphyr_tokenizer::char_utils::{
+use crate::parsing::char_utils::{
     is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
 };
-use crate::saphyr_tokenizer::scanner::SkipTabs;
+use crate::parsing::scanner::SkipTabs;
 use alloc::vec::Vec;
 
 ///
@@ -229,7 +229,7 @@ impl StrSource<'_> {
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::saphyr_tokenizer::StrSource;
+    /// use yam_core::parsing::StrSource;
     /// use crate::yam_core::Source;
     /// let source = StrSource::new("example");
     /// assert_eq!(source.peek_char(),'e');
@@ -289,9 +289,9 @@ unsafe impl Source for StrSource<'_> {
 
 #[cfg(test)]
 mod test {
-    use crate::saphyr_tokenizer::Source;
-    use crate::saphyr_tokenizer::buffered_source::BufferedBytesSource;
-    use crate::saphyr_tokenizer::scanner::SkipTabs;
+    use crate::parsing::Source;
+    use crate::parsing::buffered_source::BufferedBytesSource;
+    use crate::parsing::scanner::SkipTabs;
 
     const TEST_STR: &str = "                                      \
                                     \n                     \
