@@ -1,10 +1,11 @@
 [package]
-name = "yam-common"
+name = "yam-std"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 ordered-float = { version = "5.3.0", optional = true }
+yam-core = { path = "../yam-core" }
 
 [features]
 default = ["hashed_node"]

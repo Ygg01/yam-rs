@@ -1,38 +1,39 @@
-use crate::{Mapping, NodeType, Sequence, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
-use std::borrow::Cow;
-use std::ops::{Index, IndexMut};
+use crate::prelude::yaml_doc::{Mapping, Sequence};
+use crate::prelude::{NodeType, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::ops::{Index, IndexMut};
 
 ///
-/// Represents a cloned YAML node with various possible types of values.
+/// Represents a YAML node that always owns its data.
 ///
-/// The `YamlCloneNode` enum provides a structured way to represent YAML values
+/// The `YamlOwnedNode` enum provides a structured way to represent YAML values
 /// in Rust. Each variant corresponds to a possible type of value that a YAML
 /// node can hold, such as `null`, `string`, `integer`, `sequence`, or `mapping`.
 ///
 /// # Type Parameters
 ///
-/// * `'input`: Lifetime parameter for borrowed string slices (`&str`) used in
-///   the `String` and `Tagged` variants.
 /// * `Node`: Generic parameter for representing nested or child nodes. It must
 ///   implement the `Clone` trait.
 ///
 /// # Traits Implementations
 ///
-/// * `Default`: The default value for `YamlCloneNode` is the `Null` variant.
-/// * `PartialEq`: Supports equality comparisons between two `YamlCloneNode`
+/// * `Default`: The default value for `YamlOwnedNode` is the `Null` variant.
+/// * `PartialEq`: Supports equality comparisons between two `YamlOwnedNode`
 ///   instances.
-/// * `Clone`: Allows cloning of `YamlCloneNode` instances.
+/// * `Clone`: Allows cloning of `YamlOwnedNode` instances.
 /// * `Debug`: Enables formatted output for debugging purposes.
 ///
 #[derive(Debug, Default, PartialEq, Clone)]
-pub enum YamlCloneNode<'input, Node: Clone> {
+pub enum YamlOwnedNode<Node: Clone> {
     #[default]
     /// Invalid value for `YamlDoc`
     BadValue,
     /// Represents a `null` value for `YamlDoc`
     Null,
     /// Represents a YAML string value.
-    String(Cow<'input, str>),
+    String(String),
     /// Represents a value that's either `true` or `false`
     Bool(bool),
     /// Floating point representation.
@@ -60,223 +61,211 @@ pub enum YamlCloneNode<'input, Node: Clone> {
     /// x: Y
     /// a: B
     /// ```
-    Mapping(Vec<YamlEntry<'input, Node>>),
+    Mapping(Vec<YamlEntry<'static, Node>>),
     /// Represents a pointer to another node like `[*lol, *lol]`
     Alias(usize),
     /// Tagged `YamlDoc` value, contains a [`Tag`] and a node that's a [`Box<Node>`]
-    Tagged(Cow<'input, Tag>, Box<Node>),
+    Tagged(Tag, Box<Node>),
 }
 
-impl<'input, Node> YamlDocAccess<'input> for YamlCloneNode<'input, Node>
+impl<Node> YamlDocAccess<'static> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'input>,
+    Node: Clone + YamlDocAccess<'static>,
 {
     type Node = Node;
     type SequenceNode = Vec<Node>;
-    type MappingNode = Vec<YamlEntry<'input, Node>>;
+    type MappingNode = Vec<YamlEntry<'static, Node>>;
 
     fn from_usize(index: usize) -> Self {
-        YamlCloneNode::Integer(index as i64)
+        YamlOwnedNode::Integer(index as i64)
     }
 
     fn from_str(index: &str) -> Self {
-        YamlCloneNode::String(Cow::Owned(index.to_string()))
+        YamlOwnedNode::String(index.to_string())
     }
 
     fn is_non_empty_collection(&self) -> bool {
         match self {
-            YamlCloneNode::Sequence(s) => !s.is_empty(),
-            YamlCloneNode::Mapping(m) => !m.is_empty(),
+            YamlOwnedNode::Sequence(s) => !s.is_empty(),
+            YamlOwnedNode::Mapping(m) => !m.is_empty(),
             _ => false,
         }
     }
 
     fn as_bool(&self) -> Option<bool> {
         match self {
-            YamlCloneNode::Bool(x) => Some(*x),
+            YamlOwnedNode::Bool(x) => Some(*x),
             _ => None,
         }
     }
 
     fn as_bool_mut(&mut self) -> Option<&mut bool> {
         match self {
-            YamlCloneNode::Bool(x) => Some(x),
+            YamlOwnedNode::Bool(x) => Some(x),
             _ => None,
         }
     }
 
     fn as_i64(&self) -> Option<i64> {
         match self {
-            YamlCloneNode::Integer(x) => Some(*x),
+            YamlOwnedNode::Integer(x) => Some(*x),
             _ => None,
         }
     }
 
     fn as_i64_mut(&mut self) -> Option<&mut i64> {
         match self {
-            YamlCloneNode::Integer(x) => Some(x),
+            YamlOwnedNode::Integer(x) => Some(x),
             _ => None,
         }
     }
 
     fn as_f64(&self) -> Option<f64> {
         match self {
-            YamlCloneNode::FloatingPoint(x) => Some(*x),
+            YamlOwnedNode::FloatingPoint(x) => Some(*x),
             _ => None,
         }
     }
 
     fn as_f64_mut(&mut self) -> Option<&mut f64> {
         match self {
-            YamlCloneNode::FloatingPoint(x) => Some(x),
+            YamlOwnedNode::FloatingPoint(x) => Some(x),
             _ => None,
         }
     }
 
     fn as_sequence(&self) -> Result<&Self::SequenceNode, YamlAccessError> {
         match self {
-            YamlCloneNode::Sequence(x) => Ok(x),
+            YamlOwnedNode::Sequence(x) => Ok(x),
             _ => Err(YamlAccessError::ExpectedSequence),
         }
     }
 
     fn as_sequence_mut(&mut self) -> Result<&mut Self::SequenceNode, YamlAccessError> {
         match self {
-            YamlCloneNode::Sequence(x) => Ok(x),
+            YamlOwnedNode::Sequence(x) => Ok(x),
             _ => Err(YamlAccessError::ExpectedSequence),
         }
     }
 
     fn as_mapping(&self) -> Result<&Self::MappingNode, YamlAccessError> {
         match self {
-            YamlCloneNode::Mapping(x) => Ok(x),
+            YamlOwnedNode::Mapping(x) => Ok(x),
             _ => Err(YamlAccessError::ExpectedMapping),
         }
     }
 
     fn as_mapping_mut(&mut self) -> Result<&mut Self::MappingNode, YamlAccessError> {
         match self {
-            YamlCloneNode::Mapping(x) => Ok(x),
+            YamlOwnedNode::Mapping(x) => Ok(x),
             _ => Err(YamlAccessError::ExpectedMapping),
         }
     }
 
     fn as_str(&self) -> Option<&str> {
         match self {
-            YamlCloneNode::String(x) => Some(x.as_ref()),
-            _ => None,
-        }
-    }
-
-    fn as_cow(&self) -> Option<&Cow<'input, str>> {
-        match self {
-            YamlCloneNode::String(x) => Some(x),
-            _ => None,
-        }
-    }
-
-    fn as_cow_mut(&mut self) -> Option<&mut Cow<'input, str>> {
-        match self {
-            YamlCloneNode::String(cow) => Some(cow),
+            YamlOwnedNode::String(x) => Some(x.as_ref()),
             _ => None,
         }
     }
 
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match self {
-            &mut YamlCloneNode::String(ref mut v) => Some(v.to_mut()),
+            &mut YamlOwnedNode::String(ref mut v) => Some(v),
             _ => None,
         }
     }
 
     fn sequence_mut(&mut self) -> &mut Self::SequenceNode {
         match self {
-            YamlCloneNode::Sequence(seq) => seq,
+            YamlOwnedNode::Sequence(seq) => seq,
             _ => core::panic!("Expected sequence got {:?}", self.get_type()),
         }
     }
 
-    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Node>> {
+    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'static, Node>> {
         match self {
-            YamlCloneNode::Mapping(map) => map,
+            YamlOwnedNode::Mapping(map) => map,
             _ => core::panic!("Expected mapping got {:?}", self.get_type()),
         }
     }
 
     fn get_tag(&self) -> Option<Tag> {
         match self {
-            YamlCloneNode::Tagged(tag, ..) => Some(Tag::new(&tag.handle, &tag.suffix)),
+            YamlOwnedNode::Tagged(tag, ..) => Some(Tag::new(&tag.handle, &tag.suffix)),
             _ => None,
         }
     }
 
     fn get_type(&self) -> NodeType {
         match self {
-            YamlCloneNode::BadValue => NodeType::Bad,
-            YamlCloneNode::Null => NodeType::Null,
-            YamlCloneNode::String(_) => NodeType::String,
-            YamlCloneNode::Bool(_) => NodeType::Bool,
-            YamlCloneNode::FloatingPoint(_) => NodeType::Floating,
-            YamlCloneNode::Integer(_) => NodeType::Integer,
-            YamlCloneNode::Sequence(_) => NodeType::Sequence,
-            YamlCloneNode::Mapping(_) => NodeType::Mapping,
-            YamlCloneNode::Alias(_) => NodeType::Alias,
-            YamlCloneNode::Tagged(_, a) => a.get_type(),
+            YamlOwnedNode::BadValue => NodeType::Bad,
+            YamlOwnedNode::Null => NodeType::Null,
+            YamlOwnedNode::String(_) => NodeType::String,
+            YamlOwnedNode::Bool(_) => NodeType::Bool,
+            YamlOwnedNode::FloatingPoint(_) => NodeType::Floating,
+            YamlOwnedNode::Integer(_) => NodeType::Integer,
+            YamlOwnedNode::Sequence(_) => NodeType::Sequence,
+            YamlOwnedNode::Mapping(_) => NodeType::Mapping,
+            YamlOwnedNode::Alias(_) => NodeType::Alias,
+            YamlOwnedNode::Tagged(_, a) => a.get_type(),
         }
     }
 
     fn into_string(self) -> Option<String> {
         match self {
-            YamlCloneNode::String(s) => Some(s.to_string()),
+            YamlOwnedNode::String(s) => Some(s.to_string()),
             _ => None,
         }
     }
 
     fn into_mapping(self) -> Option<Self::MappingNode> {
         match self {
-            YamlCloneNode::Mapping(mapping) => Some(mapping),
+            YamlOwnedNode::Mapping(mapping) => Some(mapping),
             _ => None,
         }
     }
 
     fn into_sequence(self) -> Option<Self::SequenceNode> {
         match self {
-            YamlCloneNode::Sequence(seq) => Some(seq),
+            YamlOwnedNode::Sequence(seq) => Some(seq),
             _ => None,
         }
     }
 }
 
-impl<'input, T: Clone> From<YamlDoc<'input>> for YamlCloneNode<'input, T>
+impl<'input, T: Clone> From<YamlDoc<'input>> for YamlOwnedNode<T>
 where
     T: From<YamlDoc<'input>>,
 {
     fn from(value: YamlDoc<'input>) -> Self {
         match value {
-            YamlDoc::BadValue => YamlCloneNode::BadValue,
-            YamlDoc::Null => YamlCloneNode::Null,
-            YamlDoc::String(x) => YamlCloneNode::String(x),
-            YamlDoc::Bool(x) => YamlCloneNode::Bool(x),
-            YamlDoc::Alias(x) => YamlCloneNode::Alias(x),
-            YamlDoc::FloatingPoint(x) => YamlCloneNode::FloatingPoint(x),
-            YamlDoc::Integer(x) => YamlCloneNode::Integer(x),
-            YamlDoc::Sequence(s) => YamlCloneNode::from_sequence(s),
-            YamlDoc::Mapping(m) => YamlCloneNode::from_mapping(m),
-            YamlDoc::Tagged(tag, data) => YamlCloneNode::Tagged(tag, Box::new((*data).into())),
+            YamlDoc::BadValue => YamlOwnedNode::BadValue,
+            YamlDoc::Null => YamlOwnedNode::Null,
+            YamlDoc::String(x) => YamlOwnedNode::String(x.to_string()),
+            YamlDoc::Bool(x) => YamlOwnedNode::Bool(x),
+            YamlDoc::Alias(x) => YamlOwnedNode::Alias(x),
+            YamlDoc::FloatingPoint(x) => YamlOwnedNode::FloatingPoint(x),
+            YamlDoc::Integer(x) => YamlOwnedNode::Integer(x),
+            YamlDoc::Sequence(s) => YamlOwnedNode::from_sequence(s),
+            YamlDoc::Mapping(m) => YamlOwnedNode::from_mapping(m),
+            YamlDoc::Tagged(tag, data) => {
+                YamlOwnedNode::Tagged(tag.into_owned(), Box::new((*data).into()))
+            }
         }
     }
 }
 
-impl<'input, T> YamlCloneNode<'input, T>
+impl<'input, T> YamlOwnedNode<T>
 where
     T: From<YamlDoc<'input>> + Clone,
 {
-    fn from_sequence(sequence: Sequence<'input>) -> YamlCloneNode<'input, T> {
-        YamlCloneNode::Sequence(sequence.into_iter().map(Into::into).collect())
+    fn from_sequence(sequence: Sequence<'input>) -> YamlOwnedNode<T> {
+        YamlOwnedNode::Sequence(sequence.into_iter().map(Into::into).collect())
     }
 
-    fn from_mapping(mapping: Mapping<'input>) -> YamlCloneNode<'input, T> {
-        YamlCloneNode::Mapping(
+    fn from_mapping(mapping: Mapping<'input>) -> YamlOwnedNode<T> {
+        YamlOwnedNode::Mapping(
             mapping
                 .into_iter()
                 .map(|x| YamlEntry::new(x.key.into(), x.value.into()))
@@ -286,9 +275,9 @@ where
 }
 
 #[allow(clippy::cast_possible_wrap)]
-impl<'input, Node> Index<usize> for YamlCloneNode<'input, Node>
+impl<Node> Index<usize> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq,
+    Node: Clone + YamlDocAccess<'static> + PartialEq,
 {
     type Output = Node;
 
@@ -304,23 +293,23 @@ where
     fn index(&self, index: usize) -> &Node {
         let get_type = self.get_type();
         match self {
-            YamlCloneNode::Sequence(sequence) => sequence.index(index),
-            YamlCloneNode::Mapping(mapping) => {
+            YamlOwnedNode::Sequence(sequence) => sequence.index(index),
+            YamlOwnedNode::Mapping(mapping) => {
                 let find_key = mapping
                     .iter()
                     .find(|entry| entry.key.as_i64() == Some(index as i64));
                 &find_key
-                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlCloneNode` mapping"))
+                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlOwnedNode` mapping"))
                     .value
             }
-            _ => panic!("Attempt to index {get_type:?} in `YamlCloneNode`"),
+            _ => panic!("Attempt to index {get_type:?} in `YamlOwnedNode`"),
         }
     }
 }
 #[allow(clippy::cast_possible_wrap)]
-impl<'input, Node> IndexMut<usize> for YamlCloneNode<'input, Node>
+impl<Node> IndexMut<usize> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq,
+    Node: Clone + YamlDocAccess<'static> + PartialEq,
 {
     /// Perform index by integer.
     ///
@@ -335,23 +324,23 @@ where
     fn index_mut(&mut self, index: usize) -> &mut Node {
         let get_type = self.get_type();
         match self {
-            YamlCloneNode::Sequence(sequence) => sequence.index_mut(index),
-            YamlCloneNode::Mapping(mapping) => {
+            YamlOwnedNode::Sequence(sequence) => sequence.index_mut(index),
+            YamlOwnedNode::Mapping(mapping) => {
                 let find_key = mapping
                     .iter_mut()
                     .find(|x| x.key.as_i64() == Some(index as i64));
                 &mut find_key
-                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlCloneNode` mapping"))
+                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlOwnedNode` mapping"))
                     .value
             }
-            _ => panic!("Attempt to index {get_type:?} with {index} in YamlCloneNode"),
+            _ => panic!("Attempt to index {get_type:?} with {index} in `YamlOwnedNode`"),
         }
     }
 }
 
-impl<'input, 'key, Node> Index<&'key str> for YamlCloneNode<'input, Node>
+impl<'key, Node> Index<&'key str> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq,
+    Node: Clone + YamlDocAccess<'static> + PartialEq,
 {
     type Output = Node;
 
@@ -365,20 +354,20 @@ where
     fn index(&self, index: &'key str) -> &Node {
         let get_type = self.get_type();
         match self {
-            YamlCloneNode::Mapping(mapping) => {
+            YamlOwnedNode::Mapping(mapping) => {
                 let find_key = mapping.iter().find(|x| x.key.as_str() == Some(index));
                 &find_key
-                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlCloneNode` mapping"))
+                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlOwnedNode` mapping"))
                     .value
             }
-            _ => panic!("Attempt to index {get_type:?} with {index} in `YamlCloneNode`"),
+            _ => panic!("Attempt to index {get_type:?} with {index} in `YamlOwnedNode`"),
         }
     }
 }
 
-impl<'input, 'key, Node> IndexMut<&'key str> for YamlCloneNode<'input, Node>
+impl<'key, Node> IndexMut<&'key str> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq,
+    Node: Clone + YamlDocAccess<'static> + PartialEq,
 {
     /// Perform a mutable index by string.
     ///
@@ -390,13 +379,13 @@ where
     fn index_mut(&mut self, index: &'key str) -> &mut Node {
         let get_type = self.get_type();
         match self {
-            YamlCloneNode::Mapping(mapping) => {
+            YamlOwnedNode::Mapping(mapping) => {
                 let find_key = mapping.iter_mut().find(|x| x.key.as_str() == Some(index));
                 &mut find_key
-                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlCloneNode` mapping"))
+                    .unwrap_or_else(|| panic!("Key {index} not found in `YamlOwnedNode` mapping"))
                     .value
             }
-            _ => panic!("Attempt to index {get_type:?} in `YamlCloneNode`"),
+            _ => panic!("Attempt to index {get_type:?} in `YamlOwnedNode`"),
         }
     }
 }

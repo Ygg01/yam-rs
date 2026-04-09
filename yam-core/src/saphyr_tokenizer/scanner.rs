@@ -1,3 +1,7 @@
+use crate::prelude::ScalarType::Plain;
+use crate::prelude::{
+    ChompIndicator, Marker, ScalarType, ScanResult, Span, TokenType, YamlError, YamlResult,
+};
 use crate::saphyr_tokenizer::char_utils::{
     as_hex, is_alpha, is_anchor_char, is_blank, is_blank_or_break, is_blank_or_breakz, is_break,
     is_breakz, is_flow, is_tag_char, is_uri_char,
@@ -8,11 +12,6 @@ use alloc::collections::VecDeque;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use yam_common::ScalarType::Plain;
-
-use yam_common::{
-    ChompIndicator, Marker, ScalarType, ScanResult, Span, TokenType, YamlError, YamlResult,
-};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum SkipTabs {

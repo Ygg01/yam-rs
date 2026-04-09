@@ -1,11 +1,12 @@
-use crate::{NodeType, Sequence, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
 use alloc::borrow::Cow;
 use core::borrow::Borrow;
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::ops::{Index, IndexMut};
+use yam_core::prelude::{NodeType, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
 
+/// Wrapper for hashmap that allows for hashing of hashmap.
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub struct HashedMapWrap<Node: PartialEq + Eq + Hash>(HashMap<Node, Node>);
 
@@ -26,25 +27,26 @@ where
 }
 
 ///
-/// Represents a cloned YAML node with various possible types of values.
+/// Represents a YAML node that owns its data, but
 ///
-/// The `YamlCloneNode` enum provides a structured way to represent YAML values
+/// The `YamlHashNode` enum provides a structured way to represent YAML values
 /// in Rust. Each variant corresponds to a possible type of value that a YAML
 /// node can hold, such as `null`, `string`, `integer`, `sequence`, or `mapping`.
 ///
 /// # Type Parameters
 ///
-/// * `'input`: Lifetime parameter for borrowed string slices (`&str`) used in
-///   the `String` and `Tagged` variants.
 /// * `Node`: Generic parameter for representing nested or child nodes. It must
 ///   implement the `Clone` trait.
 ///
 /// # Traits Implementations
 ///
-/// * `Default`: The default value for `YamlCloneNode` is the `Null` variant.
-/// * `PartialEq`: Supports equality comparisons between two `YamlCloneNode`
+/// * `Default`: The default value for `YamlHashNode` is the `Null` variant.
+/// * `PartialEq`: Supports equality comparisons between two `YamlHashNode`
 ///   instances.
-/// * `Clone`: Allows cloning of `YamlCloneNode` instances.
+/// * `Eq`: Supports full equality comparisons between two `YamlHashNode`
+///   instances.
+/// * `Hash`: Supports hashing of nodes. This is possibly a problem for `Map`, and `FloatingPoint`
+/// * `Clone`: Allows cloning of `YamlHashNode` instances.
 /// * `Debug`: Enables formatted output for debugging purposes.
 ///
 #[derive(Debug, Default, PartialEq, Eq, Clone, Hash)]
@@ -97,7 +99,7 @@ impl<'input, T> YamlHashNode<'input, T>
 where
     T: Clone + PartialEq + Eq + Hash + Eq + From<YamlDoc<'input>>,
 {
-    fn from_sequence(sequence: Sequence<'input>) -> YamlHashNode<'input, T> {
+    fn from_sequence(sequence: Vec<YamlDoc<'input>>) -> YamlHashNode<'input, T> {
         YamlHashNode::Sequence(sequence.into_iter().map(Into::into).collect())
     }
 }
@@ -240,20 +242,6 @@ where
         }
     }
 
-    fn as_cow(&self) -> Option<&Cow<'input, str>> {
-        match self {
-            YamlHashNode::String(cow) => Some(cow),
-            _ => None,
-        }
-    }
-
-    fn as_cow_mut(&mut self) -> Option<&mut Cow<'input, str>> {
-        match self {
-            YamlHashNode::String(cow) => Some(cow),
-            _ => None,
-        }
-    }
-
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match self {
             YamlHashNode::String(s) => Some(s.to_mut()),
@@ -355,7 +343,7 @@ where
     /// Perform index by integer.
     ///
     /// When `self` is a sequence, the method will attempt to access underlying vector at given position.
-    /// When `self` is a mapping, the method will attempt to access underlying map assuming `index` is a key
+    /// When `self` is a mapping, the method will attempt the underlying vector at amap assuming `index` is a key
     /// to its value. For example, YAML `{ 0: "test" }` can be accessed using `0`.
     ///
     /// # Panics

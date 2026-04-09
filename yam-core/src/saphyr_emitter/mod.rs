@@ -1,6 +1,6 @@
-use crate::yam_common::YamlDocAccess;
+use crate::prelude::{YamlDoc, YamlDocAccess, YamlEntry, is_valid_literal_block_scalar};
+use alloc::vec::Vec;
 use core::fmt;
-use yam_common::{Mapping, YamlDoc};
 
 #[allow(clippy::module_name_repetitions)]
 pub struct YamlEmitter<'a> {
@@ -141,7 +141,7 @@ impl<'a> YamlEmitter<'a> {
     /// Dump Yaml to an output stream.
     /// # Errors
     /// Returns `EmitError` when an error occurs.
-    pub fn dump(&mut self, doc: &YamlDoc) -> EmitResult {
+    pub fn dump(&mut self, doc: &YamlDoc<'a>) -> EmitResult {
         // write DocumentStart
         writeln!(self.writer, "---")?;
         self.level = -1;
@@ -160,7 +160,7 @@ impl<'a> YamlEmitter<'a> {
         Ok(())
     }
 
-    fn emit_node(&mut self, node: &YamlDoc) -> EmitResult {
+    fn emit_node(&mut self, node: &YamlDoc<'a>) -> EmitResult {
         match *node {
             YamlDoc::Sequence(ref v) => self.emit_sequence(v),
             YamlDoc::Mapping(ref h) => self.emit_mapping(h),
@@ -240,7 +240,7 @@ impl<'a> YamlEmitter<'a> {
         Ok(())
     }
 
-    fn emit_sequence(&mut self, v: &[YamlDoc]) -> EmitResult {
+    fn emit_sequence(&mut self, v: &[YamlDoc<'a>]) -> EmitResult {
         if v.is_empty() {
             write!(self.writer, "[]")?;
         } else {
@@ -258,7 +258,7 @@ impl<'a> YamlEmitter<'a> {
         Ok(())
     }
 
-    fn emit_mapping(&mut self, h: &Mapping) -> EmitResult {
+    fn emit_mapping(&mut self, h: &Vec<YamlEntry<'a, YamlDoc<'a>>>) -> EmitResult {
         if h.is_empty() {
             self.writer.write_str("{}")?;
         } else {
@@ -291,7 +291,7 @@ impl<'a> YamlEmitter<'a> {
     /// following a ":" or "-", either after a space, or on a new line.
     /// If `inline` is true, then the preceding characters are distinct
     /// and short enough to respect the compact flag.
-    fn emit_val(&mut self, inline: bool, val: &YamlDoc) -> EmitResult {
+    fn emit_val(&mut self, inline: bool, val: &YamlDoc<'a>) -> EmitResult {
         macro_rules! write_collection {
             ($v:expr ) => {
                 if (inline && self.compact) || $v.is_empty() {
@@ -329,7 +329,7 @@ impl<'a> YamlEmitter<'a> {
     /// [`multiline_strings`]: Self::multiline_strings.
     #[must_use]
     fn should_emit_string_as_block(&self, s: &str) -> bool {
-        self.multiline_strings && s.contains('\n') && yam_common::is_valid_literal_block_scalar(s)
+        self.multiline_strings && s.contains('\n') && is_valid_literal_block_scalar(s)
     }
 }
 

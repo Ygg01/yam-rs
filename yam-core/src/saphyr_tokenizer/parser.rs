@@ -4,6 +4,7 @@
 //! compliance, and emits a stream of YAML events. This stream can for instance be used to create
 //! YAML objects.
 
+use crate::prelude::{Marker, ScalarType, Span, Tag, TokenType, YamlError};
 use crate::saphyr_tokenizer::scanner::{Scanner, Token};
 pub(crate) use crate::saphyr_tokenizer::source::{Source, StrSource};
 use alloc::{
@@ -13,7 +14,6 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt::{Debug, Display, Formatter};
-use yam_common::{Marker, ScalarType, Span, Tag, TokenType, YamlError};
 
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct ScalarValue<'input> {
@@ -918,15 +918,13 @@ impl<'input, T: Source> Parser<'input, T> {
                     token_type: TokenType::Alias(name),
                 } = self.fetch_token()
                 {
-                    match self.anchors.get(&*name) {
-                        None => {
-                            return Err(YamlError::new_str(
-                                span.start,
-                                "while parsing node, found unknown anchor",
-                            ));
-                        }
-                        Some(id) => return Ok((Event::Alias(*id), span)),
-                    }
+                    return match self.anchors.get(&*name) {
+                        None => Err(YamlError::new_str(
+                            span.start,
+                            "while parsing node, found unknown anchor",
+                        )),
+                        Some(id) => Ok((Event::Alias(*id), span)),
+                    };
                 }
                 unreachable!()
             }

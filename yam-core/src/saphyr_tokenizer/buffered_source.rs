@@ -1,4 +1,4 @@
-use crate::Source;
+use crate::saphyr_tokenizer::Source;
 use crate::saphyr_tokenizer::char_utils::is_break;
 use crate::saphyr_tokenizer::scanner::SkipTabs;
 use crate::saphyr_tokenizer::source::shared_skip_ws_to_eol;
@@ -212,7 +212,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Source;
+    use crate::saphyr_tokenizer::Source;
     use crate::saphyr_tokenizer::buffered_source::{BufferedBytesSource, MAX_LEN};
     use alloc::vec::Vec;
 

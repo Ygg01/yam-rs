@@ -28,7 +28,6 @@ exclude =[
 
 
 [dependencies]
-yam-common = { path = "../yam-common" }
 
 [features]
 default = []

@@ -1,74 +1,17 @@
-extern crate alloc;
-extern crate core;
-
-#[deny(missing_docs)]
-pub(crate) mod cloned_node;
-pub mod spanned_node;
-
-#[cfg(feature = "hashed_node")]
-mod hash_node;
-pub(crate) mod yaml_doc;
-
-pub use crate::cloned_node::YamlCloneNode;
 use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
 use core::fmt::{Display, Formatter};
+use core::marker::PhantomData;
 use core::str::Utf8Error;
-use std::mem;
-pub use yaml_doc::{Mapping, Sequence, YamlDoc, YamlEntry};
+pub use owned_node::YamlOwnedNode;
+pub use spanned_node::SpannedYaml;
+pub use yaml_doc::YamlDoc;
 
-/// Represents the different types of scalar values in YAML with distinct formatting styles.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ScalarType {
-    /// Unquoted string type like:
-    /// ```yaml
-    ///   multiline
-    ///   string
-    /// ```
-    Plain,
-    /// Folded string type like:
-    /// ```yaml
-    ///   >
-    ///     folded
-    ///     string
-    /// ```
-    Folded,
-    /// Folded string type like:
-    /// ```yaml
-    ///   |
-    ///     folded
-    ///     string
-    /// ```
-    Literal,
-    /// Single quote string which permits any symbol inside
-    /// E.g. :
-    /// ```yaml
-    /// ' This is a quoted string
-    ///    with ''quoted'' string within.'
-    /// ```
-    SingleQuote,
-    /// Single quote string which permits any symbol inside
-    /// E.g. :
-    /// ```yaml
-    /// "This is a quoted string
-    ///    with \"double quoted\" string within."
-    /// ```
-    DoubleQuote,
-}
-
-impl Display for ScalarType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ScalarType::Plain => write!(f, ":"),
-            ScalarType::Folded => write!(f, ">"),
-            ScalarType::Literal => write!(f, "|"),
-            ScalarType::SingleQuote => write!(f, "'"),
-            ScalarType::DoubleQuote => write!(f, "\""),
-        }
-    }
-}
+mod owned_node;
+mod spanned_node;
+mod yaml_doc;
 
 ///
 /// Represents the different types of tokens that can be encountered in the input stream.
@@ -152,6 +95,7 @@ impl<'input> TokenType<'input> {
         }
     }
 }
+
 /// Chomp indicator of target block scalar
 #[derive(PartialEq, Clone, Copy)]
 pub enum ChompIndicator {
@@ -817,22 +761,6 @@ pub trait YamlDocAccess<'input>: Sized {
     /// - `None` otherwise.
     fn as_str(&self) -> Option<&str>;
 
-    /// Converts the current instance into an `Option` containing a `Cow<str>`.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(&`Cow<str>`)` if the underlying node is string
-    /// - `None` otherwise.
-    fn as_cow(&self) -> Option<&Cow<'input, str>>;
-
-    /// Converts the current instance into an `Option` containing a `Cow<str>`.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(&`Cow<str>`)` if the underlying node is string
-    /// - `None` otherwise.
-    fn as_cow_mut(&mut self) -> Option<&mut Cow<'input, str>>;
-
     /// Returns a mutable reference `Option` containing an underlying string slice (`&str`).
     ///
     /// # Returns
@@ -942,19 +870,6 @@ pub trait YamlDocAccess<'input>: Sized {
     ///
     fn into_string(self) -> Option<String>;
 
-    /// Converts the value of the type implementing this method into an `Option<Cow<'input, str>>`.
-    ///
-    /// # Returns
-    /// - `Some(true)` or `Some(false)` if the node is a string
-    /// - `None` if the conversion is not possible or represents an invalid state.
-    ///
-    fn into_cow(mut self) -> Option<Cow<'input, str>> {
-        match self.as_cow_mut() {
-            Some(x) => Some(mem::take(x)),
-            None => None,
-        }
-    }
-
     /// Converts the value of the implementing type into an `Option<f64>`.
     ///
     /// # Returns
@@ -1022,6 +937,54 @@ pub trait YamlDocAccess<'input>: Sized {
     ///   [`YamlDocAccess::is_sequence`]
     ///
     fn into_sequence(self) -> Option<Self::SequenceNode>;
+}
+
+///
+///
+///  A data structure representing an entry in a YAML file, consisting of a key-value pair.
+///
+///  The `YamlEntry` struct is generic over the type `T`, which represents the type of the key and
+///  value. The generic type `T` must implement the `Clone` trait to ensure the key and value
+///  can be duplicated as needed.
+///
+///  The struct also includes a marker field, `_marker`, utilizing `PhantomData` to associate
+///  a specific lifetime `'input` with the `YamlEntry`. This is useful for ensuring that any
+///  references within the key or value maintain proper lifetimes.
+///
+///  # Type Parameters
+///  - `'input`: Lifetime parameter used by the `_marker` field to link the `YamlEntry` instance
+///    with a specific lifetime context.
+///  - `T`: Generic type representing the key and value in the YAML entry. It must implement `Clone`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct YamlEntry<'input, T>
+where
+    T: Clone,
+{
+    /// Represents the key of the YAML entry. It is of type `T`.
+    pub key: T,
+    /// Represents the value of the YAML entry. It is of type `T`.
+    pub value: T,
+    pub _marker: PhantomData<&'input ()>,
+}
+
+impl<T: Clone> YamlEntry<'_, T> {
+    /// Creates a new `YamlEntry` with the given key and value.
+    ///
+    /// # Parameters
+    ///
+    /// - `key`: The key for the YAML entry.
+    /// - `value`: The value associated with the key in the YAML entry.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `YamlEntry` containing the specified key and value.
+    pub fn new(key: T, value: T) -> Self {
+        YamlEntry {
+            key,
+            value,
+            _marker: PhantomData,
+        }
+    }
 }
 
 ///
@@ -1218,5 +1181,56 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq + YamlDocAccess<'input> {
     #[must_use]
     fn with_end(self, _marker: Marker) -> Self {
         self
+    }
+}
+
+/// Represents the different types of scalar values in YAML with distinct formatting styles.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum ScalarType {
+    /// Unquoted string type like:
+    /// ```yaml
+    ///   multiline
+    ///   string
+    /// ```
+    Plain,
+    /// Folded string type like:
+    /// ```yaml
+    ///   >
+    ///     folded
+    ///     string
+    /// ```
+    Folded,
+    /// Folded string type like:
+    /// ```yaml
+    ///   |
+    ///     folded
+    ///     string
+    /// ```
+    Literal,
+    /// Single quote string which permits any symbol inside
+    /// E.g. :
+    /// ```yaml
+    /// ' This is a quoted string
+    ///    with ''quoted'' string within.'
+    /// ```
+    SingleQuote,
+    /// Single quote string which permits any symbol inside
+    /// E.g. :
+    /// ```yaml
+    /// "This is a quoted string
+    ///    with \"double quoted\" string within."
+    /// ```
+    DoubleQuote,
+}
+
+impl Display for ScalarType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ScalarType::Plain => write!(f, ":"),
+            ScalarType::Folded => write!(f, ">"),
+            ScalarType::Literal => write!(f, "|"),
+            ScalarType::SingleQuote => write!(f, "'"),
+            ScalarType::DoubleQuote => write!(f, "\""),
+        }
     }
 }

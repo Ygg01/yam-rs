@@ -289,7 +289,7 @@ unsafe impl Source for StrSource<'_> {
 
 #[cfg(test)]
 mod test {
-    use crate::Source;
+    use crate::saphyr_tokenizer::Source;
     use crate::saphyr_tokenizer::buffered_source::BufferedBytesSource;
     use crate::saphyr_tokenizer::scanner::SkipTabs;
 

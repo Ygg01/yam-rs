@@ -1,9 +1,12 @@
-use crate::{LoadableYamlNode, NodeType, ScalarType, Tag, YamlAccessError, YamlDocAccess};
-
-use std::borrow::Cow;
-use std::marker::PhantomData;
-use std::mem;
-use std::ops::{Index, IndexMut};
+use crate::prelude::{
+    LoadableYamlNode, NodeType, ScalarType, Tag, YamlAccessError, YamlDocAccess, YamlEntry,
+};
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::mem;
+use core::ops::{Index, IndexMut};
 
 impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
     type Node = YamlDoc<'input>;
@@ -99,20 +102,6 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
     fn as_str(&self) -> Option<&str> {
         match self {
             YamlDoc::String(x) => Some(x.as_ref()),
-            _ => None,
-        }
-    }
-
-    fn as_cow(&self) -> Option<&Cow<'input, str>> {
-        match self {
-            YamlDoc::String(cow) => Some(cow),
-            _ => None,
-        }
-    }
-
-    fn as_cow_mut(&mut self) -> Option<&mut Cow<'input, str>> {
-        match self {
-            YamlDoc::String(cow) => Some(cow),
             _ => None,
         }
     }
@@ -472,53 +461,6 @@ fn parse_float(v: &str) -> Option<f64> {
     }
 }
 
-///
-///
-///  A data structure representing an entry in a YAML file, consisting of a key-value pair.
-///
-///  The `YamlEntry` struct is generic over the type `T`, which represents the type of the key and
-///  value. The generic type `T` must implement the `Clone` trait to ensure the key and value
-///  can be duplicated as needed.
-///
-///  The struct also includes a marker field, `_marker`, utilizing `PhantomData` to associate
-///  a specific lifetime `'input` with the `YamlEntry`. This is useful for ensuring that any
-///  references within the key or value maintain proper lifetimes.
-///
-///  # Type Parameters
-///  - `'input`: Lifetime parameter used by the `_marker` field to link the `YamlEntry` instance
-///    with a specific lifetime context.
-///  - `T`: Generic type representing the key and value in the YAML entry. It must implement `Clone`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct YamlEntry<'input, T>
-where
-    T: Clone,
-{
-    /// Represents the key of the YAML entry. It is of type `T`.
-    pub key: T,
-    /// Represents the value of the YAML entry. It is of type `T`.
-    pub value: T,
-    pub(crate) _marker: PhantomData<&'input ()>,
-}
-
-impl<T: Clone> YamlEntry<'_, T> {
-    /// Creates a new `YamlEntry` with the given key and value.
-    ///
-    /// # Parameters
-    ///
-    /// - `key`: The key for the YAML entry.
-    /// - `value`: The value associated with the key in the YAML entry.
-    ///
-    /// # Returns
-    ///
-    /// A new instance of `YamlEntry` containing the specified key and value.
-    pub fn new(key: T, value: T) -> Self {
-        YamlEntry {
-            key,
-            value,
-            _marker: PhantomData,
-        }
-    }
-}
 #[allow(clippy::cast_possible_wrap)]
 impl<'input> Index<usize> for YamlDoc<'input> {
     type Output = YamlDoc<'input>;

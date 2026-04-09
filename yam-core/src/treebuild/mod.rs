@@ -123,15 +123,15 @@
 //!
 //! This documentation provides an overview of the `YamlLoader` functionality, detailed descriptions of its methods, and example usage scenarios for loading and parsing YAML input into structured nodes.
 
-use crate::Parser;
-use crate::saphyr_tokenizer::{Event, Source, StrSource};
+use crate::prelude::{
+    LoadableYamlNode, Marker, Span, Tag, YamlDoc, YamlDocAccess, YamlEntry, YamlError,
+};
+use crate::saphyr_tokenizer::{Event, Parser, Source, StrSource};
 use crate::saphyr_tokenizer::{ScalarValue, SpannedEventReceiver};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use yam_common::{LoadableYamlNode, YamlDocAccess};
-use yam_common::{Marker, Span, Tag, YamlDoc, YamlEntry, YamlError};
 
 /// A struct responsible for loading and parsing YAML documents, while maintaining
 /// internal state for tracking document structure and node relationships.

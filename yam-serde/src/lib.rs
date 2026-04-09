@@ -1,15 +1,15 @@
 #![no_std]
 extern crate alloc;
+use yam_core::prelude::LoadableYamlNode;
 
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use serde_core::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_core::{de, forward_to_deserialize_any};
-use yam_common::LoadableYamlNode;
-use yam_common::{Mapping, Sequence, YamlDoc, YamlError};
-use yam_core::Source;
-use yam_core::saphyr_tokenizer::StrSource;
+use yam_core::prelude::{YamlDoc, YamlEntry, YamlError};
+use yam_core::saphyr_tokenizer::{Source, StrSource};
 use yam_core::treebuild::YamlLoader;
 
 ///
@@ -159,12 +159,12 @@ where
 }
 
 struct YamSequenceDeserializer<'de> {
-    sequence: Sequence<'de>,
+    sequence: Vec<YamlDoc<'de>>,
     idx: usize,
 }
 
 impl<'de> YamSequenceDeserializer<'de> {
-    fn new(sequence: Sequence<'de>) -> Self {
+    fn new(sequence: Vec<YamlDoc<'de>>) -> Self {
         Self { sequence, idx: 0 }
     }
 }
@@ -189,12 +189,12 @@ impl<'de> SeqAccess<'de> for YamSequenceDeserializer<'de> {
 }
 
 struct YamMapDeserializer<'de> {
-    mapping: Mapping<'de>,
+    mapping: Vec<YamlEntry<'de, YamlDoc<'de>>>,
     idx: usize,
 }
 
 impl<'de> YamMapDeserializer<'de> {
-    fn new(mapping: Mapping<'de>) -> Self {
+    fn new(mapping: Vec<YamlEntry<'de, YamlDoc<'de>>>) -> Self {
         Self { mapping, idx: 0 }
     }
 }

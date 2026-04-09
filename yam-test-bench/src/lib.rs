@@ -2,9 +2,9 @@ pub mod consts;
 
 use std::borrow::Cow;
 use std::fmt::Write;
-use yam_common::Tag;
-use yam_core::saphyr_tokenizer::{ScalarValue, Source};
-use yam_core::{Parser, SaphyrEvent};
+use yam_core::prelude::Tag;
+use yam_core::saphyr_tokenizer::{Parser, ScalarValue, Source};
+use yam_core::SaphyrEvent;
 
 ///
 /// Assert that in for given input, the parser generates expected set of events
