@@ -33,14 +33,14 @@ impl YamlDocAccess<'static> for SpannedYaml {
     type SequenceNode = Vec<SpannedYaml>;
     type MappingNode = Vec<YamlEntry<'static, SpannedYaml>>;
 
-    fn from_usize(index: usize) -> Self {
+    fn key_from_usize(index: usize) -> Self {
         SpannedYaml {
             span: Span::default(),
             data: YamlOwnedNode::Integer(index as i64),
         }
     }
 
-    fn from_str(index: &str) -> Self {
+    fn key_from_str(index: &str) -> Self {
         SpannedYaml {
             span: Span::default(),
             data: YamlOwnedNode::String(index.to_string()),

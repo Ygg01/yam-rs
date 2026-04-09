@@ -76,11 +76,11 @@ where
     type SequenceNode = Vec<Node>;
     type MappingNode = Vec<YamlEntry<'static, Node>>;
 
-    fn from_usize(index: usize) -> Self {
+    fn key_from_usize(index: usize) -> Self {
         YamlOwnedNode::Integer(index as i64)
     }
 
-    fn from_str(index: &str) -> Self {
+    fn key_from_str(index: &str) -> Self {
         YamlOwnedNode::String(index.to_string())
     }
 

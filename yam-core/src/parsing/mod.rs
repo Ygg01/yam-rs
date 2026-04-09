@@ -1,3 +1,5 @@
+//! Module dealing with parsing YAML documents into a series of events.
+//!
 mod buffered_source;
 mod char_utils;
 mod parser;

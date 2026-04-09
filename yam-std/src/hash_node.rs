@@ -149,11 +149,11 @@ where
     type SequenceNode = Vec<Node>;
     type MappingNode = HashMap<Node, Node>;
 
-    fn from_usize(index: usize) -> Self {
+    fn key_from_usize(index: usize) -> Self {
         YamlHashNode::Integer(index as i64)
     }
 
-    fn from_str(index: &str) -> Self {
+    fn key_from_str(index: &str) -> Self {
         YamlHashNode::String(Cow::Owned(index.to_string()))
     }
 
@@ -329,7 +329,7 @@ where
             YamlHashNode::Sequence(sequence) => sequence.index(index),
             YamlHashNode::Mapping(mapping) => mapping
                 .0
-                .get(&Node::from_usize(index))
+                .get(&Node::key_from_usize(index))
                 .unwrap_or_else(|| panic!("Key {index} not found in `YamlHashNode` mapping")),
             _ => panic!("Attempt to index {get_type:?} in `YamlHashNode`"),
         }
@@ -355,7 +355,7 @@ where
             YamlHashNode::Sequence(sequence) => sequence.index_mut(index),
             YamlHashNode::Mapping(mapping) => mapping
                 .0
-                .get_mut(&Node::from_usize(index))
+                .get_mut(&Node::key_from_usize(index))
                 .unwrap_or_else(|| panic!("Key {index} not found in `YamlHashNode` mapping")),
             _ => panic!("Attempt to index {get_type:?} with {index} in `YamlHashNode`"),
         }
@@ -380,7 +380,7 @@ where
         match self {
             YamlHashNode::Mapping(mapping) => mapping
                 .0
-                .get(&Node::from_str(index))
+                .get(&Node::key_from_str(index))
                 .unwrap_or_else(|| panic!("Key {index} not found in `YamlHashNode` mapping")),
             _ => panic!("Attempt to index {get_type:?} with {index} in `YamlHashNode`"),
         }
@@ -403,7 +403,7 @@ where
         match self {
             YamlHashNode::Mapping(mapping) => mapping
                 .0
-                .get_mut(&Node::from_str(index))
+                .get_mut(&Node::key_from_str(index))
                 .unwrap_or_else(|| panic!("Key {index} not found in `YamlHashNode` mapping")),
             _ => panic!("Attempt to index {get_type:?} in `YamlHashNode`"),
         }

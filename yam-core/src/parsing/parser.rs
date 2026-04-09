@@ -15,11 +15,32 @@ use alloc::{
 };
 use core::fmt::{Debug, Display, Formatter};
 
+///
+/// Represents a scalar value parsed from input, which includes its type, value, associated metadata,
+/// and optional tag information. This struct is typically used in processing scalar data in a Yaml-like
+/// or similar structured format.
+///
+/// # Generic Parameters
+/// * `'input` - Lifetime of the borrowed input data.
+///
+/// # Traits
+/// This struct derives the following traits:
+///
+/// * `Clone`: Allows creating a duplicate of the `ScalarValue`.
+/// * `PartialEq` & `Eq`: Allows comparing scalar values for equality.
+/// * `Debug`: Enables formatting a debug representation of the scalar value.
+///
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct ScalarValue<'input> {
+    /// The scalar value as a string. This can be either an owned `String` or a borrowed `&str`.
     pub value: Cow<'input, str>,
+    /// The type of the scalar value, representing its semantic classification (e.g., integer, float, string, etc.).
     pub scalar_type: ScalarType,
+    /// A unique identifier for the anchor associated with this scalar value, if any.
+    // ///   Used in cases where the scalar value is part of anchored references in a YAML-like format.
     pub anchor_id: usize,
+    /// An optional tag providing additional metadata for the value. This specifies or overrides the interpretation of the scalar data,
+    ///   and can also be either owned or borrowed.
     pub tag: Option<Cow<'input, Tag>>,
 }
 

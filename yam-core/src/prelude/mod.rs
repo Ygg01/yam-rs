@@ -1,3 +1,4 @@
+//! Use `yam_core::prelude::*` to import common components and traits.
 use crate::{Event, Source, StrSource, parsing};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
@@ -389,7 +390,7 @@ where
     /// - `I`: A type that implements the `Source` trait, representing the input data source.
     ///
     /// # Arguments
-    /// - `parser`: The input source containing the [`Parser`] that parses the input.
+    /// - `parser`: The input source containing the [`crate::parsing::Parser`] that parses the input.
     ///
     /// # Returns
     /// - `Ok(Node)`: The parsed YAML document represented as a `Node` if successful.
@@ -870,9 +871,9 @@ pub trait YamlDocAccess<'input>: Sized {
         matches!(self.get_type(), NodeType::Bad)
     }
 
-    fn from_usize(index: usize) -> Self;
+    fn key_from_usize(index: usize) -> Self;
 
-    fn from_str(index: &str) -> Self;
+    fn key_from_str(index: &str) -> Self;
 
     /// Determines whether the current node is a null value.
     ///

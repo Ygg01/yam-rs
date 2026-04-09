@@ -25,8 +25,12 @@ use alloc::vec::Vec;
 /// - `peek_char() -> char`: Returns the next character from the source.
 ///
 /// ## Buffer control
-/// - `buf_max_len() -> usize`: Returns the maximum recommended buffer length. Default is `128`.
+/// - `buf_max_len() -> usize`: Returns the maximum recommended buffer length. The `Default` is `128`.
 /// - `buf_is_empty() -> bool`: Checks if the buffer is empty.
+///
+/// ## Parsing Helpers
+/// - `fetch_while_is_alpha(out: &mut Vec<u8>) -> usize`: Fetches and appends all consecutive alphanumeric characters into `out`, returning the count.
+/// - `push_non_breakz_chr(out: &mut Vec<u8>) -> usize`: Fetches and appends all consecutive alphanumeric characters into `out`, returning the count.
 ///
 /// ## Skipping
 /// - `skip(n: usize)`: Skips `n` bytes in the source.
@@ -35,14 +39,11 @@ use alloc::vec::Vec;
 /// - `skip_while_non_breakz() -> usize`: skips all non-break characters
 /// - `skip_and_accumulate_to_eol(buf: &mut Vec<u8>)`
 ///
-/// ## Parsing Helpers
-/// - `fetch_while_is_alpha(out: &mut Vec<u8>) -> usize`: Fetches and appends all consecutive alphanumeric characters into `out`, returning the count.
-/// - `push_non_breakz_chr(out: &mut Vec<u8>) -> usize`: Fetches and appends all consecutive alphanumeric characters into `out`, returning the count.
-///
 /// ## Flow and Blank/Binary Checks
 /// - `next_next_byte_is(chr: u8) -> bool`: Checks if the 2nd byte is exactly the same as chr
 /// - `next_three_is(chr: u8) -> bool`: Checks if the next three consecutive characters are chr.
-/// - `next_can_be_plain_scalar(in_flow: bool) -> bool`: Checks if the next characters can be plain scalar. `in_flow` it determines if its plain scalar in flow or block mode.
+/// - `next_can_be_plain_scalar(in_flow: bool) -> bool`: Checks if the next characters can be plain
+///   scalar. `in_flow` it determines if its plain scalar is in flow or block mode.
 /// - `next_is_document_indicator() -> bool`: Checks if the next characters form a document indicator.
 pub unsafe trait Source {
     #[must_use]
@@ -207,8 +208,28 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
     )
 }
 
+/// A structure that wraps a slice os strings
+///
+/// `StrSource` provides a way to work with string-like byte input slices (`&[u8]`)
+/// and keep track of the current position within the input.
+///
+/// # Type Parameters
+/// - `'input`: Lifetime of the input data slice.
+/// # Example
+/// ```
+/// use yam_core::StrSource;
+/// let source = StrSource::new("Hello, world!");
+/// assert_eq!(source.pos, 0);
+/// assert_eq!(source.input, b"Hello, world!");
+/// ```
+///
+/// This struct can be used for parsing, tokenizing, or other scenarios
+/// where keeping track of a position in a byte slice is required.
+/// ```
 pub struct StrSource<'input> {
+    /// A reference to the byte slice (`&[u8]`) that serves as the source data.
     input: &'input [u8],
+    /// A zero based index (`usize`) representing the current position within the input.
     pos: usize,
 }
 
@@ -289,6 +310,7 @@ unsafe impl Source for StrSource<'_> {
 
 #[cfg(test)]
 mod test {
+    use crate::StrSource;
     use crate::parsing::Source;
     use crate::parsing::buffered_source::BufferedBytesSource;
     use crate::parsing::scanner::SkipTabs;
@@ -299,10 +321,16 @@ mod test {
 
     #[test]
     fn test_str_source() {
-        // let mut x = StrSource::new(TEST_STR);
-        // let (consume , skip) = x.skip_ws_to_eol(true);
-        // assert_eq!(consume, 38);
-        // assert_eq!(skip, Ok(SkipTabs::Result { has_yaml_ws: true, any_tabs: false}));
+        let mut x = StrSource::new(TEST_STR);
+        let (consume, skip) = x.skip_ws_to_eol(true, false);
+        assert_eq!(consume, 38);
+        assert_eq!(
+            skip,
+            Ok(SkipTabs::Result {
+                has_yaml_ws: true,
+                any_tabs: false
+            })
+        );
 
         let mut x = BufferedBytesSource::from_str(TEST_STR);
         let (consume, skip) = x.skip_ws_to_eol(true, false);

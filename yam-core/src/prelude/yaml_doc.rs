@@ -13,11 +13,11 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
     type SequenceNode = Vec<Self::Node>;
     type MappingNode = Vec<YamlEntry<'input, YamlDoc<'input>>>;
 
-    fn from_usize(index: usize) -> Self {
+    fn key_from_usize(index: usize) -> Self {
         YamlDoc::Integer(index as i64)
     }
 
-    fn from_str(index: &str) -> Self {
+    fn key_from_str(index: &str) -> Self {
         YamlDoc::String(Cow::Owned(index.to_string()))
     }
 
