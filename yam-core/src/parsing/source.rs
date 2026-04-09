@@ -217,10 +217,10 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
 /// - `'input`: Lifetime of the input data slice.
 /// # Example
 /// ```
-/// use yam_core::StrSource;
+/// use yam_core::{StrSource, Source};
 /// let source = StrSource::new("Hello, world!");
-/// assert_eq!(source.pos, 0);
-/// assert_eq!(source.input, b"Hello, world!");
+/// assert_eq!(source.peekz(0), b'H');
+/// assert_eq!(source.peekz(1), b'e');
 /// ```
 ///
 /// This struct can be used for parsing, tokenizing, or other scenarios
