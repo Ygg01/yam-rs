@@ -1058,7 +1058,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                 } else {
                     // Check if it is a first line break
                     if self.leading_whitespace {
-                        // TODO check this works
                         self.skip_linebreak();
                         self.buf_trailing_breaks.push(b'\n');
                     } else {

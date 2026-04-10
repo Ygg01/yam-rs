@@ -531,11 +531,10 @@ impl<'input, T: Source> Parser<'input, T> {
     /// former is enough to call this function.
     /// # Errors
     /// Returns `YamlResult` when loading fails.
-    pub fn load<R: SpannedEventReceiver<'input>>(
-        &mut self,
-        recv: &mut R,
-        multi: bool,
-    ) -> Result<(), YamlError> {
+    pub fn load<R>(&mut self, recv: &mut R, multi: bool) -> Result<(), YamlError>
+    where
+        R: SpannedEventReceiver<'input>,
+    {
         if !self.scanner.stream_start_produced {
             let (ev, span) = self.next_event_impl()?;
             if ev != Event::StreamStart {

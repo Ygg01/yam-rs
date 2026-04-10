@@ -7,9 +7,9 @@ use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use serde_core::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_core::{de, forward_to_deserialize_any};
+use yam_core::YamlDocAccess;
 use yam_core::parsing::{Source, StrSource};
 use yam_core::prelude::{YamlDoc, YamlEntry, YamlError};
-use yam_core::{YamlDocAccess, YamlLoader};
 
 ///
 /// Attempts to deserialize a value of type `T` from a given YAML string slice.
@@ -143,10 +143,12 @@ where
     where
         V: Visitor<'de>,
     {
-        let doc = match YamlLoader::<YamlDoc<'de>>::load_single_source(self.input) {
-            Ok(x) => x,
-            Err(e) => return Err(YamSerdeError::ParsingError(e)),
-        };
+        let doc = YamlDoc::BadValue;
+        // todo!
+        // let doc = match YamlLoader::<YamlDoc<'de>>::load_single_source(self.input) {
+        //     Ok(x) => x,
+        //     Err(e) => return Err(YamSerdeError::ParsingError(e)),
+        // };
         YamDocDeserializer { doc }.deserialize_any(visitor)
     }
 

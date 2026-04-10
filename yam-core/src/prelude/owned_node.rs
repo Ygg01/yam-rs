@@ -66,7 +66,7 @@ pub enum YamlOwnedNode<Node: Clone> {
     /// Represents a pointer to another node like `[*lol, *lol]`
     Alias(usize),
     /// Tagged `YamlDoc` value, contains a [`Tag`] and a node that's a [`Box<Node>`]
-    Tagged(Tag, Box<Node>),
+    Tagged(Tag, Box<YamlOwnedNode<Node>>),
 }
 
 impl<Node> YamlDocAccess<'static> for YamlOwnedNode<Node>
@@ -235,7 +235,7 @@ where
     }
 
     fn into_tagged(self, tag: Cow<'static, Tag>) -> Self {
-        todo!()
+        YamlOwnedNode::Tagged(tag.into_owned(), Box::new(self))
     }
 
     fn from_bare_yaml(yaml: YamlDoc<'static>) -> Self {
@@ -243,7 +243,7 @@ where
     }
 
     fn bad_span_value(_span: Span) -> Self {
-        todo!()
+        YamlOwnedNode::BadValue
     }
 }
 

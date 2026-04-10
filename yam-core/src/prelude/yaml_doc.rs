@@ -1,3 +1,4 @@
+use crate::YamlDoc::BadValue;
 use crate::prelude::{NodeType, ScalarType, Span, Tag, YamlAccessError, YamlDocAccess, YamlEntry};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -168,15 +169,15 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
     }
 
     fn into_tagged(self, tag: Cow<'input, Tag>) -> Self {
-        todo!()
+        YamlDoc::Tagged(tag, Box::new(self))
     }
 
     fn from_bare_yaml(yaml: YamlDoc<'input>) -> Self {
-        todo!()
+        yaml
     }
 
     fn bad_span_value(_span: Span) -> Self {
-        todo!()
+        BadValue
     }
 }
 

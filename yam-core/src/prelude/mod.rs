@@ -122,7 +122,7 @@ where
             Node = Node,
             SequenceNode = Vec<Node>,
             MappingNode = Vec<YamlEntry<'input, Node>>,
-        >,
+        > + for<'a> From<YamlDoc<'a>>,
 {
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let marker = span.start;
@@ -186,7 +186,7 @@ where
             Node = Node,
             SequenceNode = Vec<Node>,
             MappingNode = Vec<YamlEntry<'input, Node>>,
-        >,
+        > + for<'a> From<YamlDoc<'a>>,
 {
     #[must_use]
     pub fn into_documents(self) -> Vec<Node> {

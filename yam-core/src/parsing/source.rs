@@ -225,7 +225,6 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
 ///
 /// This struct can be used for parsing, tokenizing, or other scenarios
 /// where keeping track of a position in a byte slice is required.
-/// ```
 pub struct StrSource<'input> {
     /// A reference to the byte slice (`&[u8]`) that serves as the source data.
     input: &'input [u8],
