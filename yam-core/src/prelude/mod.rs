@@ -122,7 +122,7 @@ where
             Node = Node,
             SequenceNode = Vec<Node>,
             MappingNode = Vec<YamlEntry<'input, Node>>,
-        > + for<'a> From<YamlDoc<'a>>,
+        > + From<YamlDoc<'input>>,
 {
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let marker = span.start;
@@ -186,7 +186,7 @@ where
             Node = Node,
             SequenceNode = Vec<Node>,
             MappingNode = Vec<YamlEntry<'input, Node>>,
-        > + for<'a> From<YamlDoc<'a>>,
+        > + for<'a> From<YamlDoc<'input>>,
 {
     #[must_use]
     pub fn into_documents(self) -> Vec<Node> {
@@ -1432,6 +1432,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// The specific meaning of "bad" or "invalid" depends on the implementation
     /// within the type that provides this method.
     ///
+    #[must_use]
     fn bad_value() -> Self {
         Self::bad_span_value(Span::default())
     }
