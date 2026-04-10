@@ -92,7 +92,7 @@ where
     /// Represents a pointer to another node like `[*lol, *lol]`
     Alias(usize),
     /// Tagged `YamlDoc` value, contains a [`Tag`] and a node that's a [`Box<Node>`]
-    Tagged(Cow<'input, Tag>, Box<Node>),
+    Tagged(Cow<'input, Tag>, Box<YamlHashNode<'input, Node>>),
 }
 
 impl<'input, T> YamlHashNode<'input, T>
@@ -110,7 +110,7 @@ where
 {
     fn from_mapping(mapping: Vec<YamlEntry<'input, YamlDoc<'input>>>) -> YamlHashNode<'input, T>
     where
-        T: Borrow<YamlDoc<'input>> + Clone + Eq + From<YamlDoc<'input>> + Hash + PartialEq,
+        T: Clone + Eq + From<YamlDoc<'input>> + Hash + PartialEq,
     {
         YamlHashNode::Mapping(HashedMapWrap(
             mapping
@@ -143,7 +143,7 @@ where
 
 impl<'input, Node> YamlDocAccess<'input> for YamlHashNode<'input, Node>
 where
-    Node: Clone + PartialEq + Eq + Hash + Eq + YamlDocAccess<'input>,
+    Node: Clone + PartialEq + Eq + Hash + Eq + YamlDocAccess<'input> + From<YamlDoc<'input>>,
 {
     type Node = Node;
     type SequenceNode = Vec<Node>;
@@ -307,22 +307,35 @@ where
     }
 
     fn into_tagged(self, tag: Cow<'input, Tag>) -> Self {
-        todo!()
+        YamlHashNode::Tagged(tag, Box::new(self))
     }
 
     fn from_bare_yaml(yaml: YamlDoc<'input>) -> Self {
-        todo!()
+        match yaml {
+            YamlDoc::BadValue => YamlHashNode::BadValue,
+            YamlDoc::Null => YamlHashNode::Null,
+            YamlDoc::String(s) => YamlHashNode::String(s),
+            YamlDoc::Bool(b) => YamlHashNode::Bool(b),
+            YamlDoc::FloatingPoint(fp) => YamlHashNode::FloatingPoint(OrderedFloat::from(fp)),
+            YamlDoc::Integer(i) => YamlHashNode::Integer(i),
+            YamlDoc::Sequence(seq) => YamlHashNode::from_sequence(seq),
+            YamlDoc::Mapping(map) => YamlHashNode::from_mapping(map),
+            YamlDoc::Alias(alias) => YamlHashNode::Alias(alias),
+            YamlDoc::Tagged(tag, yaml) => {
+                YamlHashNode::Tagged(tag, Box::new(YamlHashNode::from_bare_yaml(*yaml)))
+            }
+        }
     }
 
     fn bad_span_value(_span: Span) -> Self {
-        todo!()
+        YamlHashNode::BadValue
     }
 }
 
 #[allow(clippy::cast_possible_wrap)]
 impl<'input, Node> Index<usize> for YamlHashNode<'input, Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq,
+    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq + From<YamlDoc<'input>>,
 {
     type Output = Node;
 
@@ -350,7 +363,7 @@ where
 #[allow(clippy::cast_possible_wrap)]
 impl<'input, Node> IndexMut<usize> for YamlHashNode<'input, Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq,
+    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq + From<YamlDoc<'input>>,
 {
     /// Perform index by integer.
     ///
@@ -376,7 +389,7 @@ where
 
 impl<'input, 'key, Node> Index<&'key str> for YamlHashNode<'input, Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq,
+    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq + From<YamlDoc<'input>>,
 {
     type Output = Node;
 
@@ -401,7 +414,7 @@ where
 
 impl<'input, 'key, Node> IndexMut<&'key str> for YamlHashNode<'input, Node>
 where
-    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq,
+    Node: Clone + YamlDocAccess<'input> + PartialEq + Hash + Eq + From<YamlDoc<'input>>,
 {
     /// Perform a mutable index by string.
     ///
