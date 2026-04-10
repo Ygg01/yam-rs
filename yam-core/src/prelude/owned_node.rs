@@ -71,7 +71,7 @@ pub enum YamlOwnedNode<Node: Clone> {
 
 impl<Node> YamlDocAccess<'static> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'static>,
+    Node: Clone + YamlDocAccess<'static> + for<'a> From<YamlDoc<'a>>,
 {
     type Node = Node;
     type SequenceNode = Vec<Node>;
@@ -239,7 +239,7 @@ where
     }
 
     fn from_bare_yaml(yaml: YamlDoc<'static>) -> Self {
-        todo!()
+        YamlOwnedNode::from(yaml)
     }
 
     fn bad_span_value(_span: Span) -> Self {
@@ -290,7 +290,7 @@ where
 #[allow(clippy::cast_possible_wrap)]
 impl<Node> Index<usize> for YamlOwnedNode<Node>
 where
-    Node: YamlDocAccess<'static> + PartialEq,
+    Node: YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
 {
     type Output = Node;
 
@@ -322,7 +322,7 @@ where
 #[allow(clippy::cast_possible_wrap)]
 impl<Node> IndexMut<usize> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'static> + PartialEq,
+    Node: Clone + YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
 {
     /// Perform index by integer.
     ///
@@ -353,7 +353,7 @@ where
 
 impl<'key, Node> Index<&'key str> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'static> + PartialEq,
+    Node: Clone + YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
 {
     type Output = Node;
 
@@ -380,7 +380,7 @@ where
 
 impl<'key, Node> IndexMut<&'key str> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'static> + PartialEq,
+    Node: Clone + YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
 {
     /// Perform a mutable index by string.
     ///

@@ -200,7 +200,10 @@ impl YamlDocAccess<'static> for SpannedYaml {
     }
 
     fn from_bare_yaml(yaml: YamlDoc<'static>) -> Self {
-        todo!()
+        SpannedYaml {
+            data: YamlOwnedNode::from(yaml),
+            span: Span::default(),
+        }
     }
 
     fn bad_span_value(span: Span) -> Self {
