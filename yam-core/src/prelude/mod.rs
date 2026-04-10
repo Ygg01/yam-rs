@@ -90,7 +90,7 @@ pub enum TokenType<'input> {
 /// ```
 pub struct YamlLoader<'input, Node>
 where
-    Node: LoadableYamlNode<'input>,
+    Node: YamlDocAccess<'input>,
 {
     docs: Vec<Node>,
     doc_stack: Vec<(Node, usize, Option<Cow<'input, Tag>>)>,
@@ -101,7 +101,7 @@ where
 
 impl<'i, Node> Default for YamlLoader<'i, Node>
 where
-    Node: LoadableYamlNode<'i>,
+    Node: YamlDocAccess<'i>,
 {
     fn default() -> Self {
         Self {
@@ -116,7 +116,7 @@ where
 
 impl<'input, Node> parsing::SpannedEventReceiver<'input> for YamlLoader<'input, Node>
 where
-    Node: LoadableYamlNode<'input>
+    Node: Clone
         + YamlDocAccess<
             'input,
             Node = Node,
@@ -134,7 +134,7 @@ where
             | Event::Comment(_) => {}
             Event::DocumentEnd => match self.doc_stack.pop() {
                 Some((doc, ..)) => self.docs.push(doc),
-                None => self.docs.push(Node::bad(span)),
+                None => self.docs.push(Node::bad_span_value(span)),
             },
             Event::SequenceStart(aid, tag) => {
                 self.doc_stack.push((
@@ -149,7 +149,7 @@ where
                     aid,
                     tag,
                 ));
-                self.key_stack.push(Node::bad(span));
+                self.key_stack.push(Node::bad_span_value(span));
             }
             Event::MappingEnd => {
                 self.key_stack.pop();
@@ -171,7 +171,7 @@ where
             Event::Alias(anchor_id) => {
                 let node = match self.anchor_map.get(&anchor_id) {
                     Some(n) => n.clone(),
-                    None => Node::bad(span),
+                    None => Node::bad_span_value(span),
                 };
                 self.insert_new_node(node, anchor_id, None);
             }
@@ -181,7 +181,7 @@ where
 
 impl<'input, Node> YamlLoader<'input, Node>
 where
-    Node: LoadableYamlNode<'input>
+    Node: Clone
         + YamlDocAccess<
             'input,
             Node = Node,
@@ -1352,98 +1352,7 @@ pub trait YamlDocAccess<'input>: Sized {
     ///   [`YamlDocAccess::is_sequence`]
     ///
     fn into_sequence(self) -> Option<Self::SequenceNode>;
-}
 
-///
-///
-///  A data structure representing an entry in a YAML file, consisting of a key-value pair.
-///
-///  The `YamlEntry` struct is generic over the type `T`, which represents the type of the key and
-///  value. The generic type `T` must implement the `Clone` trait to ensure the key and value
-///  can be duplicated as needed.
-///
-///  The struct also includes a marker field, `_marker`, utilizing `PhantomData` to associate
-///  a specific lifetime `'input` with the `YamlEntry`. This is useful for ensuring that any
-///  references within the key or value maintain proper lifetimes.
-///
-///  # Type Parameters
-///  - `'input`: Lifetime parameter used by the `_marker` field to link the `YamlEntry` instance
-///    with a specific lifetime context.
-///  - `T`: Generic type representing the key and value in the YAML entry. It must implement `Clone`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct YamlEntry<'input, T>
-where
-    T: Clone,
-{
-    /// Represents the key of the YAML entry. It is of type `T`.
-    pub key: T,
-    /// Represents the value of the YAML entry. It is of type `T`.
-    pub value: T,
-    pub _marker: PhantomData<&'input ()>,
-}
-
-impl<T: Clone> YamlEntry<'_, T> {
-    /// Creates a new `YamlEntry` with the given key and value.
-    ///
-    /// # Parameters
-    ///
-    /// - `key`: The key for the YAML entry.
-    /// - `value`: The value associated with the key in the YAML entry.
-    ///
-    /// # Returns
-    ///
-    /// A new instance of `YamlEntry` containing the specified key and value.
-    pub fn new(key: T, value: T) -> Self {
-        YamlEntry {
-            key,
-            value,
-            _marker: PhantomData,
-        }
-    }
-}
-
-///
-/// Trait representing a loadable YAML node with various utility methods for manipulation
-/// and inspection of YAML data structures. Each implementation can handle tagged YAML nodes,
-/// sequences (arrays), mappings (objects), and invalid (bad) values.
-///
-/// # Type Parameters
-/// - `'input`: Lifetime of the input YAML data being processed.
-///
-/// # Required Implementations
-/// All implementations of this trait must define the behavior for converting a YAML node into
-/// a tagged node, creating nodes from bare YAML data, accessing/modifying sequences and mappings,
-/// handling invalid values, and checking node types (sequence, mapping, or bad value).
-///
-/// # Associated Types
-/// - This trait requires the associated `Cow<'input, Tag>` type for handling YAML tags.
-/// - Input YAML must be represented as a `YamlDoc<'input>` type.
-/// - YAML mappings are represented with `YamlEntry<'input, Self>` entries.
-///
-/// # Methods
-///
-/// ## Conversion
-///
-/// - `into_tagged(self, tag: Cow<'input, Tag>) -> Self`
-///   Converts the current YAML node into a tagged node with the provided tag.
-///
-/// - `from_bare_yaml(yaml: YamlDoc<'input>) -> Self`
-///   Creates a loadable YAML node from a bare YAML document.
-///
-/// ## Access and Mutation
-///
-/// - `sequence_mut(&mut self) -> &mut Vec<Self>`
-///   Provides mutable access to the underlying sequence of nodes if the current node is a sequence.
-///
-/// - `mapping_mut(&mut self) -> &mut Vec<YamlEntry<'input, Self>>`
-///   Provides mutable access to the underlying mapping entries if the current node is a mapping.
-///
-/// ## Special Values
-///
-/// - `bad(span: Span) -> Self`
-///   Creates a node representing an invalid (bad) value. A default implementation is provided that
-///   delegates to the required
-pub trait LoadableYamlNode<'input>: Clone + PartialEq + YamlDocAccess<'input> {
     ///
     /// Converts the current instance into a tagged version of itself.
     ///
@@ -1510,9 +1419,7 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq + YamlDocAccess<'input> {
     /// Since the provided parameter `_: Span` is unused, this function might
     /// not utilize it for any meaningful computation.
     #[must_use]
-    fn bad(_span: Span) -> Self {
-        Self::bad_value()
-    }
+    fn bad_span_value(_span: Span) -> Self;
 
     ///
     /// This method represents a constructor or initializer for creating an instance of `Self`
@@ -1526,7 +1433,9 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq + YamlDocAccess<'input> {
     /// The specific meaning of "bad" or "invalid" depends on the implementation
     /// within the type that provides this method.
     ///
-    fn bad_value() -> Self;
+    fn bad_value() -> Self {
+        Self::bad_span_value(Span::default())
+    }
 
     ///
     /// Consumes the current value, leaving the object in an uninitialized or default state,
@@ -1552,7 +1461,9 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq + YamlDocAccess<'input> {
     /// assert_eq!(value, YamlDoc::BadValue);
     /// ```
     #[must_use]
-    fn take(&mut self) -> Self;
+    fn take(&mut self) -> Self {
+        core::mem::replace(self, Self::bad_value())
+    }
 
     ///
     /// Sets the starting marker for the current instance.
@@ -1596,6 +1507,54 @@ pub trait LoadableYamlNode<'input>: Clone + PartialEq + YamlDocAccess<'input> {
     #[must_use]
     fn with_end(self, _marker: Marker) -> Self {
         self
+    }
+}
+
+///
+///
+///  A data structure representing an entry in a YAML file, consisting of a key-value pair.
+///
+///  The `YamlEntry` struct is generic over the type `T`, which represents the type of the key and
+///  value. The generic type `T` must implement the `Clone` trait to ensure the key and value
+///  can be duplicated as needed.
+///
+///  The struct also includes a marker field, `_marker`, utilizing `PhantomData` to associate
+///  a specific lifetime `'input` with the `YamlEntry`. This is useful for ensuring that any
+///  references within the key or value maintain proper lifetimes.
+///
+///  # Type Parameters
+///  - `'input`: Lifetime parameter used by the `_marker` field to link the `YamlEntry` instance
+///    with a specific lifetime context.
+///  - `T`: Generic type representing the key and value in the YAML entry. It must implement `Clone`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct YamlEntry<'input, T>
+where
+    T: Clone,
+{
+    /// Represents the key of the YAML entry. It is of type `T`.
+    pub key: T,
+    /// Represents the value of the YAML entry. It is of type `T`.
+    pub value: T,
+    pub _marker: PhantomData<&'input ()>,
+}
+
+impl<T: Clone> YamlEntry<'_, T> {
+    /// Creates a new `YamlEntry` with the given key and value.
+    ///
+    /// # Parameters
+    ///
+    /// - `key`: The key for the YAML entry.
+    /// - `value`: The value associated with the key in the YAML entry.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `YamlEntry` containing the specified key and value.
+    pub fn new(key: T, value: T) -> Self {
+        YamlEntry {
+            key,
+            value,
+            _marker: PhantomData,
+        }
     }
 }
 

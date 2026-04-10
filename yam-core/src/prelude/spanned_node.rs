@@ -1,11 +1,9 @@
 //! Basic node
 
 use crate::prelude::{
-    LoadableYamlNode, NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry,
-    YamlOwnedNode,
+    NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry, YamlOwnedNode,
 };
 use alloc::borrow::Cow;
-use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -191,31 +189,16 @@ impl YamlDocAccess<'static> for SpannedYaml {
             _ => None,
         }
     }
-}
 
-impl<'input> LoadableYamlNode<'static> for SpannedYaml {
-    fn into_tagged(self, tag: Cow<'input, Tag>) -> Self {
-        SpannedYaml {
-            data: YamlOwnedNode::Tagged(tag.into_owned(), Box::new(self)),
-            span: Span::default(),
-        }
+    fn into_tagged(self, tag: Cow<'static, Tag>) -> Self {
+        todo!()
     }
 
-    fn from_bare_yaml(yaml: YamlDoc<'input>) -> Self {
-        SpannedYaml {
-            data: yaml.into(),
-            span: Span::default(),
-        }
+    fn from_bare_yaml(yaml: YamlDoc<'static>) -> Self {
+        todo!()
     }
 
-    fn bad_value() -> Self {
-        SpannedYaml {
-            data: YamlOwnedNode::BadValue,
-            span: Span::default(),
-        }
-    }
-
-    fn take(&mut self) -> Self {
-        core::mem::take(self)
+    fn bad_span_value(_span: Span) -> Self {
+        todo!()
     }
 }

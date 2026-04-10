@@ -1,11 +1,8 @@
-use crate::prelude::{
-    LoadableYamlNode, NodeType, ScalarType, Tag, YamlAccessError, YamlDocAccess, YamlEntry,
-};
+use crate::prelude::{NodeType, ScalarType, Span, Tag, YamlAccessError, YamlDocAccess, YamlEntry};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::mem;
 use core::ops::{Index, IndexMut};
 
 impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
@@ -169,23 +166,17 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
             _ => None,
         }
     }
-}
 
-impl<'input> LoadableYamlNode<'input> for YamlDoc<'input> {
     fn into_tagged(self, tag: Cow<'input, Tag>) -> Self {
-        Self::Tagged(tag, Box::new(self))
+        todo!()
     }
 
     fn from_bare_yaml(yaml: YamlDoc<'input>) -> Self {
-        yaml
+        todo!()
     }
 
-    fn bad_value() -> Self {
-        YamlDoc::BadValue
-    }
-
-    fn take(&mut self) -> Self {
-        mem::take(self)
+    fn bad_span_value(_span: Span) -> Self {
+        todo!()
     }
 }
 

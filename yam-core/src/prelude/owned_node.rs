@@ -1,5 +1,6 @@
 use crate::prelude::yaml_doc::{Mapping, Sequence};
-use crate::prelude::{NodeType, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
+use crate::prelude::{NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
+use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -231,6 +232,18 @@ where
             YamlOwnedNode::Sequence(seq) => Some(seq),
             _ => None,
         }
+    }
+
+    fn into_tagged(self, tag: Cow<'static, Tag>) -> Self {
+        todo!()
+    }
+
+    fn from_bare_yaml(yaml: YamlDoc<'static>) -> Self {
+        todo!()
+    }
+
+    fn bad_span_value(_span: Span) -> Self {
+        todo!()
     }
 }
 

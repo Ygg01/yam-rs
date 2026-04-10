@@ -1,6 +1,5 @@
 #![no_std]
 extern crate alloc;
-use yam_core::prelude::LoadableYamlNode;
 
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -8,9 +7,9 @@ use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use serde_core::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_core::{de, forward_to_deserialize_any};
-use yam_core::YamlLoader;
 use yam_core::parsing::{Source, StrSource};
 use yam_core::prelude::{YamlDoc, YamlEntry, YamlError};
+use yam_core::{YamlDocAccess, YamlLoader};
 
 ///
 /// Attempts to deserialize a value of type `T` from a given YAML string slice.

@@ -4,7 +4,7 @@ use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::ops::{Index, IndexMut};
-use yam_core::prelude::{NodeType, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
+use yam_core::prelude::{NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
 
 /// Wrapper for hashmap that allows for hashing of hashmap.
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
@@ -304,6 +304,18 @@ where
             YamlHashNode::Sequence(seq) => Some(seq),
             _ => None,
         }
+    }
+
+    fn into_tagged(self, tag: Cow<'input, Tag>) -> Self {
+        todo!()
+    }
+
+    fn from_bare_yaml(yaml: YamlDoc<'input>) -> Self {
+        todo!()
+    }
+
+    fn bad_span_value(_span: Span) -> Self {
+        todo!()
     }
 }
 

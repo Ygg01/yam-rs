@@ -34,4 +34,4 @@ mod saphyr_emitter;
 mod util;
 
 pub use crate::parsing::{Event, Source, StrSource};
-pub use crate::prelude::{LoadableYamlNode, YamlDoc, YamlDocAccess, YamlLoader};
+pub use crate::prelude::{YamlDoc, YamlDocAccess, YamlLoader};
