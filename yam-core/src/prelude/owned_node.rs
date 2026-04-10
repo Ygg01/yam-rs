@@ -290,7 +290,7 @@ where
 #[allow(clippy::cast_possible_wrap)]
 impl<Node> Index<usize> for YamlOwnedNode<Node>
 where
-    Node: Clone + YamlDocAccess<'static> + PartialEq,
+    Node: YamlDocAccess<'static> + PartialEq,
 {
     type Output = Node;
 

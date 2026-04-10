@@ -181,8 +181,7 @@ where
 
 impl<'input, Node> YamlLoader<'input, Node>
 where
-    Node: Clone
-        + YamlDocAccess<
+    Node: YamlDocAccess<
             'input,
             Node = Node,
             SequenceNode = Vec<Node>,
@@ -846,7 +845,7 @@ pub enum YamlAccessError {
 ///  - `into_i64(self) -> Option<i64>`: Converts the node into an integer value if possible.
 ///  - `into_mapping(self) -> Option<NodeMapping<'input, Self::Node>>`: Converts the node into a mapping if possible.
 ///  - `into_sequence(self) -> Option<NodeSequence<Self::Node>>`: Converts the node into a sequence if possible.
-pub trait YamlDocAccess<'input>: Sized {
+pub trait YamlDocAccess<'input>: Clone {
     /// Type of node used in Sequence or Mapping
     type Node: Clone;
     /// Type of sequence node being used.
