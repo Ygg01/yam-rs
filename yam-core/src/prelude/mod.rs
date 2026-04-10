@@ -12,6 +12,7 @@ pub use owned_node::YamlOwnedNode;
 pub use spanned_node::SpannedYaml;
 pub use yaml_doc::YamlDoc;
 
+mod loader;
 mod owned_node;
 mod spanned_node;
 mod yaml_doc;
