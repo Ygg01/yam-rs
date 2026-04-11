@@ -1,5 +1,9 @@
 use crate::YamlDoc::BadValue;
-use crate::prelude::{NodeType, ScalarType, Span, Tag, YamlAccessError, YamlDocAccess, YamlEntry};
+use crate::prelude::loader::YamlLoader;
+use crate::prelude::{
+    NodeType, ScalarType, Span, Tag, YamlAccessError, YamlDocAccess, YamlEntry, YamlError,
+};
+use crate::{StrSource, parsing};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
@@ -374,6 +378,20 @@ impl<'input> YamlDoc<'input> {
         }
 
         YamlDoc::String(value)
+    }
+}
+
+impl<'input> YamlDoc<'input> {
+    fn from_str(input: &str) -> Result<Vec<Self>, YamlError> {
+        let mut event_listener = YamlLoader::default();
+        let mut parser = parsing::Parser::new(StrSource::new(input.as_ref()));
+        parser.load(&mut event_listener, true)?;
+        Ok(event_listener.into_documents())
+    }
+
+    fn x() {
+        let x = "[1,2,3]";
+        let docs = YamlDoc::from_str(x).unwrap();
     }
 }
 
