@@ -1,5 +1,8 @@
-use crate::prelude::yaml_doc::{Mapping, Sequence};
-use crate::prelude::{NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
+use crate::prelude::loader::YamlLoader;
+use crate::prelude::{
+    NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry, YamlError,
+};
+use crate::{StrSource, parsing};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
@@ -27,7 +30,7 @@ use core::ops::{Index, IndexMut};
 /// * `Debug`: Enables formatted output for debugging purposes.
 ///
 #[derive(Debug, Default, PartialEq, Clone)]
-pub enum YamlOwnedNode<Node: Clone> {
+pub enum YamlOwnedNode {
     #[default]
     /// Invalid value for `YamlDoc`
     BadValue,
@@ -51,7 +54,7 @@ pub enum YamlOwnedNode<Node: Clone> {
     /// - x
     /// - x
     /// ```
-    Sequence(Vec<Node>),
+    Sequence(Vec<YamlOwnedNode>),
 
     /// Represents a series of key to map values either in flow style like:
     /// ```yaml
@@ -62,20 +65,17 @@ pub enum YamlOwnedNode<Node: Clone> {
     /// x: Y
     /// a: B
     /// ```
-    Mapping(Vec<YamlEntry<'static, Node>>),
+    Mapping(Vec<YamlEntry<'static, YamlOwnedNode>>),
     /// Represents a pointer to another node like `[*lol, *lol]`
     Alias(usize),
     /// Tagged `YamlDoc` value, contains a [`Tag`] and a node that's a [`Box<Node>`]
-    Tagged(Tag, Box<YamlOwnedNode<Node>>),
+    Tagged(Tag, Box<YamlOwnedNode>),
 }
 
-impl<Node> YamlDocAccess<'static> for YamlOwnedNode<Node>
-where
-    Node: Clone + YamlDocAccess<'static> + for<'a> From<YamlDoc<'a>>,
-{
-    type Node = Node;
-    type SequenceNode = Vec<Node>;
-    type MappingNode = Vec<YamlEntry<'static, Node>>;
+impl<'a> YamlDocAccess<'a> for YamlOwnedNode {
+    type OutNode = YamlOwnedNode;
+    type SequenceNode = Vec<YamlOwnedNode>;
+    type MappingNode = Vec<YamlEntry<'static, YamlOwnedNode>>;
 
     fn key_from_usize(index: usize) -> Self {
         YamlOwnedNode::Integer(index as i64)
@@ -184,7 +184,7 @@ where
         }
     }
 
-    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'static, Node>> {
+    fn mapping_mut(&mut self) -> &mut Vec<YamlEntry<'static, YamlOwnedNode>> {
         match self {
             YamlOwnedNode::Mapping(map) => map,
             _ => core::panic!("Expected mapping got {:?}", self.get_type()),
@@ -234,12 +234,8 @@ where
         }
     }
 
-    fn into_tagged(self, tag: Cow<'static, Tag>) -> Self {
+    fn into_tagged(self, tag: Cow<'a, Tag>) -> Self {
         YamlOwnedNode::Tagged(tag.into_owned(), Box::new(self))
-    }
-
-    fn from_bare_yaml(yaml: YamlDoc<'static>) -> Self {
-        YamlOwnedNode::from(yaml)
     }
 
     fn bad_span_value(_span: Span) -> Self {
@@ -247,10 +243,7 @@ where
     }
 }
 
-impl<'input, T: Clone> From<YamlDoc<'input>> for YamlOwnedNode<T>
-where
-    T: From<YamlDoc<'input>>,
-{
+impl<'input> From<YamlDoc<'input>> for YamlOwnedNode {
     fn from(value: YamlDoc<'input>) -> Self {
         match value {
             YamlDoc::BadValue => YamlOwnedNode::BadValue,
@@ -260,8 +253,14 @@ where
             YamlDoc::Alias(x) => YamlOwnedNode::Alias(x),
             YamlDoc::FloatingPoint(x) => YamlOwnedNode::FloatingPoint(x),
             YamlDoc::Integer(x) => YamlOwnedNode::Integer(x),
-            YamlDoc::Sequence(s) => YamlOwnedNode::from_sequence(s),
-            YamlDoc::Mapping(m) => YamlOwnedNode::from_mapping(m),
+            YamlDoc::Sequence(s) => {
+                YamlOwnedNode::Sequence(s.into_iter().map(Into::into).collect())
+            }
+            YamlDoc::Mapping(m) => YamlOwnedNode::Mapping(
+                m.into_iter()
+                    .map(|x| YamlEntry::new(x.key.into(), x.value.into()))
+                    .collect(),
+            ),
             YamlDoc::Tagged(tag, data) => {
                 YamlOwnedNode::Tagged(tag.into_owned(), Box::new((*data).into()))
             }
@@ -269,30 +268,20 @@ where
     }
 }
 
-impl<'input, T> YamlOwnedNode<T>
-where
-    T: From<YamlDoc<'input>> + Clone,
-{
-    fn from_sequence(sequence: Sequence<'input>) -> YamlOwnedNode<T> {
-        YamlOwnedNode::Sequence(sequence.into_iter().map(Into::into).collect())
-    }
-
-    fn from_mapping(mapping: Mapping<'input>) -> YamlOwnedNode<T> {
-        YamlOwnedNode::Mapping(
-            mapping
-                .into_iter()
-                .map(|x| YamlEntry::new(x.key.into(), x.value.into()))
-                .collect(),
-        )
+impl YamlOwnedNode {
+    fn from_xxx(input: &str) -> Result<Vec<Self>, YamlError> {
+        let mut event_listener = YamlLoader::default();
+        let mut parser = parsing::Parser::new(StrSource::new(input.as_ref()));
+        parser.load(&mut event_listener, true)?;
+        Ok(event_listener.into_documents())
     }
 }
 
+impl<'input> YamlOwnedNode {}
+
 #[allow(clippy::cast_possible_wrap)]
-impl<Node> Index<usize> for YamlOwnedNode<Node>
-where
-    Node: YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
-{
-    type Output = Node;
+impl Index<usize> for YamlOwnedNode {
+    type Output = YamlOwnedNode;
 
     /// Perform index by integer.
     ///
@@ -303,7 +292,7 @@ where
     /// # Panics
     /// This function panics if the index doesn't exist in sequence or if the mapping doesn't contain
     /// an index key with the same value.
-    fn index(&self, index: usize) -> &Node {
+    fn index(&self, index: usize) -> &YamlOwnedNode {
         let get_type = self.get_type();
         match self {
             YamlOwnedNode::Sequence(sequence) => sequence.index(index),
@@ -320,10 +309,7 @@ where
     }
 }
 #[allow(clippy::cast_possible_wrap)]
-impl<Node> IndexMut<usize> for YamlOwnedNode<Node>
-where
-    Node: Clone + YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
-{
+impl IndexMut<usize> for YamlOwnedNode {
     /// Perform index by integer.
     ///
     /// When `self` is a sequence, the method will attempt to access the underlying vector at a given position.
@@ -334,7 +320,7 @@ where
     /// This function panics if the index doesn't exist in sequence or if the mapping doesn't contain
     /// an index key with the same value.
     ///
-    fn index_mut(&mut self, index: usize) -> &mut Node {
+    fn index_mut(&mut self, index: usize) -> &mut YamlOwnedNode {
         let get_type = self.get_type();
         match self {
             YamlOwnedNode::Sequence(sequence) => sequence.index_mut(index),
@@ -351,11 +337,8 @@ where
     }
 }
 
-impl<'key, Node> Index<&'key str> for YamlOwnedNode<Node>
-where
-    Node: Clone + YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
-{
-    type Output = Node;
+impl<'key> Index<&'key str> for YamlOwnedNode {
+    type Output = YamlOwnedNode;
 
     /// Perform index by string.
     ///
@@ -364,7 +347,7 @@ where
     ///
     /// # Panics
     /// This function panics if the index doesn't exist in the map.
-    fn index(&self, index: &'key str) -> &Node {
+    fn index(&self, index: &'key str) -> &YamlOwnedNode {
         let get_type = self.get_type();
         match self {
             YamlOwnedNode::Mapping(mapping) => {
@@ -378,10 +361,7 @@ where
     }
 }
 
-impl<'key, Node> IndexMut<&'key str> for YamlOwnedNode<Node>
-where
-    Node: Clone + YamlDocAccess<'static> + PartialEq + for<'a> From<YamlDoc<'a>>,
-{
+impl<'key> IndexMut<&'key str> for YamlOwnedNode {
     /// Perform a mutable index by string.
     ///
     /// When `self` is a mapping, the method will attempt to access the underlying map assuming `index` is a key
@@ -389,7 +369,7 @@ where
     ///
     /// # Panics
     /// This function panics if the index doesn't exist in the map.
-    fn index_mut(&mut self, index: &'key str) -> &mut Node {
+    fn index_mut(&mut self, index: &'key str) -> &mut YamlOwnedNode {
         let get_type = self.get_type();
         match self {
             YamlOwnedNode::Mapping(mapping) => {

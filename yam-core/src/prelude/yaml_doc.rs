@@ -1,4 +1,3 @@
-use crate::YamlDoc::BadValue;
 use crate::prelude::loader::YamlLoader;
 use crate::prelude::{
     NodeType, ScalarType, Span, Tag, YamlAccessError, YamlDocAccess, YamlEntry, YamlError,
@@ -11,8 +10,8 @@ use alloc::vec::Vec;
 use core::ops::{Index, IndexMut};
 
 impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
-    type Node = YamlDoc<'input>;
-    type SequenceNode = Vec<Self::Node>;
+    type OutNode = YamlDoc<'input>;
+    type SequenceNode = Vec<Self::OutNode>;
     type MappingNode = Vec<YamlEntry<'input, YamlDoc<'input>>>;
 
     fn key_from_usize(index: usize) -> Self {
@@ -110,7 +109,7 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
 
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match self {
-            &mut YamlDoc::String(ref mut v) => Some(v.to_mut()),
+            YamlDoc::String(v) => Some(v.to_mut()),
             _ => None,
         }
     }
@@ -176,20 +175,10 @@ impl<'input> YamlDocAccess<'input> for YamlDoc<'input> {
         YamlDoc::Tagged(tag, Box::new(self))
     }
 
-    fn from_bare_yaml(yaml: YamlDoc<'input>) -> Self {
-        yaml
-    }
-
     fn bad_span_value(_span: Span) -> Self {
-        BadValue
+        YamlDoc::BadValue
     }
 }
-
-/// Ordered sequence of one or more [`YamlDoc`]'s
-pub type Sequence<'a> = Vec<YamlDoc<'a>>;
-
-/// Sequence of key-value pairing of two [`YamlDoc`]s
-pub type Mapping<'a> = Vec<YamlEntry<'a, YamlDoc<'a>>>;
 
 /// Represents a YAML document structure in Rust, capturing various types of YAML values.
 ///
@@ -240,7 +229,7 @@ pub enum YamlDoc<'input> {
     /// - x
     /// - x
     /// ```
-    Sequence(Sequence<'input>),
+    Sequence(Vec<YamlDoc<'input>>),
 
     /// Represents a series of key to map values either in flow style like:
     /// ```yaml
@@ -251,7 +240,7 @@ pub enum YamlDoc<'input> {
     /// x: Y
     /// a: B
     /// ```
-    Mapping(Mapping<'input>),
+    Mapping(Vec<YamlEntry<'input, YamlDoc<'input>>>),
     /// Represents a pointer to another node like `[*lol, *lol]`
     Alias(usize),
     /// Tagged `YamlDoc` value, contains a [`Tag`] and a node that's a [`Box<YamlDoc<'input>>`]

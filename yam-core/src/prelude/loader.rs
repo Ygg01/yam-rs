@@ -58,7 +58,7 @@ where
     Node: Clone
         + YamlDocAccess<
             'input,
-            Node = Node,
+            OutNode = Node,
             SequenceNode = Vec<Node>,
             MappingNode = Vec<YamlEntry<'input, Node>>,
         > + From<YamlDoc<'input>>,
@@ -77,14 +77,14 @@ where
             },
             Event::SequenceStart(aid, tag) => {
                 self.doc_stack.push((
-                    Node::from_bare_yaml(YamlDoc::Sequence(Vec::new())).with_start(marker),
+                    Node::from(YamlDoc::Sequence(Vec::new())).with_start(marker),
                     aid,
                     tag,
                 ));
             }
             Event::MappingStart(aid, tag) => {
                 self.doc_stack.push((
-                    Node::from_bare_yaml(YamlDoc::Mapping(Vec::new())).with_start(marker),
+                    Node::from(YamlDoc::Mapping(Vec::new())).with_start(marker),
                     aid,
                     tag,
                 ));
@@ -103,8 +103,7 @@ where
                 tag,
                 scalar_type,
             }) => {
-                let node =
-                    Node::from_bare_yaml(YamlDoc::from_cow_and_tag(value, scalar_type, &tag));
+                let node = Node::from(YamlDoc::from_cow_and_tag(value, scalar_type, &tag));
                 self.insert_new_node(node, anchor_id, tag);
             }
             Event::Alias(anchor_id) => {
@@ -122,7 +121,7 @@ impl<'input, Node> YamlLoader<'input, Node>
 where
     Node: YamlDocAccess<
             'input,
-            Node = Node,
+            OutNode = Node,
             SequenceNode = Vec<Node>,
             MappingNode = Vec<YamlEntry<'input, Node>>,
         > + for<'a> From<YamlDoc<'input>>,

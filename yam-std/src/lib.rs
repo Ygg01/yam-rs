@@ -6,5 +6,5 @@ extern crate alloc;
 extern crate core;
 extern crate yam_core;
 
-#[cfg(feature = "hashed_node")]
-mod hash_node;
+// #[cfg(feature = "hashed_node")]
+// mod hash_node;

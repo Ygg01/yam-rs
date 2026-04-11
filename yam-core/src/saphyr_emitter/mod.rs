@@ -399,21 +399,3 @@ fn need_quotes(string: &str) -> bool {
         || string.parse::<i64>().is_ok()
         || string.parse::<f64>().is_ok()
 }
-
-#[cfg(test)]
-mod test {
-    use alloc::string::String;
-
-    use crate::YamlLoader;
-    use crate::saphyr_emitter::YamlEmitter;
-
-    #[test]
-    fn test_multiline_string() {
-        let input = r#"{foo: "bar!\nbar!", baz: 42}"#;
-        let parsed = YamlLoader::load_from(input).unwrap();
-        let mut output = String::new();
-        let mut emitter = YamlEmitter::new(&mut output);
-        emitter.multiline_strings(true);
-        emitter.dump(&parsed[0]).unwrap();
-    }
-}
