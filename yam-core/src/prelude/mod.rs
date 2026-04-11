@@ -13,6 +13,7 @@ pub use yaml_doc::YamlDoc;
 
 mod loader;
 mod owned_node;
+mod scalar;
 mod spanned_node;
 mod yaml_doc;
 
@@ -1083,10 +1084,7 @@ pub trait YamlDocAccess<'input>: Clone + From<YamlDoc<'input>> {
 ///    with a specific lifetime context.
 ///  - `T`: Generic type representing the key and value in the YAML entry. It must implement `Clone`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct YamlEntry<'input, T>
-where
-    T: Clone,
-{
+pub struct YamlEntry<'input, T> {
     /// Represents the key of the YAML entry. It is of type `T`.
     pub key: T,
     /// Represents the value of the YAML entry. It is of type `T`.
