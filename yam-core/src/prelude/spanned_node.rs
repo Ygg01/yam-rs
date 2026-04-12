@@ -1,8 +1,6 @@
 //! Basic node
 
-use crate::prelude::{
-    NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry, YamlOwnedNode,
-};
+use crate::prelude::{NodeType, Span, Tag, YamlAccessError, YamlDoc, YamlDocAccess, YamlEntry};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};

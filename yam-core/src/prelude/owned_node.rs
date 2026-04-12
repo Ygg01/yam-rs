@@ -271,13 +271,11 @@ impl<'input> From<YamlDoc<'input>> for YamlOwnedNode {
 impl YamlOwnedNode {
     fn from_xxx(input: &str) -> Result<Vec<Self>, YamlError> {
         let mut event_listener = YamlLoader::default();
-        let mut parser = parsing::Parser::new(StrSource::new(input.as_ref()));
+        let mut parser = parsing::Parser::new(StrSource::new(input));
         parser.load(&mut event_listener, true)?;
         Ok(event_listener.into_documents())
     }
 }
-
-impl<'input> YamlOwnedNode {}
 
 #[allow(clippy::cast_possible_wrap)]
 impl Index<usize> for YamlOwnedNode {

@@ -370,10 +370,10 @@ impl<'input> YamlDoc<'input> {
     }
 }
 
-impl<'input> YamlDoc<'input> {
+impl YamlDoc<'_> {
     fn from_str(input: &str) -> Result<Vec<Self>, YamlError> {
         let mut event_listener = YamlLoader::default();
-        let mut parser = parsing::Parser::new(StrSource::new(input.as_ref()));
+        let mut parser = parsing::Parser::new(StrSource::new(input));
         parser.load(&mut event_listener, true)?;
         Ok(event_listener.into_documents())
     }

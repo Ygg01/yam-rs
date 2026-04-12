@@ -14,7 +14,7 @@ pub enum YamlScalar<'a, S = String, F = f64, I = i64> {
     Alias(usize),
 }
 
-impl<'a, S, F, I> Clone for YamlScalar<'a, S, F, I>
+impl<S, F, I> Clone for YamlScalar<'_, S, F, I>
 where
     S: Clone,
     F: Clone,
@@ -22,7 +22,7 @@ where
 {
     fn clone(&self) -> Self {
         match self {
-            YamlScalar::Null(a) => YamlScalar::Null(a.clone()),
+            YamlScalar::Null(a) => YamlScalar::Null(a),
             YamlScalar::String(s) => YamlScalar::String(s.clone()),
             YamlScalar::FloatingPoint(f) => YamlScalar::FloatingPoint(f.clone()),
             YamlScalar::Bool(f) => YamlScalar::Bool(*f),
@@ -43,7 +43,7 @@ pub enum YamlData<'input, Node, SEQ = Vec<Node>, MAP = Vec<YamlEntry<'input, Nod
     Tagged(Cow<'input, Tag>, Box<Node>),
 }
 
-impl<'input, Node> Clone for YamlData<'input, Node>
+impl<Node> Clone for YamlData<'_, Node>
 where
     Node: Clone,
 {
@@ -51,8 +51,8 @@ where
         match self {
             YamlData::BadValue => YamlData::BadValue,
             YamlData::Scalar(s) => YamlData::Scalar(s.clone()),
-            YamlData::Sequence(s) => YamlData::Sequence(s.to_vec()),
-            YamlData::Mapping(m) => YamlData::Mapping(m.to_vec()),
+            YamlData::Sequence(s) => YamlData::Sequence(s.clone()),
+            YamlData::Mapping(m) => YamlData::Mapping(m.clone()),
             YamlData::Tagged(tag, node) => YamlData::Tagged(tag.clone(), node.clone()),
         }
     }
