@@ -1,23 +1,24 @@
 use crate::YamlDocAccess;
-use crate::prelude::{NodeType, Span, Tag, YamlAccessError, YamlEntry};
+use crate::prelude::{IsEmpty, NodeType, Span, Tag, YamlAccessError, YamlEntry};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-pub enum YamlScalar<'a, S = String> {
+pub enum YamlScalar<'a, S = String, F = f64> {
     Null(&'a PhantomData<()>),
     String(S),
     Bool(bool),
-    FloatingPoint(f64),
+    FloatingPoint(F),
     Integer(i64),
     Alias(usize),
 }
 
-impl<S> Clone for YamlScalar<'_, S>
+impl<S, F> Clone for YamlScalar<'_, S, F>
 where
     S: Clone,
+    F: Copy,
 {
     fn clone(&self) -> Self {
         match self {
@@ -32,7 +33,7 @@ where
 }
 
 pub type OwnedScalar = YamlScalar<'static>;
-pub type BorrowedScalar<'a> = YamlScalar<'a, Cow<'a, str>>;
+pub type BorrowedScalar<'a> = YamlScalar<'a, Cow<'a, str>, f64>;
 
 pub enum YamlData<
     'input,
@@ -40,20 +41,22 @@ pub enum YamlData<
     SEQ = Vec<Node>,
     MAP = Vec<YamlEntry<'input, Node>>,
     STR = Cow<'input, str>,
+    FP = f64,
 > {
     BadValue,
-    Scalar(YamlScalar<'input, STR>),
+    Scalar(YamlScalar<'input, STR, FP>),
     Sequence(SEQ),
     Mapping(MAP),
     Tagged(Cow<'input, Tag>, Box<Node>),
 }
 
-impl<Node, SEQ, MAP, STR> Clone for YamlData<'_, Node, SEQ, MAP, STR>
+impl<Node, SEQ, MAP, STR, FP> Clone for YamlData<'_, Node, SEQ, MAP, STR, FP>
 where
     Node: Clone,
     SEQ: Clone,
     MAP: Clone,
     STR: Clone,
+    FP: Copy,
 {
     fn clone(&self) -> Self {
         match self {
@@ -72,16 +75,17 @@ impl<'a, SEQ, MAP> From<BorrowedScalar<'a>> for YamlData<'a, BorrowedScalar<'a>,
     }
 }
 
-pub struct SpannedYaml<'a, SEQ, MAP, STR = Cow<'a, str>> {
+pub struct SpannedYaml<'a, SEQ, MAP, STR = Cow<'a, str>, FP = f64> {
     span: Span,
-    yaml: YamlData<'a, SpannedYaml<'a, SEQ, MAP, STR>, SEQ, MAP, STR>,
+    yaml: YamlData<'a, SpannedYaml<'a, SEQ, MAP, STR, FP>, SEQ, MAP, STR, FP>,
 }
 
-impl<'a, SEQ, MAP, STR> Clone for SpannedYaml<'a, SEQ, MAP, STR>
+impl<'a, SEQ, MAP, STR, FP> Clone for SpannedYaml<'a, SEQ, MAP, STR, FP>
 where
     SEQ: Clone,
     MAP: Clone,
     STR: Clone,
+    FP: Copy,
 {
     fn clone(&self) -> Self {
         SpannedYaml {
@@ -91,15 +95,12 @@ where
     }
 }
 
-trait IsEmpty {
-    fn is_collection_empty(&self) -> bool;
-}
-
-impl<'a, SEQ, MAP, STR> YamlDocAccess<'a> for SpannedYaml<'a, SEQ, MAP, STR>
+impl<'a, SEQ, MAP, STR, FP> YamlDocAccess<'a> for SpannedYaml<'a, SEQ, MAP, STR, FP>
 where
     SEQ: Clone + IsEmpty,
     MAP: Clone + IsEmpty,
     STR: Clone + for<'x> From<&'x str> + AsRef<str> + AsMut<str> + Into<String>,
+    FP: Copy + AsRef<f64> + AsMut<f64>,
 {
     type OutNode = Self;
     type SequenceNode = SEQ;
@@ -157,14 +158,14 @@ where
 
     fn as_f64(&self) -> Option<f64> {
         match &self.yaml {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(*b),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(*b.as_ref()),
             _ => None,
         }
     }
 
     fn as_f64_mut(&mut self) -> Option<&mut f64> {
         match &mut self.yaml {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(b),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(b.as_mut()),
             _ => None,
         }
     }

@@ -1,5 +1,6 @@
 //! Use `yam_core::prelude::*` to import common components and traits.
 use alloc::borrow::Cow;
+use alloc::collections::{BTreeMap, LinkedList};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
@@ -1160,5 +1161,27 @@ impl Display for ScalarType {
             ScalarType::SingleQuote => write!(f, "'"),
             ScalarType::DoubleQuote => write!(f, "\""),
         }
+    }
+}
+
+trait IsEmpty {
+    fn is_collection_empty(&self) -> bool;
+}
+
+impl<T> IsEmpty for Vec<T> {
+    fn is_collection_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+
+impl<T> IsEmpty for LinkedList<T> {
+    fn is_collection_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+
+impl<K, V> IsEmpty for BTreeMap<K, V> {
+    fn is_collection_empty(&self) -> bool {
+        self.is_empty()
     }
 }
