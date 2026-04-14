@@ -1,5 +1,5 @@
 use crate::parsing::{ScalarValue, SpannedEventReceiver};
-use crate::prelude::scalar::YamlData;
+use crate::prelude::yaml_data::YamlData;
 use crate::prelude::{IsEmpty, Marker, Span, Tag, YamlEntry, YamlError, YamlScalar};
 use crate::{Event, Source, StrSource, YamlDocAccess, parsing};
 use alloc::borrow::Cow;
@@ -22,14 +22,14 @@ use core::marker::PhantomData;
 ///
 /// # Example
 /// ```rust
-/// use yam_core::prelude::{YamlDoc, YamlDocAccess};
+/// use yam_core::prelude::{Yaml, YamlDocAccess};
 /// use yam_core::YamlLoader;
 ///
 /// let yaml_str = "{a : b, c: d}";
-/// let doc = YamlLoader::<YamlDoc>::load_from(yaml_str).expect("Valid input YAML");
+/// let doc = YamlLoader::<Yaml>::load_from(yaml_str);
 ///
 /// ```
-pub struct YamlLoader<'input, Node, STR, FP>
+pub struct YamlLoader<'input, Node, STR = Cow<'input, str>, FP = f64>
 where
     Node: YamlDocAccess<'input>,
 {
@@ -98,7 +98,7 @@ impl<'a, T> MappingLike<T> for Vec<YamlEntry<'a, T>> {
         })
     }
 
-    fn entries(&self) -> &Vec<YamlEntry<T>> {
+    fn entries(&self) -> &Vec<YamlEntry<'_, T>> {
         self
     }
 }

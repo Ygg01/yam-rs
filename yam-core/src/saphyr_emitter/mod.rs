@@ -1,6 +1,7 @@
+use crate::prelude::Yaml;
+use crate::prelude::YamlData;
 use crate::prelude::{
-    IsEmpty, MappingLike, SequenceLike, Yaml, YamlData, YamlDocAccess, YamlScalar,
-    is_valid_literal_block_scalar,
+    IsEmpty, MappingLike, SequenceLike, YamlDocAccess, YamlScalar, is_valid_literal_block_scalar,
 };
 use alloc::string::String;
 use core::fmt;
@@ -104,7 +105,7 @@ where
             compact: true,
             level: -1,
             multiline_strings: false,
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
