@@ -4,17 +4,18 @@ use crate::prelude::{
     IsEmpty, MappingLike, SequenceLike, YamlDocAccess, YamlScalar, is_valid_literal_block_scalar,
 };
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::fmt;
 use core::marker::PhantomData;
 
 #[allow(clippy::module_name_repetitions)]
-pub struct YamlEmitter<'a, SEQ, MAP, STR, FP> {
+pub struct YamlEmitter<'a, MAP, STR, FP> {
     writer: &'a mut dyn fmt::Write,
     best_indent: usize,
     compact: bool,
     level: isize,
     multiline_strings: bool,
-    _marker: PhantomData<(SEQ, MAP, STR, FP)>,
+    _marker: PhantomData<(MAP, STR, FP)>,
 }
 
 /// A convenience alias for emitter functions that may fail without returning a value.
@@ -90,10 +91,9 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> EmitResult {
 }
 
 #[allow(dead_code)]
-impl<'a, SEQ, MAP, STR, FP> YamlEmitter<'a, SEQ, MAP, STR, FP>
+impl<'a, MAP, STR, FP> YamlEmitter<'a, MAP, STR, FP>
 where
-    SEQ: Clone + IsEmpty + SequenceLike<Yaml<'a, SEQ, MAP, STR, FP>>,
-    MAP: Clone + IsEmpty + MappingLike<Yaml<'a, SEQ, MAP, STR, FP>>,
+    MAP: Clone + IsEmpty + MappingLike<Yaml<'a, MAP, STR, FP>>,
     STR: Clone + for<'x> From<&'x str> + AsRef<str> + AsMut<str> + Into<String>,
     FP: Copy + AsRef<f64> + AsMut<f64> + Into<f64>,
 {
@@ -154,7 +154,7 @@ where
     /// Dump Yaml to an output stream.
     /// # Errors
     /// Returns `EmitError` when an error occurs.
-    pub fn dump(&mut self, doc: &Yaml<'a, SEQ, MAP, STR, FP>) -> EmitResult {
+    pub fn dump(&mut self, doc: &Yaml<'a, MAP, STR, FP>) -> EmitResult {
         // write DocumentStart
         writeln!(self.writer, "---")?;
         self.level = -1;
@@ -173,7 +173,7 @@ where
         Ok(())
     }
 
-    fn emit_node(&mut self, node: &Yaml<'a, SEQ, MAP, STR, FP>) -> EmitResult {
+    fn emit_node(&mut self, node: &Yaml<'a, MAP, STR, FP>) -> EmitResult {
         match &node.0 {
             YamlData::Sequence(v) => self.emit_sequence(v),
             YamlData::Mapping(h) => self.emit_mapping(h),
@@ -257,7 +257,7 @@ where
         Ok(())
     }
 
-    fn emit_sequence(&mut self, v: &SEQ) -> EmitResult {
+    fn emit_sequence(&mut self, v: &Vec<Yaml<'a, MAP, STR, FP>>) -> EmitResult {
         if v.is_collection_empty() {
             write!(self.writer, "[]")?;
         } else {
@@ -309,7 +309,7 @@ where
     /// following a ":" or "-", either after a space, or on a new line.
     /// If `inline` is true, then the preceding characters are distinct
     /// and short enough to respect the compact flag.
-    fn emit_val(&mut self, inline: bool, val: &Yaml<'a, SEQ, MAP, STR, FP>) -> EmitResult {
+    fn emit_val(&mut self, inline: bool, val: &Yaml<'a, MAP, STR, FP>) -> EmitResult {
         macro_rules! write_collection {
             ($v:expr ) => {
                 if (inline && self.compact) || $v.is_collection_empty() {
