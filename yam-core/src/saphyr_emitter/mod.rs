@@ -1,14 +1,19 @@
-use crate::prelude::{YamlDoc, YamlDocAccess, YamlEntry, is_valid_literal_block_scalar};
-use alloc::vec::Vec;
+use crate::prelude::{
+    IsEmpty, MappingLike, SequenceLike, Yaml, YamlData, YamlDocAccess, YamlScalar,
+    is_valid_literal_block_scalar,
+};
+use alloc::string::String;
 use core::fmt;
+use core::marker::PhantomData;
 
 #[allow(clippy::module_name_repetitions)]
-pub struct YamlEmitter<'a> {
+pub struct YamlEmitter<'a, SEQ, MAP, STR, FP> {
     writer: &'a mut dyn fmt::Write,
     best_indent: usize,
     compact: bool,
     level: isize,
     multiline_strings: bool,
+    _marker: PhantomData<(SEQ, MAP, STR, FP)>,
 }
 
 /// A convenience alias for emitter functions that may fail without returning a value.
@@ -84,7 +89,13 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> EmitResult {
 }
 
 #[allow(dead_code)]
-impl<'a> YamlEmitter<'a> {
+impl<'a, SEQ, MAP, STR, FP> YamlEmitter<'a, SEQ, MAP, STR, FP>
+where
+    SEQ: Clone + IsEmpty + SequenceLike<Yaml<'a, SEQ, MAP, STR, FP>>,
+    MAP: Clone + IsEmpty + MappingLike<Yaml<'a, SEQ, MAP, STR, FP>>,
+    STR: Clone + for<'x> From<&'x str> + AsRef<str> + AsMut<str> + Into<String>,
+    FP: Copy + AsRef<f64> + AsMut<f64> + Into<f64>,
+{
     /// Create a new emitter serializing into `writer`.
     pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
         YamlEmitter {
@@ -93,6 +104,7 @@ impl<'a> YamlEmitter<'a> {
             compact: true,
             level: -1,
             multiline_strings: false,
+            _marker: PhantomData::default(),
         }
     }
 
@@ -141,7 +153,7 @@ impl<'a> YamlEmitter<'a> {
     /// Dump Yaml to an output stream.
     /// # Errors
     /// Returns `EmitError` when an error occurs.
-    pub fn dump(&mut self, doc: &YamlDoc<'a>) -> EmitResult {
+    pub fn dump(&mut self, doc: &Yaml<'a, SEQ, MAP, STR, FP>) -> EmitResult {
         // write DocumentStart
         writeln!(self.writer, "---")?;
         self.level = -1;
@@ -160,32 +172,36 @@ impl<'a> YamlEmitter<'a> {
         Ok(())
     }
 
-    fn emit_node(&mut self, node: &YamlDoc<'a>) -> EmitResult {
-        match *node {
-            YamlDoc::Sequence(ref v) => self.emit_sequence(v),
-            YamlDoc::Mapping(ref h) => self.emit_mapping(h),
-            YamlDoc::String(ref v) => {
-                if self.should_emit_string_as_block(v) {
-                    self.emit_literal_block(v)?;
-                } else if need_quotes(v) {
-                    escape_str(self.writer, v)?;
+    fn emit_node(&mut self, node: &Yaml<'a, SEQ, MAP, STR, FP>) -> EmitResult {
+        match &node.0 {
+            YamlData::Sequence(v) => self.emit_sequence(v),
+            YamlData::Mapping(h) => self.emit_mapping(h),
+            YamlData::Scalar(YamlScalar::String(v)) => {
+                if self.should_emit_string_as_block(v.as_ref()) {
+                    self.emit_literal_block(v.as_ref())?;
+                } else if need_quotes(v.as_ref()) {
+                    escape_str(self.writer, v.as_ref())?;
                 } else {
-                    write!(self.writer, "{v}")?;
+                    write!(self.writer, "{0}", v.as_ref())?;
                 }
                 Ok(())
             }
-            YamlDoc::Bool(v) => {
-                if v {
+            YamlData::Scalar(YamlScalar::Bool(v)) => {
+                if *v {
                     self.writer.write_str("true")?;
                 } else {
                     self.writer.write_str("false")?;
                 }
                 Ok(())
             }
-            YamlDoc::Integer(v) => Ok(write!(self.writer, "{v}")?),
-            YamlDoc::FloatingPoint(ref v) => Ok(write!(self.writer, "{v}")?),
-            YamlDoc::BadValue | YamlDoc::Null => Ok(write!(self.writer, "~")?),
-            YamlDoc::Tagged(ref tag, ref node) => {
+            YamlData::Scalar(YamlScalar::Integer(v)) => Ok(write!(self.writer, "{v}")?),
+            YamlData::Scalar(YamlScalar::FloatingPoint(v)) => {
+                Ok(write!(self.writer, "{0}", <FP as Into<f64>>::into(*v))?)
+            }
+            YamlData::BadValue | YamlData::Scalar(YamlScalar::Null(_)) => {
+                Ok(write!(self.writer, "~")?)
+            }
+            YamlData::Tagged(tag, node) => {
                 write!(self.writer, "{} ", tag.as_ref())?;
                 // We need to insert a newline after the tag in the following cases:
                 //   - We have a non-empty sequence or mapping. `emit_sequence` and `emit_mapping`
@@ -216,7 +232,7 @@ impl<'a> YamlEmitter<'a> {
                 self.emit_node(node.as_ref())
             }
             // XXX(chenyh) Alias
-            YamlDoc::Alias(_) => Ok(()),
+            YamlData::Alias(_) => Ok(()),
         }
     }
 
@@ -240,12 +256,12 @@ impl<'a> YamlEmitter<'a> {
         Ok(())
     }
 
-    fn emit_sequence(&mut self, v: &[YamlDoc<'a>]) -> EmitResult {
-        if v.is_empty() {
+    fn emit_sequence(&mut self, v: &SEQ) -> EmitResult {
+        if v.is_collection_empty() {
             write!(self.writer, "[]")?;
         } else {
             self.level += 1;
-            for (cnt, x) in v.iter().enumerate() {
+            for (cnt, x) in v.vec().iter().enumerate() {
                 if cnt > 0 {
                     writeln!(self.writer)?;
                     self.write_indent()?;
@@ -258,13 +274,14 @@ impl<'a> YamlEmitter<'a> {
         Ok(())
     }
 
-    fn emit_mapping(&mut self, h: &Vec<YamlEntry<'a, YamlDoc<'a>>>) -> EmitResult {
-        if h.is_empty() {
+    fn emit_mapping(&mut self, h: &MAP) -> EmitResult {
+        if h.is_collection_empty() {
             self.writer.write_str("{}")?;
         } else {
             self.level += 1;
-            for (cnt, entry) in h.iter().enumerate() {
-                let complex_key = matches!(entry.key, YamlDoc::Mapping(_) | YamlDoc::Sequence(_));
+            for (cnt, entry) in h.entries().iter().enumerate() {
+                let complex_key =
+                    matches!(entry.key.0, YamlData::Mapping(_) | YamlData::Sequence(_));
                 if cnt > 0 {
                     writeln!(self.writer)?;
                     self.write_indent()?;
@@ -291,10 +308,10 @@ impl<'a> YamlEmitter<'a> {
     /// following a ":" or "-", either after a space, or on a new line.
     /// If `inline` is true, then the preceding characters are distinct
     /// and short enough to respect the compact flag.
-    fn emit_val(&mut self, inline: bool, val: &YamlDoc<'a>) -> EmitResult {
+    fn emit_val(&mut self, inline: bool, val: &Yaml<'a, SEQ, MAP, STR, FP>) -> EmitResult {
         macro_rules! write_collection {
             ($v:expr ) => {
-                if (inline && self.compact) || $v.is_empty() {
+                if (inline && self.compact) || $v.is_collection_empty() {
                     write!(self.writer, " ")?;
                 } else {
                     writeln!(self.writer)?;
@@ -305,14 +322,14 @@ impl<'a> YamlEmitter<'a> {
             };
         }
 
-        match *val {
-            YamlDoc::Sequence(ref v) => {
+        match val.0 {
+            YamlData::Sequence(ref v) => {
                 write_collection!(v);
                 self.emit_sequence(v)
             }
-            YamlDoc::Mapping(ref h) => {
-                write_collection!(h);
-                self.emit_mapping(h)
+            YamlData::Mapping(ref v) => {
+                write_collection!(v);
+                self.emit_mapping(v)
             }
             _ => {
                 write!(self.writer, " ")?;

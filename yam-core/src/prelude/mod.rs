@@ -7,16 +7,15 @@ use core::fmt;
 use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use core::str::Utf8Error;
+pub use loader::MappingLike;
+pub use loader::SequenceLike;
 pub use loader::YamlLoader;
-pub use owned_node::YamlOwnedNode;
-// pub use spanned_node::SpannedYaml;
-pub use yaml_doc::YamlDoc;
+pub use scalar::Yaml;
+pub use scalar::YamlData;
+pub use scalar::YamlScalar;
 
 mod loader;
-mod owned_node;
 mod scalar;
-mod spanned_node;
-mod yaml_doc;
 
 ///
 /// Represents the different types of tokens that can be encountered in the input stream.
@@ -1066,6 +1065,28 @@ pub trait YamlDocAccess<'input>: Clone {
     fn with_end(self, _marker: Marker) -> Self {
         self
     }
+
+    ///
+    /// Sets the ending marker for the current instance.
+    ///
+    /// # Parameters
+    /// - `_marker: Marker`: A placeholder for a marker that signifies the ending point.
+    ///   This parameter is currently unused in the method's implementation.
+    ///
+    /// # Returns
+    /// - `Self`: Returns the instance of the current type unchanged.
+    ///
+    /// # Attributes
+    /// - `#[must_use]`: Indicates that the return value of this method must be used,
+    ///   as it likely holds significance in the context it is called.
+    ///
+    /// Note: While the `Marker` parameter is unused within the method, it might
+    /// be included for future implementation or API design purposes.
+    ///
+    #[must_use]
+    fn with_span(self, _span: Span) -> Self {
+        self
+    }
 }
 
 ///
@@ -1164,7 +1185,7 @@ impl Display for ScalarType {
     }
 }
 
-trait IsEmpty {
+pub trait IsEmpty {
     fn is_collection_empty(&self) -> bool;
 }
 

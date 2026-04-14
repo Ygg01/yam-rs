@@ -1,5 +1,7 @@
-use crate::prelude::{Marker, Span, Tag, YamlEntry, YamlError};
-use crate::{Event, Source, StrSource, YamlDoc, YamlDocAccess, parsing};
+use crate::parsing::{ScalarValue, SpannedEventReceiver};
+use crate::prelude::scalar::YamlData;
+use crate::prelude::{IsEmpty, Marker, Span, Tag, YamlEntry, YamlError, YamlScalar};
+use crate::{Event, Source, StrSource, YamlDocAccess, parsing};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -27,18 +29,18 @@ use core::marker::PhantomData;
 /// let doc = YamlLoader::<YamlDoc>::load_from(yaml_str).expect("Valid input YAML");
 ///
 /// ```
-pub struct YamlLoader<'input, Node>
+pub struct YamlLoader<'input, Node, STR, FP>
 where
     Node: YamlDocAccess<'input>,
 {
     docs: Vec<Node>,
     doc_stack: Vec<(Node, usize, Option<Cow<'input, Tag>>)>,
     key_stack: Vec<Node>,
-    marker: PhantomData<&'input ()>,
+    marker: PhantomData<&'input (STR, FP)>,
     anchor_map: BTreeMap<usize, Node>,
 }
 
-impl<'i, Node> Default for YamlLoader<'i, Node>
+impl<'i, Node, STR, FP> Default for YamlLoader<'i, Node, STR, FP>
 where
     Node: YamlDocAccess<'i>,
 {
@@ -53,78 +55,63 @@ where
     }
 }
 
-impl<'input, Node> parsing::SpannedEventReceiver<'input> for YamlLoader<'input, Node>
-where
-    Node: Clone
-        + YamlDocAccess<
-            'input,
-            OutNode = Node,
-            SequenceNode = Vec<Node>,
-            MappingNode = Vec<YamlEntry<'input, Node>>,
-        > + From<YamlDoc<'input>>,
-{
-    fn on_event(&mut self, ev: Event<'input>, span: Span) {
-        let marker = span.start;
-        match ev {
-            Event::DocumentStart(_)
-            | Event::Nothing
-            | Event::StreamStart
-            | Event::StreamEnd
-            | Event::Comment(_) => {}
-            Event::DocumentEnd => match self.doc_stack.pop() {
-                Some((doc, ..)) => self.docs.push(doc),
-                None => self.docs.push(Node::bad_span_value(span)),
-            },
-            Event::SequenceStart(aid, tag) => {
-                self.doc_stack.push((
-                    Node::from(YamlDoc::Sequence(Vec::new())).with_start(marker),
-                    aid,
-                    tag,
-                ));
-            }
-            Event::MappingStart(aid, tag) => {
-                self.doc_stack.push((
-                    Node::from(YamlDoc::Mapping(Vec::new())).with_start(marker),
-                    aid,
-                    tag,
-                ));
-                self.key_stack.push(Node::bad_span_value(span));
-            }
-            Event::MappingEnd => {
-                self.key_stack.pop();
-                self.insert_collection(marker);
-            }
-            Event::SequenceEnd => {
-                self.insert_collection(marker);
-            }
-            Event::Scalar(parsing::ScalarValue {
-                value,
-                anchor_id,
-                tag,
-                scalar_type,
-            }) => {
-                let node = Node::from(YamlDoc::from_cow_and_tag(value, scalar_type, &tag));
-                self.insert_new_node(node, anchor_id, tag);
-            }
-            Event::Alias(anchor_id) => {
-                let node = match self.anchor_map.get(&anchor_id) {
-                    Some(n) => n.clone(),
-                    None => Node::bad_span_value(span),
-                };
-                self.insert_new_node(node, anchor_id, None);
-            }
-        }
+pub trait SequenceLike<T> {
+    fn new_empty() -> Self;
+
+    fn push_elem(&mut self, elem: T);
+
+    fn vec(&self) -> &Vec<T>;
+}
+
+impl<T> SequenceLike<T> for Vec<T> {
+    fn new_empty() -> Self {
+        Vec::new()
+    }
+
+    fn push_elem(&mut self, elem: T) {
+        self.push(elem);
+    }
+
+    fn vec(&self) -> &Vec<T> {
+        self
     }
 }
 
-impl<'input, Node> YamlLoader<'input, Node>
+pub trait MappingLike<T> {
+    fn new_map() -> Self;
+
+    fn push_mapping(&mut self, key: T, value: T);
+
+    fn entries(&self) -> &Vec<YamlEntry<'_, T>>;
+}
+
+impl<'a, T> MappingLike<T> for Vec<YamlEntry<'a, T>> {
+    fn new_map() -> Self {
+        Vec::new()
+    }
+
+    fn push_mapping(&mut self, key: T, value: T) {
+        self.push(YamlEntry {
+            key,
+            value,
+            _marker: Default::default(),
+        })
+    }
+
+    fn entries(&self) -> &Vec<YamlEntry<T>> {
+        self
+    }
+}
+
+impl<'input, Node, SEQ, MAP, STR, FP> YamlLoader<'input, Node, STR, FP>
 where
-    Node: YamlDocAccess<
-            'input,
-            OutNode = Node,
-            SequenceNode = Vec<Node>,
-            MappingNode = Vec<YamlEntry<'input, Node>>,
-        > + for<'a> From<YamlDoc<'input>>,
+    Node: YamlDocAccess<'input, OutNode = Node, SequenceNode = SEQ, MappingNode = MAP>
+        + From<YamlData<'input, Node, SEQ, MAP, STR, FP>>
+        + From<YamlScalar<'input, STR, FP>>,
+    SEQ: SequenceLike<Node> + IsEmpty + Clone,
+    MAP: MappingLike<Node> + IsEmpty + Clone,
+    STR: From<Cow<'input, str>>,
+    FP: From<f64>,
 {
     #[must_use]
     pub fn into_documents(self) -> Vec<Node> {
@@ -148,7 +135,7 @@ where
                 node = node.into_tagged(tag);
             }
             if parent_node.is_sequence() {
-                parent_node.sequence_mut().push(node);
+                parent_node.sequence_mut().push_elem(node);
             } else if parent_node.is_mapping() {
                 let curr_key = self.key_stack.last_mut().unwrap();
 
@@ -157,7 +144,7 @@ where
                 } else {
                     parent_node
                         .mapping_mut()
-                        .push(YamlEntry::new(curr_key.take(), node));
+                        .push_mapping(curr_key.take(), node);
                 }
             }
         } else {
@@ -419,5 +406,86 @@ where
             .first()
             .cloned()
             .ok_or(YamlError::NoDocument)
+    }
+}
+
+impl<'input, Node, SEQ, MAP, STR, FP> SpannedEventReceiver<'input>
+    for YamlLoader<'input, Node, STR, FP>
+where
+    Node: YamlDocAccess<'input, OutNode = Node, MappingNode = MAP, SequenceNode = SEQ>
+        + From<YamlData<'input, Node, SEQ, MAP, STR, FP>>
+        + From<YamlScalar<'input, STR, FP>>,
+    SEQ: SequenceLike<Node> + Clone + IsEmpty,
+    MAP: MappingLike<Node> + Clone + IsEmpty,
+    FP: From<f64>,
+    STR: From<Cow<'input, str>>,
+{
+    fn on_event(&mut self, ev: Event<'input>, span: Span) {
+        let mark = span.start;
+        match ev {
+            Event::DocumentStart(_) | Event::Nothing | Event::StreamStart | Event::StreamEnd => {
+                // do nothing
+            }
+            Event::DocumentEnd => {
+                match self.doc_stack.len() {
+                    // empty document
+                    0 => self.docs.push(YamlData::BadValue.into()),
+                    1 => self.docs.push(self.doc_stack.pop().unwrap().0),
+                    _ => unreachable!(),
+                }
+            }
+            Event::SequenceStart(aid, tag) => {
+                self.doc_stack.push((
+                    //todo YamlData::Sequence(SEQ::new_empty()).with_start_marker(mark),
+                    YamlData::Sequence(SEQ::new_empty()).into(),
+                    aid,
+                    tag,
+                ));
+            }
+            Event::MappingStart(aid, tag) => {
+                self.doc_stack.push((
+                    YamlData::Mapping(MAP::new_map()).into(),
+                    // Node::from_bare_yaml(Yaml::Mapping(Mapping::new())).with_start_marker(mark),
+                    aid,
+                    tag,
+                ));
+                self.key_stack.push(YamlData::BadValue.into());
+            }
+            Event::MappingEnd | Event::SequenceEnd => {
+                if ev == Event::MappingEnd {
+                    self.key_stack.pop().unwrap();
+                }
+
+                let (mut node, anchor_id, tag) = self.doc_stack.pop().unwrap();
+                node = node.with_end(mark);
+                if let Some(tag) = tag {
+                    if !tag.is_yaml_core_schema() {
+                        node = node.into_tagged(tag);
+                    }
+                }
+                self.insert_new_node(node, anchor_id, None);
+            }
+            Event::Scalar(ScalarValue {
+                value,
+                scalar_type,
+                anchor_id,
+                tag,
+            }) => {
+                // let node = YamlData::value_from_cow_and_metadata(value, scalar_type, tag.as_ref()).into();
+                self.insert_new_node(
+                    YamlData::value_from_cow_and_metadata(value, scalar_type, tag.as_ref()).into(),
+                    anchor_id,
+                    tag,
+                );
+            }
+            Event::Alias(id) => {
+                let n = match self.anchor_map.get(&id) {
+                    Some(v) => v.clone(),
+                    None => YamlData::BadValue.into(),
+                };
+                self.insert_new_node(n.with_span(span), 0, None);
+            }
+            Event::Comment(_) => {}
+        }
     }
 }
