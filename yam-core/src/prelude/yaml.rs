@@ -1,17 +1,16 @@
 use crate::YamlDocAccess;
-use crate::prelude::{IsEmpty, NodeType, Span, Tag, YamlAccessError, YamlData, YamlScalar};
+use crate::prelude::{
+    IsEmpty, NodeType, Span, Tag, YamlAccessError, YamlData, YamlEntry, YamlScalar,
+};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-pub struct Yaml<'a, MAP, STR = Cow<'a, str>, FP = f64>(
-    pub YamlData<'a, Self, Vec<Self>, MAP, STR, FP>,
-);
+pub struct Yaml<'a, STR = Cow<'a, str>, FP = f64>(pub YamlData<'a, Self, STR, FP>);
 
-impl<MAP, STR, FP> Clone for Yaml<'_, MAP, STR, FP>
+impl<STR, FP> Clone for Yaml<'_, STR, FP>
 where
-    MAP: Clone,
     STR: Clone,
     FP: Copy,
 {
@@ -20,15 +19,14 @@ where
     }
 }
 
-impl<'a, MAP, STR, FP> YamlDocAccess<'a> for Yaml<'a, MAP, STR, FP>
+impl<'a, STR, FP> YamlDocAccess<'a> for Yaml<'a, STR, FP>
 where
-    MAP: Clone + IsEmpty,
     STR: Clone + for<'x> From<&'x str> + AsRef<str> + AsMut<str> + Into<String>,
     FP: Copy + AsRef<f64> + AsMut<f64>,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
-    type MappingNode = MAP;
+    type MappingNode = Vec<YamlEntry<'a, Self>>;
 
     fn key_from_usize(index: usize) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::Integer(index as i64)))

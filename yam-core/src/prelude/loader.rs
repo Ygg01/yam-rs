@@ -106,7 +106,7 @@ impl<'a, T> MappingLike<T> for Vec<YamlEntry<'a, T>> {
 impl<'input, Node, SEQ, MAP, STR, FP> YamlLoader<'input, Node, STR, FP>
 where
     Node: YamlDocAccess<'input, OutNode = Node, SequenceNode = SEQ, MappingNode = MAP>
-        + From<YamlData<'input, Node, SEQ, MAP, STR, FP>>
+        + From<YamlData<'input, Node, STR, FP>>
         + From<YamlScalar<'input, STR, FP>>,
     SEQ: SequenceLike<Node> + IsEmpty + Clone,
     MAP: MappingLike<Node> + IsEmpty + Clone,
@@ -413,7 +413,7 @@ impl<'input, Node, SEQ, MAP, STR, FP> SpannedEventReceiver<'input>
     for YamlLoader<'input, Node, STR, FP>
 where
     Node: YamlDocAccess<'input, OutNode = Node, MappingNode = MAP, SequenceNode = SEQ>
-        + From<YamlData<'input, Node, SEQ, MAP, STR, FP>>
+        + From<YamlData<'input, Node, STR, FP>>
         + From<YamlScalar<'input, STR, FP>>,
     SEQ: SequenceLike<Node> + Clone + IsEmpty,
     MAP: MappingLike<Node> + Clone + IsEmpty,
@@ -435,20 +435,13 @@ where
                 }
             }
             Event::SequenceStart(aid, tag) => {
-                self.doc_stack.push((
-                    //todo YamlData::Sequence(SEQ::new_empty()).with_start_marker(mark),
-                    YamlData::Sequence(SEQ::new_empty()).into(),
-                    aid,
-                    tag,
-                ));
+                let node: Node = YamlData::Mapping(Vec::new()).into();
+
+                self.doc_stack.push((node.with_start(mark), aid, tag));
             }
             Event::MappingStart(aid, tag) => {
-                self.doc_stack.push((
-                    YamlData::Mapping(MAP::new_map()).into(),
-                    // Node::from_bare_yaml(Yaml::Mapping(Mapping::new())).with_start_marker(mark),
-                    aid,
-                    tag,
-                ));
+                let node: Node = YamlData::Mapping(Vec::new()).into();
+                self.doc_stack.push((node.with_start(mark), aid, tag));
                 self.key_stack.push(YamlData::BadValue.into());
             }
             Event::MappingEnd | Event::SequenceEnd => {
@@ -471,12 +464,9 @@ where
                 anchor_id,
                 tag,
             }) => {
-                // let node = YamlData::value_from_cow_and_metadata(value, scalar_type, tag.as_ref()).into();
-                self.insert_new_node(
-                    YamlData::value_from_cow_and_metadata(value, scalar_type, tag.as_ref()).into(),
-                    anchor_id,
-                    tag,
-                );
+                let node =
+                    YamlData::value_from_cow_and_metadata(value, scalar_type, tag.as_ref()).into();
+                self.insert_new_node(node, anchor_id, tag);
             }
             Event::Alias(id) => {
                 let n = match self.anchor_map.get(&id) {

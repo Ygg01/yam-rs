@@ -1,18 +1,19 @@
 use crate::YamlDocAccess;
-use crate::prelude::{IsEmpty, NodeType, Span, Tag, YamlAccessError, YamlData, YamlScalar};
+use crate::prelude::{
+    IsEmpty, NodeType, Span, Tag, YamlAccessError, YamlData, YamlEntry, YamlScalar,
+};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::String;
+use alloc::vec::Vec;
 
-pub struct SpannedYaml<'a, SEQ, MAP, STR = Cow<'a, str>, FP = f64> {
+pub struct SpannedYaml<'a, STR = Cow<'a, str>, FP = f64> {
     span: Span,
-    yaml: YamlData<'a, SpannedYaml<'a, SEQ, MAP, STR, FP>, SEQ, MAP, STR, FP>,
+    yaml: YamlData<'a, SpannedYaml<'a, STR, FP>, STR, FP>,
 }
 
-impl<SEQ, MAP, STR, FP> Clone for SpannedYaml<'_, SEQ, MAP, STR, FP>
+impl<STR, FP> Clone for SpannedYaml<'_, STR, FP>
 where
-    SEQ: Clone,
-    MAP: Clone,
     STR: Clone,
     FP: Copy,
 {
@@ -24,16 +25,14 @@ where
     }
 }
 
-impl<'a, SEQ, MAP, STR, FP> YamlDocAccess<'a> for SpannedYaml<'a, SEQ, MAP, STR, FP>
+impl<'a, STR, FP> YamlDocAccess<'a> for SpannedYaml<'a, STR, FP>
 where
-    SEQ: Clone + IsEmpty,
-    MAP: Clone + IsEmpty,
     STR: Clone + for<'x> From<&'x str> + AsRef<str> + AsMut<str> + Into<String>,
     FP: Copy + AsRef<f64> + AsMut<f64>,
 {
     type OutNode = Self;
-    type SequenceNode = SEQ;
-    type MappingNode = MAP;
+    type SequenceNode = Vec<Self>;
+    type MappingNode = Vec<YamlEntry<'a, Self>>;
 
     fn key_from_usize(index: usize) -> Self {
         SpannedYaml {
