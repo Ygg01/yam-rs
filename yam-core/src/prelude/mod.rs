@@ -1188,23 +1188,49 @@ impl Display for ScalarType {
     }
 }
 
-pub trait IsEmpty {
+pub trait IsEmpty: Clone {
     fn is_collection_empty(&self) -> bool;
 }
 
-impl<T> IsEmpty for Vec<T> {
+pub trait ToMutStr {
+    fn mut_str(&mut self) -> &mut str;
+}
+
+impl<'a> ToMutStr for Cow<'a, str> {
+    fn mut_str(&mut self) -> &mut str {
+        self.to_mut()
+    }
+}
+
+impl<'a> ToMutStr for str {
+    fn mut_str(&mut self) -> &mut str {
+        self.as_mut()
+    }
+}
+
+impl<T> IsEmpty for Vec<T>
+where
+    T: Clone,
+{
     fn is_collection_empty(&self) -> bool {
         self.is_empty()
     }
 }
 
-impl<T> IsEmpty for LinkedList<T> {
+impl<T> IsEmpty for LinkedList<T>
+where
+    T: Clone,
+{
     fn is_collection_empty(&self) -> bool {
         self.is_empty()
     }
 }
 
-impl<K, V> IsEmpty for BTreeMap<K, V> {
+impl<K, V> IsEmpty for BTreeMap<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
     fn is_collection_empty(&self) -> bool {
         self.is_empty()
     }

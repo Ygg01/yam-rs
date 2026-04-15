@@ -1,17 +1,17 @@
 use crate::YamlDocAccess;
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, YamlAccessError, YamlData, YamlEntry, YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlEntry, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::borrow::{Borrow, BorrowMut};
 
-pub struct Yaml<'a, STR = Cow<'a, str>, FP = f64>(pub YamlData<'a, Self, STR, FP>);
+pub struct Yaml<'a, FP = f64>(pub YamlData<'a, Self, FP>);
 
-impl<STR, FP> Clone for Yaml<'_, STR, FP>
+impl<FP> Clone for Yaml<'_, FP>
 where
-    STR: Clone,
     FP: Copy,
 {
     fn clone(&self) -> Self {
@@ -19,10 +19,9 @@ where
     }
 }
 
-impl<'a, STR, FP> YamlDocAccess<'a> for Yaml<'a, STR, FP>
+impl<'a, FP> YamlDocAccess<'a> for Yaml<'a, FP>
 where
-    STR: Clone + for<'x> From<&'x str> + AsRef<str> + AsMut<str> + Into<String>,
-    FP: Copy + AsRef<f64> + AsMut<f64>,
+    FP: Copy + Borrow<f64> + BorrowMut<f64>,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -33,7 +32,9 @@ where
     }
 
     fn key_from_str(index: &str) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::String(index.into())))
+        Yaml(YamlData::Scalar(YamlScalar::String(Cow::Owned(
+            index.to_string(),
+        ))))
     }
 
     fn is_non_empty_collection(&self) -> bool {
@@ -74,14 +75,14 @@ where
 
     fn as_f64(&self) -> Option<f64> {
         match &self.0 {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(*b.as_ref()),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(*b.borrow()),
             _ => None,
         }
     }
 
     fn as_f64_mut(&mut self) -> Option<&mut f64> {
         match &mut self.0 {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(b.as_mut()),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some((*b).borrow_mut()),
             _ => None,
         }
     }
@@ -123,7 +124,7 @@ where
 
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match &mut self.0 {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_mut()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.mut_str()),
             _ => None,
         }
     }
@@ -190,5 +191,17 @@ where
 
     fn bad_span_value(_span: Span) -> Self {
         Yaml(YamlData::BadValue)
+    }
+}
+
+impl<'a, FP> From<YamlData<'a, Self, FP>> for Yaml<'a, FP> {
+    fn from(value: YamlData<'a, Self, FP>) -> Self {
+        Yaml(value)
+    }
+}
+
+impl<'a, FP> From<YamlScalar<'a, FP>> for Yaml<'a, FP> {
+    fn from(value: YamlScalar<'a, FP>) -> Self {
+        Yaml(YamlData::Scalar(value))
     }
 }

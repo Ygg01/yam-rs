@@ -29,18 +29,18 @@ use core::marker::PhantomData;
 /// let doc = YamlLoader::<Yaml>::load_from(yaml_str);
 ///
 /// ```
-pub struct YamlLoader<'input, Node, STR = Cow<'input, str>, FP = f64>
+pub struct YamlLoader<'input, Node, FP = f64>
 where
     Node: YamlDocAccess<'input>,
 {
     docs: Vec<Node>,
     doc_stack: Vec<(Node, usize, Option<Cow<'input, Tag>>)>,
     key_stack: Vec<Node>,
-    marker: PhantomData<&'input (STR, FP)>,
+    marker: PhantomData<&'input (FP)>,
     anchor_map: BTreeMap<usize, Node>,
 }
 
-impl<'i, Node, STR, FP> Default for YamlLoader<'i, Node, STR, FP>
+impl<'i, Node, FP> Default for YamlLoader<'i, Node, FP>
 where
     Node: YamlDocAccess<'i>,
 {
@@ -55,7 +55,7 @@ where
     }
 }
 
-pub trait SequenceLike<T> {
+pub trait SequenceLike<T>: IsEmpty {
     fn new_empty() -> Self;
 
     fn push_elem(&mut self, elem: T);
@@ -63,7 +63,10 @@ pub trait SequenceLike<T> {
     fn vec(&self) -> &Vec<T>;
 }
 
-impl<T> SequenceLike<T> for Vec<T> {
+impl<T> SequenceLike<T> for Vec<T>
+where
+    T: Clone,
+{
     fn new_empty() -> Self {
         Vec::new()
     }
@@ -103,14 +106,13 @@ impl<'a, T> MappingLike<T> for Vec<YamlEntry<'a, T>> {
     }
 }
 
-impl<'input, Node, SEQ, MAP, STR, FP> YamlLoader<'input, Node, STR, FP>
+impl<'input, Node, SEQ, MAP, FP> YamlLoader<'input, Node, FP>
 where
     Node: YamlDocAccess<'input, OutNode = Node, SequenceNode = SEQ, MappingNode = MAP>
-        + From<YamlData<'input, Node, STR, FP>>
-        + From<YamlScalar<'input, STR, FP>>,
+        + From<YamlData<'input, Node, FP>>
+        + From<YamlScalar<'input, FP>>,
     SEQ: SequenceLike<Node> + IsEmpty + Clone,
     MAP: MappingLike<Node> + IsEmpty + Clone,
-    STR: From<Cow<'input, str>>,
     FP: From<f64>,
 {
     #[must_use]
@@ -409,16 +411,14 @@ where
     }
 }
 
-impl<'input, Node, SEQ, MAP, STR, FP> SpannedEventReceiver<'input>
-    for YamlLoader<'input, Node, STR, FP>
+impl<'input, Node, SEQ, MAP, FP> SpannedEventReceiver<'input> for YamlLoader<'input, Node, FP>
 where
     Node: YamlDocAccess<'input, OutNode = Node, MappingNode = MAP, SequenceNode = SEQ>
-        + From<YamlData<'input, Node, STR, FP>>
-        + From<YamlScalar<'input, STR, FP>>,
+        + From<YamlData<'input, Node, FP>>
+        + From<YamlScalar<'input, FP>>,
     SEQ: SequenceLike<Node> + Clone + IsEmpty,
     MAP: MappingLike<Node> + Clone + IsEmpty,
     FP: From<f64>,
-    STR: From<Cow<'input, str>>,
 {
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let mark = span.start;
@@ -477,5 +477,19 @@ where
             }
             Event::Comment(_) => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::YamlLoader;
+    use crate::prelude::Yaml;
+    use alloc::borrow::ToOwned;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn test_simple() {
+        let yaml_str = "{a : b, c: d}".to_owned();
+        let doc: Vec<Yaml> = YamlLoader::load_from(yaml_str).unwrap();
     }
 }

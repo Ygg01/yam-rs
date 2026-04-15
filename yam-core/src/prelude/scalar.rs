@@ -1,18 +1,16 @@
 use crate::prelude::{ScalarType, Tag};
 use alloc::borrow::Cow;
-use alloc::string::String;
 use core::marker::PhantomData;
-pub enum YamlScalar<'a, S = String, F = f64> {
+pub enum YamlScalar<'a, F = f64> {
     Null(PhantomData<&'a ()>),
-    String(S),
+    String(Cow<'a, str>),
     Bool(bool),
     FloatingPoint(F),
     Integer(i64),
 }
 
-impl<'a, S, F> YamlScalar<'a, S, F>
+impl<'a, F> YamlScalar<'a, F>
 where
-    S: From<Cow<'a, str>>,
     F: From<f64>,
 {
     /// Parse a scalar node representation into a [`Scalar`].
@@ -140,9 +138,8 @@ pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
     }
 }
 
-impl<S, F> Clone for YamlScalar<'_, S, F>
+impl<F> Clone for YamlScalar<'_, F>
 where
-    S: Clone,
     F: Copy,
 {
     fn clone(&self) -> Self {

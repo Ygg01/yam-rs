@@ -1,20 +1,19 @@
 use crate::YamlDocAccess;
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, YamlAccessError, YamlData, YamlEntry, YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlEntry, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-pub struct SpannedYaml<'a, STR = Cow<'a, str>, FP = f64> {
+pub struct SpannedYaml<'a, FP = f64> {
     span: Span,
-    yaml: YamlData<'a, SpannedYaml<'a, STR, FP>, STR, FP>,
+    yaml: YamlData<'a, SpannedYaml<'a, FP>, FP>,
 }
 
-impl<STR, FP> Clone for SpannedYaml<'_, STR, FP>
+impl<FP> Clone for SpannedYaml<'_, FP>
 where
-    STR: Clone,
     FP: Copy,
 {
     fn clone(&self) -> Self {
@@ -25,10 +24,9 @@ where
     }
 }
 
-impl<'a, STR, FP> YamlDocAccess<'a> for SpannedYaml<'a, STR, FP>
+impl<'a, FP> YamlDocAccess<'a> for SpannedYaml<'a, FP>
 where
-    STR: Clone + for<'x> From<&'x str> + AsRef<str> + AsMut<str> + Into<String>,
-    FP: Copy + AsRef<f64> + AsMut<f64>,
+    FP: Copy + AsMut<f64> + Into<f64>,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -44,7 +42,7 @@ where
     fn key_from_str(index: &str) -> Self {
         SpannedYaml {
             span: Span::default(),
-            yaml: YamlData::Scalar(YamlScalar::String(index.into())),
+            yaml: YamlData::Scalar(YamlScalar::String(Cow::Owned(index.to_string()))),
         }
     }
 
@@ -86,7 +84,7 @@ where
 
     fn as_f64(&self) -> Option<f64> {
         match &self.yaml {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(*b.as_ref()),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some((*b).into()),
             _ => None,
         }
     }
@@ -135,7 +133,7 @@ where
 
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match &mut self.yaml {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_mut()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.mut_str()),
             _ => None,
         }
     }

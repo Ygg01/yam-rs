@@ -3,25 +3,24 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-pub enum YamlData<'input, Node, STR, FP> {
+pub enum YamlData<'input, Node, FP> {
     BadValue,
-    Scalar(YamlScalar<'input, STR, FP>),
+    Scalar(YamlScalar<'input, FP>),
     Sequence(Vec<Node>),
     Mapping(Vec<YamlEntry<'input, Node>>),
     Tagged(Cow<'input, Tag>, Box<Node>),
     Alias(usize),
 }
 
-impl<'input, Node, STR, FP> From<YamlScalar<'input, STR, FP>> for YamlData<'input, Node, STR, FP> {
-    fn from(value: YamlScalar<'input, STR, FP>) -> Self {
+impl<'input, Node, FP> From<YamlScalar<'input, FP>> for YamlData<'input, Node, FP> {
+    fn from(value: YamlScalar<'input, FP>) -> Self {
         YamlData::Scalar(value)
     }
 }
 
-impl<'input, Node, STR, FP> YamlData<'input, Node, STR, FP>
+impl<'input, Node, FP> YamlData<'input, Node, FP>
 where
-    Node: From<YamlData<'input, Node, STR, FP>> + From<YamlScalar<'input, STR, FP>>,
-    STR: From<Cow<'input, str>>,
+    Node: From<YamlData<'input, Node, FP>>,
     FP: From<f64>,
 {
     pub(crate) fn value_from_cow_and_metadata(
@@ -40,10 +39,9 @@ where
     }
 }
 
-impl<Node, STR, FP> Clone for YamlData<'_, Node, STR, FP>
+impl<Node, FP> Clone for YamlData<'_, Node, FP>
 where
     Node: Clone,
-    STR: Clone,
     FP: Copy,
 {
     fn clone(&self) -> Self {
