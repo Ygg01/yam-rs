@@ -29,18 +29,18 @@ use core::marker::PhantomData;
 /// let doc = YamlLoader::<Yaml>::load_from(yaml_str);
 ///
 /// ```
-pub struct YamlLoader<'input, Node, FP = f64>
+pub struct YamlLoader<'input, Node>
 where
     Node: YamlDocAccess<'input>,
 {
     docs: Vec<Node>,
     doc_stack: Vec<(Node, usize, Option<Cow<'input, Tag>>)>,
     key_stack: Vec<Node>,
-    marker: PhantomData<&'input (FP)>,
+    marker: PhantomData<&'input ()>,
     anchor_map: BTreeMap<usize, Node>,
 }
 
-impl<'i, Node, FP> Default for YamlLoader<'i, Node, FP>
+impl<'i, Node> Default for YamlLoader<'i, Node>
 where
     Node: YamlDocAccess<'i>,
 {
@@ -106,14 +106,13 @@ impl<'a, T> MappingLike<T> for Vec<YamlEntry<'a, T>> {
     }
 }
 
-impl<'input, Node, SEQ, MAP, FP> YamlLoader<'input, Node, FP>
+impl<'input, Node, SEQ, MAP> YamlLoader<'input, Node>
 where
     Node: YamlDocAccess<'input, OutNode = Node, SequenceNode = SEQ, MappingNode = MAP>
-        + From<YamlData<'input, Node, FP>>
-        + From<YamlScalar<'input, FP>>,
+        + From<YamlData<'input, Node>>
+        + From<YamlScalar<'input>>,
     SEQ: SequenceLike<Node> + IsEmpty + Clone,
     MAP: MappingLike<Node> + IsEmpty + Clone,
-    FP: From<f64>,
 {
     #[must_use]
     pub fn into_documents(self) -> Vec<Node> {
@@ -411,14 +410,13 @@ where
     }
 }
 
-impl<'input, Node, SEQ, MAP, FP> SpannedEventReceiver<'input> for YamlLoader<'input, Node, FP>
+impl<'input, Node, SEQ, MAP> SpannedEventReceiver<'input> for YamlLoader<'input, Node>
 where
     Node: YamlDocAccess<'input, OutNode = Node, MappingNode = MAP, SequenceNode = SEQ>
-        + From<YamlData<'input, Node, FP>>
-        + From<YamlScalar<'input, FP>>,
+        + From<YamlData<'input, Node>>
+        + From<YamlScalar<'input>>,
     SEQ: SequenceLike<Node> + Clone + IsEmpty,
     MAP: MappingLike<Node> + Clone + IsEmpty,
-    FP: From<f64>,
 {
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let mark = span.start;
