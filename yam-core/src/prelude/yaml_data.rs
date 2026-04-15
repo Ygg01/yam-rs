@@ -3,9 +3,9 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-pub enum YamlData<'input, Node, FP> {
+pub enum YamlData<'input, Node, FP = f64, STR = Cow<'input, str>> {
     BadValue,
-    Scalar(YamlScalar<'input, FP>),
+    Scalar(YamlScalar<'input, FP, STR>),
     Sequence(Vec<Node>),
     Mapping(Vec<YamlEntry<'input, Node>>),
     Tagged(Cow<'input, Tag>, Box<Node>),

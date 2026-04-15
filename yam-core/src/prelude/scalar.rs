@@ -1,9 +1,9 @@
 use crate::prelude::{ScalarType, Tag};
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
-pub enum YamlScalar<'a, F = f64> {
+pub enum YamlScalar<'a, F = f64, STR = Cow<'a, str>> {
     Null(PhantomData<&'a ()>),
-    String(Cow<'a, str>),
+    String(STR),
     Bool(bool),
     FloatingPoint(F),
     Integer(i64),
