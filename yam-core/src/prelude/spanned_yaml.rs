@@ -145,10 +145,24 @@ where
         }
     }
 
+    fn sequence(&self) -> &Self::SequenceNode {
+        match &self.yaml {
+            YamlData::Sequence(s) => s,
+            _ => core::panic!("YamlData::sequence() called with non-sequence"),
+        }
+    }
+
     fn mapping_mut(&mut self) -> &mut Self::MappingNode {
         match &mut self.yaml {
             YamlData::Mapping(m) => m,
-            _ => core::panic!("YamlData::sequence_mut() called with non-mapping"),
+            _ => core::panic!("YamlData::mapping_mut() called with non-mapping"),
+        }
+    }
+
+    fn mapping(&self) -> &Self::MappingNode {
+        match &self.yaml {
+            YamlData::Mapping(m) => m,
+            _ => core::panic!("YamlData::mapping() called with non-mapping"),
         }
     }
 

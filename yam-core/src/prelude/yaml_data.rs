@@ -3,13 +3,32 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-pub enum YamlData<'input, Node, FP = f64, STR = Cow<'input, str>> {
+pub enum YamlData<'input, NODE, FP = f64, STR = Cow<'input, str>> {
     BadValue,
     Scalar(YamlScalar<'input, FP, STR>),
-    Sequence(Vec<Node>),
-    Mapping(Vec<YamlEntry<'input, Node>>),
-    Tagged(Cow<'input, Tag>, Box<Node>),
+    Sequence(Vec<NODE>),
+    Mapping(Vec<YamlEntry<'input, NODE>>),
+    Tagged(Cow<'input, Tag>, Box<NODE>),
     Alias(usize),
+}
+
+impl<'a, NODE, FP, STR> PartialEq for YamlData<'a, NODE, FP, STR>
+where
+    NODE: PartialEq,
+    FP: PartialEq,
+    STR: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (YamlData::BadValue, YamlData::BadValue) => true,
+            (YamlData::Scalar(s1), YamlData::Scalar(s2)) => s1 == s2,
+            (YamlData::Sequence(s1), YamlData::Sequence(s2)) => s1 == s2,
+            (YamlData::Mapping(s1), YamlData::Mapping(s2)) => s1 == s2,
+            (YamlData::Tagged(t1, b1), YamlData::Tagged(t2, b2)) => t1 == t2 && b1 == b2,
+            (YamlData::Alias(a1), YamlData::Alias(a2)) => a1 == a2,
+            (_, _) => false,
+        }
+    }
 }
 
 impl<'input, Node, FP> From<YamlScalar<'input, FP>> for YamlData<'input, Node, FP> {

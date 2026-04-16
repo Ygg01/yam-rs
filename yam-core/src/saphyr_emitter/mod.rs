@@ -15,7 +15,7 @@ pub struct YamlEmitter<'a, FP> {
     compact: bool,
     level: isize,
     multiline_strings: bool,
-    _marker: PhantomData<(FP)>,
+    _marker: PhantomData<FP>,
 }
 
 /// A convenience alias for emitter functions that may fail without returning a value.

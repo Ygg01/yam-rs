@@ -1,16 +1,19 @@
-use crate::YamlDocAccess;
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlEntry, YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlEntry, YamlError,
+    YamlScalar,
 };
+use crate::{YamlDocAccess, YamlLoader};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::borrow::{Borrow, BorrowMut};
+use core::ops::{Index, IndexMut};
 
+#[derive(PartialEq)]
 pub struct Yaml<'a, FP = f64>(pub YamlData<'a, Self, FP>);
 
-impl<FP> Clone for Yaml<'_, FP>
+impl<'a, FP> Clone for Yaml<'a, FP>
 where
     FP: Copy,
 {
@@ -136,10 +139,24 @@ where
         }
     }
 
+    fn sequence(&self) -> &Self::SequenceNode {
+        match &self.0 {
+            YamlData::Sequence(s) => s,
+            _ => core::panic!("YamlData::sequence() called with non-sequence"),
+        }
+    }
+
     fn mapping_mut(&mut self) -> &mut Self::MappingNode {
         match &mut self.0 {
             YamlData::Mapping(m) => m,
-            _ => core::panic!("YamlData::sequence_mut() called with non-mapping"),
+            _ => core::panic!("YamlData::mapping_mut() called with non-mapping"),
+        }
+    }
+
+    fn mapping(&self) -> &Self::MappingNode {
+        match &self.0 {
+            YamlData::Mapping(m) => m,
+            _ => core::panic!("YamlData::mapping() called with non-mapping"),
         }
     }
 
@@ -203,5 +220,87 @@ impl<'a, FP> From<YamlData<'a, Self, FP>> for Yaml<'a, FP> {
 impl<'a, FP> From<YamlScalar<'a, FP>> for Yaml<'a, FP> {
     fn from(value: YamlScalar<'a, FP>) -> Self {
         Yaml(YamlData::Scalar(value))
+    }
+}
+
+impl<'a> Yaml<'a> {
+    pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Yaml<'a>>, YamlError> {
+        YamlLoader::<Yaml<'a>>::load_from(input)
+    }
+}
+
+impl<'a, FP> Index<usize> for Yaml<'a, FP>
+where
+    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+{
+    type Output = Self;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        let typ = self.get_type();
+        let ind = Yaml::key_from_usize(index);
+        match typ {
+            NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,
+            NodeType::Sequence => self.sequence().index(index),
+            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+        }
+    }
+}
+
+impl<'a, FP> IndexMut<usize> for Yaml<'a, FP>
+where
+    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        let typ = self.get_type();
+        let ind = Yaml::key_from_usize(index);
+        match typ {
+            NodeType::Mapping => {
+                &mut self
+                    .mapping_mut()
+                    .iter_mut()
+                    .find(|x| x.key == ind)
+                    .unwrap()
+                    .key
+            }
+            NodeType::Sequence => self.sequence_mut().index_mut(index),
+            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+        }
+    }
+}
+
+impl<'a, 'k, FP> Index<&'k str> for Yaml<'a, FP>
+where
+    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+{
+    type Output = Self;
+
+    fn index(&self, index: &'k str) -> &Self::Output {
+        let typ = self.get_type();
+        let ind = Yaml::key_from_str(index);
+        match typ {
+            NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,
+            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+        }
+    }
+}
+
+impl<'a, 'k, FP> IndexMut<&'k str> for Yaml<'a, FP>
+where
+    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+{
+    fn index_mut(&mut self, index: &'k str) -> &mut Self::Output {
+        let typ = self.get_type();
+        let ind = Yaml::key_from_str(index);
+        match typ {
+            NodeType::Mapping => {
+                &mut self
+                    .mapping_mut()
+                    .iter_mut()
+                    .find(|x| x.key == ind)
+                    .unwrap()
+                    .value
+            }
+            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+        }
     }
 }

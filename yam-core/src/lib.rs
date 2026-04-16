@@ -14,9 +14,9 @@
 //!
 //! # Minimal example
 //! ```rust
-//! use yam_core::{LoadableYamlNode, YamlDoc, YamlLoader};
+//! use yam_core::prelude::{Yaml, YamlLoader};
 //!
-//! let docs = YamlDoc::load_from("[1, 2, 3]").expect("Valid YAML document");
+//! let docs = Yaml::load_from("[1, 2]").expect("Valid YAML document");
 //! let doc = &docs[0];
 //!
 //!
@@ -35,3 +35,15 @@ mod util;
 
 pub use crate::parsing::{Event, Source, StrSource};
 pub use crate::prelude::{YamlDocAccess, YamlLoader};
+
+#[cfg(test)]
+mod test {
+    use crate::prelude::Yaml;
+
+    #[test]
+    fn test_ex() {
+        let docs = Yaml::load_from("[1, 2]").expect("Valid YAML document");
+        let doc = &docs[0];
+        // let val = doc[0];
+    }
+}

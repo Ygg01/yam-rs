@@ -135,6 +135,7 @@ where
             {
                 node = node.into_tagged(tag);
             }
+
             if parent_node.is_sequence() {
                 parent_node.sequence_mut().push_elem(node);
             } else if parent_node.is_mapping() {
@@ -433,7 +434,7 @@ where
                 }
             }
             Event::SequenceStart(aid, tag) => {
-                let node: Node = YamlData::Mapping(Vec::new()).into();
+                let node: Node = YamlData::Sequence(Vec::new()).into();
 
                 self.doc_stack.push((node.with_start(mark), aid, tag));
             }

@@ -3,9 +3,11 @@ use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, LinkedList};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::borrow::{Borrow, BorrowMut};
 use core::fmt;
 use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
+use core::ops::Index;
 use core::str::Utf8Error;
 pub use loader::MappingLike;
 pub use loader::SequenceLike;
@@ -793,6 +795,27 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```
     fn sequence_mut(&mut self) -> &mut Self::SequenceNode;
 
+    /// Provides access to the sequence within the implementing type.
+    ///
+    /// This method allows for getting a mutable reference to a `Vec` associated with
+    /// the implementing type. This enables access of the underlying vector, but not modification.
+    ///
+    /// # Panics
+    /// If called on a node that isn't a mapping.
+    ///
+    /// # Returns
+    /// A reference to a `Vec` of the type implementing this method.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
+    ///
+    /// let mut instance = YamlDoc::Sequence(vec![YamlDoc::Bool(true)]);
+    /// let sequence = instance.sequence_mut();
+    /// sequence.push(YamlDoc::Bool(false));
+    /// ```
+    fn sequence(&self) -> &Self::SequenceNode;
+
     /// Provides mutable access to the mapping within the implementing type.
     ///
     /// This method allows for getting a mutable reference to a `Vec` of `YamlEntry` associated with
@@ -818,6 +841,32 @@ pub trait YamlDocAccess<'input>: Clone {
     /// sequence.push(entry2);
     /// ```
     fn mapping_mut(&mut self) -> &mut Self::MappingNode;
+
+    /// Provides access to the mapping within the implementing type.
+    ///
+    /// This method allows for getting a reference to a `Vec` of `YamlEntry` associated with
+    /// the implementing type. This enables modification of the underlying vector, such
+    /// as adding, removing, or altering elements.
+    ///
+    /// # Returns
+    /// A reference to a `Vec` of the type implementing this method.
+    ///
+    /// # Panics
+    /// If called on a node that isn't a mapping.
+    ///
+    /// # Examples
+    /// ```rust
+    ///
+    /// use std::borrow::Cow;
+    /// use yam_core::prelude::{YamlDoc, YamlEntry, YamlDocAccess};
+    ///
+    /// let entry1 = YamlEntry::new("key".into(), "value".into());
+    /// let entry2 = YamlEntry::new("another_key".into(), "value2".into());
+    /// let mut instance = YamlDoc::Mapping(vec![entry1]);
+    /// let sequence = instance.mapping();
+    /// sequence.push(entry2);
+    /// ```
+    fn mapping(&self) -> &Self::MappingNode;
 
     /// Retrieves the `Tag` associated with the current instance, if it exists.
     ///

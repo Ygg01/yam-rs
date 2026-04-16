@@ -1,12 +1,30 @@
 use crate::prelude::{ScalarType, Tag};
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
+
 pub enum YamlScalar<'a, F = f64, STR = Cow<'a, str>> {
     Null(PhantomData<&'a ()>),
     String(STR),
     Bool(bool),
     FloatingPoint(F),
     Integer(i64),
+}
+
+impl<'a, F, S> PartialEq for YamlScalar<'a, F, S>
+where
+    F: PartialEq,
+    S: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (YamlScalar::Null(_), YamlScalar::Null(_)) => true,
+            (YamlScalar::String(s1), YamlScalar::String(s2)) => s1 == s2,
+            (YamlScalar::Bool(s1), YamlScalar::Bool(s2)) => s1 == s2,
+            (YamlScalar::Integer(s1), YamlScalar::Integer(s2)) => s1 == s2,
+            (YamlScalar::FloatingPoint(s1), YamlScalar::FloatingPoint(s2)) => s1 == s2,
+            (_, _) => false,
+        }
+    }
 }
 
 impl<'a, F> YamlScalar<'a, F>
