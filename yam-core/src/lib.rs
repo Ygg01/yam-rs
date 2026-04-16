@@ -17,9 +17,8 @@
 //! use yam_core::prelude::{Yaml, YamlLoader};
 //!
 //! let docs = Yaml::load_from("[1, 2]").expect("Valid YAML document");
-//! let doc = &docs[0];
-//!
-//!
+//! let val = &docs[0][0];
+//! assert_eq!(val, &Yaml::from(1));
 //! ```
 #![no_std]
 extern crate alloc;
@@ -43,7 +42,7 @@ mod test {
     #[test]
     fn test_ex() {
         let docs = Yaml::load_from("[1, 2]").expect("Valid YAML document");
-        let doc = &docs[0];
-        // let val = doc[0];
+        let val = &docs[0][0];
+        assert_eq!(val, &Yaml::from(1));
     }
 }

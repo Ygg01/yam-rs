@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 use core::borrow::{Borrow, BorrowMut};
 use core::ops::{Index, IndexMut};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct Yaml<'a, FP = f64>(pub YamlData<'a, Self, FP>);
 
 impl<'a, FP> Clone for Yaml<'a, FP>
@@ -302,5 +302,53 @@ where
             }
             _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
         }
+    }
+}
+
+impl<'a> From<&'a str> for Yaml<'a> {
+    fn from(value: &'a str) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::String(Cow::Borrowed(value))))
+    }
+}
+
+impl<'a> From<bool> for Yaml<'a> {
+    fn from(value: bool) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Bool(value)))
+    }
+}
+
+impl<'a> From<f64> for Yaml<'a> {
+    fn from(value: f64) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(value)))
+    }
+}
+
+impl<'a> From<f32> for Yaml<'a> {
+    fn from(value: f32) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(value as f64)))
+    }
+}
+
+impl<'a> From<i8> for Yaml<'a> {
+    fn from(value: i8) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
+    }
+}
+
+impl<'a> From<i16> for Yaml<'a> {
+    fn from(value: i16) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
+    }
+}
+
+impl<'a> From<i32> for Yaml<'a> {
+    fn from(value: i32) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
+    }
+}
+
+impl<'a> From<i64> for Yaml<'a> {
+    fn from(value: i64) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Integer(value)))
     }
 }

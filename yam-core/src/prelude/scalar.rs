@@ -2,6 +2,7 @@ use crate::prelude::{ScalarType, Tag};
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
 
+#[derive(Debug)]
 pub enum YamlScalar<'a, F = f64, STR = Cow<'a, str>> {
     Null(PhantomData<&'a ()>),
     String(STR),

@@ -3,6 +3,7 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
+#[derive(Debug)]
 pub enum YamlData<'input, NODE, FP = f64, STR = Cow<'input, str>> {
     BadValue,
     Scalar(YamlScalar<'input, FP, STR>),
