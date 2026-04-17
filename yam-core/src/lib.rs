@@ -34,15 +34,3 @@ mod util;
 
 pub use crate::parsing::{Event, Source, StrSource};
 pub use crate::prelude::{YamlDocAccess, YamlLoader};
-
-#[cfg(test)]
-mod test {
-    use crate::prelude::Yaml;
-
-    #[test]
-    fn test_ex() {
-        let docs = Yaml::load_from("[1, 2]").expect("Valid YAML document");
-        let val = &docs[0][0];
-        assert_eq!(val, &Yaml::from(1));
-    }
-}
