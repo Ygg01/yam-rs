@@ -8,9 +8,52 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+///
+/// A structure representing a YAML node with an associated source code span.
+///
+/// The `SpannedYaml` structure encapsulates a YAML node along with its
+/// corresponding span information from the source. This allows for accurate
+/// location tracing in the original source file, which can be useful for
+/// error reporting or debugging purposes.
+///
+/// # Type Parameters
+/// - `'a`: The lifetime associated with the YAML data. This ensures that
+///   the `SpannedYaml` does not outlive the underlying YAML structure it references.
+/// - `FP` (default: `f64`): The floating-point type used for representing
+///   numerical data within the YAML. By default, this is `f64`, but it can
+///   be customized for specialized use cases.
+///
+/// # Fields
+/// - `span`: A `Span` representing the location of this YAML node
+///   in the source code. The `Span` typically includes start and end
+///   positions that enable precise error messages or parsing diagnostics.
+/// - `yaml`: A `YamlData` instance that represents the structured data
+///   of this YAML node. It is capable of holding information such as
+///   mappings, sequences, scalars, and more. The `YamlData` is parameterized
+///   to support recursive structures and type customization.
+///
+/// # Example Usage
+/// ```rust
+/// use yam_core::node::{SpannedYaml, YamlScalar};
+/// use yam_core::prelude::{YamlData, Span, Marker};
+///
+/// let span = Span::new(Marker::new(0, 1, 1), Marker::new(5, 6, 1)); // Represents a span from 0 to 10 in the source.
+/// let yaml_data = YamlData::Scalar(YamlScalar::Bool(false));
+///
+/// let spanned_yaml : SpannedYaml<'_> = SpannedYaml {
+///     span,
+///     yaml: yaml_data,
+/// };
+///
+/// println!("Span: {:?}", spanned_yaml.span);
+/// ```
+///
+/// This type is particularly useful when working with parsers or tools
+/// that need to process YAML documents while keeping track of their
+/// original source locations.
 pub struct SpannedYaml<'a, FP = f64> {
-    span: Span,
-    yaml: YamlData<'a, SpannedYaml<'a, FP>, FP>,
+    pub span: Span,
+    pub yaml: YamlData<'a, SpannedYaml<'a, FP>, FP>,
 }
 
 impl<FP> Clone for SpannedYaml<'_, FP>

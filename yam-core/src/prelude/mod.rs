@@ -152,6 +152,30 @@ impl Span {
     }
 }
 
+impl Marker {
+    /// Creates a new instance of the struct with the specified position, column, and line.
+    ///
+    /// # Parameters
+    /// - `pos`: The position of the item, typically representing a character index in the source.
+    /// - `col`: The column number associated with the position, starting from 1.
+    /// - `line`: The line number associated with the position, starting from 1.
+    ///
+    /// # Returns
+    /// A new instance of the struct initialized with the provided `pos`, `col`, and `line` values.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_core::prelude::Marker;
+    /// let instance = Marker::new(42, 5, 3);
+    /// assert_eq!(instance.pos, 42);
+    /// assert_eq!(instance.col, 5);
+    /// assert_eq!(instance.line, 3);
+    /// ```
+    pub fn new(pos: usize, col: u32, line: u32) -> Self {
+        Self { pos, col, line }
+    }
+}
+
 ///
 /// Represents the type of directives that can be encountered.
 ///

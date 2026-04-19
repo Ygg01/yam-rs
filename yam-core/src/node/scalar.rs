@@ -2,12 +2,32 @@ use crate::prelude::{ScalarType, Tag};
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
 
+/// An enumeration representing a YAML scalar value.
+///
+/// This enum can represent various scalar types commonly found in YAML data.
+/// The scalar can be one of the following:
+/// - Null: Represents a null value.
+/// - String: Represents a string value.
+/// - Bool: Represents a boolean value.
+/// - FloatingPoint: Represents a floating-point number.
+/// - Integer: Represents an integer value.
+///
+/// Generics:
+/// - `'a`: Lifetime parameter for borrowed data (e.g., strings).
+/// - `F`: The type to represent floating-point numbers (defaults to `f64`).
+/// - `STR`: The type to represent string-like scalar values (defaults to `Cow<'a, str>`).
+///
 #[derive(Debug)]
 pub enum YamlScalar<'a, F = f64, STR = Cow<'a, str>> {
+    /// Null value
     Null(PhantomData<&'a ()>),
+    /// String value
     String(STR),
+    /// Boolean value with `true` or `false`
     Bool(bool),
+    /// Floating point value like `1.2`, `2.3323`
     FloatingPoint(F),
+    /// Integer value like `1`, `2`, `10`
     Integer(i64),
 }
 
@@ -32,7 +52,7 @@ impl<'a, F> YamlScalar<'a, F>
 where
     F: From<f64>,
 {
-    /// Parse a scalar node representation into a [`Scalar`].
+    /// Parse a scalar node representation into a [`YamlScalar`].
     ///
     /// If `tag` is not [`None`]:
     ///   - If the handle is `tag:yaml.org,2022:`, attempt to parse as the given suffix. If parsing
@@ -40,7 +60,7 @@ where
     ///   - If the handle is unknown, use the fallback parsing schema.
     ///
     /// # Return
-    /// Returns the parsed [`Scalar`].
+    /// Returns the parsed [`YamlScalar`].
     ///
     pub fn parse_from_cow_and_metadata(
         v: Cow<'a, str>,
@@ -76,12 +96,12 @@ where
         }
     }
 
-    /// Parse a scalar node representation into a [`Scalar`].
+    /// Parse a scalar node representation into a [`YamlScalar`].
     ///
-    /// This function cannot fail. It will fall back to [`Scalar::String`] if everything else fails.
+    /// This function cannot fail. It will fall back to [`YamlScalar::String`] if everything else fails.
     ///
     /// # Return
-    /// Returns the parsed [`Scalar`].
+    /// Returns the parsed [`YamlScalar`].
     #[must_use]
     pub fn parse_from_cow(v: Cow<'a, str>) -> Self {
         let s = &*v;

@@ -7,7 +7,7 @@
 //! cargo add yam-core
 //! ```
 //!
-//! Or if you want the [`std`] compatible crate use:
+//! Or if you want the `std` compatible crate use:
 //! ```sh
 //! cargo add yam-std
 //! ```

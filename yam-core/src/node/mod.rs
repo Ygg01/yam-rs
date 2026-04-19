@@ -1,3 +1,4 @@
+//! Import this module to use various `yam_core` nodes.
 pub use scalar::YamlScalar;
 pub use spanned_yaml::SpannedYaml;
 pub use yaml::Yaml;

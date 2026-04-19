@@ -17,8 +17,8 @@ use core::marker::PhantomData;
 ///
 ///
 /// # Usage
-/// This struct is intended to be used as an entry point for converting input into [`LoadableYamlNode`].
-/// Most common yaml node being [`YamlDoc`]
+/// This struct is intended to be used as an entry point for converting input into
+/// a [`YamlDocAccess`] like node.
 ///
 /// # Example
 /// ```rust
