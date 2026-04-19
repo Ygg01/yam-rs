@@ -1,4 +1,7 @@
 //! Use `yam_core::prelude::*` to import common components and traits.
+pub use crate::node::YamlScalar;
+pub use crate::node::yaml::Yaml;
+pub use crate::node::yaml_data::YamlData;
 use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, LinkedList};
 use alloc::string::{String, ToString};
@@ -10,15 +13,8 @@ use core::str::Utf8Error;
 pub use loader::MappingLike;
 pub use loader::SequenceLike;
 pub use loader::YamlLoader;
-pub use scalar::YamlScalar;
-pub use yaml::Yaml;
-pub use yaml_data::YamlData;
 
 mod loader;
-mod scalar;
-mod spanned_yaml;
-mod yaml;
-mod yaml_data;
 
 ///
 /// Represents the different types of tokens that can be encountered in the input stream.

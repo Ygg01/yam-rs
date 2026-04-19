@@ -1,5 +1,5 @@
+use crate::node::yaml_data::YamlData;
 use crate::parsing::{ScalarValue, SpannedEventReceiver};
-use crate::prelude::yaml_data::YamlData;
 use crate::prelude::{IsEmpty, Marker, Span, Tag, YamlDocAccess, YamlEntry, YamlError, YamlScalar};
 use crate::{Event, Source, StrSource, parsing};
 use alloc::borrow::Cow;

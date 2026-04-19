@@ -356,3 +356,9 @@ impl<'a> From<i64> for Yaml<'a> {
         Yaml(YamlData::Scalar(YamlScalar::Integer(value)))
     }
 }
+
+impl<'a> From<Vec<Yaml<'a>>> for Yaml<'a> {
+    fn from(value: Vec<Yaml<'a>>) -> Self {
+        Yaml(YamlData::Sequence(value))
+    }
+}

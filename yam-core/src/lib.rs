@@ -27,6 +27,7 @@ extern crate core;
 #[doc(hidden)]
 pub mod escaper;
 
+pub mod node;
 pub mod parsing;
 pub mod prelude;
 mod saphyr_emitter;
