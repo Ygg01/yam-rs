@@ -447,8 +447,8 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
-    /// let bad_value = YamlDoc::BadValue;
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    /// let bad_value = Yaml::<f64>::bad_value();
     ///
     /// assert!(bad_value.is_bad_value());
     ///```
@@ -468,10 +468,10 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
     ///
-    /// let bad_value = YamlDoc::Null;
-    /// assert!(bad_value.is_null());
+    /// let nul = Yaml::<f64>::null();
+    /// assert!(nul.is_null());
     ///```
     fn is_null(&self) -> bool {
         matches!(self.get_type(), NodeType::Null)
@@ -490,10 +490,10 @@ pub trait YamlDocAccess<'input>: Clone {
     /// # Example
     /// ```
     /// use std::borrow::Cow;
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
-    /// let bad_value = YamlDoc::String(Cow::Owned("yes.".into()));
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    /// let str = Yaml::from("yes.");
     ///
-    /// assert!(bad_value.is_string());
+    /// assert!(str.is_string());
     ///```
     fn is_string(&self) -> bool {
         matches!(self.get_type(), NodeType::String)
@@ -507,10 +507,10 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
-    /// let bad_value = YamlDoc::Bool(false);
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    /// let boolean = Yaml::from(false);
     ///
-    /// assert!(bad_value.is_bool());
+    /// assert!(boolean.is_bool());
     ///```
     fn is_bool(&self) -> bool {
         matches!(self.get_type(), NodeType::Bool)
@@ -523,10 +523,10 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
-    /// let bad_value = YamlDoc::FloatingPoint(3.14);
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    /// let fp = Yaml::from(3.14);
     ///
-    /// assert!(bad_value.is_floating_point());
+    /// assert!(fp.is_floating_point());
     ///```
     fn is_floating_point(&self) -> bool {
         matches!(self.get_type(), NodeType::Floating)
@@ -539,8 +539,8 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
-    /// let bad_value = YamlDoc::Integer(12);
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    /// let bad_value = Yaml::from(12);
     ///
     /// assert!(bad_value.is_integer());
     ///```
@@ -556,8 +556,8 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
-    /// let alias = YamlDoc::Alias(12);
+    /// use yam_core::prelude::{Yaml, YamlData, YamlDocAccess};
+    /// let alias : Yaml = Yaml(YamlData::Alias(3));
     ///
     /// assert!(alias.is_alias());
     ///```
@@ -600,9 +600,9 @@ pub trait YamlDocAccess<'input>: Clone {
     /// # Example
     ///
     /// ```rust
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
     ///
-    /// let example = YamlDoc::Bool(true);
+    /// let example = Yaml::from(true);
     /// assert!(!example.is_mapping());
     /// ```
     ///
@@ -624,10 +624,12 @@ pub trait YamlDocAccess<'input>: Clone {
     /// # Example
     ///
     /// ```rust
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlData, YamlDocAccess, YamlScalar};
     ///
-    /// let example = YamlDoc::Bool(true);
-    /// assert!(!example.is_sequence());
+    /// let example = Yaml(YamlData::Sequence(vec![
+    ///     Yaml::from(1), Yaml::from(2)
+    /// ]));
+    /// assert!(example.is_sequence());
     /// ```
     ///
     /// This method can be used to verify whether an object follows a sequential
@@ -785,11 +787,11 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Examples
     /// ```rust
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
     ///
-    /// let mut instance = YamlDoc::Sequence(vec![YamlDoc::Bool(true)]);
+    /// let mut instance = Yaml::load_single("[1, 2]").unwrap();
     /// let sequence = instance.sequence_mut();
-    /// sequence.push(YamlDoc::Bool(false));
+    /// sequence.push(Yaml::from(3));
     /// ```
     fn sequence_mut(&mut self) -> &mut Self::SequenceNode;
 
@@ -806,11 +808,10 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Examples
     /// ```rust
-    /// use yam_core::prelude::{YamlDoc, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlData, YamlDocAccess};
     ///
-    /// let mut instance = YamlDoc::Sequence(vec![YamlDoc::Bool(true)]);
-    /// let sequence = instance.sequence_mut();
-    /// sequence.push(YamlDoc::Bool(false));
+    /// let mut instance = Yaml(YamlData::Sequence(vec![Yaml::from(true)]));
+    /// let sequence = instance.sequence();
     /// ```
     fn sequence(&self) -> &Self::SequenceNode;
 
@@ -830,11 +831,11 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     ///
     /// use std::borrow::Cow;
-    /// use yam_core::prelude::{YamlDoc, YamlEntry, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlEntry, YamlDocAccess, YamlData};
     ///
     /// let entry1 = YamlEntry::new("key".into(), "value".into());
     /// let entry2 = YamlEntry::new("another_key".into(), "value2".into());
-    /// let mut instance = YamlDoc::Mapping(vec![entry1]);
+    /// let mut instance = Yaml(YamlData::Mapping(vec![entry1]));
     /// let sequence = instance.mapping_mut();
     /// sequence.push(entry2);
     /// ```
@@ -856,13 +857,11 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     ///
     /// use std::borrow::Cow;
-    /// use yam_core::prelude::{YamlDoc, YamlEntry, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlEntry, YamlDocAccess, YamlData};
     ///
     /// let entry1 = YamlEntry::new("key".into(), "value".into());
-    /// let entry2 = YamlEntry::new("another_key".into(), "value2".into());
-    /// let mut instance = YamlDoc::Mapping(vec![entry1]);
+    /// let mut instance = Yaml(YamlData::Mapping(vec![entry1]));
     /// let sequence = instance.mapping();
-    /// sequence.push(entry2);
     /// ```
     fn mapping(&self) -> &Self::MappingNode;
 
@@ -891,7 +890,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     /// use yam_core::prelude::{NodeType, Yaml, YamlDocAccess};
     ///
-    /// let node = YamlDoc::from(32i64);
+    /// let node = Yaml::from(32i64);
     /// let node_type = node.get_type();
     /// assert_eq!(node_type, NodeType::Integer);
     /// ```
@@ -1042,6 +1041,23 @@ pub trait YamlDocAccess<'input>: Clone {
     fn bad_value() -> Self {
         Self::bad_span_value(Span::default())
     }
+
+    /// Creates a new instance of the type with a "null" value.
+    ///
+    /// This function is typically used to initialize the type to an
+    /// empty or invalid state, depending on the specific implementation.
+    ///
+    /// # Returns
+    /// A new instance of the type in its "null" state.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::null();
+    /// assert!(value.is_null())
+    /// ```
+    fn null() -> Self;
 
     ///
     /// Consumes the current value, leaving the object in an uninitialized or default state,

@@ -6,6 +6,7 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 pub struct SpannedYaml<'a, FP = f64> {
     span: Span,
@@ -209,6 +210,13 @@ where
         SpannedYaml {
             span,
             yaml: YamlData::BadValue,
+        }
+    }
+
+    fn null() -> Self {
+        SpannedYaml {
+            yaml: YamlData::Scalar(YamlScalar::Null(PhantomData)),
+            span: Default::default(),
         }
     }
 }

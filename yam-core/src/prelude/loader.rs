@@ -384,7 +384,7 @@ where
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::{, StrSource};
+    /// use yam_core::{StrSource};
     /// use yam_core::prelude::{YamlLoader, Yaml};
     ///
     /// let input = StrSource::new("---\nkey: value\n");

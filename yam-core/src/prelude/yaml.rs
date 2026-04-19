@@ -1,3 +1,4 @@
+use crate::prelude::YamlScalar::Null;
 use crate::prelude::{
     IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlDocAccess, YamlEntry,
     YamlError, YamlLoader, YamlScalar,
@@ -7,6 +8,7 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::borrow::{Borrow, BorrowMut};
+use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
 
 #[derive(PartialEq, Debug)]
@@ -201,6 +203,11 @@ where
 
     fn bad_value() -> Self {
         Yaml(YamlData::BadValue)
+    }
+
+    #[inline]
+    fn null() -> Self {
+        Yaml(YamlData::Scalar(Null(PhantomData)))
     }
 }
 
