@@ -1176,7 +1176,7 @@ pub struct YamlEntry<'input, T> {
     pub key: T,
     /// Represents the value of the YAML entry. It is of type `T`.
     pub value: T,
-    pub _marker: PhantomData<&'input ()>,
+    _marker: PhantomData<&'input ()>,
 }
 
 impl<T: Clone> YamlEntry<'_, T> {
@@ -1254,7 +1254,7 @@ pub trait IsEmpty: Clone {
     fn is_collection_empty(&self) -> bool;
 }
 
-pub trait ToMutStr {
+pub(crate) trait ToMutStr {
     fn mut_str(&mut self) -> &mut str;
 }
 
