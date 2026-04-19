@@ -174,17 +174,7 @@ where
     }
 
     fn get_type(&self) -> NodeType {
-        match &self.yaml {
-            YamlData::Mapping(_) => NodeType::Mapping,
-            YamlData::Sequence(_) => NodeType::Sequence,
-            YamlData::Scalar(YamlScalar::Bool(_)) => NodeType::Bool,
-            YamlData::Scalar(YamlScalar::Integer(_)) => NodeType::Integer,
-            YamlData::Scalar(YamlScalar::FloatingPoint(_)) => NodeType::Floating,
-            YamlData::Scalar(YamlScalar::String(_)) => NodeType::String,
-            YamlData::Alias(_) => NodeType::Alias,
-            YamlData::Scalar(YamlScalar::Null(_)) => NodeType::Null,
-            _ => NodeType::Bad,
-        }
+        self.yaml.get_type()
     }
 
     fn into_string(self) -> Option<String> {

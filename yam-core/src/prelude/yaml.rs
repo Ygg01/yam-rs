@@ -168,17 +168,7 @@ where
     }
 
     fn get_type(&self) -> NodeType {
-        match &self.0 {
-            YamlData::Mapping(_) => NodeType::Mapping,
-            YamlData::Sequence(_) => NodeType::Sequence,
-            YamlData::Scalar(YamlScalar::Bool(_)) => NodeType::Bool,
-            YamlData::Scalar(YamlScalar::Integer(_)) => NodeType::Integer,
-            YamlData::Scalar(YamlScalar::FloatingPoint(_)) => NodeType::Floating,
-            YamlData::Scalar(YamlScalar::String(_)) => NodeType::String,
-            YamlData::Alias(_) => NodeType::Alias,
-            YamlData::Scalar(YamlScalar::Null(_)) => NodeType::Null,
-            _ => NodeType::Bad,
-        }
+        self.0.get_type()
     }
 
     fn into_string(self) -> Option<String> {
@@ -236,7 +226,7 @@ where
     type Output = Self;
 
     fn index(&self, index: usize) -> &Self::Output {
-        let typ = self.get_type();
+        let typ = self.0.get_type();
         let ind = Yaml::key_from_usize(index);
         match typ {
             NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,

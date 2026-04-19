@@ -1,4 +1,4 @@
-use crate::prelude::{ScalarType, Tag, YamlEntry, YamlScalar};
+use crate::prelude::{NodeType, ScalarType, Tag, YamlEntry, YamlScalar};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -35,6 +35,23 @@ where
 impl<'input, Node, FP> From<YamlScalar<'input, FP>> for YamlData<'input, Node, FP> {
     fn from(value: YamlScalar<'input, FP>) -> Self {
         YamlData::Scalar(value)
+    }
+}
+
+impl<'a, Node, FP, STR> YamlData<'a, Node, FP, STR> {
+    #[inline]
+    pub(crate) fn get_type(&self) -> NodeType {
+        match &self {
+            YamlData::Mapping(_) => NodeType::Mapping,
+            YamlData::Sequence(_) => NodeType::Sequence,
+            YamlData::Scalar(YamlScalar::Bool(_)) => NodeType::Bool,
+            YamlData::Scalar(YamlScalar::Integer(_)) => NodeType::Integer,
+            YamlData::Scalar(YamlScalar::FloatingPoint(_)) => NodeType::Floating,
+            YamlData::Scalar(YamlScalar::String(_)) => NodeType::String,
+            YamlData::Alias(_) => NodeType::Alias,
+            YamlData::Scalar(YamlScalar::Null(_)) => NodeType::Null,
+            _ => NodeType::Bad,
+        }
     }
 }
 
