@@ -1,8 +1,7 @@
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlEntry, YamlError,
-    YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlDocAccess, YamlEntry,
+    YamlError, YamlLoader, YamlScalar,
 };
-use crate::{YamlDocAccess, YamlLoader};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
@@ -199,6 +198,10 @@ where
     fn bad_span_value(_span: Span) -> Self {
         Yaml(YamlData::BadValue)
     }
+
+    fn bad_value() -> Self {
+        Yaml(YamlData::BadValue)
+    }
 }
 
 impl<'a, FP> From<YamlData<'a, Self, FP>> for Yaml<'a, FP> {
@@ -216,6 +219,10 @@ impl<'a, FP> From<YamlScalar<'a, FP>> for Yaml<'a, FP> {
 impl<'a> Yaml<'a> {
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Yaml<'a>>, YamlError> {
         YamlLoader::<Yaml<'a>>::load_from(input)
+    }
+
+    pub fn load_single<S: AsRef<str>>(input: S) -> Result<Yaml<'a>, YamlError> {
+        YamlLoader::<Yaml<'a>>::load_single(input)
     }
 }
 

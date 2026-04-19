@@ -889,7 +889,7 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::prelude::{NodeType, YamlDoc, YamlDocAccess};
+    /// use yam_core::prelude::{NodeType, Yaml, YamlDocAccess};
     ///
     /// let node = YamlDoc::from(32i64);
     /// let node_type = node.get_type();
@@ -1038,6 +1038,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// within the type that provides this method.
     ///
     #[must_use]
+    #[inline]
     fn bad_value() -> Self {
         Self::bad_span_value(Span::default())
     }
@@ -1059,11 +1060,11 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     /// use yam_core::prelude::*;
     ///
-    /// let mut value = YamlDoc::Bool(true);
+    /// let mut value = Yaml::from(true);
     /// let previous_value = value.take();
     ///
-    /// assert_eq!(previous_value, YamlDoc::Bool(true));
-    /// assert_eq!(value, YamlDoc::BadValue);
+    /// assert_eq!(previous_value, Yaml(YamlData::Scalar(YamlScalar::Bool(true))));
+    /// assert_eq!(value, Yaml::bad_value());
     /// ```
     #[must_use]
     fn take(&mut self) -> Self {

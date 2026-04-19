@@ -1,7 +1,7 @@
 use crate::parsing::{ScalarValue, SpannedEventReceiver};
 use crate::prelude::yaml_data::YamlData;
-use crate::prelude::{IsEmpty, Marker, Span, Tag, YamlEntry, YamlError, YamlScalar};
-use crate::{Event, Source, StrSource, YamlDocAccess, parsing};
+use crate::prelude::{IsEmpty, Marker, Span, Tag, YamlDocAccess, YamlEntry, YamlError, YamlScalar};
+use crate::{Event, Source, StrSource, parsing};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -22,8 +22,7 @@ use core::marker::PhantomData;
 ///
 /// # Example
 /// ```rust
-/// use yam_core::prelude::{Yaml, YamlDocAccess};
-/// use yam_core::YamlLoader;
+/// use yam_core::prelude::{Yaml, YamlLoader, YamlDocAccess};
 ///
 /// let yaml_str = "{a : b, c: d}";
 /// let doc = YamlLoader::<Yaml>::load_from(yaml_str);
@@ -184,12 +183,12 @@ where
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::{YamlLoader, YamlDoc};
+    /// use yam_core::prelude::{Yaml, YamlLoader};
     /// use yam_core::parsing::{Parser};
     ///
     /// let mut parser = Parser::new_from_str("a: b");
     ///
-    /// match YamlLoader::<YamlDoc>::load_from_parser(&mut parser) {
+    /// match YamlLoader::<Yaml>::load_from_parser(&mut parser) {
     ///     Ok(documents) => {
     ///         for node in documents {
     ///             println!("{:?}", node);
@@ -229,7 +228,7 @@ where
     /// # Example
     /// ```rust
     /// use yam_core::parsing::{Parser};
-    /// use yam_core::prelude::{YamlDoc, YamlLoader, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamlLoader, YamlDocAccess};
     ///
     /// let yaml_input = r#"
     /// - name: John
@@ -238,7 +237,7 @@ where
     ///   age: 25
     /// "#;
     ///
-    /// let result = YamlLoader::<YamlDoc>::load_from(&yaml_input);
+    /// let result = Yaml::load_from(&yaml_input);
     /// match result {
     ///     Ok(nodes) => {
     ///         for node in nodes {
@@ -278,8 +277,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use yam_core::parsing::Parser;
-    /// use yam_core::{YamlLoader, YamlDoc};
+    /// use yam_core::prelude::{Yaml, YamlLoader};
     ///
     /// let yaml_input = r#"
     /// key: value
@@ -288,7 +286,7 @@ where
     ///   - item2
     /// "#;
     ///
-    /// match YamlLoader::<YamlDoc>::load_single(&yaml_input) {
+    /// match YamlLoader::<Yaml>::load_single(&yaml_input) {
     ///     Ok(node) => println!("Parsed Node: {:?}", node),
     ///     Err(e) => eprintln!("Error loading YAML: {}", e),
     /// }
@@ -319,8 +317,8 @@ where
     /// - `parser`: The input source containing the [`parsing::Parser`] that parses the input.
     ///
     /// # Returns
-    /// - `Ok(Node)`: The parsed YAML document represented as a `Node` if successful.
-    /// - `Err(YamlError)`: An error if no document is found in the input or if parsing fails.
+    /// - `Ok(Node)`: The parsed YAML document is represented as a `Node` if successful.
+    /// - `Err(YamlError)`: An error if it is not found in the input or if parsing fails.
     ///
     /// # Errors
     /// - `YamlError::NoDocument`: Returned if there is no document available in the parsed input.
@@ -338,7 +336,7 @@ where
     ///   - item2
     /// "#;
     /// let mut parser = Parser::new_from_str(&yaml_input);
-    /// match YamlLoader::<YamlDoc>::load_single_from_parser(&mut parser) {
+    /// match YamlLoader::<Yaml>::load_single_from_parser(&mut parser) {
     ///     Ok(node) => println!("Parsed Node: {:?}", node),
     ///     Err(e) => eprintln!("Error loading YAML: {}", e),
     /// }
@@ -386,10 +384,11 @@ where
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::{YamlDoc, YamlLoader, StrSource};
+    /// use yam_core::{, StrSource};
+    /// use yam_core::prelude::{YamlLoader, Yaml};
     ///
     /// let input = StrSource::new("---\nkey: value\n");
-    /// match YamlLoader::<YamlDoc>::load_single_source(input) {
+    /// match YamlLoader::<Yaml>::load_single_source(input) {
     ///     Ok(node) => println!("Successfully loaded: {:?}", node),
     ///     Err(e) => eprintln!("Failed to load YAML: {:?}", e),
     /// }
@@ -481,8 +480,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::YamlLoader;
-    use crate::prelude::Yaml;
+    use crate::prelude::{Yaml, YamlLoader};
     use alloc::borrow::ToOwned;
     use alloc::vec::Vec;
 

@@ -16,8 +16,8 @@
 //! ```rust
 //! use yam_core::prelude::{Yaml, YamlLoader};
 //!
-//! let docs = Yaml::load_from("[1, 2]").expect("Valid YAML document");
-//! let val = &docs[0][0];
+//! let docs = Yaml::load_single("[1, 2]").expect("Valid YAML document");
+//! let val = &docs[0];
 //! assert_eq!(val, &Yaml::from(1));
 //! ```
 #![no_std]
@@ -33,4 +33,3 @@ mod saphyr_emitter;
 mod util;
 
 pub use crate::parsing::{Event, Source, StrSource};
-pub use crate::prelude::{YamlDocAccess, YamlLoader};

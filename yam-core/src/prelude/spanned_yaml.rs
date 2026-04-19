@@ -1,6 +1,6 @@
-use crate::YamlDocAccess;
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlEntry, YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlDocAccess, YamlEntry,
+    YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
