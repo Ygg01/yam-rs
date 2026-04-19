@@ -316,7 +316,7 @@ where
     /// - `I`: A type that implements the `Source` trait, representing the input data source.
     ///
     /// # Arguments
-    /// - `parser`: The input source containing the [`crate::parsing::Parser`] that parses the input.
+    /// - `parser`: The input source containing the [`parsing::Parser`] that parses the input.
     ///
     /// # Returns
     /// - `Ok(Node)`: The parsed YAML document represented as a `Node` if successful.
@@ -450,10 +450,10 @@ where
 
                 let (mut node, anchor_id, tag) = self.doc_stack.pop().unwrap();
                 node = node.with_end(mark);
-                if let Some(tag) = tag {
-                    if !tag.is_yaml_core_schema() {
-                        node = node.into_tagged(tag);
-                    }
+                if let Some(tag) = tag
+                    && !tag.is_yaml_core_schema()
+                {
+                    node = node.into_tagged(tag);
                 }
                 self.insert_new_node(node, anchor_id, None);
             }

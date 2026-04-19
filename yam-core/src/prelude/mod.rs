@@ -3,11 +3,9 @@ use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, LinkedList};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::borrow::{Borrow, BorrowMut};
 use core::fmt;
 use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
-use core::ops::Index;
 use core::str::Utf8Error;
 pub use loader::MappingLike;
 pub use loader::SequenceLike;
@@ -248,7 +246,7 @@ impl YamlError {
     /// A new instance of `YamlError` with the variant `ScannerErr`.
     ///
     /// # Attributes
-    /// - `#[must_use]`: Indicates that the return value of this function must be used by the caller.
+    /// - `#[must_use]`: Caller must use the return value.
     ///
     /// # Example
     /// ```
@@ -331,7 +329,7 @@ impl Display for Tag {
 }
 
 /// Check if the string can be expressed a valid literal block scalar.
-/// The YAML spec supports all of the following in block literals except `#xFEFF`:
+/// The YAML spec supports all literals except `#xFEFF`:
 /// ```no_compile
 ///     #x9 | #xA | [#x20-#x7E]                /* 8 bit */
 ///   | #x85 | [#xA0-#xD7FF] | [#xE000-#xFFFD] /* 16 bit */
@@ -913,7 +911,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// Converts the value of the type implementing this method into an `Option<String>`.
     ///
     /// # Returns
-    /// - `Some(Strehg)` if the conversion is successful,
+    /// - `Some(String)` if the conversion is successful,
     ///   depending on the implementation.
     /// - `None` if the conversion is not possible or represents an invalid state.
     ///
@@ -1012,9 +1010,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// Constructs an instance of `Self` using a bad or default value.
     ///
     /// # Attributes
-    /// - `#[must_use]`: This attribute indicates that the return value of the
-    ///   function must be used by the caller. Ignoring the return value may result
-    ///   in a warning from the compiler.
+    /// - `#[must_use]`: Caller must use this return value or the warning will be emitted.
     ///
     /// # Parameters
     /// - `_span: Span`: A `Span` parameter that gives the bad element _span.
@@ -1209,14 +1205,14 @@ pub enum ScalarType {
     ///     string
     /// ```
     Literal,
-    /// Single quote string which permits any symbol inside
+    /// Single quote string that permits any symbol inside
     /// E.g. :
     /// ```yaml
     /// ' This is a quoted string
     ///    with ''quoted'' string within.'
     /// ```
     SingleQuote,
-    /// Single quote string which permits any symbol inside
+    /// Single quote string that permits any symbol inside
     /// E.g. :
     /// ```yaml
     /// "This is a quoted string
@@ -1251,9 +1247,9 @@ impl<'a> ToMutStr for Cow<'a, str> {
     }
 }
 
-impl<'a> ToMutStr for str {
+impl ToMutStr for str {
     fn mut_str(&mut self) -> &mut str {
-        self.as_mut()
+        self
     }
 }
 

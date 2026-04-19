@@ -49,7 +49,7 @@ where
     ) -> Option<Self> {
         if style != ScalarType::Plain {
             // Any quoted scalar is a string.
-            Some(Self::String(v.into()))
+            Some(Self::String(v))
         } else if let Some(tag) = tag.map(Cow::as_ref) {
             if tag.is_yaml_core_schema() {
                 match tag.suffix.as_ref() {
@@ -57,10 +57,10 @@ where
                     "int" => v.parse::<i64>().ok().map(|x| Self::Integer(x)),
                     "float" => parse_core_schema_fp(&v).map(|x| Self::FloatingPoint(x.into())),
                     "null" => match v.as_ref() {
-                        "~" | "null" => Some(Self::Null(PhantomData::default())),
+                        "~" | "null" => Some(Self::Null(PhantomData)),
                         _ => None,
                     },
-                    "str" => Some(Self::String(v.into())),
+                    "str" => Some(Self::String(v)),
                     // If we have a tag we do not recognize, return `None`.
                     _ => None,
                 }
@@ -78,7 +78,7 @@ where
 
     /// Parse a scalar node representation into a [`Scalar`].
     ///
-    /// This function cannot fail. It will fallback to [`Scalar::String`] if everything else fails.
+    /// This function cannot fail. It will fall back to [`Scalar::String`] if everything else fails.
     ///
     /// # Return
     /// Returns the parsed [`Scalar`].
@@ -109,11 +109,11 @@ where
         }
 
         match bytes.len() {
-            1 if bytes[0] == b'~' => return Self::Null(PhantomData::default()),
+            1 if bytes[0] == b'~' => return Self::Null(PhantomData),
             4 => {
                 let f = bytes[0] & 0xDF;
                 if f == b'N' && matches!(s, "null" | "Null" | "NULL") {
-                    return Self::Null(PhantomData::default());
+                    return Self::Null(PhantomData);
                 } else if f == b'T' && matches!(s, "true" | "True" | "TRUE") {
                     return Self::Bool(true);
                 }
@@ -132,7 +132,7 @@ where
             return Self::FloatingPoint(float.into());
         }
 
-        Self::String(v.into())
+        Self::String(v)
     }
 }
 
@@ -142,7 +142,7 @@ where
 /// definition.
 ///
 /// # Return
-/// Returns `Some` if parsing succeeding, `None` otherwise. This function is used in the process of
+/// Returns `Some` if parsing succeeds, `None` otherwise. This function is used in the process of
 /// parsing scalars, where failing to parse a scalar as a floating point is not an error. As such,
 /// this function purposefully does not return a `Result`.
 pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
