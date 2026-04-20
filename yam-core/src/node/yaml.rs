@@ -11,6 +11,34 @@ use core::borrow::{Borrow, BorrowMut};
 use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
 
+///
+/// Basic borrowed YAML data structure.
+///
+/// The `Yaml` struct is a generic wrapper around `YamlData` with support for specifying
+/// a custom floating-point type. By default, the floating-point type is set to `f64`.
+///
+/// # Type Parameters
+/// - `'a`: The lifetime of the YAML data.
+/// - `FP`: The floating-point type to be used within the YAML structure. Defaults to `f64`.
+///
+/// # Fields
+/// - `0`: A public field containing the `YamlData` associated with this `Yaml` instance.
+///
+/// # Derives
+/// - `PartialEq`: Enables equality and inequality comparisons for `Yaml`.
+/// - `Debug`: Enables formatting the `Yaml` struct for debugging purposes.
+///
+/// # Examples
+/// ```rust
+/// use yam_core::node::YamlScalar;
+/// use yam_core::prelude::{Yaml, YamlData};
+///
+/// // Example usage with default floating-point type (f64)
+/// let yaml: Yaml = Yaml::from(3.1);
+///
+/// // Example usage with custom floating-point type
+/// let yaml_custom: Yaml<f32> = Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(2.3f32)));
+/// ```
 #[derive(PartialEq, Debug)]
 pub struct Yaml<'a, FP = f64>(pub YamlData<'a, Self, FP>);
 
