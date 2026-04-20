@@ -177,9 +177,10 @@ pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
     }
 }
 
-impl<F> Clone for YamlScalar<'_, F>
+impl<F, STR> Clone for YamlScalar<'_, F, STR>
 where
     F: Copy,
+    STR: Clone,
 {
     fn clone(&self) -> Self {
         match self {

@@ -76,10 +76,11 @@ where
     }
 }
 
-impl<Node, FP> Clone for YamlData<'_, Node, FP>
+impl<'a, Node, FP, STR> Clone for YamlData<'a, Node, FP, STR>
 where
     Node: Clone,
     FP: Copy,
+    STR: Clone,
 {
     fn clone(&self) -> Self {
         match self {
