@@ -1,7 +1,6 @@
+use crate::parsing::is_valid_literal_block_scalar;
 use crate::prelude::YamlData;
-use crate::prelude::{
-    IsEmpty, MappingLike, SequenceLike, YamlDocAccess, YamlScalar, is_valid_literal_block_scalar,
-};
+use crate::prelude::{IsEmpty, MappingLike, SequenceLike, YamlDocAccess, YamlScalar};
 use crate::prelude::{Yaml, YamlEntry};
 use alloc::vec::Vec;
 use core::borrow::BorrowMut;

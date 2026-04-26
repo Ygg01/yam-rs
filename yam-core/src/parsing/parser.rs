@@ -6,7 +6,8 @@
 
 use crate::parsing::scanner::{Scanner, Token};
 pub(crate) use crate::parsing::source::{Source, StrSource};
-use crate::prelude::{Marker, ScalarType, Span, Tag, TokenType, YamlError};
+use crate::parsing::{Tag, TokenType};
+use crate::prelude::{Marker, ScalarType, Span, YamlError};
 use alloc::{
     borrow::Cow,
     collections::BTreeMap,

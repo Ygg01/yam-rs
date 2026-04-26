@@ -3,10 +3,9 @@ use crate::parsing::char_utils::{
     is_breakz, is_flow, is_tag_char, is_uri_char,
 };
 use crate::parsing::source::Source;
+use crate::parsing::{ChompIndicator, ScanResult, TokenType, YamlResult};
 use crate::prelude::ScalarType::Plain;
-use crate::prelude::{
-    ChompIndicator, Marker, ScalarType, ScanResult, Span, TokenType, YamlError, YamlResult,
-};
+use crate::prelude::{Marker, ScalarType, Span, YamlError};
 use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use alloc::format;
