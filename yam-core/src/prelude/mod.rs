@@ -1,7 +1,11 @@
 //! Use `yam_core::prelude::*` to import common components and traits.
 pub use crate::node::YamlScalar;
+pub use crate::node::spanned_yaml::SpannedYaml;
 pub use crate::node::yaml::Yaml;
 pub use crate::node::yaml_data::YamlData;
+pub use crate::node::yaml_owned::YamlOwned;
+pub use crate::parsing::Source;
+pub use crate::parsing::StrSource;
 use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, LinkedList};
 use alloc::string::{String, ToString};

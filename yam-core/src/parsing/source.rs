@@ -217,7 +217,7 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
 /// - `'input`: Lifetime of the input data slice.
 /// # Example
 /// ```
-/// use yam_core::{StrSource, Source};
+/// use yam_core::prelude::{StrSource, Source};
 /// let source = StrSource::new("Hello, world!");
 /// assert_eq!(source.peekz(0), b'H');
 /// assert_eq!(source.peekz(1), b'e');
@@ -249,8 +249,7 @@ impl StrSource<'_> {
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::parsing::StrSource;
-    /// use crate::yam_core::Source;
+    /// use yam_core::prelude::{StrSource, Source};
     /// let source = StrSource::new("example");
     /// assert_eq!(source.peek_char(),'e');
     /// ```
@@ -309,10 +308,10 @@ unsafe impl Source for StrSource<'_> {
 
 #[cfg(test)]
 mod test {
-    use crate::StrSource;
     use crate::parsing::Source;
     use crate::parsing::buffered_source::BufferedBytesSource;
     use crate::parsing::scanner::SkipTabs;
+    use crate::prelude::StrSource;
 
     const TEST_STR: &str = "                                      \
                                     \n                     \

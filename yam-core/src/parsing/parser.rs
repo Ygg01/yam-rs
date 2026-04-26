@@ -230,8 +230,7 @@ pub struct Parser<'input, T: Source> {
 /// # Example
 ///
 /// ```rust
-/// use yam_core::parsing::{EventReceiver};
-/// use yam_core::Event;
+/// use yam_core::parsing::{EventReceiver, Event};
 /// struct MyEventReceiver;
 ///
 /// impl<'input> EventReceiver<'input> for MyEventReceiver {

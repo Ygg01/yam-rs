@@ -1,7 +1,9 @@
 use crate::node::yaml_data::YamlData;
-use crate::parsing::{ScalarValue, SpannedEventReceiver};
-use crate::prelude::{IsEmpty, Marker, Span, Tag, YamlDocAccess, YamlEntry, YamlError, YamlScalar};
-use crate::{Event, Source, StrSource, parsing};
+use crate::parsing;
+use crate::parsing::{Event, ScalarValue, SpannedEventReceiver};
+use crate::prelude::{
+    IsEmpty, Marker, Source, Span, StrSource, Tag, YamlDocAccess, YamlEntry, YamlError, YamlScalar,
+};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -384,8 +386,7 @@ where
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::{StrSource};
-    /// use yam_core::prelude::{YamlLoader, Yaml};
+    /// use yam_core::prelude::{YamlLoader, Yaml, StrSource};
     ///
     /// let input = StrSource::new("---\nkey: value\n");
     /// match YamlLoader::<Yaml>::load_single_source(input) {
