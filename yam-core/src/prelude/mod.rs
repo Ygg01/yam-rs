@@ -1126,3 +1126,32 @@ where
         self.is_empty()
     }
 }
+
+pub trait ToMut<T> {
+    fn as_mut_val(&mut self) -> &mut T;
+    fn as_owned(&self) -> T;
+}
+
+impl ToMut<i64> for i64 {
+    #[inline]
+    fn as_mut_val(&mut self) -> &mut i64 {
+        self
+    }
+
+    #[inline]
+    fn as_owned(&self) -> i64 {
+        *self
+    }
+}
+
+impl ToMut<f64> for f64 {
+    #[inline]
+    fn as_mut_val(&mut self) -> &mut f64 {
+        self
+    }
+
+    #[inline]
+    fn as_owned(&self) -> f64 {
+        *self
+    }
+}

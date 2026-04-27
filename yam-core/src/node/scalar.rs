@@ -19,7 +19,7 @@ use core::marker::PhantomData;
 /// - `INT`: The type to represent integer values (defaults to `i64`).
 ///
 #[derive(Debug)]
-pub enum YamlScalar<'a, FLOAT = f64, STR = Cow<'a, str>, INT = i64> {
+pub enum YamlScalar<'a, FLOAT = f64, INT = i64, STR = Cow<'a, str>> {
     /// Null value
     Null(PhantomData<&'a ()>),
     /// String value
@@ -50,7 +50,7 @@ where
     }
 }
 
-impl<'a, F, S, I> YamlScalar<'a, F, S, I>
+impl<'a, F, S, I> YamlScalar<'a, F, I, S>
 where
     F: From<f64>,
     S: From<Cow<'a, str>>,
@@ -181,7 +181,7 @@ pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
     }
 }
 
-impl<F, STR, INT> Clone for YamlScalar<'_, F, STR, INT>
+impl<F, STR, INT> Clone for YamlScalar<'_, F, INT, STR>
 where
     F: Copy,
     STR: Clone,

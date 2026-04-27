@@ -1,13 +1,12 @@
 use crate::prelude::YamlScalar::Null;
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlDocAccess, YamlEntry,
-    YamlError, YamlLoader, YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMut, ToMutStr, YamlAccessError, YamlData, YamlDocAccess,
+    YamlEntry, YamlError, YamlLoader, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::borrow::{Borrow, BorrowMut};
 use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
 
@@ -40,9 +39,9 @@ use core::ops::{Index, IndexMut};
 /// let yaml_custom: Yaml<f32> = Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(2.3f32)));
 /// ```
 #[derive(PartialEq, Debug)]
-pub struct Yaml<'a, FP = f64, STR = Cow<'a, str>, INT = i64>(pub YamlData<'a, Self, FP, STR, INT>);
+pub struct Yaml<'a, FP = f64, INT = i64, STR = Cow<'a, str>>(pub YamlData<'a, Self, FP, INT, STR>);
 
-impl<'a, FP, STR, INT> Clone for Yaml<'a, FP, STR, INT>
+impl<'a, FP, STR, INT> Clone for Yaml<'a, FP, INT, STR>
 where
     FP: Copy,
     INT: Copy,
@@ -53,16 +52,17 @@ where
     }
 }
 
-impl<'a, FP> YamlDocAccess<'a> for Yaml<'a, FP>
+impl<'a, FP, INT> YamlDocAccess<'a> for Yaml<'a, FP, INT>
 where
-    FP: Copy + Borrow<f64> + BorrowMut<f64>,
+    FP: Copy + ToMut<f64>,
+    INT: Copy + From<i64> + ToMut<i64>,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
     type MappingNode = Vec<YamlEntry<'a, Self>>;
 
     fn key_from_usize(index: usize) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(index as i64)))
+        Yaml(YamlData::Scalar(YamlScalar::Integer((index as i64).into())))
     }
 
     fn key_from_str(index: &str) -> Self {
@@ -95,28 +95,28 @@ where
 
     fn as_i64(&self) -> Option<i64> {
         match &self.0 {
-            YamlData::Scalar(YamlScalar::Integer(b)) => Some(*b),
+            YamlData::Scalar(YamlScalar::Integer(b)) => Some(b.as_owned()),
             _ => None,
         }
     }
 
     fn as_i64_mut(&mut self) -> Option<&mut i64> {
         match &mut self.0 {
-            YamlData::Scalar(YamlScalar::Integer(b)) => Some(b),
+            YamlData::Scalar(YamlScalar::Integer(b)) => Some(b.as_mut_val()),
             _ => None,
         }
     }
 
     fn as_f64(&self) -> Option<f64> {
         match &self.0 {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(*b.borrow()),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(b.as_owned()),
             _ => None,
         }
     }
 
     fn as_f64_mut(&mut self) -> Option<&mut f64> {
         match &mut self.0 {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some((*b).borrow_mut()),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(b.as_mut_val()),
             _ => None,
         }
     }
@@ -263,9 +263,10 @@ impl<'a> Yaml<'a> {
     }
 }
 
-impl<'a, FP> Index<usize> for Yaml<'a, FP>
+impl<'a, FP, INT> Index<usize> for Yaml<'a, FP, INT>
 where
-    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
 {
     type Output = Self;
 
@@ -280,9 +281,10 @@ where
     }
 }
 
-impl<'a, FP> IndexMut<usize> for Yaml<'a, FP>
+impl<'a, FP, INT> IndexMut<usize> for Yaml<'a, FP, INT>
 where
-    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let typ = self.get_type();
@@ -302,9 +304,10 @@ where
     }
 }
 
-impl<'a, 'k, FP> Index<&'k str> for Yaml<'a, FP>
+impl<'a, 'k, FP, INT> Index<&'k str> for Yaml<'a, FP, INT>
 where
-    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
 {
     type Output = Self;
 
@@ -318,9 +321,10 @@ where
     }
 }
 
-impl<'a, 'k, FP> IndexMut<&'k str> for Yaml<'a, FP>
+impl<'a, 'k, FP, INT> IndexMut<&'k str> for Yaml<'a, FP, INT>
 where
-    FP: Copy + Borrow<f64> + BorrowMut<f64> + PartialEq,
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
 {
     fn index_mut(&mut self, index: &'k str) -> &mut Self::Output {
         let typ = self.get_type();

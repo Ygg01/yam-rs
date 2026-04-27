@@ -174,10 +174,10 @@ where
     /// # Type Parameters
     /// - `I`: A type that implements the `Source` trait, representing the source input for the parser.
     ///
-    /// # Arguments
-    /// - `parser`: A mutable reference to a `Parser` instance that processes the YAML input.
-    ///
-    /// # Returns
+    /// # parser`: A mutable reference to a `Parser` instance that processes the YAML input.
+    //     ///
+    //     /// # RetArguments
+    /// - `urns
     /// - `Ok(Vec<Node>)`: A vector of `Node` objects representing the parsed YAML documents.
     /// - `Err(YamlError)`: An error if the parsing process fails.
     ///

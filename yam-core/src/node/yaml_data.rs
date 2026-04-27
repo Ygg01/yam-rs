@@ -17,8 +17,8 @@ pub enum YamlData<
     'input,
     NODE,
     FP = f64,
-    STR = Cow<'input, str>,
     INT = i64,
+    STR = Cow<'input, str>,
     MAP = Vec<YamlEntry<'input, NODE>>,
 > where
     MAP: MappingLike<NODE>,
@@ -26,7 +26,7 @@ pub enum YamlData<
     /// Bad value encountered during parsing or construction
     BadValue,
     /// Scalar value found during parsing. See [`YamlScalar`].
-    Scalar(YamlScalar<'input, FP, STR, INT>),
+    Scalar(YamlScalar<'input, FP, INT, STR>),
     /// Sequence of nodes.
     Sequence(Vec<NODE>),
     /// Set of key-value pairs.
@@ -57,8 +57,10 @@ where
     }
 }
 
-impl<'input, Node, FP, INT> From<YamlScalar<'input, FP, INT>> for YamlData<'input, Node, FP, INT> {
-    fn from(value: YamlScalar<'input, FP, INT>) -> Self {
+impl<'input, Node, FP, STR, INT> From<YamlScalar<'input, FP, INT, STR>>
+    for YamlData<'input, Node, FP, INT, STR>
+{
+    fn from(value: YamlScalar<'input, FP, INT, STR>) -> Self {
         YamlData::Scalar(value)
     }
 }
@@ -83,9 +85,9 @@ where
     }
 }
 
-impl<'input, Node, FP, STR, INT, MAP> YamlData<'input, Node, FP, STR, INT, MAP>
+impl<'input, Node, FP, STR, INT, MAP> YamlData<'input, Node, FP, INT, STR, MAP>
 where
-    Node: From<YamlData<'input, Node, FP, STR, INT, MAP>>,
+    Node: From<YamlData<'input, Node, FP, INT, STR, MAP>>,
     FP: From<f64>,
     INT: From<i64>,
     STR: From<Cow<'input, str>>,
@@ -101,13 +103,13 @@ where
                 tag.clone(),
                 Box::new(Self::value_from_cow_and_metadata(v, style, None).into()),
             ),
-            _ => YamlScalar::<FP, STR, INT>::parse_from_cow_and_metadata(v, style, tag)
+            _ => YamlScalar::<FP, INT, STR>::parse_from_cow_and_metadata(v, style, tag)
                 .map_or(YamlData::BadValue, |x| YamlData::Scalar(x)),
         }
     }
 }
 
-impl<'a, Node, FP, STR, INT> Clone for YamlData<'a, Node, FP, STR, INT>
+impl<'a, Node, FP, STR, INT> Clone for YamlData<'a, Node, FP, INT, STR>
 where
     Node: Clone,
     FP: Copy,
