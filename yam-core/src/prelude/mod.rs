@@ -1127,31 +1127,53 @@ where
     }
 }
 
-pub trait ToMut<T> {
+pub trait ToMut<T>
+where
+    T: Copy,
+{
     fn as_mut_val(&mut self) -> &mut T;
     fn as_owned(&self) -> T;
 }
 
-impl ToMut<i64> for i64 {
-    #[inline]
-    fn as_mut_val(&mut self) -> &mut i64 {
-        self
-    }
+/// This macro, `to_mut_impl`, generates an implementation of the `ToMut` trait for a specific type.
+///
+/// # Parameters
+/// - `$x:ty`: The type for which the `ToMut` trait should be implemented.
+///
+/// # Trait: `ToMut`
+/// The `ToMut` trait is expected to have the following methods:
+/// - `as_mut_val(&mut self) -> &mut $x`: Returns a mutable reference to the type.
+/// - `as_owned(&self) -> $x`: Returns an owned value of the type.
+///
+/// # Generated Implementation
+/// For the type `$x`, this macro generates:
+/// - `impl ToMut<$x> for $x`: Implements the `ToMut` trait directly for the type `$x`.
+/// - `fn as_mut_val(&mut self) -> &mut $x`: Simply returns a mutable reference to itself (`self`).
+/// - `fn as_owned(&self) -> $x`: Returns an owned copy of the value by dereferencing `self`.
+///
+///
+/// # Notes
+/// - This macro assumes that `$x` implements the `Copy` trait because the implementation of
+///   `as_owned` dereferences `self`, which requires `Copy`.
+/// - The macro includes inline attribute hints (`#[inline]`) for performance optimization.
+macro_rules! to_mut_impl {
+    ($x:ty) => {
+        impl ToMut<$x> for $x {
+            #[inline]
+            fn as_mut_val(&mut self) -> &mut $x {
+                self
+            }
 
-    #[inline]
-    fn as_owned(&self) -> i64 {
-        *self
-    }
+            #[inline]
+            fn as_owned(&self) -> $x {
+                *self
+            }
+        }
+    };
 }
 
-impl ToMut<f64> for f64 {
-    #[inline]
-    fn as_mut_val(&mut self) -> &mut f64 {
-        self
-    }
-
-    #[inline]
-    fn as_owned(&self) -> f64 {
-        *self
-    }
-}
+to_mut_impl!(i32);
+to_mut_impl!(i64);
+to_mut_impl!(i128);
+to_mut_impl!(f32);
+to_mut_impl!(f64);

@@ -1,6 +1,6 @@
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, ToMutStr, YamlAccessError, YamlData, YamlDocAccess, YamlEntry,
-    YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMut, ToMutStr, YamlAccessError, YamlData, YamlDocAccess,
+    YamlEntry, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -70,7 +70,7 @@ where
 
 impl<'a, FP> YamlDocAccess<'a> for SpannedYaml<'a, FP>
 where
-    FP: Copy + AsMut<f64> + Into<f64>,
+    FP: Copy + ToMut<f64> + Into<f64>,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -135,7 +135,7 @@ where
 
     fn as_f64_mut(&mut self) -> Option<&mut f64> {
         match &mut self.yaml {
-            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(b.as_mut()),
+            YamlData::Scalar(YamlScalar::FloatingPoint(b)) => Some(b.as_mut_val()),
             _ => None,
         }
     }
