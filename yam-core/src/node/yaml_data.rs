@@ -3,13 +3,28 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
+/// Basic data structure used as backbone for all YAML nodes
+///
+/// # Type Parameters
+/// `'input`: Lifetime of the underlying string data
+/// `NODE`: Node being nested inside Maps or Sequences.
+/// `FP` (default: f64): Floating point type used for representing numerical data, within YAML.
+///  by default, this is `f64` but it can be customized for special cases like if you want `f32` or an
+///  `OrderedFloat`.
+/// `STR` (default `Cow<'input, str>`): Type of string scalar used.
 #[derive(Debug)]
 pub enum YamlData<'input, NODE, FP = f64, STR = Cow<'input, str>> {
+    /// Bad value encountered during parsing or construction
     BadValue,
+    /// Scalar value found during parsing. See [`YamlScalar`].
     Scalar(YamlScalar<'input, FP, STR>),
+    /// Sequence of nodes.
     Sequence(Vec<NODE>),
+    /// Set of key-value pairs.
     Mapping(Vec<YamlEntry<'input, NODE>>),
+    /// Node tagged with a [`Tag`] value.
     Tagged(Cow<'input, Tag>, Box<NODE>),
+    /// Alias to another node in the document.
     Alias(usize),
 }
 

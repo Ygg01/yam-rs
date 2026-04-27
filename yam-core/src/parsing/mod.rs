@@ -157,6 +157,31 @@ pub fn is_valid_literal_block_scalar(string: &str) -> bool {
         matches!(character, '\t' | '\n' | '\x20'..='\x7e' | '\u{0085}' | '\u{00a0}'..='\u{d7fff}'))
 }
 
+/// Represents a YAML tag, which is typically used to denote the data type of a value.
+///
+/// A tag consists of two parts:
+/// - `handle`: The handle of the tag, which includes the `!` character.
+/// - `suffix`: The suffix of the tag, representing additional information.
+///
+/// # Derive Implementations:
+/// This struct derives the following traits for convenience:
+/// - `Clone`: Allows creating a duplicate instance of `Tag`.
+/// - `Debug`: Enables formatting the `Tag` for debugging purposes.
+/// - `PartialEq` and `Eq`: Allows equality comparisons between `Tag` instances.
+/// - `PartialOrd` and `Ord`: Enables ordering and comparison based on lexicographical order of fields.
+/// - `Hash`: Supports hashing the `Tag` for use in hashed collections like `HashMap` or `HashSet`.
+///
+/// # Example:
+/// ```
+/// use yam_core::parsing::Tag;
+///
+/// // Create a new tag with a handle and suffix.
+/// let tag = Tag::new("!custom", "example");
+///
+/// // Accessing tag details.
+/// assert_eq!(tag.handle, "!custom");
+/// assert_eq!(tag.suffix, "example");
+/// ```
 #[derive(Clone, PartialEq, Debug, Eq, Ord, PartialOrd, Hash)]
 pub struct Tag {
     /// Handle of the tag (`!` included).
