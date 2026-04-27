@@ -14,11 +14,12 @@ use core::marker::PhantomData;
 ///
 /// Generics:
 /// - `'a`: Lifetime parameter for borrowed data (e.g., strings).
-/// - `F`: The type to represent floating-point numbers (defaults to `f64`).
+/// - `FLOAT`: The type to represent floating-point numbers (defaults to `f64`).
 /// - `STR`: The type to represent string-like scalar values (defaults to `Cow<'a, str>`).
+/// - `INT`: The type to represent integer values (defaults to `i64`).
 ///
 #[derive(Debug)]
-pub enum YamlScalar<'a, F = f64, STR = Cow<'a, str>> {
+pub enum YamlScalar<'a, FLOAT = f64, STR = Cow<'a, str>, INT = i64> {
     /// Null value
     Null(PhantomData<&'a ()>),
     /// String value
@@ -26,15 +27,16 @@ pub enum YamlScalar<'a, F = f64, STR = Cow<'a, str>> {
     /// Boolean value with `true` or `false`
     Bool(bool),
     /// Floating point value like `1.2`, `2.3323`
-    FloatingPoint(F),
+    FloatingPoint(FLOAT),
     /// Integer value like `1`, `2`, `10`
-    Integer(i64),
+    Integer(INT),
 }
 
-impl<'a, F, S> PartialEq for YamlScalar<'a, F, S>
+impl<'a, F, S, I> PartialEq for YamlScalar<'a, F, S, I>
 where
     F: PartialEq,
     S: PartialEq,
+    I: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -48,9 +50,11 @@ where
     }
 }
 
-impl<'a, F> YamlScalar<'a, F>
+impl<'a, F, S, I> YamlScalar<'a, F, S, I>
 where
     F: From<f64>,
+    S: From<Cow<'a, str>>,
+    I: From<i64>,
 {
     /// Parse a scalar node representation into a [`YamlScalar`].
     ///
@@ -69,18 +73,18 @@ where
     ) -> Option<Self> {
         if style != ScalarType::Plain {
             // Any quoted scalar is a string.
-            Some(Self::String(v))
+            Some(Self::String(v.into()))
         } else if let Some(tag) = tag.map(Cow::as_ref) {
             if tag.is_yaml_core_schema() {
                 match tag.suffix.as_ref() {
                     "bool" => v.parse::<bool>().ok().map(|x| Self::Bool(x)),
-                    "int" => v.parse::<i64>().ok().map(|x| Self::Integer(x)),
+                    "int" => v.parse::<i64>().ok().map(|x| Self::Integer(x.into())),
                     "float" => parse_core_schema_fp(&v).map(|x| Self::FloatingPoint(x.into())),
                     "null" => match v.as_ref() {
                         "~" | "null" => Some(Self::Null(PhantomData)),
                         _ => None,
                     },
-                    "str" => Some(Self::String(v)),
+                    "str" => Some(Self::String(v.into())),
                     // If we have a tag we do not recognize, return `None`.
                     _ => None,
                 }
@@ -111,17 +115,17 @@ where
             match (bytes[0], bytes[1]) {
                 (b'0', b'x') => {
                     if let Ok(i) = i64::from_str_radix(&s[2..], 16) {
-                        return Self::Integer(i);
+                        return Self::Integer(i.into());
                     }
                 }
                 (b'0', b'o') => {
                     if let Ok(i) = i64::from_str_radix(&s[2..], 8) {
-                        return Self::Integer(i);
+                        return Self::Integer(i.into());
                     }
                 }
                 (b'+', _) => {
                     if let Ok(i) = s[1..].parse::<i64>() {
-                        return Self::Integer(i);
+                        return Self::Integer(i.into());
                     }
                 }
                 _ => {}
@@ -145,14 +149,14 @@ where
         }
 
         if let Ok(integer) = s.parse::<i64>() {
-            return Self::Integer(integer);
+            return Self::Integer(integer.into());
         }
 
         if let Some(float) = parse_core_schema_fp(s) {
             return Self::FloatingPoint(float.into());
         }
 
-        Self::String(v)
+        Self::String(v.into())
     }
 }
 
@@ -177,10 +181,11 @@ pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
     }
 }
 
-impl<F, STR> Clone for YamlScalar<'_, F, STR>
+impl<F, STR, INT> Clone for YamlScalar<'_, F, STR, INT>
 where
     F: Copy,
     STR: Clone,
+    INT: Copy,
 {
     fn clone(&self) -> Self {
         match self {

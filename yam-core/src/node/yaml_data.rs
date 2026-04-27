@@ -1,4 +1,4 @@
-use crate::prelude::{NodeType, ScalarType, Tag, YamlEntry, YamlScalar};
+use crate::prelude::{MappingLike, NodeType, ScalarType, Tag, YamlEntry, YamlScalar};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -13,26 +13,36 @@ use alloc::vec::Vec;
 ///  `OrderedFloat`.
 /// `STR` (default `Cow<'input, str>`): Type of string scalar used.
 #[derive(Debug)]
-pub enum YamlData<'input, NODE, FP = f64, STR = Cow<'input, str>> {
+pub enum YamlData<
+    'input,
+    NODE,
+    FP = f64,
+    STR = Cow<'input, str>,
+    INT = i64,
+    MAP = Vec<YamlEntry<'input, NODE>>,
+> where
+    MAP: MappingLike<NODE>,
+{
     /// Bad value encountered during parsing or construction
     BadValue,
     /// Scalar value found during parsing. See [`YamlScalar`].
-    Scalar(YamlScalar<'input, FP, STR>),
+    Scalar(YamlScalar<'input, FP, STR, INT>),
     /// Sequence of nodes.
     Sequence(Vec<NODE>),
     /// Set of key-value pairs.
-    Mapping(Vec<YamlEntry<'input, NODE>>),
+    Mapping(MAP),
     /// Node tagged with a [`Tag`] value.
     Tagged(Cow<'input, Tag>, Box<NODE>),
     /// Alias to another node in the document.
     Alias(usize),
 }
 
-impl<'a, NODE, FP, STR> PartialEq for YamlData<'a, NODE, FP, STR>
+impl<'a, NODE, FP, STR, INT> PartialEq for YamlData<'a, NODE, FP, STR, INT>
 where
     NODE: PartialEq,
     FP: PartialEq,
     STR: PartialEq,
+    INT: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -47,13 +57,16 @@ where
     }
 }
 
-impl<'input, Node, FP> From<YamlScalar<'input, FP>> for YamlData<'input, Node, FP> {
-    fn from(value: YamlScalar<'input, FP>) -> Self {
+impl<'input, Node, FP, INT> From<YamlScalar<'input, FP, INT>> for YamlData<'input, Node, FP, INT> {
+    fn from(value: YamlScalar<'input, FP, INT>) -> Self {
         YamlData::Scalar(value)
     }
 }
 
-impl<'a, Node, FP, STR> YamlData<'a, Node, FP, STR> {
+impl<'a, Node, FP, STR, INT, MAP> YamlData<'a, Node, FP, STR, INT, MAP>
+where
+    MAP: MappingLike<Node>,
+{
     #[inline]
     pub(crate) fn get_type(&self) -> NodeType {
         match &self {
@@ -70,10 +83,13 @@ impl<'a, Node, FP, STR> YamlData<'a, Node, FP, STR> {
     }
 }
 
-impl<'input, Node, FP> YamlData<'input, Node, FP>
+impl<'input, Node, FP, STR, INT, MAP> YamlData<'input, Node, FP, STR, INT, MAP>
 where
-    Node: From<YamlData<'input, Node, FP>>,
+    Node: From<YamlData<'input, Node, FP, STR, INT, MAP>>,
     FP: From<f64>,
+    INT: From<i64>,
+    STR: From<Cow<'input, str>>,
+    MAP: MappingLike<Node>,
 {
     pub(crate) fn value_from_cow_and_metadata(
         v: Cow<'input, str>,
@@ -85,17 +101,18 @@ where
                 tag.clone(),
                 Box::new(Self::value_from_cow_and_metadata(v, style, None).into()),
             ),
-            _ => YamlScalar::parse_from_cow_and_metadata(v, style, tag)
-                .map_or(Self::BadValue, |x| YamlData::Scalar(x)),
+            _ => YamlScalar::<FP, STR, INT>::parse_from_cow_and_metadata(v, style, tag)
+                .map_or(YamlData::BadValue, |x| YamlData::Scalar(x)),
         }
     }
 }
 
-impl<'a, Node, FP, STR> Clone for YamlData<'a, Node, FP, STR>
+impl<'a, Node, FP, STR, INT> Clone for YamlData<'a, Node, FP, STR, INT>
 where
     Node: Clone,
     FP: Copy,
     STR: Clone,
+    INT: Copy,
 {
     fn clone(&self) -> Self {
         match self {

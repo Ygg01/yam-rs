@@ -40,11 +40,13 @@ use core::ops::{Index, IndexMut};
 /// let yaml_custom: Yaml<f32> = Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(2.3f32)));
 /// ```
 #[derive(PartialEq, Debug)]
-pub struct Yaml<'a, FP = f64>(pub YamlData<'a, Self, FP>);
+pub struct Yaml<'a, FP = f64, STR = Cow<'a, str>, INT = i64>(pub YamlData<'a, Self, FP, STR, INT>);
 
-impl<'a, FP> Clone for Yaml<'a, FP>
+impl<'a, FP, STR, INT> Clone for Yaml<'a, FP, STR, INT>
 where
     FP: Copy,
+    INT: Copy,
+    STR: Clone,
 {
     fn clone(&self) -> Self {
         Yaml(self.0.clone())

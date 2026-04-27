@@ -2,7 +2,7 @@ use crate::node::YamlData;
 use alloc::string::String;
 
 #[derive(PartialEq, Debug)]
-pub struct YamlOwned(pub YamlData<'static, Self, f64, String>);
+pub struct YamlOwned(pub YamlData<'static, Self, f64, String, i64>);
 
 impl Clone for YamlOwned {
     fn clone(&self) -> Self {
