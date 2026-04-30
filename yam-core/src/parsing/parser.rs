@@ -162,6 +162,10 @@ impl<'input> Event<'input> {
     fn empty_scalar() -> Event<'input> {
         Event::Scalar(ScalarValue::empty_scalar())
     }
+
+    pub fn is_scalar(&self) -> bool {
+        matches!(self, Event::Scalar(_))
+    }
 }
 
 /// A YAML parser.
@@ -425,7 +429,7 @@ impl<'input, T: Source> Parser<'input, T> {
     /// [`Self::next_event`] should conform to the expectations of an [`Iterator`] and return an
     /// option. This burdens the parser code. This function is used internally when an option is
     /// undesirable.
-    fn next_event_impl<'a>(&mut self) -> ParseResult<'a>
+    pub fn next_event_impl<'a>(&mut self) -> ParseResult<'a>
     where
         'input: 'a,
     {
