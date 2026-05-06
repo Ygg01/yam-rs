@@ -117,6 +117,8 @@ pub enum YamlError {
     ScannerErr { mark: Marker, info: String },
     /// Expected a document but found none.
     NoDocument,
+    /// Custom error source
+    Custom { info: String },
 }
 
 impl Display for YamlError {
@@ -132,6 +134,7 @@ impl Display for YamlError {
                 write!(f, "Scanner error at marker {mark:?}: {info}")
             }
             YamlError::NoDocument => write!(f, "No document found"),
+            YamlError::Custom { info } => write!(f, "{info}"),
         }
     }
 }
@@ -159,6 +162,13 @@ impl YamlError {
     pub fn new_str(marker: Marker, info: &str) -> Self {
         YamlError::ScannerErr {
             mark: marker,
+            info: info.to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn new_custom(info: &str) -> Self {
+        YamlError::Custom {
             info: info.to_string(),
         }
     }

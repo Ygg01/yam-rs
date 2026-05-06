@@ -166,6 +166,10 @@ impl<'input> Event<'input> {
     pub fn is_scalar(&self) -> bool {
         matches!(self, Event::Scalar(_))
     }
+
+    pub fn is_doc_start(&self) -> bool {
+        matches!(self, Event::DocumentStart(_))
+    }
 }
 
 /// A YAML parser.

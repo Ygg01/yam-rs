@@ -3,6 +3,7 @@
 mod buffered_source;
 mod char_utils;
 mod parser;
+pub mod parser_iter;
 mod scanner;
 mod source;
 
