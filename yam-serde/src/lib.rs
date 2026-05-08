@@ -1,41 +1,64 @@
 #![no_std]
 extern crate alloc;
 
-use alloc::string::{String, ToString};
-use core::fmt::{Display, Formatter};
-use serde_core::de;
-use serde_core::de::{MapAccess, SeqAccess};
-use yam_core::prelude::YamlError;
+use alloc::collections::BTreeMap;
+use alloc::format;
+use core::fmt::{Debug, Display, Formatter};
+use serde_core::de::StdError;
+use serde_core::{Deserializer, de};
+use yam_core::LazyExpander;
+use yam_core::parsing::ParserIter;
+use yam_core::parsing::parser_iter::YamEvent;
+use yam_core::prelude::{Source, YamlError};
+
+struct YamlIterDeserializer<'de, R>
+where
+    R: Source,
+{
+    yaml_iter: ParserIter<'de, R>,
+    alias: BTreeMap<usize, LazyExpander<'de>>,
+}
 
 #[derive(Debug)]
-pub enum YamSerdeError {
-    ParsingError(YamlError),
-    Custom(String),
-}
+struct DeYamlError(YamlError);
 
-impl YamSerdeError {
-    pub fn new_from_str(msg: &str) -> Self {
-        YamSerdeError::Custom(msg.to_string())
-    }
-}
+impl StdError for DeYamlError {}
 
-impl Display for YamSerdeError {
+impl Display for DeYamlError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            YamSerdeError::Custom(x) => write!(f, "Custom error: {x}")?,
-            YamSerdeError::ParsingError(yaml_error) => write!(f, "Parsing error: {yaml_error}")?,
-        }
-        Ok(())
+        f.debug_tuple("DeYamlError").field(&self.0).finish()
     }
 }
 
-impl de::StdError for YamSerdeError {}
-
-impl de::Error for YamSerdeError {
+impl de::Error for DeYamlError {
     fn custom<T>(msg: T) -> Self
     where
         T: Display,
     {
-        YamSerdeError::Custom(msg.to_string())
+        let info = format!("{}", msg);
+        DeYamlError(YamlError::Custom { info })
+    }
+}
+
+impl<'de, R, V> Deserializer<'de> for &'de mut YamlIterDeserializer<'de, R, V> {
+    type Error = DeYamlError;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        for x in self.yaml_iter {
+            match x {
+                YamEvent::DocStart => {}
+                YamEvent::DocEnd => {}
+                YamEvent::StreamEnd => {}
+                YamEvent::Alias(_) => {}
+                YamEvent::Scalar(_) => {}
+                YamEvent::SeqStart(_, _) => {}
+                YamEvent::SeqEnd => {}
+                YamEvent::MapStart(_, _) => {}
+                YamEvent::MapEnd => {}
+            }
+        }
     }
 }

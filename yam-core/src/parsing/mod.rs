@@ -16,6 +16,7 @@ use core::fmt::{Display, Formatter};
 pub use parser::EventReceiver;
 pub use parser::SpannedEventReceiver;
 pub use parser::{Event, Parser, ScalarValue};
+pub use parser_iter::ParserIter;
 pub use source::Source;
 pub use source::StrSource;
 

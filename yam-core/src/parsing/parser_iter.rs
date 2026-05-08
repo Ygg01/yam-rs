@@ -2,14 +2,12 @@ use crate::parsing::{Event, Parser, ScalarValue, Source, StrSource, Tag};
 use crate::prelude::YamlError;
 use alloc::borrow::Cow;
 use core::ops::ControlFlow;
-use log::debug;
 
 #[derive(Default, PartialEq, Eq, Clone, Copy)]
 enum State {
     #[default]
     StreamStart,
     InDocument,
-    Sequence,
     EndDocument,
 }
 
@@ -17,6 +15,7 @@ pub enum YamEvent<'de> {
     DocStart,
     DocEnd,
     StreamEnd,
+    Alias(usize),
     Scalar(ScalarValue<'de>),
     SeqStart(usize, Option<Cow<'de, Tag>>),
     SeqEnd,
@@ -24,13 +23,14 @@ pub enum YamEvent<'de> {
     MapEnd,
 }
 
-struct ParserIter<'de, R: Source> {
+pub struct ParserIter<'de, R: Source> {
     parser: Parser<'de, R>,
     state: State,
+    error: Option<YamlError>,
 }
 
 impl<'a> ParserIter<'a, StrSource<'a>> {
-    pub fn from_str<S: AsRef<str>>(input: &'a S) -> Self {
+    pub fn from_str_ref<S: AsRef<str>>(input: &'a S) -> Self {
         Self::new(StrSource::new(input.as_ref()))
     }
 }
@@ -43,6 +43,7 @@ where
         Self {
             parser: Parser::new(input),
             state: State::StreamStart,
+            error: None,
         }
     }
 }
@@ -61,13 +62,12 @@ where
                     ControlFlow::Break(flow) => break flow,
                     ControlFlow::Continue(()) => continue,
                 },
-                State::Sequence => {}
                 State::EndDocument => break self.finish_document(),
             }
         };
         match res {
             Err(e) => {
-                debug!("{e}");
+                self.error = Some(e);
                 None
             }
             Ok(YamEvent::StreamEnd) => None,
