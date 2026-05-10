@@ -1,3 +1,4 @@
+use crate::parsing::ScalarValue;
 use crate::prelude::{ScalarType, Tag};
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
@@ -66,15 +67,29 @@ where
     /// # Return
     /// Returns the parsed [`YamlScalar`].
     ///
+    pub fn parse_from_scalar(value: ScalarValue<'a>) -> Option<Self> {
+        Self::parse_from_cow_and_metadata(value.value, value.scalar_type, value.tag)
+    }
+
+    /// Parse a scalar node representation into a [`YamlScalar`].
+    ///
+    /// If `tag` is not [`None`]:
+    ///   - If the handle is `tag:yaml.org,2022:`, attempt to parse as the given suffix. If parsing
+    ///     fails or the suffix is unknown, return [`None`].
+    ///   - If the handle is unknown, use the fallback parsing schema.
+    ///
+    /// # Return
+    /// Returns the parsed [`YamlScalar`].
+    ///
     pub fn parse_from_cow_and_metadata(
         v: Cow<'a, str>,
-        style: ScalarType,
-        tag: Option<&Cow<'a, Tag>>,
+        scalar_type: ScalarType,
+        tag: Option<Cow<'a, Tag>>,
     ) -> Option<Self> {
-        if style != ScalarType::Plain {
+        if scalar_type != ScalarType::Plain {
             // Any quoted scalar is a string.
             Some(Self::String(v.into()))
-        } else if let Some(tag) = tag.map(Cow::as_ref) {
+        } else if let Some(tag) = tag {
             if tag.is_yaml_core_schema() {
                 match tag.suffix.as_ref() {
                     "bool" => v.parse::<bool>().ok().map(|x| Self::Bool(x)),

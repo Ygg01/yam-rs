@@ -103,7 +103,7 @@ where
                 tag.clone(),
                 Box::new(Self::value_from_cow_and_metadata(v, style, None).into()),
             ),
-            _ => YamlScalar::<FP, INT, STR>::parse_from_cow_and_metadata(v, style, tag)
+            _ => YamlScalar::<FP, INT, STR>::parse_from_cow_and_metadata(v, style, tag.cloned())
                 .map_or(YamlData::BadValue, |x| YamlData::Scalar(x)),
         }
     }
