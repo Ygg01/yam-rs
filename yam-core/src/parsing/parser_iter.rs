@@ -40,7 +40,7 @@ impl<'de, R> ParserIter<'de, R>
 where
     R: Source,
 {
-    fn new(input: R) -> Self {
+    pub fn new(input: R) -> Self {
         Self {
             parser: Parser::new(input),
             state: State::StreamStart,

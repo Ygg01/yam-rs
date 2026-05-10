@@ -51,12 +51,7 @@ where
     }
 }
 
-impl<'a, F, S, I> YamlScalar<'a, F, I, S>
-where
-    F: From<f64>,
-    S: From<Cow<'a, str>>,
-    I: From<i64>,
-{
+impl<'a> YamlScalar<'a> {
     /// Parse a scalar node representation into a [`YamlScalar`].
     ///
     /// If `tag` is not [`None`]:
@@ -70,7 +65,14 @@ where
     pub fn parse_from_scalar(value: ScalarValue<'a>) -> Option<Self> {
         Self::parse_from_cow_and_metadata(value.value, value.scalar_type, value.tag)
     }
+}
 
+impl<'a, F, S, I> YamlScalar<'a, F, I, S>
+where
+    F: From<f64>,
+    S: From<Cow<'a, str>>,
+    I: From<i64>,
+{
     /// Parse a scalar node representation into a [`YamlScalar`].
     ///
     /// If `tag` is not [`None`]:
