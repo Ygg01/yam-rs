@@ -11,6 +11,7 @@ enum State {
     EndDocument,
 }
 
+#[derive(Debug)]
 pub enum YamEvent<'de> {
     DocStart,
     DocEnd,
