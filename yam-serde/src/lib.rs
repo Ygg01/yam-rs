@@ -3,8 +3,9 @@
 extern crate alloc;
 
 use alloc::format;
+
 use core::fmt::{Debug, Display, Formatter};
-use serde_core::de::StdError;
+use serde_core::de::{DeserializeSeed, MapAccess, SeqAccess, StdError};
 use serde_core::{Deserializer, de, forward_to_deserialize_any};
 use yam_core::node::YamlScalar;
 use yam_core::parsing::parser_iter::YamEvent;
@@ -16,12 +17,29 @@ where
     R: Source,
 {
     yaml_iter: ParserIter<'de, R>,
+    peek_event: YamEvent<'de>,
 }
 
 impl<'a> YamlIterDeserializer<'a, StrSource<'a>> {
     pub fn new(source: &'a str) -> Self {
         YamlIterDeserializer {
             yaml_iter: ParserIter::new(StrSource::new(source)),
+            peek_event: YamEvent::DocStart,
+        }
+    }
+}
+
+impl<'a, R> YamlIterDeserializer<'a, R>
+where
+    R: Source,
+{
+    fn next_el(&mut self) -> Option<YamEvent<'a>> {
+        match self.yaml_iter.next() {
+            Some(x) => {
+                self.peek_event = x.clone();
+                Some(x)
+            }
+            None => None,
         }
     }
 }
@@ -106,13 +124,36 @@ where
     ) -> Result<V::Value, DeYamlError> {
         let scalar = YamlScalar::parse_from_scalar(scalar_value);
         match scalar {
-            Some(YamlScalar::Integer(x)) if x > 0 => visitor.visit_u64(x as u64),
             Some(YamlScalar::Integer(x)) => visitor.visit_i64(x),
             Some(YamlScalar::FloatingPoint(x)) => visitor.visit_f64(x),
             Some(YamlScalar::Bool(x)) => visitor.visit_bool(x),
             Some(YamlScalar::String(x)) => visitor.visit_str(&x),
-            Some(YamlScalar::Null(_)) => visitor.visit_none(),
+            Some(YamlScalar::Null(_)) => visitor.visit_unit(),
             None => Err(DeYamlError(YamlError::new_custom("Failed to parse scalar"))),
+        }
+    }
+}
+
+impl<'a, 'de, R> DocSerializer<'a, 'de, R>
+where
+    R: Source,
+    'de: 'a,
+{
+    fn serialize_any<V>(
+        &'a mut self,
+        visitor: V,
+        event: YamEvent<'de>,
+    ) -> Result<V::Value, DeYamlError>
+    where
+        V: de::Visitor<'de>,
+    {
+        match event {
+            YamEvent::Scalar(scalar_value) => self.resolve_scalar(scalar_value, visitor),
+            YamEvent::MapStart(_, _) => self.deserialize_map(visitor),
+            YamEvent::SeqStart(_, _) => self.deserialize_seq(visitor),
+            e => Err(DeYamlError(YamlError::Custom {
+                info: format!("Unexpected event: {:?}", e),
+            })),
         }
     }
 }
@@ -130,18 +171,132 @@ where
     where
         V: de::Visitor<'de>,
     {
-        match self.deserializer.yaml_iter.next() {
-            Some(YamEvent::Scalar(scalar_value)) => self.resolve_scalar(scalar_value, visitor),
-
+        match self.deserializer.next_el() {
+            Some(ev) => self.serialize_any(visitor, ev),
             e => Err(DeYamlError(YamlError::Custom {
                 info: format!("Unexpected event: {:?}", e),
             })),
         }
     }
 
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if !matches!(self.deserializer.peek_event, YamEvent::MapStart(_, _)) {
+            return Err(DeYamlError(YamlError::Custom {
+                info: format!(
+                    "Expected MapStart event, found {:?}",
+                    self.deserializer.peek_event
+                ),
+            }));
+        }
+        let value = visitor.visit_map(MapCollection::new(self.deserializer))?;
+        match self.deserializer.next_el() {
+            Some(YamEvent::MapEnd) => Ok(value),
+            _ => Err(DeYamlError(YamlError::Custom {
+                info: format!(
+                    "Expected MapEnd event, found {:?}",
+                    self.deserializer.peek_event
+                ),
+            })),
+        }
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if !matches!(self.deserializer.peek_event, YamEvent::SeqStart(_, _)) {
+            return Err(DeYamlError(YamlError::Custom {
+                info: format!(
+                    "Expected SeqStart event, found {:?}",
+                    self.deserializer.peek_event
+                ),
+            }));
+        }
+        let value = visitor.visit_seq(SeqCollection::new(self.deserializer))?;
+        match self.deserializer.next_el() {
+            Some(YamEvent::SeqEnd) => Ok(value),
+            _ => Err(DeYamlError(YamlError::Custom {
+                info: format!(
+                    "Expected SeqEnd event, found {:?}",
+                    self.deserializer.peek_event
+                ),
+            })),
+        }
+    }
+
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
+        bytes byte_buf option unit unit_struct newtype_struct  tuple
+        tuple_struct struct enum identifier ignored_any
+    }
+}
+
+struct MapCollection<'a, 'de: 'a, R>
+where
+    R: Source,
+{
+    iter: &'a mut YamlIterDeserializer<'de, R>,
+}
+
+impl<'a, 'de, R> MapCollection<'a, 'de, R>
+where
+    R: Source,
+{
+    fn new(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+        MapCollection { iter }
+    }
+}
+
+impl<'de, 'a, R> MapAccess<'de> for MapCollection<'a, 'de, R>
+where
+    R: Source,
+{
+    type Error = DeYamlError;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    where
+        K: DeserializeSeed<'de>,
+    {
+        seed.deserialize(&mut *self.iter).map(Some)
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        seed.deserialize(&mut *self.iter)
+    }
+}
+
+struct SeqCollection<'a, 'de: 'a, R>
+where
+    R: Source,
+{
+    iter: &'a mut YamlIterDeserializer<'de, R>,
+}
+
+impl<'a, 'de, R> SeqCollection<'a, 'de, R>
+where
+    R: Source,
+{
+    fn new(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+        SeqCollection { iter }
+    }
+}
+
+impl<'de, 'a, R> SeqAccess<'de> for SeqCollection<'a, 'de, R>
+where
+    R: Source,
+{
+    type Error = DeYamlError;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        seed.deserialize(&mut *self.iter).map(Some)
     }
 }
