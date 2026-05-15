@@ -179,30 +179,6 @@ where
         }
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        if !matches!(self.deserializer.peek_event, YamEvent::MapStart(_, _)) {
-            return Err(DeYamlError(YamlError::Custom {
-                info: format!(
-                    "Expected MapStart event, found {:?}",
-                    self.deserializer.peek_event
-                ),
-            }));
-        }
-        let value = visitor.visit_map(MapCollection::new(self.deserializer))?;
-        match self.deserializer.next_el() {
-            Some(YamEvent::MapEnd) => Ok(value),
-            _ => Err(DeYamlError(YamlError::Custom {
-                info: format!(
-                    "Expected MapEnd event, found {:?}",
-                    self.deserializer.peek_event
-                ),
-            })),
-        }
-    }
-
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -221,6 +197,30 @@ where
             _ => Err(DeYamlError(YamlError::Custom {
                 info: format!(
                     "Expected SeqEnd event, found {:?}",
+                    self.deserializer.peek_event
+                ),
+            })),
+        }
+    }
+
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if !matches!(self.deserializer.peek_event, YamEvent::MapStart(_, _)) {
+            return Err(DeYamlError(YamlError::Custom {
+                info: format!(
+                    "Expected MapStart event, found {:?}",
+                    self.deserializer.peek_event
+                ),
+            }));
+        }
+        let value = visitor.visit_map(MapCollection::new(self.deserializer))?;
+        match self.deserializer.next_el() {
+            Some(YamEvent::MapEnd) => Ok(value),
+            _ => Err(DeYamlError(YamlError::Custom {
+                info: format!(
+                    "Expected MapEnd event, found {:?}",
                     self.deserializer.peek_event
                 ),
             })),
@@ -260,6 +260,7 @@ where
     where
         K: DeserializeSeed<'de>,
     {
+        // TODO check for next event
         seed.deserialize(&mut *self.iter).map(Some)
     }
 
@@ -297,6 +298,7 @@ where
     where
         T: DeserializeSeed<'de>,
     {
+        // TODO check for next event
         seed.deserialize(&mut *self.iter).map(Some)
     }
 }
