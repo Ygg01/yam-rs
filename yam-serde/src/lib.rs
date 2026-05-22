@@ -18,6 +18,7 @@ where
 {
     yaml_iter: ParserIter<'de, R>,
     peek_event: YamEvent<'de>,
+    is_peeked: bool,
 }
 
 impl<'a> YamlIterDeserializer<'a, StrSource<'a>> {
@@ -25,6 +26,7 @@ impl<'a> YamlIterDeserializer<'a, StrSource<'a>> {
         YamlIterDeserializer {
             yaml_iter: ParserIter::new(StrSource::new(source)),
             peek_event: YamEvent::DocStart,
+            is_peeked: false,
         }
     }
 }
@@ -34,12 +36,29 @@ where
     R: Source,
 {
     fn next_el(&mut self) -> Option<YamEvent<'a>> {
-        match self.yaml_iter.next() {
-            Some(x) => {
-                self.peek_event = x.clone();
-                Some(x)
-            }
-            None => None,
+        if self.is_peeked {
+            self.is_peeked = false;
+            return Some(self.peek_event.clone());
+        }
+
+        self.is_peeked = true;
+        self.peek_event = self.yaml_iter.next()?;
+        Some(self.peek_event.clone())
+    }
+
+    fn resolve_scalar<V: de::Visitor<'a>>(
+        &mut self,
+        scalar_value: ScalarValue,
+        visitor: V,
+    ) -> Result<V::Value, DeYamlError> {
+        let scalar = YamlScalar::parse_from_scalar(scalar_value);
+        match scalar {
+            Some(YamlScalar::Integer(x)) => visitor.visit_i64(x),
+            Some(YamlScalar::FloatingPoint(x)) => visitor.visit_f64(x),
+            Some(YamlScalar::Bool(x)) => visitor.visit_bool(x),
+            Some(YamlScalar::String(x)) => visitor.visit_str(&x),
+            Some(YamlScalar::Null(_)) => visitor.visit_unit(),
+            None => Err(DeYamlError(YamlError::new_custom("Failed to parse scalar"))),
         }
     }
 }
@@ -54,10 +73,13 @@ where
     where
         V: de::Visitor<'de>,
     {
-        match self.yaml_iter.next() {
-            Some(YamEvent::DocStart) => DocSerializer::new(self).deserialize_any(visitor),
+        match self.next_el() {
+            Some(YamEvent::DocStart) => {
+                self.is_peeked = false;
+                DocSerializer::new(self).deserialize_any(visitor)
+            }
             e => Err(DeYamlError(YamlError::Custom {
-                info: format!("Unexpected event (can only process DocStart: {:?}", e),
+                info: format!("Unexpected event (can only process DocStart): {:?}", e),
             })),
         }
     }
@@ -122,15 +144,7 @@ where
         scalar_value: ScalarValue,
         visitor: V,
     ) -> Result<V::Value, DeYamlError> {
-        let scalar = YamlScalar::parse_from_scalar(scalar_value);
-        match scalar {
-            Some(YamlScalar::Integer(x)) => visitor.visit_i64(x),
-            Some(YamlScalar::FloatingPoint(x)) => visitor.visit_f64(x),
-            Some(YamlScalar::Bool(x)) => visitor.visit_bool(x),
-            Some(YamlScalar::String(x)) => visitor.visit_str(&x),
-            Some(YamlScalar::Null(_)) => visitor.visit_unit(),
-            None => Err(DeYamlError(YamlError::new_custom("Failed to parse scalar"))),
-        }
+        self.deserializer.resolve_scalar(scalar_value, visitor)
     }
 }
 
@@ -152,7 +166,7 @@ where
             YamEvent::MapStart(_, _) => self.deserialize_map(visitor),
             YamEvent::SeqStart(_, _) => self.deserialize_seq(visitor),
             e => Err(DeYamlError(YamlError::Custom {
-                info: format!("Unexpected event: {:?}", e),
+                info: format!("Unexpected event in serialize: {:?}", e),
             })),
         }
     }
@@ -192,8 +206,8 @@ where
             }));
         }
         let value = visitor.visit_seq(SeqCollection::new(self.deserializer))?;
-        match self.deserializer.next_el() {
-            Some(YamEvent::SeqEnd) => Ok(value),
+        match self.deserializer.peek_event {
+            YamEvent::SeqEnd => Ok(value),
             _ => Err(DeYamlError(YamlError::Custom {
                 info: format!(
                     "Expected SeqEnd event, found {:?}",
@@ -216,8 +230,8 @@ where
             }));
         }
         let value = visitor.visit_map(MapCollection::new(self.deserializer))?;
-        match self.deserializer.next_el() {
-            Some(YamEvent::MapEnd) => Ok(value),
+        match self.deserializer.peek_event {
+            YamEvent::MapEnd => Ok(value),
             _ => Err(DeYamlError(YamlError::Custom {
                 info: format!(
                     "Expected MapEnd event, found {:?}",
@@ -260,8 +274,15 @@ where
     where
         K: DeserializeSeed<'de>,
     {
-        // TODO check for next event
-        seed.deserialize(&mut *self.iter).map(Some)
+        match self.iter.next_el() {
+            Some(YamEvent::MapEnd) => Ok(None),
+            Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
+                Err(DeYamlError(YamlError::Custom {
+                    info: format!("Expected map key, found {:?}", self.iter.peek_event),
+                }))
+            }
+            Some(_) => seed.deserialize(&mut *self.iter).map(Some),
+        }
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
@@ -298,7 +319,14 @@ where
     where
         T: DeserializeSeed<'de>,
     {
-        // TODO check for next event
-        seed.deserialize(&mut *self.iter).map(Some)
+        match self.iter.next_el() {
+            Some(YamEvent::SeqEnd) => Ok(None),
+            Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
+                Err(DeYamlError(YamlError::Custom {
+                    info: format!("Expected seq, found {:?}", self.iter.peek_event),
+                }))
+            }
+            Some(_) => seed.deserialize(&mut *self.iter).map(Some),
+        }
     }
 }
