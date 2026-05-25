@@ -3,11 +3,11 @@
 extern crate alloc;
 
 use alloc::format;
-
+use alloc::string::ToString;
 use core::fmt::{Debug, Display, Formatter};
 use serde_core::de::{DeserializeSeed, MapAccess, SeqAccess, StdError};
 use serde_core::{Deserializer, de, forward_to_deserialize_any};
-use yam_core::node::YamlScalar;
+use yam_core::node::{YamlScalar, parse_i64_from_cow};
 use yam_core::parsing::parser_iter::YamEvent;
 use yam_core::parsing::{ParserIter, ScalarValue, StrSource};
 use yam_core::prelude::{Source, YamlError};
@@ -84,8 +84,46 @@ where
         }
     }
 
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if let Some(YamEvent::Scalar(scalar)) = self.next_el() {
+            self.is_peeked = false;
+            match parse_i64_from_cow(&scalar.value) {
+                Ok(int) => visitor.visit_i32(int as i32),
+                Err(_) => Err(DeYamlError(YamlError::Custom {
+                    info: "Failed to parse i32 from scalar value".to_string(),
+                })),
+            }
+        } else {
+            Err(DeYamlError(YamlError::Custom {
+                info: "Expected scalar event for i32 deserialization".to_string(),
+            }))
+        }
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if let Some(YamEvent::Scalar(scalar)) = self.next_el() {
+            self.is_peeked = false;
+            match parse_i64_from_cow(&scalar.value) {
+                Ok(int) => visitor.visit_i64(int),
+                Err(_) => Err(DeYamlError(YamlError::Custom {
+                    info: "Failed to parse i32 from scalar value".to_string(),
+                })),
+            }
+        } else {
+            Err(DeYamlError(YamlError::Custom {
+                info: "Expected scalar event for i32 deserialization".to_string(),
+            }))
+        }
+    }
+
     forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bool i8 i16 i128 u8 u16 u32 u64 u128 f32 f64 char str string
         bytes byte_buf option unit unit_struct newtype_struct seq tuple
         tuple_struct map struct enum identifier ignored_any
     }

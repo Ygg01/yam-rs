@@ -95,7 +95,7 @@ where
             if tag.is_yaml_core_schema() {
                 match tag.suffix.as_ref() {
                     "bool" => v.parse::<bool>().ok().map(|x| Self::Bool(x)),
-                    "int" => v.parse::<i64>().ok().map(|x| Self::Integer(x.into())),
+                    "int" => parse_i64_from_cow(&v).ok().map(|x| Self::Integer(x.into())),
                     "float" => parse_core_schema_fp(&v).map(|x| Self::FloatingPoint(x.into())),
                     "null" => match v.as_ref() {
                         "~" | "null" => Some(Self::Null(PhantomData)),
@@ -165,7 +165,7 @@ where
             _ => {}
         }
 
-        if let Ok(integer) = s.parse::<i64>() {
+        if let Ok(integer) = parse_i64_from_cow(s) {
             return Self::Integer(integer.into());
         }
 
@@ -196,6 +196,10 @@ pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
         _ if v.as_bytes().iter().any(u8::is_ascii_digit) => v.parse::<f64>().ok(),
         _ => None,
     }
+}
+
+pub fn parse_i64_from_cow(v: &str) -> Result<i64, core::num::ParseIntError> {
+    v.parse::<i64>()
 }
 
 impl<F, STR, INT> Clone for YamlScalar<'_, F, INT, STR>

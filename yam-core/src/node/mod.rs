@@ -1,5 +1,6 @@
 //! Import this module to use various `yam_core` nodes.
 pub use scalar::YamlScalar;
+pub use scalar::parse_i64_from_cow;
 pub use spanned_yaml::SpannedYaml;
 pub use yaml::Yaml;
 pub use yaml_data::YamlData;
