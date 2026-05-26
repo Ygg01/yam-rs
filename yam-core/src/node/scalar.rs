@@ -198,6 +198,7 @@ pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
     }
 }
 
+#[doc(hidden)]
 pub fn parse_i64_from_cow(v: &str) -> Result<i64, core::num::ParseIntError> {
     v.parse::<i64>()
 }
