@@ -8,6 +8,14 @@ pub struct Ex {
 }
 
 #[test]
+fn test_example() {
+    let ex = r#"{ a: "x",  b: "y" }"#;
+    let deserialized: Ex = yam_serde::from_str(ex).unwrap();
+    assert_eq!(deserialized.a, "x");
+    assert_eq!(deserialized.b, "y");
+}
+
+#[test]
 fn test_deserialize_i8() {
     let input = r#"3"#;
     let deserialized: i8 = yam_serde::from_str(input).unwrap();

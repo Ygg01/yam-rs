@@ -94,6 +94,12 @@ where
                 self.skip();
                 DocSerializer::new(self).deserialize_any(visitor)
             }
+            Some(YamEvent::MapStart(_, _)) => visitor.visit_map(MapCollection::new(self)),
+            Some(YamEvent::SeqStart(_, _)) => visitor.visit_seq(SeqCollection::new(self)),
+            Some(YamEvent::Scalar(scalr)) => {
+                self.skip();
+                self.resolve_scalar(scalr, visitor)
+            }
             e => Err(DeYamlError(YamlError::Custom {
                 info: format!("Unexpected event (can only process DocStart): {:?}", e),
             })),
@@ -372,6 +378,7 @@ where
                 ),
             }));
         }
+        self.deserializer.skip();
         let value = visitor.visit_map(MapCollection::new(self.deserializer))?;
         match self.deserializer.last_event {
             YamEvent::MapEnd => Ok(value),
@@ -432,7 +439,8 @@ where
     where
         V: DeserializeSeed<'de>,
     {
-        seed.deserialize(&mut *self.iter)
+        let val = seed.deserialize(&mut *self.iter)?;
+        Ok(val)
     }
 }
 
