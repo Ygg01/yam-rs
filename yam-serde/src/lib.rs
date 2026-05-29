@@ -6,7 +6,7 @@ use alloc::format;
 use alloc::string::ToString;
 use core::fmt::{Debug, Display, Formatter};
 use core::i64;
-use serde_core::de::{DeserializeSeed, MapAccess, SeqAccess, StdError};
+use serde_core::de::{DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, StdError};
 use serde_core::{Deserializer, de, forward_to_deserialize_any};
 use yam_core::node::YamlScalar;
 use yam_core::parsing::parser_iter::YamEvent;
@@ -89,11 +89,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        match self.next_el() {
-            Some(YamEvent::DocStart) => {
-                self.skip();
-                DocSerializer::new(self).deserialize_any(visitor)
-            }
+        match self.skip_doc() {
             Some(YamEvent::MapStart(_, _)) => visitor.visit_map(MapCollection::new(self)),
             Some(YamEvent::SeqStart(_, _)) => visitor.visit_seq(SeqCollection::new(self)),
             Some(YamEvent::Scalar(scalr)) => {
@@ -218,10 +214,24 @@ where
         }
     }
 
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(DeYamlError(YamlError::Custom {
+            info: "Enum deserialization not supported".to_string(),
+        }))
+    }
+
     forward_to_deserialize_any! {
         bool i128 u128 f32 f64 char str string
         bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
+        tuple_struct map struct identifier ignored_any
     }
 }
 
@@ -268,133 +278,6 @@ impl de::Error for DeYamlError {
     {
         let info = format!("{}", msg);
         DeYamlError(YamlError::Custom { info })
-    }
-}
-
-struct DocSerializer<'a, 'de, R>
-where
-    R: Source,
-    'de: 'a,
-{
-    deserializer: &'a mut YamlIterDeserializer<'de, R>,
-}
-
-impl<'a, 'de, R> DocSerializer<'a, 'de, R>
-where
-    R: Source,
-    'de: 'a,
-{
-    fn new(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
-        DocSerializer { deserializer: iter }
-    }
-
-    fn resolve_scalar<V: de::Visitor<'de>>(
-        &mut self,
-        scalar_value: ScalarValue,
-        visitor: V,
-    ) -> Result<V::Value, DeYamlError> {
-        self.deserializer.resolve_scalar(scalar_value, visitor)
-    }
-}
-
-impl<'a, 'de, R> DocSerializer<'a, 'de, R>
-where
-    R: Source,
-    'de: 'a,
-{
-    fn serialize_any<V>(
-        &'a mut self,
-        visitor: V,
-        event: YamEvent<'de>,
-    ) -> Result<V::Value, DeYamlError>
-    where
-        V: de::Visitor<'de>,
-    {
-        match event {
-            YamEvent::Scalar(scalar_value) => self.resolve_scalar(scalar_value, visitor),
-            YamEvent::MapStart(_, _) => self.deserialize_map(visitor),
-            YamEvent::SeqStart(_, _) => self.deserialize_seq(visitor),
-            e => Err(DeYamlError(YamlError::Custom {
-                info: format!("Unexpected event in serialize: {:?}", e),
-            })),
-        }
-    }
-}
-
-impl<'a, 'de, R> Deserializer<'de> for &'a mut DocSerializer<'a, 'de, R>
-where
-    R: Source,
-    'de: 'a,
-{
-    type Error = DeYamlError;
-    // Look at the input data to decide what Serde data model type to
-    // deserialize as. Not all data formats are able to support this operation.
-    // Formats that support `deserialize_any` are known as self-describing.
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.deserializer.next_el() {
-            Some(ev) => self.serialize_any(visitor, ev),
-            e => Err(DeYamlError(YamlError::Custom {
-                info: format!("Unexpected event: {:?}", e),
-            })),
-        }
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        if !matches!(self.deserializer.last_event, YamEvent::SeqStart(_, _)) {
-            return Err(DeYamlError(YamlError::Custom {
-                info: format!(
-                    "Expected SeqStart event, found {:?}",
-                    self.deserializer.last_event
-                ),
-            }));
-        }
-        let value = visitor.visit_seq(SeqCollection::new(self.deserializer))?;
-        match self.deserializer.last_event {
-            YamEvent::SeqEnd => Ok(value),
-            _ => Err(DeYamlError(YamlError::Custom {
-                info: format!(
-                    "Expected SeqEnd event, found {:?}",
-                    self.deserializer.last_event
-                ),
-            })),
-        }
-    }
-
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        if !matches!(self.deserializer.last_event, YamEvent::MapStart(_, _)) {
-            return Err(DeYamlError(YamlError::Custom {
-                info: format!(
-                    "Expected MapStart event, found {:?}",
-                    self.deserializer.last_event
-                ),
-            }));
-        }
-        self.deserializer.skip();
-        let value = visitor.visit_map(MapCollection::new(self.deserializer))?;
-        match self.deserializer.last_event {
-            YamEvent::MapEnd => Ok(value),
-            _ => Err(DeYamlError(YamlError::Custom {
-                info: format!(
-                    "Expected MapEnd event, found {:?}",
-                    self.deserializer.last_event
-                ),
-            })),
-        }
-    }
-
-    forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct  tuple
-        tuple_struct struct enum identifier ignored_any
     }
 }
 
@@ -479,5 +362,22 @@ where
             }
             Some(_) => seed.deserialize(&mut *self.iter).map(Some),
         }
+    }
+}
+
+struct Enum<'a, 'de: 'a, R>
+where
+    R: Source,
+{
+    de: &'a mut YamlIterDeserializer<'de, R>,
+}
+
+impl<'a, 'de, R> Enum<'a, 'de, R>
+where
+    'de: 'a,
+    R: Source,
+{
+    fn new(de: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+        Enum { de }
     }
 }
