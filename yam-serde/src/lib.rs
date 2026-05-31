@@ -231,7 +231,9 @@ where
         }
         self.skip();
         let val = visitor.visit_seq(SeqCollection::new_seq(self))?;
-        if !matches!(self.last_event, YamEvent::SeqEnd) {
+        if !matches!(self.last_event, YamEvent::SeqEnd)
+            && !matches!(self.next_el(), Some(YamEvent::SeqEnd))
+        {
             return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
                 expected: "SeqEnd",
                 found: self.last_event.as_simple_str(),
@@ -253,7 +255,9 @@ where
         }
         self.skip();
         let val = visitor.visit_map(SeqCollection::new_map(self))?;
-        if !matches!(self.last_event, YamEvent::MapEnd) {
+        if !matches!(self.last_event, YamEvent::MapEnd)
+            && !matches!(self.next_el(), Some(YamEvent::MapEnd))
+        {
             return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
                 expected: "MapEnd",
                 found: self.last_event.as_simple_str(),
@@ -394,10 +398,7 @@ where
         T: DeserializeSeed<'de>,
     {
         match self.iter.next_el() {
-            Some(YamEvent::SeqEnd) => {
-                self.iter.skip();
-                Ok(None)
-            }
+            Some(YamEvent::SeqEnd) => Ok(None),
             Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
                 Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
                     expected: "SeqEnd",
