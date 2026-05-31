@@ -128,6 +128,17 @@ fn test_deserialize_list_f64() {
 }
 
 #[test]
+fn test_deserialize_option() {
+    let input = r#"3"#;
+    let deserialized: Option<i32> = yam_serde::from_str(input).unwrap();
+    assert_eq!(deserialized, Some(3));
+
+    let input = r#"null"#;
+    let deserialized: Option<i32> = yam_serde::from_str(input).unwrap();
+    assert_eq!(deserialized, None);
+}
+
+#[test]
 fn test_enum() {
     #[derive(Deserialize, PartialEq, Debug)]
     enum E {

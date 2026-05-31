@@ -8,7 +8,6 @@ use core::fmt::{Debug, Display, Formatter};
 
 use serde_core::de::{
     DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, StdError, VariantAccess,
-    Visitor,
 };
 use serde_core::{de, forward_to_deserialize_any};
 use yam_core::node::YamlScalar;
@@ -52,6 +51,16 @@ where
 
     fn skip(&mut self) {
         self.has_peeked = false;
+    }
+
+    fn peek_null(&mut self) -> bool {
+        if let Some(YamEvent::Scalar(scalar)) = self.skip_doc()
+            && (scalar.value == "null" || scalar.value == "~")
+        {
+            true
+        } else {
+            false
+        }
     }
 
     fn resolve_scalar<V: de::Visitor<'a>>(
@@ -219,9 +228,39 @@ where
         }
     }
 
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if self.peek_null() {
+            self.skip();
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if self.peek_null() {
+            self.skip();
+            visitor.visit_unit()
+        } else {
+            Err(DeYamlError::ExpectedNull)
+        }
+    }
+
+    forward_to_deserialize_any! {
+        bool i128 u128 f32 f64 char str string
+        bytes byte_buf unit_struct newtype_struct tuple
+        tuple_struct struct ignored_any
+    }
+
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         if !matches!(self.skip_doc(), Some(YamEvent::SeqStart(_, _))) {
             return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
@@ -245,7 +284,7 @@ where
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         if !matches!(self.skip_doc(), Some(YamEvent::MapStart(_, _))) {
             return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
@@ -265,12 +304,6 @@ where
         }
         self.skip();
         Ok(val)
-    }
-
-    forward_to_deserialize_any! {
-        bool i128 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct tuple
-        tuple_struct struct ignored_any
     }
 
     fn deserialize_enum<V>(
@@ -341,6 +374,7 @@ pub enum DeYamlError {
     ParserError(YamlError),
     Custom(String),
     ExpectedStringInNewType,
+    ExpectedNull,
 }
 
 impl StdError for DeYamlError {}
@@ -351,6 +385,7 @@ impl Display for DeYamlError {
             DeYamlError::ParserError(err) => write!(f, "ParserError: {}", err)?,
             DeYamlError::Custom(msg) => write!(f, "Custom: {}", msg)?,
             DeYamlError::ExpectedStringInNewType => write!(f, "Expected String:")?,
+            DeYamlError::ExpectedNull => write!(f, "Expected Null")?,
         };
         Ok(())
     }
