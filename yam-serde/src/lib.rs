@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::format;
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use core::fmt::{Debug, Display, Formatter};
 use core::i64;
 use serde_core::de::{
@@ -66,7 +66,7 @@ where
             Some(YamlScalar::Bool(x)) => visitor.visit_bool(x),
             Some(YamlScalar::String(x)) => visitor.visit_str(&x),
             Some(YamlScalar::Null(_)) => visitor.visit_unit(),
-            None => Err(DeYamlError(YamlError::new_custom("Failed to parse scalar"))),
+            None => Err(DeYamlError::Custom("Failed to parse scalar".to_string())),
         }
     }
 }
@@ -75,9 +75,10 @@ macro_rules! parse_from_cow {
     ($e:expr, $v:expr, $method:ident, $t:ty) => {
         match $e.parse::<$t>() {
             Ok(i) => $v.$method(i),
-            Err(_) => Err(DeYamlError(YamlError::Custom {
-                info: format!("Failed to parse {:?} from scalar value", stringify!($t)),
-            })),
+            Err(_) => Err(DeYamlError::Custom(format!(
+                "Failed to parse {:?} from scalar value",
+                stringify!($t)
+            ))),
         }
     };
 }
@@ -99,9 +100,10 @@ where
                 self.skip();
                 self.resolve_scalar(scalr, visitor)
             }
-            e => Err(DeYamlError(YamlError::Custom {
-                info: format!("Unexpected event (can only process DocStart): {:?}", e),
-            })),
+            e => Err(DeYamlError::Custom(format!(
+                "Unexpected event (can only process DocStart): {:?}",
+                e
+            ))),
         }
     }
 
@@ -113,9 +115,9 @@ where
             self.has_peeked = false;
             parse_from_cow!(&scalar.value, visitor, visit_i8, i8)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for i32 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for i32 deserialization".to_string(),
+            ))
         }
     }
 
@@ -127,9 +129,9 @@ where
             self.has_peeked = false;
             parse_from_cow!(&scalar.value, visitor, visit_i16, i16)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for i16 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for i16 deserialization".to_string(),
+            ))
         }
     }
 
@@ -141,9 +143,9 @@ where
             self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_i32, i32)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for i32 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for i32 deserialization".to_string(),
+            ))
         }
     }
 
@@ -155,9 +157,9 @@ where
             self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_i64, i64)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for i64 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for i64 deserialization".to_string(),
+            ))
         }
     }
 
@@ -169,9 +171,9 @@ where
             self.has_peeked = false;
             parse_from_cow!(&scalar.value, visitor, visit_u8, u8)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for u8 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for i8 deserialization".to_string(),
+            ))
         }
     }
 
@@ -183,9 +185,9 @@ where
             self.has_peeked = false;
             parse_from_cow!(&scalar.value, visitor, visit_u16, u16)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for u16 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for u16 deserialization".to_string(),
+            ))
         }
     }
 
@@ -197,9 +199,9 @@ where
             self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_u32, u32)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for u32 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for u32 deserialization".to_string(),
+            ))
         }
     }
 
@@ -211,9 +213,9 @@ where
             self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_u64, u64)
         } else {
-            Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for u64 deserialization".to_string(),
-            }))
+            Err(DeYamlError::Custom(
+                "Expected scalar event for u64 deserialization".to_string(),
+            ))
         }
     }
 
@@ -231,9 +233,9 @@ where
                 self.skip();
                 visitor.visit_enum(value.into_deserializer())
             }
-            _ => Err(DeYamlError(YamlError::Custom {
-                info: "Expected scalar event for enum deserialization".to_string(),
-            })),
+            _ => Err(DeYamlError::Custom(
+                "Expected scalar event for enum deserialization".to_string(),
+            )),
         }
     }
 
@@ -277,13 +279,20 @@ where
 }
 
 #[derive(Debug)]
-pub struct DeYamlError(YamlError);
+pub enum DeYamlError {
+    ParserError(YamlError),
+    Custom(String),
+}
 
 impl StdError for DeYamlError {}
 
 impl Display for DeYamlError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("DeYamlError").field(&self.0).finish()
+        match self {
+            DeYamlError::ParserError(err) => write!(f, "ParserError: {}", err)?,
+            DeYamlError::Custom(msg) => write!(f, "Custom: {}", msg)?,
+        };
+        Ok(())
     }
 }
 
@@ -293,7 +302,7 @@ impl de::Error for DeYamlError {
         T: Display,
     {
         let info = format!("{}", msg);
-        DeYamlError(YamlError::Custom { info })
+        DeYamlError::Custom(info)
     }
 }
 
@@ -326,8 +335,9 @@ where
         match self.iter.next_el() {
             Some(YamEvent::MapEnd) => Ok(None),
             Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
-                Err(DeYamlError(YamlError::Custom {
-                    info: format!("Expected map key, found {:?}", self.iter.last_event),
+                Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                    expected: "MapEnd",
+                    found: self.iter.last_event.as_simple_str(),
                 }))
             }
             Some(_) => seed.deserialize(&mut *self.iter).map(Some),
@@ -338,6 +348,7 @@ where
     where
         V: DeserializeSeed<'de>,
     {
+        // TODO
         let val = seed.deserialize(&mut *self.iter)?;
         Ok(val)
     }
@@ -373,8 +384,9 @@ where
         if self.first {
             self.first = false;
             if !matches!(self.iter.last_event, YamEvent::SeqStart(_, _)) {
-                return Err(DeYamlError(YamlError::Custom {
-                    info: format!("Expected SeqStart, found {:?}", self.iter.last_event),
+                return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                    expected: "SeqStart",
+                    found: self.iter.last_event.as_simple_str(),
                 }));
             }
             self.iter.skip();
@@ -386,8 +398,9 @@ where
                 Ok(None)
             }
             Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
-                Err(DeYamlError(YamlError::Custom {
-                    info: format!("Expected seq, found {:?}", self.iter.last_event),
+                Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                    expected: "SeqEnd",
+                    found: self.iter.last_event.as_simple_str(),
                 }))
             }
             Some(_) => seed.deserialize(&mut *self.iter).map(Some),
@@ -424,7 +437,8 @@ where
     where
         V: DeserializeSeed<'de>,
     {
-        todo!()
+        let val = seed.deserialize(&mut *self.de)?;
+        Ok((val, self))
     }
 }
 

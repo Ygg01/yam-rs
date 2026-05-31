@@ -170,6 +170,23 @@ impl<'input> Event<'input> {
     pub fn is_doc_start(&self) -> bool {
         matches!(self, Event::DocumentStart(_))
     }
+
+    pub fn as_simple_str(&self) -> &'static str {
+        match self {
+            Event::Nothing => "Nothing",
+            Event::StreamStart => "StreamStart",
+            Event::StreamEnd => "StreamEnd",
+            Event::DocumentStart(_) => "DocumentStart",
+            Event::DocumentEnd => "DocumentEnd",
+            Event::Alias(_) => "Alias",
+            Event::Comment(_) => "Comment",
+            Event::Scalar(_) => "Scalar",
+            Event::SequenceStart(_, _) => "SequenceStart",
+            Event::SequenceEnd => "SequenceEnd",
+            Event::MappingStart(_, _) => "MappingStart",
+            Event::MappingEnd => "MappingEnd",
+        }
+    }
 }
 
 /// A YAML parser.

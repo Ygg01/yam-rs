@@ -24,6 +24,22 @@ pub enum YamEvent<'de> {
     MapEnd,
 }
 
+impl<'de> YamEvent<'de> {
+    pub fn as_simple_str(&self) -> &'static str {
+        match self {
+            YamEvent::DocStart => "DocStart",
+            YamEvent::DocEnd => "DocEnd",
+            YamEvent::StreamEnd => "StreamStart",
+            YamEvent::Alias(_) => "Alias",
+            YamEvent::Scalar(_) => "Scalar",
+            YamEvent::SeqStart(_, _) => "SeqStart",
+            YamEvent::SeqEnd => "SeqEnd",
+            YamEvent::MapStart(_, _) => "MapStart",
+            YamEvent::MapEnd => "MapEnd",
+        }
+    }
+}
+
 pub struct ParserIter<'de, R: Source> {
     parser: Parser<'de, R>,
     state: State,
@@ -81,12 +97,18 @@ impl<'de, R: Source> ParserIter<'de, R> {
         // Expect a <stream-start>
         let ev = self.parser.next_event_impl()?.0;
         if ev != Event::StreamStart {
-            return Err(YamlError::new_custom("Expected Stream start"));
+            return Err(YamlError::UnExpectedEvent {
+                expected: "StreamStart",
+                found: ev.as_simple_str(),
+            });
         }
         // Expect a <doc-start>
         let ev = self.parser.next_event_impl()?.0;
         if !ev.is_doc_start() {
-            return Err(YamlError::new_custom("Expected Document start"));
+            return Err(YamlError::UnExpectedEvent {
+                expected: "DocStart",
+                found: ev.as_simple_str(),
+            });
         }
         self.state = State::InDocument;
         Ok(YamEvent::DocStart)
@@ -101,15 +123,18 @@ impl<'de, R: Source> ParserIter<'de, R> {
             // Ignored events
             Event::Nothing | Event::Alias(_) | Event::Comment(_) => ControlFlow::Continue(()),
             // Unexpected events
-            Event::StreamStart => {
-                ControlFlow::Break(Err(YamlError::new_custom("Unexpected Stream start")))
-            }
-            Event::StreamEnd => {
-                ControlFlow::Break(Err(YamlError::new_custom("Unexpected Stream end")))
-            }
-            Event::DocumentStart(_) => {
-                ControlFlow::Break(Err(YamlError::new_custom("Unexpected Document start")))
-            }
+            Event::StreamStart => ControlFlow::Break(Err(YamlError::UnExpectedEvent {
+                expected: "StreamStart",
+                found: ev.as_simple_str(),
+            })),
+            Event::StreamEnd => ControlFlow::Break(Err(YamlError::UnExpectedEvent {
+                expected: "StreamEnd",
+                found: ev.as_simple_str(),
+            })),
+            Event::DocumentStart(_) => ControlFlow::Break(Err(YamlError::UnExpectedEvent {
+                expected: "DocumentStart",
+                found: ev.as_simple_str(),
+            })),
 
             Event::DocumentEnd => {
                 self.state = State::EndDocument;
@@ -132,7 +157,10 @@ impl<'de, R: Source> ParserIter<'de, R> {
         // Expect a <stream-start>
         let ev = self.parser.next_event_impl()?.0;
         if ev != Event::StreamEnd {
-            return Err(YamlError::new_custom("Expected Stream start"));
+            return Err(YamlError::UnExpectedEvent {
+                expected: "StreamStart",
+                found: ev.as_simple_str(),
+            });
         }
 
         Ok(YamEvent::StreamEnd)
