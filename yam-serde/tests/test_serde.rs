@@ -4,15 +4,15 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug)]
 pub struct Ex {
     a: String,
-    b: String,
+    b: Vec<f32>,
 }
 
 #[test]
 fn test_example() {
-    let ex = r#"{ a: "x",  b: "y" }"#;
+    let ex = r#"{ a: "x",  b: [2.0, 3.1, -1.2] }"#;
     let deserialized: Ex = yam_serde::from_str(ex).unwrap();
     assert_eq!(deserialized.a, "x");
-    assert_eq!(deserialized.b, "y");
+    assert_eq!(deserialized.b, vec![2.0, 3.1, -1.2]);
 }
 
 #[test]

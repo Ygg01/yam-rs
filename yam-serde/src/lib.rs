@@ -6,7 +6,10 @@ use alloc::format;
 use alloc::string::ToString;
 use core::fmt::{Debug, Display, Formatter};
 use core::i64;
-use serde_core::de::{DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, StdError};
+use serde_core::de::{
+    DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, StdError, VariantAccess,
+    Visitor,
+};
 use serde_core::{Deserializer, de, forward_to_deserialize_any};
 use yam_core::node::YamlScalar;
 use yam_core::parsing::parser_iter::YamEvent;
@@ -223,15 +226,28 @@ where
     where
         V: de::Visitor<'de>,
     {
-        Err(DeYamlError(YamlError::Custom {
-            info: "Enum deserialization not supported".to_string(),
-        }))
+        match self.skip_doc() {
+            Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
+                self.skip();
+                visitor.visit_enum(value.into_deserializer())
+            }
+            _ => Err(DeYamlError(YamlError::Custom {
+                info: "Expected scalar event for enum deserialization".to_string(),
+            })),
+        }
+    }
+
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
     }
 
     forward_to_deserialize_any! {
         bool i128 u128 f32 f64 char str string
         bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct identifier ignored_any
+        tuple_struct map struct ignored_any
     }
 }
 
@@ -332,6 +348,7 @@ where
     R: Source,
 {
     iter: &'a mut YamlIterDeserializer<'de, R>,
+    first: bool,
 }
 
 impl<'a, 'de, R> SeqCollection<'a, 'de, R>
@@ -339,7 +356,7 @@ where
     R: Source,
 {
     fn new(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
-        SeqCollection { iter }
+        SeqCollection { iter, first: true }
     }
 }
 
@@ -353,8 +370,21 @@ where
     where
         T: DeserializeSeed<'de>,
     {
+        if self.first {
+            self.first = false;
+            if !matches!(self.iter.last_event, YamEvent::SeqStart(_, _)) {
+                return Err(DeYamlError(YamlError::Custom {
+                    info: format!("Expected SeqStart, found {:?}", self.iter.last_event),
+                }));
+            }
+            self.iter.skip();
+        }
+
         match self.iter.next_el() {
-            Some(YamEvent::SeqEnd) => Ok(None),
+            Some(YamEvent::SeqEnd) => {
+                self.iter.skip();
+                Ok(None)
+            }
             Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
                 Err(DeYamlError(YamlError::Custom {
                     info: format!("Expected seq, found {:?}", self.iter.last_event),
@@ -379,5 +409,58 @@ where
 {
     fn new(de: &'a mut YamlIterDeserializer<'de, R>) -> Self {
         Enum { de }
+    }
+}
+
+impl<'a, 'de, R> EnumAccess<'de> for Enum<'a, 'de, R>
+where
+    'de: 'a,
+    R: Source,
+{
+    type Error = DeYamlError;
+    type Variant = Self;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        todo!()
+    }
+}
+
+impl<'a, 'de, R> VariantAccess<'de> for Enum<'a, 'de, R>
+where
+    'de: 'a,
+    R: Source,
+{
+    type Error = DeYamlError;
+
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        todo!()
+    }
+
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
     }
 }
