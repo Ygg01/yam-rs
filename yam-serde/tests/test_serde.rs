@@ -114,28 +114,42 @@ fn test_deserialize_list_i8() {
 }
 
 #[test]
+fn test_deserialize_list_f32() {
+    let input = r#"[3, 4, 4]"#;
+    let deserialized: Vec<f32> = yam_serde::from_str(input).unwrap();
+    assert_eq!(deserialized, vec![3.0, 4.0, 4.0]);
+}
+
+#[test]
+fn test_deserialize_list_f64() {
+    let input = r#"[3, 4, 4]"#;
+    let deserialized: Vec<f64> = yam_serde::from_str(input).unwrap();
+    assert_eq!(deserialized, vec![3.0, 4.0, 4.0]);
+}
+
+#[test]
 fn test_enum() {
     #[derive(Deserialize, PartialEq, Debug)]
     enum E {
         Unit,
-        Newtype(u32),
+        Newtype(f32),
         Tuple(u32, u32),
         Struct { a: u32 },
     }
 
-    // let j = r#""Unit""#;
-    // let expected = E::Unit;
-    // assert_eq!(expected, yam_serde::from_str(j).unwrap());
-    //
-    // let j = r#"{"Newtype": 1}"#;
-    // let expected = E::Newtype(1);
-    // assert_eq!(expected, yam_serde::from_str(j).unwrap());
+    let j = r#""Unit""#;
+    let expected = E::Unit;
+    assert_eq!(expected, yam_serde::from_str(j).unwrap());
+
+    let j = r#"{"Newtype": 1}"#;
+    let expected = E::Newtype(1.0);
+    assert_eq!(expected, yam_serde::from_str(j).unwrap());
 
     let j = r#"{"Tuple":[1,2]}"#;
     let expected = E::Tuple(1, 2);
     assert_eq!(expected, yam_serde::from_str(j).unwrap());
 
-    // let j = r#"{"Struct":{"a":1}}"#;
-    // let expected = E::Struct { a: 1 };
-    // assert_eq!(expected, yam_serde::from_str(j).unwrap());
+    let j = r#"{"Struct":{"a":1}}"#;
+    let expected = E::Struct { a: 1 };
+    assert_eq!(expected, yam_serde::from_str(j).unwrap());
 }
