@@ -5,12 +5,12 @@ extern crate alloc;
 use alloc::format;
 use alloc::string::{String, ToString};
 use core::fmt::{Debug, Display, Formatter};
-use core::i64;
+
 use serde_core::de::{
     DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, StdError, VariantAccess,
     Visitor,
 };
-use serde_core::{Deserializer, de, forward_to_deserialize_any};
+use serde_core::{de, forward_to_deserialize_any};
 use yam_core::node::YamlScalar;
 use yam_core::parsing::parser_iter::YamEvent;
 use yam_core::parsing::{ParserIter, ScalarValue, StrSource};
@@ -83,7 +83,7 @@ macro_rules! parse_from_cow {
     };
 }
 
-impl<'a, 'de, R> Deserializer<'de> for &'a mut YamlIterDeserializer<'de, R>
+impl<'a, 'de, R> de::Deserializer<'de> for &'a mut YamlIterDeserializer<'de, R>
 where
     R: Source,
 {
@@ -94,8 +94,8 @@ where
         V: de::Visitor<'de>,
     {
         match self.skip_doc() {
-            Some(YamEvent::MapStart(_, _)) => visitor.visit_map(MapCollection::new(self)),
-            Some(YamEvent::SeqStart(_, _)) => visitor.visit_seq(SeqCollection::new(self)),
+            Some(YamEvent::MapStart(_, _)) => self.deserialize_map(visitor),
+            Some(YamEvent::SeqStart(_, _)) => self.deserialize_seq(visitor),
             Some(YamEvent::Scalar(scalr)) => {
                 self.skip();
                 self.resolve_scalar(scalr, visitor)
@@ -219,6 +219,56 @@ where
         }
     }
 
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        if !matches!(self.skip_doc(), Some(YamEvent::SeqStart(_, _))) {
+            return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                expected: "SeqStart",
+                found: self.last_event.as_simple_str(),
+            }));
+        }
+        self.skip();
+        let val = visitor.visit_seq(SeqCollection::new_seq(self))?;
+        if !matches!(self.last_event, YamEvent::SeqEnd) {
+            return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                expected: "SeqEnd",
+                found: self.last_event.as_simple_str(),
+            }));
+        }
+        self.skip();
+        Ok(val)
+    }
+
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        if !matches!(self.skip_doc(), Some(YamEvent::MapStart(_, _))) {
+            return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                expected: "MapStart",
+                found: self.last_event.as_simple_str(),
+            }));
+        }
+        self.skip();
+        let val = visitor.visit_map(SeqCollection::new_map(self))?;
+        if !matches!(self.last_event, YamEvent::MapEnd) {
+            return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                expected: "MapEnd",
+                found: self.last_event.as_simple_str(),
+            }));
+        }
+        self.skip();
+        Ok(val)
+    }
+
+    forward_to_deserialize_any! {
+        bool i128 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct tuple
+        tuple_struct struct ignored_any
+    }
+
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
@@ -233,9 +283,19 @@ where
                 self.skip();
                 visitor.visit_enum(value.into_deserializer())
             }
-            _ => Err(DeYamlError::Custom(
-                "Expected scalar event for enum deserialization".to_string(),
-            )),
+            Some(YamEvent::MapStart(_, _)) => {
+                self.skip();
+                let value = visitor.visit_enum(Enum::new(self))?;
+
+                if !matches!(self.next_el(), Some(YamEvent::MapEnd)) {
+                    return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                        found: self.last_event.as_simple_str(),
+                        expected: "MapEnd",
+                    }));
+                }
+                Ok(value)
+            }
+            _ => Err(DeYamlError::Custom("Expected enum".to_string())),
         }
     }
 
@@ -244,12 +304,6 @@ where
         V: de::Visitor<'de>,
     {
         self.deserialize_str(visitor)
-    }
-
-    forward_to_deserialize_any! {
-        bool i128 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct ignored_any
     }
 }
 
@@ -282,6 +336,7 @@ where
 pub enum DeYamlError {
     ParserError(YamlError),
     Custom(String),
+    ExpectedStringInNewType,
 }
 
 impl StdError for DeYamlError {}
@@ -291,6 +346,7 @@ impl Display for DeYamlError {
         match self {
             DeYamlError::ParserError(err) => write!(f, "ParserError: {}", err)?,
             DeYamlError::Custom(msg) => write!(f, "Custom: {}", msg)?,
+            DeYamlError::ExpectedStringInNewType => write!(f, "Expected String:")?,
         };
         Ok(())
     }
@@ -306,23 +362,54 @@ impl de::Error for DeYamlError {
     }
 }
 
-struct MapCollection<'a, 'de: 'a, R>
+struct SeqCollection<'a, 'de: 'a, R>
 where
     R: Source,
 {
     iter: &'a mut YamlIterDeserializer<'de, R>,
+    map: bool,
 }
 
-impl<'a, 'de, R> MapCollection<'a, 'de, R>
+impl<'a, 'de, R> SeqCollection<'a, 'de, R>
 where
     R: Source,
 {
-    fn new(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
-        MapCollection { iter }
+    fn new_seq(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+        SeqCollection { iter, map: false }
+    }
+
+    fn new_map(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+        SeqCollection { iter, map: true }
     }
 }
 
-impl<'de, 'a, R> MapAccess<'de> for MapCollection<'a, 'de, R>
+impl<'de, 'a, R> SeqAccess<'de> for SeqCollection<'a, 'de, R>
+where
+    R: Source,
+{
+    type Error = DeYamlError;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        match self.iter.next_el() {
+            Some(YamEvent::SeqEnd) => {
+                self.iter.skip();
+                Ok(None)
+            }
+            Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
+                Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                    expected: "SeqEnd",
+                    found: self.iter.last_event.as_simple_str(),
+                }))
+            }
+            Some(_) => seed.deserialize(&mut *self.iter).map(Some),
+        }
+    }
+}
+
+impl<'de, 'a, R> MapAccess<'de> for SeqCollection<'a, 'de, R>
 where
     R: Source,
 {
@@ -351,60 +438,6 @@ where
         // TODO
         let val = seed.deserialize(&mut *self.iter)?;
         Ok(val)
-    }
-}
-
-struct SeqCollection<'a, 'de: 'a, R>
-where
-    R: Source,
-{
-    iter: &'a mut YamlIterDeserializer<'de, R>,
-    first: bool,
-}
-
-impl<'a, 'de, R> SeqCollection<'a, 'de, R>
-where
-    R: Source,
-{
-    fn new(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
-        SeqCollection { iter, first: true }
-    }
-}
-
-impl<'de, 'a, R> SeqAccess<'de> for SeqCollection<'a, 'de, R>
-where
-    R: Source,
-{
-    type Error = DeYamlError;
-
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        if self.first {
-            self.first = false;
-            if !matches!(self.iter.last_event, YamEvent::SeqStart(_, _)) {
-                return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
-                    expected: "SeqStart",
-                    found: self.iter.last_event.as_simple_str(),
-                }));
-            }
-            self.iter.skip();
-        }
-
-        match self.iter.next_el() {
-            Some(YamEvent::SeqEnd) => {
-                self.iter.skip();
-                Ok(None)
-            }
-            Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
-                Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
-                    expected: "SeqEnd",
-                    found: self.iter.last_event.as_simple_str(),
-                }))
-            }
-            Some(_) => seed.deserialize(&mut *self.iter).map(Some),
-        }
     }
 }
 
@@ -457,14 +490,14 @@ where
     where
         T: DeserializeSeed<'de>,
     {
-        todo!()
+        seed.deserialize(&mut *self.de)
     }
 
     fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        todo!()
+        de::Deserializer::deserialize_seq(&mut *self.de, visitor)
     }
 
     fn struct_variant<V>(
@@ -473,8 +506,8 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        todo!()
+        de::Deserializer::deserialize_map(&mut *self.de, visitor)
     }
 }
