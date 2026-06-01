@@ -3,11 +3,12 @@ use crate::parsing;
 use crate::parsing::Tag;
 use crate::parsing::{Event, ScalarValue, SpannedEventReceiver};
 use crate::prelude::{
-    IsEmpty, Marker, Source, Span, StrSource, YamlDocAccess, YamlEntry, YamlError, YamlScalar,
+    IsEmpty, Source, Span, StrSource, YamlDocAccess, YamlEntry, YamlError, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 /// A struct responsible for loading and parsing YAML documents, while maintaining
 /// internal state for tracking document structure and node relationships.
@@ -87,7 +88,7 @@ pub trait MappingLike<T> {
     fn entries(&self) -> &Vec<YamlEntry<'_, T>>;
 }
 
-impl<'a, T> MappingLike<T> for Vec<YamlEntry<'a, T>> {
+impl<T> MappingLike<T> for Vec<YamlEntry<'_, T>> {
     fn new_map() -> Self {
         Vec::new()
     }
@@ -96,8 +97,8 @@ impl<'a, T> MappingLike<T> for Vec<YamlEntry<'a, T>> {
         self.push(YamlEntry {
             key,
             value,
-            _marker: Default::default(),
-        })
+            _marker: PhantomData,
+        });
     }
 
     fn entries(&self) -> &Vec<YamlEntry<'_, T>> {
@@ -153,28 +154,13 @@ where
         }
     }
 
-    fn insert_collection(&mut self, marker: Marker) {
-        if let Some((mut node, anchor_id, tag)) = self.doc_stack.pop() {
-            node = node.with_end(marker);
-            if let Some(tag) = tag
-                && !tag.is_yaml_core_schema()
-            {
-                node = node.into_tagged(tag);
-            }
-            self.insert_new_node(node, anchor_id, None);
-        }
-    }
-
     ///
     /// Loads a sequence of YAML documents from a parser instance and returns them as a vector of `Node`s.
     ///
     /// # Type Parameters
     /// - `I`: A type that implements the `Source` trait, representing the source input for the parser.
     ///
-    /// # parser`: A mutable reference to a `Parser` instance that processes the YAML input.
-    //     ///
-    //     /// # RetArguments
-    /// - `urns
+    /// # Returns: A mutable reference to a `Parser` instance that processes the YAML input.
     /// - `Ok(Vec<Node>)`: A vector of `Node` objects representing the parsed YAML documents.
     /// - `Err(YamlError)`: An error if the parsing process fails.
     ///
@@ -420,7 +406,11 @@ where
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let mark = span.start;
         match ev {
-            Event::DocumentStart(_) | Event::Nothing | Event::StreamStart | Event::StreamEnd => {
+            Event::DocumentStart(_)
+            | Event::Nothing
+            | Event::StreamStart
+            | Event::StreamEnd
+            | Event::Comment(_) => {
                 // do nothing
             }
             Event::DocumentEnd => {
@@ -472,7 +462,6 @@ where
                 };
                 self.insert_new_node(n.with_span(span), 0, None);
             }
-            Event::Comment(_) => {}
         }
     }
 }

@@ -216,6 +216,13 @@ impl Tag {
         Tag { handle, suffix }
     }
 
+    #[must_use]
+    pub fn empty() -> Self {
+        let handle = String::new();
+        let suffix = String::new();
+        Tag { handle, suffix }
+    }
+
     /// Returns whether the tag is a YAML tag from the core schema (`!!str`, `!!int`, ...).
     ///
     /// The YAML specification specifies [a list of

@@ -24,7 +24,16 @@ pub enum YamEvent<'de> {
     MapEnd,
 }
 
-impl<'de> YamEvent<'de> {
+impl YamEvent<'_> {
+    #[must_use]
+    /// Returns a static string representation of the `YamEvent` enum variant.
+    ///
+    /// This method provides a simplified and human-readable description of the current
+    /// `YamEvent` enum variant without any detail
+    ///
+    /// # Returns
+    ///
+    /// A `&'static str` representing the name of the `YamEvent` variant without any details.
     pub fn as_simple_str(&self) -> &'static str {
         match self {
             YamEvent::DocStart => "DocStart",
@@ -52,7 +61,7 @@ impl<'a> ParserIter<'a, StrSource<'a>> {
     }
 }
 
-impl<'de, R> ParserIter<'de, R>
+impl<R> ParserIter<'_, R>
 where
     R: Source,
 {
@@ -77,7 +86,7 @@ where
                 State::StreamStart => break self.process_start(),
                 State::InDocument => match self.process_doc() {
                     ControlFlow::Break(flow) => break flow,
-                    ControlFlow::Continue(()) => continue,
+                    ControlFlow::Continue(()) => {}
                 },
                 State::EndDocument => break self.finish_document(),
             }

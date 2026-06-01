@@ -31,7 +31,7 @@ use core::fmt::{Debug, Display, Formatter};
 /// * `PartialEq` & `Eq`: Allows comparing scalar values for equality.
 /// * `Debug`: Enables formatting a debug representation of the scalar value.
 ///
-#[derive(Clone, PartialEq, Debug, Eq)]
+#[derive(Clone, PartialEq, Debug, Eq, Default)]
 pub struct ScalarValue<'input> {
     /// The scalar value as a string. This can be either an owned `String` or a borrowed `&str`.
     pub value: Cow<'input, str>,
@@ -74,6 +74,26 @@ impl<'input> ScalarValue<'input> {
             anchor_id,
             tag,
         }
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn is_null(&self) -> bool {
+        let dummy = Cow::Owned(Tag::empty());
+        let x = self.tag.as_ref().unwrap_or(&dummy);
+        Self::is_null_tagged(&self.value, x)
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn is_null_tagged(v: &str, tag: &Tag) -> bool {
+        if v.is_empty() {
+            return true;
+        }
+        if tag.is_yaml_core_schema() {
+            return v == "~" || v == "null";
+        }
+        false
     }
 }
 
@@ -163,14 +183,57 @@ impl<'input> Event<'input> {
         Event::Scalar(ScalarValue::empty_scalar())
     }
 
+    #[must_use]
+    /// Checks if the current `Event` is a scalar type.
+    ///
+    /// # Returns
+    /// * `true` - If the current `Event` is a `Scalar`.
+    /// * `false` - If the current `Event` is not a `Scalar`.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_core::parsing::{Event,ScalarValue};
+    ///
+    /// let scalar_event = Event::Scalar(ScalarValue::default());
+    /// let other_event = Event::DocumentStart(true);
+    ///
+    /// assert!(scalar_event.is_scalar());
+    /// assert!(!other_event.is_scalar());
+    /// ```
     pub fn is_scalar(&self) -> bool {
         matches!(self, Event::Scalar(_))
     }
 
+    /// Checks if the current `Event` is a document start. type.
+    ///
+    /// # Returns
+    /// * `true` - If the current `Event` is a `DocumentStart`.
+    /// * `false` - If the current `Event` is not a `DocumentStart`.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_core::parsing::{Event,ScalarValue};
+    ///
+    /// let scalar_event = Event::Scalar(ScalarValue::default());
+    /// let other_event = Event::DocumentStart(true);
+    ///
+    /// assert!(!scalar_event.is_doc_start());
+    /// assert!(other_event.is_doc_start());
+    /// ```
+    #[must_use]
     pub fn is_doc_start(&self) -> bool {
         matches!(self, Event::DocumentStart(_))
     }
 
+    #[must_use]
+    /// Returns a static string representation of the `YamEvent` enum variant.
+    ///
+    /// This method provides a simplified and human-readable description of the current
+    /// `YamEvent` enum variant without any detail
+    ///
+    /// # Returns
+    ///
+    /// A `&'static str` representing the name of the `YamEvent` variant without any details.
     pub fn as_simple_str(&self) -> &'static str {
         match self {
             Event::Nothing => "Nothing",
@@ -450,6 +513,9 @@ impl<'input, T: Source> Parser<'input, T> {
     /// [`Self::next_event`] should conform to the expectations of an [`Iterator`] and return an
     /// option. This burdens the parser code. This function is used internally when an option is
     /// undesirable.
+    ///
+    /// # Errors
+    /// Returns `YamlResult` when loading the next event fails.
     pub fn next_event_impl<'a>(&mut self) -> ParseResult<'a>
     where
         'input: 'a,

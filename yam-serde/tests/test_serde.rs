@@ -1,14 +1,14 @@
 pub use serde;
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
-pub struct Ex {
-    a: String,
-    b: Vec<f32>,
-}
-
 #[test]
 fn test_example() {
+    #[derive(Deserialize, Debug)]
+    pub struct Ex {
+        a: String,
+        b: Vec<f32>,
+    }
+
     let ex = r#"{ a: "x",  b: [2.0, 3.1, -1.2] }"#;
     let deserialized: Ex = yam_serde::from_str(ex).unwrap();
     assert_eq!(deserialized.a, "x");
@@ -136,6 +136,32 @@ fn test_deserialize_option() {
     let input = r#"null"#;
     let deserialized: Option<i32> = yam_serde::from_str(input).unwrap();
     assert_eq!(deserialized, None);
+}
+
+#[test]
+fn test_schemas_null() {
+    #[derive(Deserialize, Debug)]
+    pub struct Ex {
+        a: Option<String>,
+    }
+    let input = r"a: !!null";
+    let deserialized: Ex = yam_serde::from_str(input).unwrap();
+    assert_eq!(deserialized.a, None);
+
+    let input = r"a: !!null null";
+    let deserialized2: Ex = yam_serde::from_str(input).unwrap();
+    assert_eq!(deserialized2.a, None);
+}
+
+#[test]
+fn test_schemas_float() {
+    #[derive(Deserialize, Debug)]
+    pub struct Ex {
+        a: Option<f32>,
+    }
+    let input = r"a: 3";
+    let deserialized: Ex = yam_serde::from_str(input).unwrap();
+    assert_eq!(deserialized.a, Some(3.0));
 }
 
 #[test]

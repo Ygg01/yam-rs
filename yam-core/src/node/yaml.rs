@@ -41,7 +41,7 @@ use core::ops::{Index, IndexMut};
 #[derive(PartialEq, Debug)]
 pub struct Yaml<'a, FP = f64, INT = i64, STR = Cow<'a, str>>(pub YamlData<'a, Self, FP, INT, STR>);
 
-impl<'a, FP, STR, INT> Clone for Yaml<'a, FP, INT, STR>
+impl<FP, STR, INT> Clone for Yaml<'_, FP, INT, STR>
 where
     FP: Copy,
     INT: Copy,
@@ -61,8 +61,11 @@ where
     type SequenceNode = Vec<Self>;
     type MappingNode = Vec<YamlEntry<'a, Self>>;
 
+    #[allow(clippy::cast_lossless)]
     fn key_from_usize(index: usize) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer((index as i64).into())))
+        Yaml(YamlData::Scalar(YamlScalar::Integer(
+            (index.cast_signed() as i64).into(),
+        )))
     }
 
     fn key_from_str(index: &str) -> Self {
@@ -254,16 +257,100 @@ impl<'a, FP> From<YamlScalar<'a, FP>> for Yaml<'a, FP> {
 }
 
 impl<'a> Yaml<'a> {
+    ///
+    /// Loads a vector of YAML document from the given input string.
+    ///
+    /// # Type Parameters
+    /// - `S`: A type that can be converted into a string slice (`&str`)
+    ///   using the `AsRef<str>` trait, typically `String` or `&str`.
+    ///
+    /// # Parameters
+    /// - `input`: The YAML input as a string-like object. This is the source from
+    ///   which the function attempts to parse a single YAML document.
+    ///
+    /// # Returns
+    /// - `Ok(Node)`: On success, returns the first YAML document (`Node`) parsed from the input string.
+    /// - `Err(YamlError)`: Returns an error if:
+    ///   - The input is invalid or cannot be parsed due to syntax or structural issues.
+    ///   - No YAML document is found within the input (`YamlError::NoDocument`).
+    ///
+    /// # Errors
+    /// - `YamlError::NoDocument`: Returned if no valid YAML documents are found in the input.
+    /// - Any other error encountered during parsing, as propagated from the parser.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_core::prelude::{Yaml, YamlLoader};
+    ///
+    /// let yaml_input = r#"
+    /// key: value
+    /// array:
+    ///   - item1
+    ///   - item2
+    /// "#;
+    ///
+    /// match Yaml::load_from(&yaml_input) {
+    ///     Ok(node) => println!("Parsed Node: {node:?}"),
+    ///     Err(e) => eprintln!("Error loading YAML: {e}"),
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    /// This function expects only a single YAML document in the input. Any additional
+    /// documents beyond the first will be ignored.
+    ///
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Yaml<'a>>, YamlError> {
         YamlLoader::<Yaml<'a>>::load_from(input)
     }
 
+    ///
+    /// Loads a single YAML document from the given input string.
+    ///
+    /// # Type Parameters
+    /// - `S`: A type that can be converted into a string slice (`&str`)
+    ///   using the `AsRef<str>` trait, typically `String` or `&str`.
+    ///
+    /// # Parameters
+    /// - `input`: The YAML input as a string-like object. This is the source from
+    ///   which the function attempts to parse a single YAML document.
+    ///
+    /// # Returns
+    /// - `Ok(Node)`: On success, returns the first YAML document (`Node`) parsed from the input string.
+    /// - `Err(YamlError)`: Returns an error if:
+    ///   - The input is invalid or cannot be parsed due to syntax or structural issues.
+    ///   - No YAML document is found within the input (`YamlError::NoDocument`).
+    ///
+    /// # Errors
+    /// - `YamlError::NoDocument`: Returned if no valid YAML documents are found in the input.
+    /// - Any other error encountered during parsing, as propagated from the parser.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_core::prelude::{Yaml, YamlLoader};
+    ///
+    /// let yaml_input = r#"
+    /// key: value
+    /// array:
+    ///   - item1
+    ///   - item2
+    /// "#;
+    ///
+    /// match Yaml::load_single(&yaml_input) {
+    ///     Ok(node) => println!("Parsed Node: {:?}", node),
+    ///     Err(e) => eprintln!("Error loading YAML: {}", e),
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    /// This function expects only a single YAML document in the input. Any additional
+    /// documents beyond the first will be ignored.
+    ///
     pub fn load_single<S: AsRef<str>>(input: S) -> Result<Yaml<'a>, YamlError> {
         YamlLoader::<Yaml<'a>>::load_single(input)
     }
 }
 
-impl<'a, FP, INT> Index<usize> for Yaml<'a, FP, INT>
+impl<FP, INT> Index<usize> for Yaml<'_, FP, INT>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
@@ -281,7 +368,7 @@ where
     }
 }
 
-impl<'a, FP, INT> IndexMut<usize> for Yaml<'a, FP, INT>
+impl<FP, INT> IndexMut<usize> for Yaml<'_, FP, INT>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
@@ -304,7 +391,7 @@ where
     }
 }
 
-impl<'a, 'k, FP, INT> Index<&'k str> for Yaml<'a, FP, INT>
+impl<'k, FP, INT> Index<&'k str> for Yaml<'_, FP, INT>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
@@ -321,7 +408,7 @@ where
     }
 }
 
-impl<'a, 'k, FP, INT> IndexMut<&'k str> for Yaml<'a, FP, INT>
+impl<'k, FP, INT> IndexMut<&'k str> for Yaml<'_, FP, INT>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
@@ -349,43 +436,47 @@ impl<'a> From<&'a str> for Yaml<'a> {
     }
 }
 
-impl<'a> From<bool> for Yaml<'a> {
+impl From<bool> for Yaml<'_> {
     fn from(value: bool) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::Bool(value)))
     }
 }
 
-impl<'a> From<f64> for Yaml<'a> {
+impl From<f64> for Yaml<'_> {
     fn from(value: f64) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(value)))
     }
 }
 
-impl<'a> From<f32> for Yaml<'a> {
+#[allow(clippy::cast_lossless)]
+impl From<f32> for Yaml<'_> {
     fn from(value: f32) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(value as f64)))
     }
 }
 
-impl<'a> From<i8> for Yaml<'a> {
+#[allow(clippy::cast_lossless)]
+impl From<i8> for Yaml<'_> {
     fn from(value: i8) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
     }
 }
 
-impl<'a> From<i16> for Yaml<'a> {
+#[allow(clippy::cast_lossless)]
+impl From<i16> for Yaml<'_> {
     fn from(value: i16) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
     }
 }
 
-impl<'a> From<i32> for Yaml<'a> {
+#[allow(clippy::cast_lossless)]
+impl From<i32> for Yaml<'_> {
     fn from(value: i32) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
     }
 }
 
-impl<'a> From<i64> for Yaml<'a> {
+impl From<i64> for Yaml<'_> {
     fn from(value: i64) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::Integer(value)))
     }

@@ -82,6 +82,7 @@ impl Marker {
     /// assert_eq!(instance.col, 5);
     /// assert_eq!(instance.line, 3);
     /// ```
+    #[must_use]
     pub fn new(pos: usize, col: u32, line: u32) -> Self {
         Self { pos, col, line }
     }
@@ -1036,8 +1037,9 @@ impl<T: Clone> YamlEntry<'_, T> {
 }
 
 /// Represents the different types of scalar values in YAML with distinct formatting styles.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum ScalarType {
+    #[default]
     /// Unquoted string type like:
     /// ```yaml
     ///   multiline
@@ -1094,7 +1096,7 @@ pub(crate) trait ToMutStr {
     fn mut_str(&mut self) -> &mut str;
 }
 
-impl<'a> ToMutStr for Cow<'a, str> {
+impl ToMutStr for Cow<'_, str> {
     fn mut_str(&mut self) -> &mut str {
         self.to_mut()
     }

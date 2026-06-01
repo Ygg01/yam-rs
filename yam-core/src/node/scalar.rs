@@ -6,12 +6,6 @@ use core::marker::PhantomData;
 /// An enumeration representing a YAML scalar value.
 ///
 /// This enum can represent various scalar types commonly found in YAML data.
-/// The scalar can be one of the following:
-/// - Null: Represents a null value.
-/// - String: Represents a string value.
-/// - Bool: Represents a boolean value.
-/// - FloatingPoint: Represents a floating-point number.
-/// - Integer: Represents an integer value.
 ///
 /// Generics:
 /// - `'a`: Lifetime parameter for borrowed data (e.g., strings).
@@ -33,7 +27,7 @@ pub enum YamlScalar<'a, FLOAT = f64, INT = i64, STR = Cow<'a, str>> {
     Integer(INT),
 }
 
-impl<'a, F, S, I> PartialEq for YamlScalar<'a, F, S, I>
+impl<F, S, I> PartialEq for YamlScalar<'_, F, S, I>
 where
     F: PartialEq,
     S: PartialEq,
@@ -52,6 +46,7 @@ where
 }
 
 impl<'a> YamlScalar<'a> {
+    #[must_use]
     /// Parse a scalar node representation into a [`YamlScalar`].
     ///
     /// If `tag` is not [`None`]:
@@ -73,6 +68,7 @@ where
     S: From<Cow<'a, str>>,
     I: From<i64>,
 {
+    #[must_use]
     /// Parse a scalar node representation into a [`YamlScalar`].
     ///
     /// If `tag` is not [`None`]:
@@ -97,10 +93,13 @@ where
                     "bool" => v.parse::<bool>().ok().map(|x| Self::Bool(x)),
                     "int" => parse_i64_from_cow(&v).ok().map(|x| Self::Integer(x.into())),
                     "float" => parse_core_schema_fp(&v).map(|x| Self::FloatingPoint(x.into())),
-                    "null" => match v.as_ref() {
-                        "~" | "null" => Some(Self::Null(PhantomData)),
-                        _ => None,
-                    },
+                    "null" => {
+                        if ScalarValue::is_null_tagged(&v, &tag) {
+                            Some(Self::Null(PhantomData))
+                        } else {
+                            None
+                        }
+                    }
                     "str" => Some(Self::String(v.into())),
                     // If we have a tag we do not recognize, return `None`.
                     _ => None,

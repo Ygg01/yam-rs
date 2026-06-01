@@ -37,7 +37,7 @@ pub enum YamlData<
     Alias(usize),
 }
 
-impl<'a, NODE, FP, STR, INT> PartialEq for YamlData<'a, NODE, FP, STR, INT>
+impl<NODE, FP, STR, INT> PartialEq for YamlData<'_, NODE, FP, INT, STR>
 where
     NODE: PartialEq,
     FP: PartialEq,
@@ -65,7 +65,7 @@ impl<'input, Node, FP, STR, INT> From<YamlScalar<'input, FP, INT, STR>>
     }
 }
 
-impl<'a, Node, FP, STR, INT, MAP> YamlData<'a, Node, FP, STR, INT, MAP>
+impl<Node, FP, STR, INT, MAP> YamlData<'_, Node, FP, INT, STR, MAP>
 where
     MAP: MappingLike<Node>,
 {
@@ -109,7 +109,7 @@ where
     }
 }
 
-impl<'a, Node, FP, STR, INT> Clone for YamlData<'a, Node, FP, INT, STR>
+impl<Node, FP, STR, INT> Clone for YamlData<'_, Node, FP, INT, STR>
 where
     Node: Clone,
     FP: Copy,

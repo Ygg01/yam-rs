@@ -76,10 +76,11 @@ where
     type SequenceNode = Vec<Self>;
     type MappingNode = Vec<YamlEntry<'a, Self>>;
 
+    #[allow(clippy::cast_lossless)]
     fn key_from_usize(index: usize) -> Self {
         SpannedYaml {
             span: Span::default(),
-            yaml: YamlData::Scalar(YamlScalar::Integer(index as i64)),
+            yaml: YamlData::Scalar(YamlScalar::Integer(index.cast_signed() as i64)),
         }
     }
 
@@ -259,7 +260,7 @@ where
     fn null() -> Self {
         SpannedYaml {
             yaml: YamlData::Scalar(YamlScalar::Null(PhantomData)),
-            span: Default::default(),
+            span: Span::default(),
         }
     }
 }

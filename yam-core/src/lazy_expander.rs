@@ -15,7 +15,7 @@ pub trait Expanable {
     }
 }
 
-impl<'input> Expanable for LazyExpander<'input> {
+impl Expanable for LazyExpander<'_> {
     fn calculate_limit(&self) -> usize {
         match self {
             LazyExpander::Scalar(_) => 1,
@@ -29,7 +29,7 @@ pub struct LazyExpanderVec<'input> {
     pub inner: Vec<LazyExpander<'input>>,
 }
 
-impl<'input> Expanable for LazyExpanderVec<'input> {
+impl Expanable for LazyExpanderVec<'_> {
     fn calculate_limit(&self) -> usize {
         self.inner
             .iter()
@@ -41,7 +41,7 @@ pub struct LazyExpanderMap<'input> {
     inner: Vec<(LazyExpander<'input>, LazyExpander<'input>)>,
 }
 
-impl<'input> Expanable for LazyExpanderMap<'input> {
+impl Expanable for LazyExpanderMap<'_> {
     fn calculate_limit(&self) -> usize {
         self.inner.iter().fold(0, |acc, expansion| {
             acc + expansion.0.calculate_limit() + expansion.1.calculate_limit()
