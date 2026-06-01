@@ -49,10 +49,8 @@ where
     }
 
     fn peek_null(&mut self) -> bool {
-        if let Some(YamEvent::Scalar(scalar)) = self.skip_doc()
-            && scalar.is_null()
-        {
-            true
+        if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
+            scalar.is_null()
         } else {
             false
         }
@@ -99,9 +97,9 @@ where
         match self.skip_doc() {
             Some(YamEvent::MapStart(_, _)) => self.deserialize_map(visitor),
             Some(YamEvent::SeqStart(_, _)) => self.deserialize_seq(visitor),
-            Some(YamEvent::Scalar(scalr)) => {
+            Some(YamEvent::Scalar(scalar_value)) => {
                 self.skip();
-                YamlIterDeserializer::<R>::resolve_scalar(scalr, visitor)
+                YamlIterDeserializer::<R>::resolve_scalar(scalar_value, visitor)
             }
             e => Err(DeYamlError::Custom(format!(
                 "Unexpected event (can only process DocStart): {e:?}"

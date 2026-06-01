@@ -87,7 +87,7 @@ impl<'input> ScalarValue<'input> {
     #[doc(hidden)]
     #[must_use]
     pub fn is_null_tagged(v: &str, tag: &Tag) -> bool {
-        if v.is_empty() {
+        if v.is_empty() || v == "null" {
             return true;
         }
         if tag.is_yaml_core_schema() {
