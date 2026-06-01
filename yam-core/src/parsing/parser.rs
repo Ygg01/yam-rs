@@ -162,6 +162,31 @@ impl<'input> Event<'input> {
     fn empty_scalar() -> Event<'input> {
         Event::Scalar(ScalarValue::empty_scalar())
     }
+
+    pub fn is_scalar(&self) -> bool {
+        matches!(self, Event::Scalar(_))
+    }
+
+    pub fn is_doc_start(&self) -> bool {
+        matches!(self, Event::DocumentStart(_))
+    }
+
+    pub fn as_simple_str(&self) -> &'static str {
+        match self {
+            Event::Nothing => "Nothing",
+            Event::StreamStart => "StreamStart",
+            Event::StreamEnd => "StreamEnd",
+            Event::DocumentStart(_) => "DocumentStart",
+            Event::DocumentEnd => "DocumentEnd",
+            Event::Alias(_) => "Alias",
+            Event::Comment(_) => "Comment",
+            Event::Scalar(_) => "Scalar",
+            Event::SequenceStart(_, _) => "SequenceStart",
+            Event::SequenceEnd => "SequenceEnd",
+            Event::MappingStart(_, _) => "MappingStart",
+            Event::MappingEnd => "MappingEnd",
+        }
+    }
 }
 
 /// A YAML parser.
@@ -425,7 +450,7 @@ impl<'input, T: Source> Parser<'input, T> {
     /// [`Self::next_event`] should conform to the expectations of an [`Iterator`] and return an
     /// option. This burdens the parser code. This function is used internally when an option is
     /// undesirable.
-    fn next_event_impl<'a>(&mut self) -> ParseResult<'a>
+    pub fn next_event_impl<'a>(&mut self) -> ParseResult<'a>
     where
         'input: 'a,
     {

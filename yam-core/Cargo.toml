@@ -28,6 +28,7 @@ exclude =[
 
 
 [dependencies]
+log = "0.4.29"
 
 [features]
 default = []

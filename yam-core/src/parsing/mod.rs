@@ -3,6 +3,7 @@
 mod buffered_source;
 mod char_utils;
 mod parser;
+pub mod parser_iter;
 mod scanner;
 mod source;
 
@@ -15,6 +16,7 @@ use core::fmt::{Display, Formatter};
 pub use parser::EventReceiver;
 pub use parser::SpannedEventReceiver;
 pub use parser::{Event, Parser, ScalarValue};
+pub use parser_iter::ParserIter;
 pub use source::Source;
 pub use source::StrSource;
 

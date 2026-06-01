@@ -1,3 +1,4 @@
+use crate::parsing::ScalarValue;
 use crate::prelude::{ScalarType, Tag};
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
@@ -50,6 +51,22 @@ where
     }
 }
 
+impl<'a> YamlScalar<'a> {
+    /// Parse a scalar node representation into a [`YamlScalar`].
+    ///
+    /// If `tag` is not [`None`]:
+    ///   - If the handle is `tag:yaml.org,2022:`, attempt to parse as the given suffix. If parsing
+    ///     fails or the suffix is unknown, return [`None`].
+    ///   - If the handle is unknown, use the fallback parsing schema.
+    ///
+    /// # Return
+    /// Returns the parsed [`YamlScalar`].
+    ///
+    pub fn parse_from_scalar(value: ScalarValue<'a>) -> Option<Self> {
+        Self::parse_from_cow_and_metadata(value.value, value.scalar_type, value.tag)
+    }
+}
+
 impl<'a, F, S, I> YamlScalar<'a, F, I, S>
 where
     F: From<f64>,
@@ -68,17 +85,17 @@ where
     ///
     pub fn parse_from_cow_and_metadata(
         v: Cow<'a, str>,
-        style: ScalarType,
-        tag: Option<&Cow<'a, Tag>>,
+        scalar_type: ScalarType,
+        tag: Option<Cow<'a, Tag>>,
     ) -> Option<Self> {
-        if style != ScalarType::Plain {
+        if scalar_type != ScalarType::Plain {
             // Any quoted scalar is a string.
             Some(Self::String(v.into()))
-        } else if let Some(tag) = tag.map(Cow::as_ref) {
+        } else if let Some(tag) = tag {
             if tag.is_yaml_core_schema() {
                 match tag.suffix.as_ref() {
                     "bool" => v.parse::<bool>().ok().map(|x| Self::Bool(x)),
-                    "int" => v.parse::<i64>().ok().map(|x| Self::Integer(x.into())),
+                    "int" => parse_i64_from_cow(&v).ok().map(|x| Self::Integer(x.into())),
                     "float" => parse_core_schema_fp(&v).map(|x| Self::FloatingPoint(x.into())),
                     "null" => match v.as_ref() {
                         "~" | "null" => Some(Self::Null(PhantomData)),
@@ -148,7 +165,7 @@ where
             _ => {}
         }
 
-        if let Ok(integer) = s.parse::<i64>() {
+        if let Ok(integer) = parse_i64_from_cow(s) {
             return Self::Integer(integer.into());
         }
 
@@ -179,6 +196,11 @@ pub fn parse_core_schema_fp(v: &str) -> Option<f64> {
         _ if v.as_bytes().iter().any(u8::is_ascii_digit) => v.parse::<f64>().ok(),
         _ => None,
     }
+}
+
+#[doc(hidden)]
+pub fn parse_i64_from_cow(v: &str) -> Result<i64, core::num::ParseIntError> {
+    v.parse::<i64>()
 }
 
 impl<F, STR, INT> Clone for YamlScalar<'_, F, INT, STR>

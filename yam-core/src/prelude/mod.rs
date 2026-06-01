@@ -117,6 +117,10 @@ pub enum YamlError {
     ScannerErr { mark: Marker, info: String },
     /// Expected a document but found none.
     NoDocument,
+    UnExpectedEvent {
+        expected: &'static str,
+        found: &'static str,
+    },
 }
 
 impl Display for YamlError {
@@ -132,6 +136,9 @@ impl Display for YamlError {
                 write!(f, "Scanner error at marker {mark:?}: {info}")
             }
             YamlError::NoDocument => write!(f, "No document found"),
+            YamlError::UnExpectedEvent { expected, found } => {
+                write!(f, "Expected event '{expected}' but found '{found}' instead")
+            }
         }
     }
 }

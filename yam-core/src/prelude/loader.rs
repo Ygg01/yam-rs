@@ -8,7 +8,6 @@ use crate::prelude::{
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 
 /// A struct responsible for loading and parsing YAML documents, while maintaining
 /// internal state for tracking document structure and node relationships.
@@ -38,7 +37,6 @@ where
     docs: Vec<Node>,
     doc_stack: Vec<(Node, usize, Option<Cow<'input, Tag>>)>,
     key_stack: Vec<Node>,
-    marker: PhantomData<&'input ()>,
     anchor_map: BTreeMap<usize, Node>,
 }
 
@@ -52,7 +50,6 @@ where
             doc_stack: Vec::new(),
             key_stack: Vec::new(),
             anchor_map: BTreeMap::new(),
-            marker: PhantomData,
         }
     }
 }

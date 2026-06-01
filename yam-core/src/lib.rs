@@ -34,6 +34,10 @@ extern crate core;
 #[doc(hidden)]
 pub mod escaper;
 
+#[doc(hidden)]
+pub use lazy_expander::{Expanable, LazyExpander, LazyExpanderMap, LazyExpanderVec};
+
+mod lazy_expander;
 pub mod node;
 pub mod parsing;
 pub mod prelude;
