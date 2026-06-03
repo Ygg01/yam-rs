@@ -5,6 +5,8 @@ pub mod de;
 pub mod ser;
 
 use crate::de::DeYamlError;
+use crate::ser::SerYamlError;
+use alloc::string::String;
 
 /// Attempts to deserialize a YAML input string into a value of type `T`.
 ///
@@ -59,8 +61,19 @@ pub fn from_str<'a, T>(input: &'a str) -> Result<T, DeYamlError>
 where
     T: serde_core::de::Deserialize<'a>,
 {
-    let mut de = crate::de::YamlIterDeserializer::new(input);
+    let mut de = crate::de::YamIterDeserializer::new(input);
     let value = T::deserialize(&mut de)?;
 
     Ok(value)
+}
+
+pub fn to_string<T>(value: &T) -> Result<String, SerYamlError>
+where
+    T: serde_core::ser::Serialize,
+{
+    let mut serializer = crate::ser::YamSerializer {
+        output: String::new(),
+    };
+    value.serialize(&mut serializer)?;
+    Ok(serializer.output)
 }

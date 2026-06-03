@@ -9,3 +9,5 @@ yam-core = { path = "../yam-core" }
 
 [dev-dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
+zmij = "1.0.21"
+error = "0.1.9"

@@ -10,7 +10,7 @@ use yam_core::parsing::parser_iter::YamEvent;
 use yam_core::parsing::{ParserIter, ScalarValue, Source, StrSource};
 use yam_core::prelude::YamlError;
 
-pub(crate) struct YamlIterDeserializer<'de, R>
+pub(crate) struct YamIterDeserializer<'de, R>
 where
     R: Source,
 {
@@ -19,9 +19,9 @@ where
     has_peeked: bool,
 }
 
-impl<'a> YamlIterDeserializer<'a, StrSource<'a>> {
+impl<'a> YamIterDeserializer<'a, StrSource<'a>> {
     pub fn new(source: &'a str) -> Self {
-        YamlIterDeserializer {
+        YamIterDeserializer {
             yaml_iter: ParserIter::new(StrSource::new(source)),
             last_event: YamEvent::DocStart,
             has_peeked: false,
@@ -29,7 +29,7 @@ impl<'a> YamlIterDeserializer<'a, StrSource<'a>> {
     }
 }
 
-impl<'a, R> YamlIterDeserializer<'a, R>
+impl<'a, R> YamIterDeserializer<'a, R>
 where
     R: Source,
 {
@@ -84,7 +84,7 @@ macro_rules! parse_from_cow {
     };
 }
 
-impl<'de, R> de::Deserializer<'de> for &mut YamlIterDeserializer<'de, R>
+impl<'de, R> de::Deserializer<'de> for &mut YamIterDeserializer<'de, R>
 where
     R: Source,
 {
@@ -99,7 +99,7 @@ where
             Some(YamEvent::SeqStart(_, _)) => self.deserialize_seq(visitor),
             Some(YamEvent::Scalar(scalar_value)) => {
                 self.skip();
-                YamlIterDeserializer::<R>::resolve_scalar(scalar_value, visitor)
+                YamIterDeserializer::<R>::resolve_scalar(scalar_value, visitor)
             }
             e => Err(DeYamlError::Custom(format!(
                 "Unexpected event (can only process DocStart): {e:?}"
@@ -335,7 +335,7 @@ where
     }
 }
 
-impl<'de, R> YamlIterDeserializer<'de, R>
+impl<'de, R> YamIterDeserializer<'de, R>
 where
     R: Source,
 {
@@ -386,7 +386,7 @@ struct SeqCollection<'a, 'de: 'a, R>
 where
     R: Source,
 {
-    iter: &'a mut YamlIterDeserializer<'de, R>,
+    iter: &'a mut YamIterDeserializer<'de, R>,
     // map: bool,
 }
 
@@ -394,11 +394,11 @@ impl<'a, 'de, R> SeqCollection<'a, 'de, R>
 where
     R: Source,
 {
-    fn new_seq(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+    fn new_seq(iter: &'a mut YamIterDeserializer<'de, R>) -> Self {
         SeqCollection { iter }
     }
 
-    fn new_map(iter: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+    fn new_map(iter: &'a mut YamIterDeserializer<'de, R>) -> Self {
         SeqCollection { iter }
     }
 }
@@ -462,7 +462,7 @@ struct Enum<'a, 'de: 'a, R>
 where
     R: Source,
 {
-    de: &'a mut YamlIterDeserializer<'de, R>,
+    de: &'a mut YamIterDeserializer<'de, R>,
 }
 
 impl<'a, 'de, R> Enum<'a, 'de, R>
@@ -470,7 +470,7 @@ where
     'de: 'a,
     R: Source,
 {
-    fn new(de: &'a mut YamlIterDeserializer<'de, R>) -> Self {
+    fn new(de: &'a mut YamIterDeserializer<'de, R>) -> Self {
         Enum { de }
     }
 }
