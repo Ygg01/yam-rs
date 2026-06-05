@@ -1,14 +1,51 @@
 use alloc::borrow::Cow;
-use core::fmt::{Display, Write};
-use serde_core::ser::StdError;
+use alloc::string::{String, ToString};
+use core::fmt::{Debug, Error, Write};
+use serde_core::ser::SerializeStructVariant;
 use serde_core::{Serialize, ser};
 
+macro_rules! impl_ints {
+    ($t:ty) => {
+        impl Ints for $t {
+            #[inline]
+            fn str_with_prefix(&self) -> String {
+                let mut str = self.to_string();
+                str.push_str(stringify!($t));
+                str
+            }
+
+            #[inline]
+            fn str_without_prefix(&self) -> String {
+                self.to_string()
+            }
+        }
+    };
+}
+
+trait Ints {
+    fn str_with_prefix(&self) -> String;
+    fn str_without_prefix(&self) -> String;
+}
+
+impl_ints!(i8);
+impl_ints!(i16);
+impl_ints!(i32);
+impl_ints!(i64);
+impl_ints!(i128);
+impl_ints!(u8);
+impl_ints!(u16);
+impl_ints!(u32);
+impl_ints!(u64);
+impl_ints!(u128);
+
 #[derive(Debug)]
-pub struct YamSerializer<W, F = CompactFormatter> {
+pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
     /// Pretty configuration option for formatting
-    pub(crate) formatter: F,
+    pub(crate) formatter: PrettyFormatter,
+    /// Write number suffixes
+    pub(crate) write_num_suffixes: bool,
 }
 
 impl<W> YamSerializer<W>
@@ -16,18 +53,32 @@ where
     W: Write,
 {
     #[inline]
-    pub fn new<F>(writer: W) -> Self {
+    pub fn new_pretty(writer: W, formatter: PrettyFormatter) -> Self {
         YamSerializer {
             writer,
-            formatter: CompactFormatter,
+            formatter,
+            write_num_suffixes: true,
         }
     }
 }
 
-pub struct CompactFormatter;
+impl<W> YamSerializer<W> {
+    #[inline]
+    pub fn new_simple(writer: W) -> Self {
+        YamSerializer {
+            writer,
+            formatter: PrettyFormatter::default(),
+            write_num_suffixes: false,
+        }
+    }
+}
 
+#[derive(Debug)]
 pub struct PrettyFormatter {
-    /// Limit depsh
+    /// Pretty YAML-like format
+    pub yaml_format: bool,
+
+    /// Limit depth
     pub depth_limit: usize,
 
     /// Indentation string
@@ -37,29 +88,49 @@ pub struct PrettyFormatter {
     pub new_line: Cow<'static, str>,
 }
 
-#[derive(Debug)]
-pub enum SerYamlError {}
-
-impl Display for SerYamlError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "SerYamlError occurred")
+impl Default for PrettyFormatter {
+    fn default() -> Self {
+        Self {
+            yaml_format: false,
+            depth_limit: 0,
+            indentor: Cow::Borrowed(""),
+            new_line: Cow::Borrowed(""),
+        }
     }
 }
 
-impl StdError for SerYamlError {}
-
-impl ser::Error for SerYamlError {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: Display,
-    {
-        todo!()
+impl PrettyFormatter {
+    fn pretty() -> Self {
+        Self {
+            yaml_format: true,
+            depth_limit: 10,
+            indentor: Cow::Borrowed("  "),
+            new_line: Cow::Borrowed("\n"),
+        }
     }
 }
 
-impl<W, F> ser::Serializer for &mut YamSerializer<W, F> {
+impl<W> YamSerializer<W>
+where
+    W: Write,
+{
+    fn serialize_sint<T: Ints>(&mut self, value: T) -> Result<(), Error> {
+        if self.write_num_suffixes {
+            write!(self.writer, "{}", value.str_with_prefix())?;
+        } else {
+            write!(self.writer, "{}", value.str_without_prefix())?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<W> ser::Serializer for &mut YamSerializer<W>
+where
+    W: Write,
+{
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
     type SerializeSeq = Self;
     type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
@@ -69,39 +140,41 @@ impl<W, F> ser::Serializer for &mut YamSerializer<W, F> {
     type SerializeStructVariant = Self;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        let str = if v { "true" } else { "false" };
+        self.writer.write_str(str)?;
+        Ok(())
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_sint(v)
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
@@ -225,9 +298,9 @@ impl<W, F> ser::Serializer for &mut YamSerializer<W, F> {
     }
 }
 
-impl<W, F> ser::SerializeSeq for &mut YamSerializer<W, F> {
+impl<W> ser::SerializeSeq for &mut YamSerializer<W> {
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -241,9 +314,9 @@ impl<W, F> ser::SerializeSeq for &mut YamSerializer<W, F> {
     }
 }
 
-impl<W, F> ser::SerializeMap for &mut YamSerializer<W, F> {
+impl<W> ser::SerializeMap for &mut YamSerializer<W> {
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
 
     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where
@@ -264,9 +337,9 @@ impl<W, F> ser::SerializeMap for &mut YamSerializer<W, F> {
     }
 }
 
-impl<W, F> ser::SerializeTuple for &mut YamSerializer<W, F> {
+impl<W> ser::SerializeTuple for &mut YamSerializer<W> {
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -280,9 +353,9 @@ impl<W, F> ser::SerializeTuple for &mut YamSerializer<W, F> {
     }
 }
 
-impl<W, F> ser::SerializeTupleStruct for &mut YamSerializer<W, F> {
+impl<W> ser::SerializeTupleStruct for &mut YamSerializer<W> {
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -296,9 +369,9 @@ impl<W, F> ser::SerializeTupleStruct for &mut YamSerializer<W, F> {
     }
 }
 
-impl<W, F> ser::SerializeStructVariant for &mut YamSerializer<W, F> {
+impl<W> SerializeStructVariant for &mut YamSerializer<W> {
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
@@ -312,9 +385,9 @@ impl<W, F> ser::SerializeStructVariant for &mut YamSerializer<W, F> {
     }
 }
 
-impl<W, F> ser::SerializeTupleVariant for &mut YamSerializer<W, F> {
+impl<W> ser::SerializeTupleVariant for &mut YamSerializer<W> {
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -328,9 +401,9 @@ impl<W, F> ser::SerializeTupleVariant for &mut YamSerializer<W, F> {
     }
 }
 
-impl<W, F> ser::SerializeStruct for &mut YamSerializer<W, F> {
+impl<W> ser::SerializeStruct for &mut YamSerializer<W> {
     type Ok = ();
-    type Error = SerYamlError;
+    type Error = Error;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where

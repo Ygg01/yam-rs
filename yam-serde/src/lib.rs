@@ -5,8 +5,9 @@ pub mod de;
 pub mod ser;
 
 use crate::de::DeYamlError;
-use crate::ser::SerYamlError;
+use crate::ser::PrettyFormatter;
 use alloc::string::String;
+use core::fmt::Error;
 
 /// Attempts to deserialize a YAML input string into a value of type `T`.
 ///
@@ -67,13 +68,11 @@ where
     Ok(value)
 }
 
-pub fn to_string<T>(value: &T) -> Result<String, SerYamlError>
+pub fn to_pretty_string<T>(value: &T, formatter: PrettyFormatter) -> Result<String, Error>
 where
     T: serde_core::ser::Serialize,
 {
-    let mut serializer = crate::ser::YamSerializer {
-        output: String::new(),
-    };
+    let mut serializer = ser::YamSerializer::new_pretty(String::new(), formatter);
     value.serialize(&mut serializer)?;
-    Ok(serializer.output)
+    Ok(serializer.writer)
 }
