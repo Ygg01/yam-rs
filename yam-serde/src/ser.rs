@@ -1,11 +1,40 @@
-use alloc::string::String;
-use core::fmt::Display;
+use alloc::borrow::Cow;
+use core::fmt::{Display, Write};
 use serde_core::ser::StdError;
 use serde_core::{Serialize, ser};
 
-pub struct YamSerializer {
-    // This string starts empty and JSON is appended as values are serialized.
-    pub(crate) output: String,
+#[derive(Debug)]
+pub struct YamSerializer<W, F = CompactFormatter> {
+    /// This string starts empty and JSON is appended as values are serialized.
+    pub(crate) writer: W,
+    /// Pretty configuration option for formatting
+    pub(crate) formatter: F,
+}
+
+impl<W> YamSerializer<W>
+where
+    W: Write,
+{
+    #[inline]
+    pub fn new<F>(writer: W) -> Self {
+        YamSerializer {
+            writer,
+            formatter: CompactFormatter,
+        }
+    }
+}
+
+pub struct CompactFormatter;
+
+pub struct PrettyFormatter {
+    /// Limit depsh
+    pub depth_limit: usize,
+
+    /// Indentation string
+    pub indentor: Cow<'static, str>,
+
+    /// New line string
+    pub new_line: Cow<'static, str>,
 }
 
 #[derive(Debug)]
@@ -28,15 +57,7 @@ impl ser::Error for SerYamlError {
     }
 }
 
-impl YamSerializer {
-    pub fn new() -> Self {
-        YamSerializer {
-            output: String::new(),
-        }
-    }
-}
-
-impl ser::Serializer for &mut YamSerializer {
+impl<W, F> ser::Serializer for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
     type SerializeSeq = Self;
@@ -204,7 +225,7 @@ impl ser::Serializer for &mut YamSerializer {
     }
 }
 
-impl ser::SerializeSeq for &mut YamSerializer {
+impl<W, F> ser::SerializeSeq for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
 
@@ -220,7 +241,7 @@ impl ser::SerializeSeq for &mut YamSerializer {
     }
 }
 
-impl ser::SerializeMap for &mut YamSerializer {
+impl<W, F> ser::SerializeMap for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
 
@@ -243,7 +264,7 @@ impl ser::SerializeMap for &mut YamSerializer {
     }
 }
 
-impl ser::SerializeTuple for &mut YamSerializer {
+impl<W, F> ser::SerializeTuple for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
 
@@ -259,7 +280,7 @@ impl ser::SerializeTuple for &mut YamSerializer {
     }
 }
 
-impl ser::SerializeTupleStruct for &mut YamSerializer {
+impl<W, F> ser::SerializeTupleStruct for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
 
@@ -275,7 +296,7 @@ impl ser::SerializeTupleStruct for &mut YamSerializer {
     }
 }
 
-impl ser::SerializeStructVariant for &mut YamSerializer {
+impl<W, F> ser::SerializeStructVariant for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
 
@@ -291,7 +312,7 @@ impl ser::SerializeStructVariant for &mut YamSerializer {
     }
 }
 
-impl ser::SerializeTupleVariant for &mut YamSerializer {
+impl<W, F> ser::SerializeTupleVariant for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
 
@@ -307,7 +328,7 @@ impl ser::SerializeTupleVariant for &mut YamSerializer {
     }
 }
 
-impl ser::SerializeStruct for &mut YamSerializer {
+impl<W, F> ser::SerializeStruct for &mut YamSerializer<W, F> {
     type Ok = ();
     type Error = SerYamlError;
 
