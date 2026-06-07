@@ -6,7 +6,7 @@ use serde_core::{Serialize, ser};
 
 macro_rules! impl_ints {
     ($t:ty) => {
-        impl Ints for $t {
+        impl NumFmt for $t {
             #[inline]
             fn str_with_prefix(&self) -> String {
                 let mut str = self.to_string();
@@ -22,7 +22,7 @@ macro_rules! impl_ints {
     };
 }
 
-trait Ints {
+trait NumFmt {
     fn str_with_prefix(&self) -> String;
     fn str_without_prefix(&self) -> String;
 }
@@ -114,7 +114,7 @@ impl<W> YamSerializer<W>
 where
     W: Write,
 {
-    fn serialize_sint<T: Ints>(&mut self, value: T) -> Result<(), Error> {
+    fn serialize_sint<T: NumFmt>(&mut self, value: T) -> Result<(), Error> {
         if self.write_num_suffixes {
             write!(self.writer, "{}", value.str_with_prefix())?;
         } else {
@@ -178,15 +178,52 @@ where
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        if v.is_nan() && v.is_sign_negative() {
+            write!(self.writer, "-")?;
+        }
+
+        write!(self.writer, "{}", v)?;
+
+        if v % 1.0 == 0.0 {
+            write!(self.writer, ".0")?;
+        }
+
+        if self.write_num_suffixes {
+            write!(self.writer, "f32")?;
+        }
+
+        Ok(())
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        if v.is_nan() && v.is_sign_negative() {
+            write!(self.writer, "-")?;
+        }
+
+        write!(self.writer, "{}", v)?;
+
+        if v % 1.0 == 0.0 {
+            write!(self.writer, ".0")?;
+        }
+
+        if self.write_num_suffixes {
+            write!(self.writer, "f64")?;
+        }
+
+        Ok(())
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.writer.write_char('\'')?;
+
+        if v == '\'' {
+            self.writer.write_str("''")?;
+        } else {
+            self.writer.write_char(v)?;
+        }
+
+        self.writer.write_char('\'')?;
+        Ok(())
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
