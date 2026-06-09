@@ -1,42 +1,8 @@
 use alloc::borrow::Cow;
-use alloc::string::{String, ToString};
-use core::fmt::{Debug, Error, Write};
+use alloc::string::ToString;
+use core::fmt::{Debug, Display, Error, Write};
 use serde_core::ser::SerializeStructVariant;
 use serde_core::{Serialize, ser};
-
-macro_rules! impl_ints {
-    ($t:ty) => {
-        impl NumFmt for $t {
-            #[inline]
-            fn str_with_prefix(&self) -> String {
-                let mut str = self.to_string();
-                str.push_str(stringify!($t));
-                str
-            }
-
-            #[inline]
-            fn str_without_prefix(&self) -> String {
-                self.to_string()
-            }
-        }
-    };
-}
-
-trait NumFmt {
-    fn str_with_prefix(&self) -> String;
-    fn str_without_prefix(&self) -> String;
-}
-
-impl_ints!(i8);
-impl_ints!(i16);
-impl_ints!(i32);
-impl_ints!(i64);
-impl_ints!(i128);
-impl_ints!(u8);
-impl_ints!(u16);
-impl_ints!(u32);
-impl_ints!(u64);
-impl_ints!(u128);
 
 #[derive(Debug)]
 pub struct YamSerializer<W> {
@@ -44,8 +10,6 @@ pub struct YamSerializer<W> {
     pub(crate) writer: W,
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatter,
-    /// Write number suffixes
-    pub(crate) write_num_suffixes: bool,
 }
 
 impl<W> YamSerializer<W>
@@ -54,11 +18,7 @@ where
 {
     #[inline]
     pub fn new_pretty(writer: W, formatter: PrettyFormatter) -> Self {
-        YamSerializer {
-            writer,
-            formatter,
-            write_num_suffixes: true,
-        }
+        YamSerializer { writer, formatter }
     }
 }
 
@@ -68,7 +28,6 @@ impl<W> YamSerializer<W> {
         YamSerializer {
             writer,
             formatter: PrettyFormatter::default(),
-            write_num_suffixes: false,
         }
     }
 }
@@ -114,13 +73,8 @@ impl<W> YamSerializer<W>
 where
     W: Write,
 {
-    fn serialize_sint<T: NumFmt>(&mut self, value: T) -> Result<(), Error> {
-        if self.write_num_suffixes {
-            write!(self.writer, "{}", value.str_with_prefix())?;
-        } else {
-            write!(self.writer, "{}", value.str_without_prefix())?;
-        }
-
+    fn serialize_sint<T: Display>(&mut self, value: T) -> Result<(), Error> {
+        write!(self.writer, "{}", value.to_string())?;
         Ok(())
     }
 }
@@ -188,10 +142,6 @@ where
             write!(self.writer, ".0")?;
         }
 
-        if self.write_num_suffixes {
-            write!(self.writer, "f32")?;
-        }
-
         Ok(())
     }
 
@@ -206,23 +156,15 @@ where
             write!(self.writer, ".0")?;
         }
 
-        if self.write_num_suffixes {
-            write!(self.writer, "f64")?;
-        }
-
         Ok(())
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        self.writer.write_char('\'')?;
+        let string_chr = if v == '\'' { '"' } else { '\'' };
 
-        if v == '\'' {
-            self.writer.write_str("''")?;
-        } else {
-            self.writer.write_char(v)?;
-        }
-
-        self.writer.write_char('\'')?;
+        self.writer.write_char(string_chr)?;
+        self.writer.write_char(v)?;
+        self.writer.write_char(string_chr)?;
         Ok(())
     }
 
