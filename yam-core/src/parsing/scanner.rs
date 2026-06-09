@@ -962,7 +962,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut end_mark = self.mark;
 
         loop {
-            // ? self.input.lookahead(4);
             let next_is_document_indicator = self.src.next_is_document_indicator();
             if (self.leading_whitespace && next_is_document_indicator) || self.src.peekz(0) == b'#'
             {
@@ -1177,7 +1176,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                         leading_blanks = true;
                     }
                 }
-                // ? self.input.lookahead(1);
             }
 
             // Join the whitespaces or fold line breaks.
@@ -1314,7 +1312,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         // Check if we are at the end of the line.
-        // self.input.lookahead(1);
         if !is_breakz(self.src.peekz(0)) {
             return Err(YamlError::new_str(
                 start_mark,
@@ -1521,7 +1518,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut suffix;
 
         // Check if the tag is in the canonical form (verbatim).
-        // self.input.lookahead(2);
 
         if self.src.next_next_byte_is(b'<') {
             suffix = self.scan_verbatim_tag(&start_mark)?;
@@ -1707,7 +1703,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                 }
             } else {
                 loop {
-                    // ? self.input.lookahead(self.input.bufmaxlen());
                     while !self.src.buf_is_empty()
                         && self.mark.col < indent
                         && self.src.peekz(0) == b' '
@@ -1723,7 +1718,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                         break;
                     }
                 }
-                // ? self.input.lookahead(2);
             }
 
             // If our current line is empty, skip over the break and continue looping.
@@ -1749,7 +1743,6 @@ impl<'input, S: Source> Scanner<'input, S> {
         leading_blanks: &mut bool,
         start_mark: &Marker,
     ) -> Result<(), YamlError> {
-        // ? self.input.lookahead(2);
         while !is_blank_or_breakz(self.src.peekz(0)) {
             match self.src.peekz(0) {
                 // Check for an escaped single quote.
@@ -1762,7 +1755,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                 b'"' if !single => break,
                 // Check for an escaped line break.
                 b'\\' if !single && is_break(self.src.peekz(1)) => {
-                    // ? self.input.lookahead(3);
                     self.skip_non_blank();
                     self.skip_linebreak();
                     *leading_blanks = true;
@@ -1778,7 +1770,6 @@ impl<'input, S: Source> Scanner<'input, S> {
                     self.skip_non_blank();
                 }
             }
-            // ? self.input.lookahead(2);
         }
         Ok(())
     }
