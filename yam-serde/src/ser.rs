@@ -1,7 +1,6 @@
 use alloc::borrow::Cow;
-use alloc::string::ToString;
 use core::fmt::{Debug, Display, Error, Write};
-use serde_core::ser::SerializeStructVariant;
+use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 
 #[derive(Debug)]
@@ -32,8 +31,35 @@ impl<W> YamSerializer<W> {
     }
 }
 
+#[derive(Debug, Default)]
+pub enum NullFormat {
+    #[default]
+    /// Null that has corresponds to JSON null
+    /// ```yaml
+    /// example: null
+    /// ```
+    JsonNull,
+    /// Null that has a schema built in.
+    /// ```yaml
+    /// example: !!null null
+    /// ```
+    TaggedYaml,
+    /// Null that's just an empty yaml.
+    /// ```yaml
+    /// example: # the value of null key is null.
+    /// ```
+    Plain,
+    /// Null used in Yaml 1.1 i.e.
+    /// ```yaml
+    /// example: ~
+    /// ```
+    OldYaml,
+}
+
 #[derive(Debug)]
 pub struct PrettyFormatter {
+    current_indent: usize,
+
     /// Pretty YAML-like format
     pub yaml_format: bool,
 
@@ -45,15 +71,20 @@ pub struct PrettyFormatter {
 
     /// New line string
     pub new_line: Cow<'static, str>,
+
+    /// How to format null
+    null_format: Cow<'static, str>,
 }
 
 impl Default for PrettyFormatter {
     fn default() -> Self {
         Self {
+            current_indent: 0,
             yaml_format: false,
             depth_limit: 0,
             indentor: Cow::Borrowed(""),
             new_line: Cow::Borrowed(""),
+            null_format: Cow::Borrowed(""),
         }
     }
 }
@@ -61,11 +92,23 @@ impl Default for PrettyFormatter {
 impl PrettyFormatter {
     fn pretty() -> Self {
         Self {
+            current_indent: 0,
             yaml_format: true,
             depth_limit: 10,
             indentor: Cow::Borrowed("  "),
             new_line: Cow::Borrowed("\n"),
+            null_format: Cow::Borrowed("null"),
         }
+    }
+
+    #[inline]
+    fn set_null_format(&mut self, fmt: NullFormat) {
+        self.null_format = match fmt {
+            NullFormat::JsonNull => Cow::Borrowed("null"),
+            NullFormat::TaggedYaml => Cow::Borrowed("!!null null"),
+            NullFormat::Plain => Cow::Borrowed(""),
+            NullFormat::OldYaml => Cow::Borrowed("~"),
+        };
     }
 }
 
@@ -74,7 +117,7 @@ where
     W: Write,
 {
     fn serialize_sint<T: Display>(&mut self, value: T) -> Result<(), Error> {
-        write!(self.writer, "{}", value.to_string())?;
+        write!(self.writer, "{value}")?;
         Ok(())
     }
 }
@@ -138,10 +181,6 @@ where
 
         write!(self.writer, "{}", v)?;
 
-        if v % 1.0 == 0.0 {
-            write!(self.writer, ".0")?;
-        }
-
         Ok(())
     }
 
@@ -151,10 +190,6 @@ where
         }
 
         write!(self.writer, "{}", v)?;
-
-        if v % 1.0 == 0.0 {
-            write!(self.writer, ".0")?;
-        }
 
         Ok(())
     }
@@ -177,18 +212,18 @@ where
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.serialize_unit()
     }
 
     fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        value.serialize(self)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.writer.write_str(&self.formatter.null_format)
     }
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
