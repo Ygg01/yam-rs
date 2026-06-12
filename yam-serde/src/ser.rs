@@ -31,7 +31,7 @@ impl<W> YamSerializer<W> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub enum NullFormat {
     #[default]
     /// Null that has corresponds to JSON null
@@ -90,7 +90,7 @@ impl Default for PrettyFormatter {
 }
 
 impl PrettyFormatter {
-    fn pretty() -> Self {
+    pub fn pretty() -> Self {
         Self {
             current_indent: 0,
             yaml_format: true,
@@ -179,7 +179,7 @@ where
             write!(self.writer, "-")?;
         }
 
-        write!(self.writer, "{}", v)?;
+        write!(self.writer, "{v}")?;
 
         Ok(())
     }
@@ -189,7 +189,7 @@ where
             write!(self.writer, "-")?;
         }
 
-        write!(self.writer, "{}", v)?;
+        write!(self.writer, "{v}")?;
 
         Ok(())
     }
