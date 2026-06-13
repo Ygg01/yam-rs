@@ -159,6 +159,54 @@ where
     }
 }
 
+pub(crate) fn escape_single_quotes<W: Write>(writer: &mut W, value: &str) -> Result<(), Error> {
+    let bytes = value.as_bytes();
+
+    let (mut old_pos, mut pos) = (0, 0);
+    while pos < bytes.len() {
+        let byte_char = bytes[pos];
+        let peek_char = peekz_byte(bytes, pos + 1);
+        match (byte_char, peek_char) {
+            (b'\'', _) => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "''")?;
+                pos += 1;
+                old_pos = pos;
+            }
+            (b'\t', _) => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "\\t")?;
+                pos += 1;
+                old_pos = pos;
+            }
+            (b'\r', b'\n') => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "\\n")?;
+                pos += 2;
+                old_pos = pos;
+            }
+            (b'\n', ..) => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "\\n")?;
+                pos += 1;
+                old_pos = pos;
+            }
+            _ => {
+                pos += 1;
+            }
+        }
+    }
+    if pos != old_pos {
+        let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+        writer.write_str(prev_str)?;
+    }
+    Ok(())
+}
+
 impl<W> YamSerializer<W> {
     #[inline]
     pub fn new_simple(writer: W) -> Self {
