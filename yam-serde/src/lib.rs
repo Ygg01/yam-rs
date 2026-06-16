@@ -2,6 +2,7 @@
 
 extern crate alloc;
 pub mod de;
+mod escape_str;
 pub mod ser;
 
 use crate::de::DeYamlError;

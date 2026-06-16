@@ -1,14 +1,31 @@
+use crate::escape_str;
 use alloc::borrow::Cow;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
+    pub(crate) pos: usize,
+    pub(crate) indentor_len: usize,
+    pub(crate) current_indent: usize,
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatter,
+}
+
+trait IsWhitespace {
+    fn is_ws(&self) -> bool;
+}
+
+impl IsWhitespace for &str {
+    fn is_ws(&self) -> bool {
+        self.bytes().all(|c| c == b' ' || c == b'\n')
+    }
 }
 
 impl<W> YamSerializer<W>
@@ -17,132 +34,90 @@ where
 {
     #[inline]
     pub fn new_pretty(writer: W, formatter: PrettyFormatter) -> Self {
-        YamSerializer { writer, formatter }
+        let indentor_size = formatter.indentor.graphemes(true).count();
+        YamSerializer {
+            writer,
+            formatter,
+            pos: 0,
+            current_indent: 0,
+            indentor_len: indentor_size,
+        }
     }
 
-    pub fn write_double_quote(&mut self, str: &str) -> Result<(), Error> {
+    fn write_char(&mut self, c: char) -> Result<(), Error> {
+        let res = self.writer.write_char(c);
+        self.pos += 1;
+        res
+    }
+
+    fn write_string_no_nl(&mut self, str: &str) -> Result<(), Error> {
+        let res = self.writer.write_str(str);
+        self.pos += str.graphemes(true).count();
+        res
+    }
+
+    fn write_nl(&mut self) -> Result<(), Error> {
+        let res = self.writer.write_char('\n');
+        self.pos = 0;
+        res
+    }
+
+    fn write_indent(&mut self) -> Result<(), Error> {
+        let res = self.writer.write_char('\n');
+        self.pos = 0;
+        res
+    }
+
+    fn write_double_quote_single(&mut self, str: &str) -> Result<(), Error> {
+        let mut string_writer = String::with_capacity(str.len() * 2);
+        escape_str::escape_double_quotes(&mut string_writer, str)?;
+
+        self.write_char('"')?;
+        self.write_string_no_nl(&string_writer)?;
+        self.write_char('"')?;
+        self.pos += 2;
+        Ok(())
+    }
+
+    fn is_time_to_split(&self, buff_len: usize, grapheme_len: usize) -> bool {
+        buff_len + grapheme_len + 1 > self.formatter.pref_string_length
+    }
+
+    fn write_indentors(&mut self, indent: usize) -> Result<(), Error> {
+        for _ in 0..indent {
+            self.writer.write_str(&self.formatter.indentor)?;
+        }
+        self.pos += indent * self.indentor_len;
+        Ok(())
+    }
+
+    fn write_double_quote_multi(&mut self, str: &str) -> Result<(), Error> {
         write!(self.writer, "\"")?;
-        escape_double_quotes(&mut self.writer, str)?;
+
+        let mut buff = String::with_capacity(self.formatter.pref_string_length);
+        let mut ws = String::new();
+        let mut buff_grapheme_len = 0;
+        let x = str
+            .split_word_bound_indices()
+            .map(|(_, word)| (word, word.graphemes(true).count()))
+            .collect::<Vec<(&str, usize)>>();
+
+        for (word, grapheme_len) in x {
+            if word.is_ws() {
+                ws = word.to_string();
+            }
+            if self.is_time_to_split(buff_grapheme_len, grapheme_len) {
+                write!(self.writer, "{buff}")?;
+                buff.clear();
+                buff_grapheme_len = 0;
+            }
+            buff.push_str(word);
+            buff_grapheme_len += grapheme_len;
+        }
+
         write!(self.writer, "\"")?;
         Ok(())
     }
-}
-
-fn peekz_byte(array: &[u8], pos: usize) -> u8 {
-    if pos < array.len() { array[pos] } else { 0 }
-}
-
-fn decode_hex<W: Write>(writer: &mut W, digit_slice: &[u8]) -> Result<(), Error> {
-    if !digit_slice.iter().all(u8::is_ascii_hexdigit) {
-        writer.write_char('\u{FFFD}')?;
-        return Ok(());
-    }
-
-    let code_point = digit_slice
-        .iter()
-        .map(|x| match *x {
-            n @ b'0'..=b'9' => n - b'0',
-            a @ b'a'..=b'f' => a - b'a' + 10,
-            a @ b'A'..=b'F' => a - b'A' + 10,
-            _ => 0u8,
-        })
-        .fold(0u32, |acc, digit| (acc << 4) + u32::from(digit));
-    match code_point {
-        // YAML has special escape rules for certain values
-        // See more in https://yaml.org/spec/1.2.2/#57-escaped-characters
-        0 => writer.write_char('\u{FFFD}')?,
-        0x07 => writer.write_str("\\a")?,
-        0x08 => writer.write_str("\\b")?,
-        0x09 => writer.write_str("\\t")?,
-        0x0A => writer.write_str("\\n")?,
-        0x0B => writer.write_str("\\v")?,
-        0x0C => writer.write_str("\\f")?,
-        0x0D => writer.write_str("\\r")?,
-        0x1B => writer.write_str("\\e")?,
-        0x20 => writer.write_str(" ")?,
-        0x22 => writer.write_str("\\\"")?,
-        0x2F => writer.write_str("\\/")?,
-        0x5C => writer.write_str("\\\\")?,
-        0x85 => writer.write_str("\\N")?,
-        0xA0 => writer.write_str("\\_")?,
-        0x2028 => writer.write_str("\\L")?,
-        0x2029 => writer.write_str("\\P")?,
-        _ => {
-            let encode_char = char::from_u32(code_point);
-            if let Some(encode_char) = encode_char {
-                return writer.write_char(encode_char);
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub(crate) fn escape_double_quotes<W: Write>(writer: &mut W, value: &str) -> Result<(), Error> {
-    let bytes = value.as_bytes();
-
-    let (mut old_pos, mut pos) = (0, 0);
-    while pos < bytes.len() {
-        let byte_char = bytes[pos];
-        let peek_char = peekz_byte(bytes, pos + 1);
-        match (byte_char, peek_char) {
-            (b'\\', b't' | b'r' | b'n') => {
-                // TODO normalize `\r\n` into `\n`
-                pos += 2;
-            }
-
-            (b'\t', _) => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                write!(writer, "\\t")?;
-                pos += 1;
-                old_pos = pos;
-            }
-            (b'\r', b'\n') => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                write!(writer, "\\n")?;
-                pos += 2;
-                old_pos = pos;
-            }
-            (b'\n', ..) => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                write!(writer, "\\n")?;
-                pos += 1;
-                old_pos = pos;
-            }
-            (b'\\', b'x') => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                decode_hex(writer, &bytes[pos + 2..pos + 4])?;
-                pos += 4;
-                old_pos = pos;
-            }
-            (b'\\', b'u') => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                decode_hex(writer, &bytes[pos + 2..pos + 6])?;
-                pos += 6;
-                old_pos = pos;
-            }
-            (b'\\', b'U') => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                decode_hex(writer, &bytes[pos + 2..pos + 8])?;
-                pos += 8;
-                old_pos = pos;
-            }
-            _ => {
-                pos += 1;
-            }
-        }
-    }
-    if pos != old_pos {
-        let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-        writer.write_str(prev_str)?;
-    }
-    Ok(())
 }
 
 impl<W> YamSerializer<W> {
@@ -151,6 +126,9 @@ impl<W> YamSerializer<W> {
         YamSerializer {
             writer,
             formatter: PrettyFormatter::default(),
+            pos: 0,
+            indentor_len: 0,
+            current_indent: 0,
         }
     }
 }
@@ -182,13 +160,14 @@ pub enum NullFormat {
 
 #[derive(Debug)]
 pub struct PrettyFormatter {
-    current_indent: usize,
-
     /// Pretty YAML-like format
     pub yaml_format: bool,
 
     /// Limit depth
     pub depth_limit: usize,
+
+    /// Preferred string length
+    pub pref_string_length: usize,
 
     /// Indentation string
     pub indentor: Cow<'static, str>,
@@ -203,9 +182,9 @@ pub struct PrettyFormatter {
 impl Default for PrettyFormatter {
     fn default() -> Self {
         Self {
-            current_indent: 0,
             yaml_format: false,
             depth_limit: 0,
+            pref_string_length: 80,
             indentor: Cow::Borrowed(""),
             new_line: Cow::Borrowed(""),
             null_format: Cow::Borrowed(""),
@@ -216,9 +195,9 @@ impl Default for PrettyFormatter {
 impl PrettyFormatter {
     pub fn pretty() -> Self {
         Self {
-            current_indent: 0,
             yaml_format: true,
             depth_limit: 10,
+            pref_string_length: 80,
             indentor: Cow::Borrowed("  "),
             new_line: Cow::Borrowed("\n"),
             null_format: Cow::Borrowed("null"),
