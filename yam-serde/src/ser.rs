@@ -3,7 +3,7 @@ use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
-use serde_core::ser::{SerializeMap, SerializeStructVariant};
+use serde_core::ser::SerializeStructVariant;
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -50,7 +50,7 @@ where
         res
     }
 
-    fn write_string_no_nl(&mut self, str: &str) -> Result<(), Error> {
+    fn write_single_string(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
         self.pos += str.graphemes(true).count();
         res
@@ -73,9 +73,9 @@ where
         escape_str::escape_double_quotes(&mut string_writer, str)?;
 
         self.write_char('"')?;
-        self.write_string_no_nl(&string_writer)?;
+        self.write_single_string(&string_writer)?;
         self.write_char('"')?;
-        self.pos += 2;
+        self.pos += 2 + string_writer.graphemes(true).count();
         Ok(())
     }
 
@@ -92,22 +92,22 @@ where
     }
 
     fn write_double_quote_multi(&mut self, str: &str) -> Result<(), Error> {
-        write!(self.writer, "\"")?;
+        self.write_char('"')?;
 
-        let mut buff = String::with_capacity(self.formatter.pref_string_length);
+        let mut buff = String::with_capacity(self.formatter.pref_string_length + 20);
         let mut ws = String::new();
         let mut buff_grapheme_len = 0;
-        let x = str
+        let word_bounds = str
             .split_word_bound_indices()
             .map(|(_, word)| (word, word.graphemes(true).count()))
             .collect::<Vec<(&str, usize)>>();
 
-        for (word, grapheme_len) in x {
+        for (word, grapheme_len) in word_bounds {
             if word.is_ws() {
                 ws = word.to_string();
             }
             if self.is_time_to_split(buff_grapheme_len, grapheme_len) {
-                write!(self.writer, "{buff}")?;
+                self.write_single_string(&buff)?;
                 buff.clear();
                 buff_grapheme_len = 0;
             }
@@ -115,7 +115,7 @@ where
             buff_grapheme_len += grapheme_len;
         }
 
-        write!(self.writer, "\"")?;
+        self.write_char('"')?;
         Ok(())
     }
 }
@@ -242,6 +242,7 @@ where
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         let str = if v { "true" } else { "false" };
         self.writer.write_str(str)?;
+        self.pos += str.len();
         Ok(())
     }
 
@@ -326,7 +327,9 @@ where
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        self.writer.write_str(&self.formatter.null_format)
+        self.writer.write_str(&self.formatter.null_format)?;
+        self.pos += self.formatter.null_format.len();
+        Ok(())
     }
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
