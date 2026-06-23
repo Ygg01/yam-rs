@@ -1,31 +1,39 @@
 use crate::escape_str;
 use alloc::borrow::Cow;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
 use serde_core::ser::SerializeStructVariant;
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
 
+trait YamlWhitespace {
+    fn is_splittable_ws(&self) -> bool;
+    fn is_last_char_splittable_ws(&self) -> bool;
+}
+
+impl YamlWhitespace for str {
+    fn is_splittable_ws(&self) -> bool {
+        self.bytes().all(|c| c == b' ' || c == b'\n')
+    }
+
+    fn is_last_char_splittable_ws(&self) -> bool {
+        self.bytes()
+            .last()
+            .map(|c| c == b' ' || c == b'\n')
+            .unwrap_or_default()
+    }
+}
+
 #[derive(Debug)]
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
     pub(crate) pos: usize,
-    pub(crate) indentor_len: usize,
     pub(crate) current_indent: usize,
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatter,
-}
-
-trait IsWhitespace {
-    fn is_ws(&self) -> bool;
-}
-
-impl IsWhitespace for &str {
-    fn is_ws(&self) -> bool {
-        self.bytes().all(|c| c == b' ' || c == b'\n')
-    }
+    pub(crate) indentor_len: usize,
 }
 
 impl<W> YamSerializer<W>
@@ -79,8 +87,8 @@ where
         Ok(())
     }
 
-    fn is_time_to_split(&self, buff_len: usize, grapheme_len: usize) -> bool {
-        buff_len + grapheme_len + 1 > self.formatter.pref_string_length
+    fn is_time_to_split(&self, buff_len: usize, word_len: usize) -> bool {
+        buff_len + word_len + 1 > self.formatter.pref_string_length
     }
 
     fn write_indentors(&mut self, indent: usize) -> Result<(), Error> {
@@ -91,32 +99,63 @@ where
         Ok(())
     }
 
+    fn line_split_at(&mut self, line_buff: &str, line_split: &str) -> Result<(), Error> {
+        let escaped = if line_split == " " { "\n" } else { "\n\n" };
+        self.writer.write_str(line_buff)?;
+        self.writer.write_str(escaped)?;
+        self.write_indentors(self.current_indent)
+    }
+
     fn write_double_quote_multi(&mut self, str: &str) -> Result<(), Error> {
         self.write_char('"')?;
 
-        let mut buff = String::with_capacity(self.formatter.pref_string_length + 20);
-        let mut ws = String::new();
-        let mut buff_grapheme_len = 0;
+        let mut line_buff = String::with_capacity(self.formatter.pref_string_length + 20);
+        let mut line_buff_len = 0;
         let word_bounds = str
             .split_word_bound_indices()
             .map(|(_, word)| (word, word.graphemes(true).count()))
             .collect::<Vec<(&str, usize)>>();
 
         for (word, grapheme_len) in word_bounds {
-            if word.is_ws() {
-                ws = word.to_string();
+            if self.is_time_to_split(line_buff_len, grapheme_len) {
+                let word_is_splittable = word.is_splittable_ws();
+                let line_buff_is_splittable = line_buff.is_last_char_splittable_ws();
+
+                if line_buff_is_splittable {
+                    // Try to split line on existing buffer
+                    let (line, nl) = line_buff.split_at(line_buff.len() - 1);
+                    self.line_split_at(line, nl)?;
+
+                    // Set current buffer to current word
+                    line_buff.clear();
+                    line_buff.push_str(word);
+                    line_buff_len = grapheme_len;
+                } else if word_is_splittable {
+                    // Try to split line on word
+                    let (front, nl) = word.split_at(0);
+                    self.line_split_at(&line_buff, nl)?;
+
+                    line_buff.clear();
+                    line_buff.push_str(front);
+                    line_buff_len = front.len();
+                } else {
+                    // Write the word to buffer
+                    line_buff.push_str(word);
+                    line_buff_len += grapheme_len;
+                }
+            } else {
+                line_buff.push_str(word);
+                line_buff_len += grapheme_len;
             }
-            if self.is_time_to_split(buff_grapheme_len, grapheme_len) {
-                self.write_single_string(&buff)?;
-                buff.clear();
-                buff_grapheme_len = 0;
-            }
-            buff.push_str(word);
-            buff_grapheme_len += grapheme_len;
         }
 
         self.write_char('"')?;
         Ok(())
+    }
+
+    pub(crate) fn should_use_onliner(&self) -> bool {
+        // TODO actual depth check
+        false
     }
 }
 
@@ -308,7 +347,12 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        if self.should_use_onliner() {
+            self.write_double_quote_single(v)?;
+        } else {
+            self.write_double_quote_multi(v)?;
+        }
+        Ok(())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
@@ -534,5 +578,28 @@ impl<W> ser::SerializeStruct for &mut YamSerializer<W> {
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ser::PrettyFormatter;
+    use crate::to_pretty_string;
+    use alloc::string::ToString;
+
+    const MULTI_LINE_STRING1_ACTUAL: &str = "One quick brown fox jumps over the lazy dog";
+    const MULTI_LINE_STRING1_EXPECTED: &str = r#""One quick
+brown fox
+jumps over
+the lazy dog""#;
+    #[test]
+    fn test_multiline_string() {
+        let formatter = {
+            let mut x = PrettyFormatter::pretty();
+            x.pref_string_length = 10;
+            x
+        };
+        let result = to_pretty_string(&MULTI_LINE_STRING1_ACTUAL, formatter);
+        assert_eq!(result, Ok(MULTI_LINE_STRING1_EXPECTED.to_string()));
     }
 }
