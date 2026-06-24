@@ -3,6 +3,7 @@
 extern crate alloc;
 pub mod de;
 mod escape_str;
+#[allow(dead_code, unused_variables)]
 pub mod ser;
 
 use crate::de::DeYamlError;
