@@ -1,4 +1,5 @@
 use crate::escape_str;
+use crate::escape_str::peekz_byte;
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -88,7 +89,7 @@ where
     }
 
     fn is_time_to_split(&self, buff_len: usize, word_len: usize) -> bool {
-        buff_len + word_len + 1 > self.formatter.pref_string_length
+        buff_len + word_len > self.formatter.pref_string_length
     }
 
     fn write_indentors(&mut self, indent: usize) -> Result<(), Error> {
@@ -148,7 +149,7 @@ where
                 line_buff_len += grapheme_len;
             }
         }
-
+        self.writer.write_str(&line_buff)?;
         self.write_char('"')?;
         Ok(())
     }
@@ -639,7 +640,8 @@ mod tests {
     const MULTI_LINE_STRING1_EXPECTED: &str = r#""One quick
 brown fox
 jumps over
-the lazy dog""#;
+the lazy
+dog""#;
     #[test]
     fn test_multiline_string() {
         let formatter = {
