@@ -31,7 +31,7 @@ pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
     pub(crate) pos: usize,
-    pub(crate) current_indent: usize,
+    pub(crate) current_depth: usize,
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatter,
     pub(crate) indentor_len: usize,
@@ -48,7 +48,7 @@ where
             writer,
             formatter,
             pos: 0,
-            current_indent: 0,
+            current_depth: 0,
             indentor_len: indentor_size,
         }
     }
@@ -104,7 +104,7 @@ where
         let escaped = if line_split == " " { "\n" } else { "\n\n" };
         self.writer.write_str(line_buff)?;
         self.writer.write_str(escaped)?;
-        self.write_indentors(self.current_indent)
+        self.write_indentors(self.current_depth)
     }
 
     fn write_double_quote_multi(&mut self, str: &str) -> Result<(), Error> {
@@ -154,9 +154,9 @@ where
         Ok(())
     }
 
-    pub(crate) fn should_use_onliner(&self) -> bool {
-        // TODO actual depth check
-        false
+    #[inline]
+    pub(crate) fn use_complex_form(&self) -> bool {
+        self.current_depth <= self.formatter.depth_limit
     }
 }
 
@@ -216,7 +216,7 @@ impl<W> YamSerializer<W> {
             formatter: PrettyFormatter::default(),
             pos: 0,
             indentor_len: 0,
-            current_indent: 0,
+            current_depth: 0,
         }
     }
 }
@@ -396,7 +396,7 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        if self.should_use_onliner() {
+        if !self.use_complex_form() {
             self.write_double_quote_single(v)?;
         } else {
             self.write_double_quote_multi(v)?;

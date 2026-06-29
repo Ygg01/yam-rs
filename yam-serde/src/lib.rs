@@ -1,6 +1,7 @@
 #![no_std]
 
 extern crate alloc;
+pub mod binary;
 pub mod de;
 mod escape_str;
 #[allow(dead_code, unused_variables)]
