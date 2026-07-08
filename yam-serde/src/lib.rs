@@ -8,7 +8,7 @@ mod escape_str;
 pub mod ser;
 
 use crate::de::DeYamlError;
-use crate::ser::PrettyFormatter;
+use crate::ser::PrettyFormatterConfig;
 use alloc::string::String;
 use core::fmt::Error;
 
@@ -71,7 +71,7 @@ where
     Ok(value)
 }
 
-pub fn to_pretty_string<T>(value: &T, formatter: PrettyFormatter) -> Result<String, Error>
+pub fn to_pretty_string<T>(value: &T, formatter: PrettyFormatterConfig) -> Result<String, Error>
 where
     T: serde_core::ser::Serialize,
 {

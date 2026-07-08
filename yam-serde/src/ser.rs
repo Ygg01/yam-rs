@@ -1,5 +1,5 @@
-use crate::escape_str;
 use crate::escape_str::peekz_byte;
+use crate::{binary, escape_str};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -30,10 +30,10 @@ impl YamlWhitespace for str {
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
-    pub(crate) pos: usize,
+    pub(crate) indent: usize,
     pub(crate) current_depth: usize,
     /// Pretty configuration option for formatting
-    pub(crate) formatter: PrettyFormatter,
+    pub(crate) formatter: PrettyFormatterConfig,
     pub(crate) indentor_len: usize,
 }
 
@@ -42,50 +42,50 @@ where
     W: Write,
 {
     #[inline]
-    pub fn new_pretty(writer: W, formatter: PrettyFormatter) -> Self {
+    pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
         let indentor_size = formatter.indentor.graphemes(true).count();
         YamSerializer {
             writer,
             formatter,
-            pos: 0,
+            indent: 0,
             current_depth: 0,
             indentor_len: indentor_size,
         }
     }
 
+    #[inline]
+    pub(crate) fn use_complex_form(&self) -> bool {
+        self.current_depth <= self.formatter.depth_limit
+    }
+
     fn write_char(&mut self, c: char) -> Result<(), Error> {
         let res = self.writer.write_char(c);
-        self.pos += 1;
+        self.indent += 1;
         res
     }
 
-    fn write_single_string(&mut self, str: &str) -> Result<(), Error> {
+    fn write_string(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
-        self.pos += str.graphemes(true).count();
+        self.indent += str.graphemes(true).count();
+        res
+    }
+
+    fn write_ascii(&mut self, str: &str) -> Result<(), Error> {
+        let res = self.writer.write_str(str);
+        self.indent += str.len();
         res
     }
 
     fn write_nl(&mut self) -> Result<(), Error> {
         let res = self.writer.write_char('\n');
-        self.pos = 0;
+        self.indent = 0;
         res
     }
 
     fn write_indent(&mut self) -> Result<(), Error> {
         let res = self.writer.write_char('\n');
-        self.pos = 0;
+        self.indent = 0;
         res
-    }
-
-    fn write_double_quote_single(&mut self, str: &str) -> Result<(), Error> {
-        let mut string_writer = String::with_capacity(str.len() * 2);
-        escape_str::escape_double_quotes(&mut string_writer, str)?;
-
-        self.write_char('"')?;
-        self.write_single_string(&string_writer)?;
-        self.write_char('"')?;
-        self.pos += 2 + string_writer.graphemes(true).count();
-        Ok(())
     }
 
     fn is_time_to_split(&self, buff_len: usize, word_len: usize) -> bool {
@@ -96,7 +96,40 @@ where
         for _ in 0..indent {
             self.writer.write_str(&self.formatter.indentor)?;
         }
-        self.pos += indent * self.indentor_len;
+        self.indent += indent * self.indentor_len;
+        Ok(())
+    }
+
+    fn write_double_quote_single(&mut self, str: &str) -> Result<(), Error> {
+        let mut string_writer = String::with_capacity(str.len() * 2);
+        escape_str::escape_double_quotes(&mut string_writer, str)?;
+
+        self.write_char('"')?;
+        self.write_string(&string_writer)?;
+        self.write_char('"')?;
+        self.indent += 2 + string_writer.graphemes(true).count();
+        Ok(())
+    }
+
+    fn write_single_quote_single(&mut self, str: &str) -> Result<(), Error> {
+        let mut string_writer = String::with_capacity(str.len() * 2);
+        escape_str::escape_single_quotes(&mut string_writer, str)?;
+
+        self.write_char('\'')?;
+        self.write_string(&string_writer)?;
+        self.write_char('\'')?;
+        self.indent += 2 + string_writer.graphemes(true).count();
+        Ok(())
+    }
+
+    fn write_block_string(&mut self, str: &str) -> Result<(), Error> {
+        let mut string_writer = String::with_capacity(str.len() * 2);
+        string_writer.push_str(str);
+
+        self.write_string("|\n")?;
+        self.write_string(&string_writer)?;
+
+        self.indent += 2 + string_writer.graphemes(true).count();
         Ok(())
     }
 
@@ -107,8 +140,13 @@ where
         self.write_indentors(self.current_depth)
     }
 
-    fn write_double_quote_multi(&mut self, str: &str) -> Result<(), Error> {
-        self.write_char('"')?;
+    fn write_multi_line_string(
+        &mut self,
+        prefix: &str,
+        str: &str,
+        suffix: &str,
+    ) -> Result<(), Error> {
+        self.write_ascii(prefix)?;
 
         let mut line_buff = String::with_capacity(self.formatter.pref_string_length + 20);
         let mut line_buff_len = 0;
@@ -150,13 +188,8 @@ where
             }
         }
         self.writer.write_str(&line_buff)?;
-        self.write_char('"')?;
+        self.write_ascii(suffix)?;
         Ok(())
-    }
-
-    #[inline]
-    pub(crate) fn use_complex_form(&self) -> bool {
-        self.current_depth <= self.formatter.depth_limit
     }
 }
 
@@ -213,8 +246,8 @@ impl<W> YamSerializer<W> {
     pub fn new_simple(writer: W) -> Self {
         YamSerializer {
             writer,
-            formatter: PrettyFormatter::default(),
-            pos: 0,
+            formatter: PrettyFormatterConfig::default(),
+            indent: 0,
             indentor_len: 0,
             current_depth: 0,
         }
@@ -247,7 +280,7 @@ pub enum NullFormat {
 }
 
 #[derive(Debug)]
-pub struct PrettyFormatter {
+pub struct PrettyFormatterConfig {
     /// Pretty YAML-like format
     pub yaml_format: bool,
 
@@ -267,7 +300,7 @@ pub struct PrettyFormatter {
     null_format: Cow<'static, str>,
 }
 
-impl Default for PrettyFormatter {
+impl Default for PrettyFormatterConfig {
     fn default() -> Self {
         Self {
             yaml_format: false,
@@ -280,7 +313,7 @@ impl Default for PrettyFormatter {
     }
 }
 
-impl PrettyFormatter {
+impl PrettyFormatterConfig {
     pub fn pretty() -> Self {
         Self {
             yaml_format: true,
@@ -330,7 +363,7 @@ where
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         let str = if v { "true" } else { "false" };
         self.writer.write_str(str)?;
-        self.pos += str.len();
+        self.indent += str.len();
         Ok(())
     }
 
@@ -399,13 +432,22 @@ where
         if !self.use_complex_form() {
             self.write_double_quote_single(v)?;
         } else {
-            self.write_double_quote_multi(v)?;
+            self.write_multi_line_string("\"", v, "\"")?;
         }
         Ok(())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.write_ascii("!!binary")?;
+        let encoded_bytes = binary::encode_as_base64(v);
+        if !self.use_complex_form() {
+            self.write_ascii("\"")?;
+            self.write_ascii(&encoded_bytes)?;
+            self.write_ascii("\"")?;
+        } else {
+            self.write_multi_line_string(">\n", &encoded_bytes, "")?;
+        }
+        Ok(())
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
@@ -421,7 +463,7 @@ where
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
         self.writer.write_str(&self.formatter.null_format)?;
-        self.pos += self.formatter.null_format.len();
+        self.indent += self.formatter.null_format.len();
         Ok(())
     }
 
@@ -632,7 +674,7 @@ impl<W> ser::SerializeStruct for &mut YamSerializer<W> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ser::PrettyFormatter;
+    use crate::ser::PrettyFormatterConfig;
     use crate::to_pretty_string;
     use alloc::string::ToString;
 
@@ -645,7 +687,7 @@ dog""#;
     #[test]
     fn test_multiline_string() {
         let formatter = {
-            let mut x = PrettyFormatter::pretty();
+            let mut x = PrettyFormatterConfig::pretty();
             x.pref_string_length = 10;
             x
         };

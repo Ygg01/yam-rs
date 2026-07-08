@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 const BASE64_CHARSET: &[u8; 64] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-fn decode_as_base64(input: &str) -> Vec<u8> {
+pub(crate) fn decode_as_base64(input: &str) -> Vec<u8> {
     // A minimal base64 decoding implementation for example purposes
     let mut output = Vec::new();
     let mut buffer = 0u32;
@@ -29,7 +29,7 @@ fn decode_as_base64(input: &str) -> Vec<u8> {
     output
 }
 
-fn encode_as_base64(input: &[u8]) -> String {
+pub(crate) fn encode_as_base64(input: &[u8]) -> String {
     let mut output = String::new();
     let mut buffer = 0u32;
     let mut bits_collected = 0;
