@@ -1,10 +1,10 @@
-use crate::escape_str::peekz_byte;
-use crate::{binary, escape_str};
+use crate::binary;
+use crate::escape_str::{escape_double_quotes, peekz_byte};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
-use serde_core::ser::SerializeStructVariant;
+use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -30,7 +30,7 @@ impl YamlWhitespace for str {
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
-    pub(crate) indent: usize,
+    pub(crate) position: usize,
     pub(crate) current_depth: usize,
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatterConfig,
@@ -47,7 +47,7 @@ where
         YamSerializer {
             writer,
             formatter,
-            indent: 0,
+            position: 0,
             current_depth: 0,
             indentor_len: indentor_size,
         }
@@ -58,33 +58,65 @@ where
         self.current_depth <= self.formatter.depth_limit
     }
 
+    pub(crate) fn write_obj_start(&mut self) -> Result<(), Error> {
+        if self.use_complex_form() {
+            self.write_indentors(self.current_depth)?;
+        } else {
+            self.write_ascii("{")?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write_obj_end(&mut self) -> Result<(), Error> {
+        if !self.use_complex_form() {
+            self.write_ascii("}")?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write_seq_start(&mut self) -> Result<(), Error> {
+        if self.use_complex_form() {
+            self.write_indentors(self.current_depth)?;
+        } else {
+            self.write_ascii("{")?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write_seq_end(&mut self) -> Result<(), Error> {
+        if !self.use_complex_form() {
+            self.write_ascii("}")?;
+        }
+        Ok(())
+    }
+
     fn write_char(&mut self, c: char) -> Result<(), Error> {
         let res = self.writer.write_char(c);
-        self.indent += 1;
+        self.position += 1;
         res
     }
 
     fn write_string(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
-        self.indent += str.graphemes(true).count();
+        self.position += str.graphemes(true).count();
         res
     }
 
     fn write_ascii(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
-        self.indent += str.len();
+        self.position += str.len();
         res
     }
 
     fn write_nl(&mut self) -> Result<(), Error> {
         let res = self.writer.write_char('\n');
-        self.indent = 0;
+        self.position = 0;
         res
     }
 
     fn write_indent(&mut self) -> Result<(), Error> {
         let res = self.writer.write_char('\n');
-        self.indent = 0;
+        self.position = 0;
         res
     }
 
@@ -96,29 +128,15 @@ where
         for _ in 0..indent {
             self.writer.write_str(&self.formatter.indentor)?;
         }
-        self.indent += indent * self.indentor_len;
+        self.position += indent * self.indentor_len;
         Ok(())
     }
 
-    fn write_double_quote_single(&mut self, str: &str) -> Result<(), Error> {
-        let mut string_writer = String::with_capacity(str.len() * 2);
-        escape_str::escape_double_quotes(&mut string_writer, str)?;
-
-        self.write_char('"')?;
-        self.write_string(&string_writer)?;
-        self.write_char('"')?;
-        self.indent += 2 + string_writer.graphemes(true).count();
-        Ok(())
-    }
-
-    fn write_single_quote_single(&mut self, str: &str) -> Result<(), Error> {
-        let mut string_writer = String::with_capacity(str.len() * 2);
-        escape_str::escape_single_quotes(&mut string_writer, str)?;
-
-        self.write_char('\'')?;
-        self.write_string(&string_writer)?;
-        self.write_char('\'')?;
-        self.indent += 2 + string_writer.graphemes(true).count();
+    fn write_single_line(&mut self, fence: &str, escaped_str: &str) -> Result<(), Error> {
+        self.write_string(fence)?;
+        self.write_string(escaped_str)?;
+        self.write_string(fence)?;
+        self.position += 2 * fence.len() + escaped_str.graphemes(true).count();
         Ok(())
     }
 
@@ -129,7 +147,7 @@ where
         self.write_string("|\n")?;
         self.write_string(&string_writer)?;
 
-        self.indent += 2 + string_writer.graphemes(true).count();
+        self.position += 2 + string_writer.graphemes(true).count();
         Ok(())
     }
 
@@ -156,7 +174,7 @@ where
             .collect::<Vec<(&str, usize)>>();
 
         for (word, grapheme_len) in word_bounds {
-            if self.is_time_to_split(line_buff_len, grapheme_len) {
+            if self.is_time_to_split(self.position, grapheme_len) {
                 let word_is_splittable = word.is_splittable_ws();
                 let line_buff_is_splittable = line_buff.is_last_char_splittable_ws();
 
@@ -247,7 +265,7 @@ impl<W> YamSerializer<W> {
         YamSerializer {
             writer,
             formatter: PrettyFormatterConfig::default(),
-            indent: 0,
+            position: 0,
             indentor_len: 0,
             current_depth: 0,
         }
@@ -363,7 +381,7 @@ where
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         let str = if v { "true" } else { "false" };
         self.writer.write_str(str)?;
-        self.indent += str.len();
+        self.position += str.len();
         Ok(())
     }
 
@@ -430,7 +448,12 @@ where
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         if !self.use_complex_form() {
-            self.write_double_quote_single(v)?;
+            let escaped_single = {
+                let mut str_writer = String::with_capacity(v.len());
+                escape_double_quotes(&mut str_writer, v)?;
+                str_writer
+            };
+            self.write_single_line("\"", &escaped_single)?;
         } else {
             self.write_multi_line_string("\"", v, "\"")?;
         }
@@ -439,13 +462,24 @@ where
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.write_ascii("!!binary")?;
-        let encoded_bytes = binary::encode_as_base64(v);
+        let mut encoded_bytes = binary::encode_as_base64(v);
         if !self.use_complex_form() {
             self.write_ascii("\"")?;
             self.write_ascii(&encoded_bytes)?;
             self.write_ascii("\"")?;
         } else {
-            self.write_multi_line_string(">\n", &encoded_bytes, "")?;
+            self.write_ascii("|\n")?;
+
+            while !encoded_bytes.is_empty() {
+                self.write_indentors(self.current_depth)?;
+                let remaining_byte = self
+                    .formatter
+                    .pref_string_length
+                    .saturating_sub(self.position);
+                let write = encoded_bytes.split_off(remaining_byte);
+                self.write_ascii(&write)?;
+            }
+            self.write_ascii(&encoded_bytes)?;
         }
         Ok(())
     }
@@ -463,12 +497,14 @@ where
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
         self.writer.write_str(&self.formatter.null_format)?;
-        self.indent += self.formatter.null_format.len();
+        self.position += self.formatter.null_format.len();
         Ok(())
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        self.write_obj_start()?;
+        self.write_obj_end()?;
+        Ok(())
     }
 
     fn serialize_unit_variant(
@@ -477,17 +513,22 @@ where
         variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.write_single_line("\"", variant)?;
+        Ok(())
     }
 
     fn serialize_newtype_struct<T>(
-        self,
+        mut self,
         name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + Serialize,
     {
+        self.write_obj_start()?;
+        self.serialize_key(name)?;
+        self.serialize_value(value)?;
+        self.write_obj_end()?;
         todo!()
     }
 
@@ -569,7 +610,10 @@ impl<W> ser::SerializeSeq for &mut YamSerializer<W> {
     }
 }
 
-impl<W> ser::SerializeMap for &mut YamSerializer<W> {
+impl<W> ser::SerializeMap for &mut YamSerializer<W>
+where
+    W: Write,
+{
     type Ok = ();
     type Error = Error;
 
@@ -577,7 +621,9 @@ impl<W> ser::SerializeMap for &mut YamSerializer<W> {
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        self.write_single_line("", key)?;
+
+        Ok(())
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
