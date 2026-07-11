@@ -4,6 +4,8 @@ use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
+use core::ops::Deref;
+use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
@@ -364,19 +366,39 @@ where
     }
 }
 
-impl<W> ser::Serializer for &mut YamSerializer<W>
+#[doc(hidden)]
+#[derive(Eq, PartialEq)]
+pub enum CompoundState {
+    Empty,
+    First,
+    Rest,
+}
+
+#[doc(hidden)]
+pub enum Compound<'a, W> {
+    Map {
+        ser: &'a mut YamSerializer<W>,
+        state: CompoundState,
+    },
+    Seq {
+        ser: &'a mut YamSerializer<W>,
+        state: CompoundState,
+    },
+}
+
+impl<'a, W> Serializer for &'a mut YamSerializer<W>
 where
     W: Write,
 {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = Self;
-    type SerializeTuple = Self;
-    type SerializeTupleStruct = Self;
-    type SerializeTupleVariant = Self;
-    type SerializeMap = Self;
-    type SerializeStruct = Self;
-    type SerializeStructVariant = Self;
+    type SerializeSeq = Compound<'a, W>;
+    type SerializeTuple = Compound<'a, W>;
+    type SerializeTupleStruct = Compound<'a, W>;
+    type SerializeTupleVariant = Compound<'a, W>;
+    type SerializeMap = Compound<'a, W>;
+    type SerializeStruct = Compound<'a, W>;
+    type SerializeStructVariant = Compound<'a, W>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         let str = if v { "true" } else { "false" };
@@ -509,8 +531,8 @@ where
 
     fn serialize_unit_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
         self.write_single_line("\"", variant)?;
@@ -518,26 +540,22 @@ where
     }
 
     fn serialize_newtype_struct<T>(
-        mut self,
-        name: &'static str,
+        self,
+        _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        self.write_obj_start()?;
-        self.serialize_key(name)?;
-        self.serialize_value(value)?;
-        self.write_obj_end()?;
-        todo!()
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T>(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        value: &T,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + Serialize,
@@ -545,60 +563,60 @@ where
         todo!()
     }
 
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         todo!()
     }
 
-    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
         todo!()
     }
 
     fn serialize_tuple_struct(
         self,
-        name: &'static str,
-        len: usize,
+        _name: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
         todo!()
     }
 
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         todo!()
     }
 
-    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         todo!()
     }
 
     fn serialize_struct(
         self,
-        name: &'static str,
-        len: usize,
+        _name: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
         todo!()
     }
 
     fn serialize_struct_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         todo!()
     }
 }
 
-impl<W> ser::SerializeSeq for &mut YamSerializer<W> {
+impl<'a, W> SerializeSeq for Compound<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, _value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
@@ -610,7 +628,7 @@ impl<W> ser::SerializeSeq for &mut YamSerializer<W> {
     }
 }
 
-impl<W> ser::SerializeMap for &mut YamSerializer<W>
+impl<'a, W> SerializeMap for Compound<'a, W>
 where
     W: Write,
 {
@@ -621,12 +639,15 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.write_single_line("", key)?;
+        match self {
+            Compound::Map { ser, .. } => key.serialize(&mut **ser)?,
+            Compound::Seq { ser, .. } => key.serialize(&mut **ser)?,
+        }
 
         Ok(())
     }
 
-    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T>(&mut self, _value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
@@ -638,11 +659,11 @@ where
     }
 }
 
-impl<W> ser::SerializeTuple for &mut YamSerializer<W> {
+impl<'a, W> ser::SerializeTuple for Compound<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, _value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
@@ -654,11 +675,11 @@ impl<W> ser::SerializeTuple for &mut YamSerializer<W> {
     }
 }
 
-impl<W> ser::SerializeTupleStruct for &mut YamSerializer<W> {
+impl<'a, W> ser::SerializeTupleStruct for Compound<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, _value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
@@ -670,11 +691,11 @@ impl<W> ser::SerializeTupleStruct for &mut YamSerializer<W> {
     }
 }
 
-impl<W> SerializeStructVariant for &mut YamSerializer<W> {
+impl<'a, W> SerializeStructVariant for Compound<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
@@ -686,11 +707,11 @@ impl<W> SerializeStructVariant for &mut YamSerializer<W> {
     }
 }
 
-impl<W> ser::SerializeTupleVariant for &mut YamSerializer<W> {
+impl<'a, W> ser::SerializeTupleVariant for Compound<'a, W> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, _value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
@@ -702,7 +723,7 @@ impl<W> ser::SerializeTupleVariant for &mut YamSerializer<W> {
     }
 }
 
-impl<W> ser::SerializeStruct for &mut YamSerializer<W> {
+impl<'a, W> ser::SerializeStruct for Compound<'a, W> {
     type Ok = ();
     type Error = Error;
 
