@@ -4,7 +4,6 @@ use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
-use core::ops::Deref;
 use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
@@ -166,10 +165,13 @@ where
         str: &str,
         suffix: &str,
     ) -> Result<(), Error> {
+        if self.is_time_to_split(self.position, 0) {
+            self.write_indentors(self.current_depth)?;
+        }
         self.write_ascii(prefix)?;
 
         let mut line_buff = String::with_capacity(self.formatter.pref_string_length + 20);
-        let mut line_buff_len = 0;
+        let mut line_buff_grapheme_len = 0;
         let word_bounds = str
             .split_word_bound_indices()
             .map(|(_, word)| (word, word.graphemes(true).count()))
@@ -188,7 +190,7 @@ where
                     // Set current buffer to current word
                     line_buff.clear();
                     line_buff.push_str(word);
-                    line_buff_len = grapheme_len;
+                    line_buff_grapheme_len = grapheme_len;
                 } else if word_is_splittable {
                     // Try to split line on word
                     let (front, nl) = word.split_at(0);
@@ -196,18 +198,20 @@ where
 
                     line_buff.clear();
                     line_buff.push_str(front);
-                    line_buff_len = front.len();
+                    line_buff_grapheme_len = front.len();
                 } else {
                     // Write the word to buffer
                     line_buff.push_str(word);
-                    line_buff_len += grapheme_len;
+                    line_buff_grapheme_len += grapheme_len;
                 }
             } else {
                 line_buff.push_str(word);
-                line_buff_len += grapheme_len;
+                line_buff_grapheme_len += grapheme_len;
             }
         }
+
         self.writer.write_str(&line_buff)?;
+        self.position = line_buff_grapheme_len;
         self.write_ascii(suffix)?;
         Ok(())
     }
