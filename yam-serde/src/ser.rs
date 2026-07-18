@@ -27,16 +27,18 @@ impl YamlWhitespace for str {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
     pub(crate) position: u32,
     pub(crate) current_depth: u32,
+    pub(crate) block_nesting: u32,
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatterConfig,
     pub(crate) indentor_len: u32,
-    is_complex_key: bool,
+    in_block_form: bool,
+    in_key: bool,
 }
 
 impl<W> YamSerializer<W>
@@ -56,50 +58,75 @@ where
             formatter,
             position: 0,
             current_depth: 0,
+            block_nesting: 0,
             indentor_len: indentor_size,
-            is_complex_key: false,
+            in_block_form: true,
+            in_key: false,
+        }
+    }
+
+    pub(crate) fn is_explicit_key(&self) -> bool {
+        self.block_nesting > 1
+    }
+
+    #[inline]
+    pub(crate) fn use_block_form(&mut self) -> bool {
+        self.in_block_form = self.current_depth <= self.formatter.block_depth_limit;
+        self.in_block_form
+    }
+
+    pub(crate) fn begin_object(&mut self) -> Result<(), Error> {
+        if !(self.use_block_form()) {
+            self.write_ascii("{")?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub(crate) fn end_object(&mut self) -> Result<(), Error> {
+        if !self.use_block_form() {
+            self.write_ascii("}")?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub(crate) fn begin_sequence(&mut self) -> Result<(), Error> {
+        if self.use_block_form() {
+            self.write_indent(self.current_depth)?;
+        } else {
+            self.write_ascii("{")?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub(crate) fn begin_sequence_value(&mut self, first: bool) -> Result<(), Error> {
+        if self.use_block_form() {
+            self.write_ascii("- ")
+        } else if !first && self.use_block_form() {
+            self.write_ascii(",")
+        } else {
+            Ok(())
         }
     }
 
     #[inline]
-    pub(crate) fn use_complex_form(&self) -> bool {
-        self.current_depth <= self.formatter.depth_limit
-    }
-
-    pub(crate) fn begin_object(&mut self) -> Result<(), Error> {
-        if self.use_complex_form() {
-            self.write_indent(self.current_depth)?;
-        } else {
-            self.write_ascii("{")?;
-        }
+    pub(crate) fn end_sequence_value(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    pub(crate) fn end_object(&mut self) -> Result<(), Error> {
-        if !self.use_complex_form() {
-            self.write_ascii("}")?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn begin_sequence(&mut self) -> Result<(), Error> {
-        if self.use_complex_form() {
-            self.write_indent(self.current_depth)?;
-        } else {
-            self.write_ascii("{")?;
-        }
-        Ok(())
-    }
-
+    #[inline]
     pub(crate) fn end_sequence(&mut self) -> Result<(), Error> {
-        if !self.use_complex_form() {
-            self.write_ascii("}")?;
+        if !self.use_block_form() {
+            self.write_ascii("]")?;
         }
         Ok(())
     }
 
+    #[inline]
     pub(crate) fn begin_object_key(&mut self, is_first: bool) -> Result<(), Error> {
-        if self.is_complex_key {
+        if self.is_explicit_key() {
             self.write_ascii("? ")?;
         } else if is_first {
             self.write_ascii(",")?;
@@ -107,6 +134,7 @@ where
         Ok(())
     }
 
+    #[inline]
     pub(crate) fn end_object_key(&mut self) -> Result<(), Error> {
         Ok(())
     }
@@ -120,7 +148,7 @@ where
     }
 
     pub(crate) fn write_seq_start(&mut self) -> Result<(), Error> {
-        if self.use_complex_form() {
+        if self.use_block_form() {
             self.write_indent(self.current_depth)?;
         } else {
             self.write_ascii("{")?;
@@ -129,7 +157,7 @@ where
     }
 
     pub(crate) fn write_seq_end(&mut self) -> Result<(), Error> {
-        if !self.use_complex_form() {
+        if !self.use_block_form() {
             self.write_ascii("}")?;
         }
         Ok(())
@@ -369,7 +397,9 @@ impl<W> YamSerializer<W> {
             position: 0,
             indentor_len: 0,
             current_depth: 0,
-            is_complex_key: false,
+            block_nesting: 0,
+            in_block_form: true,
+            in_key: false,
         }
     }
 }
@@ -405,7 +435,7 @@ pub struct PrettyFormatterConfig {
     pub yaml_format: bool,
 
     /// Limit depth
-    pub depth_limit: u32,
+    pub block_depth_limit: u32,
 
     /// Preferred string length
     pub pref_string_length: u32,
@@ -424,7 +454,7 @@ impl Default for PrettyFormatterConfig {
     fn default() -> Self {
         Self {
             yaml_format: false,
-            depth_limit: 0,
+            block_depth_limit: 0,
             pref_string_length: 80,
             indentor: Cow::Borrowed(""),
             new_line: Cow::Borrowed(""),
@@ -437,7 +467,7 @@ impl PrettyFormatterConfig {
     pub fn pretty() -> Self {
         Self {
             yaml_format: true,
-            depth_limit: 10,
+            block_depth_limit: 10,
             pref_string_length: 80,
             indentor: Cow::Borrowed("  "),
             new_line: Cow::Borrowed("\n"),
@@ -549,7 +579,7 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        if !self.use_complex_form() {
+        if !self.use_block_form() {
             let escaped_single = {
                 let mut str_writer = String::with_capacity(v.len());
                 escape_double_quotes(&mut str_writer, v)?;
@@ -565,7 +595,7 @@ where
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.write_ascii("!!binary")?;
         let mut encoded_bytes = binary::encode_as_base64(v);
-        if !self.use_complex_form() {
+        if !self.use_block_form() {
             self.write_ascii("\"")?;
             self.write_ascii(&encoded_bytes)?;
             self.write_ascii("\"")?;
@@ -728,9 +758,16 @@ where
         _name: &'static str,
         _variant_index: u32,
         _variant: &'static str,
-        _len: usize,
+        len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        todo!()
+        self.begin_object()?;
+
+        self.begin_object_key(true)?;
+        self.serialize_str(_variant)?;
+        self.begin_object_key(false)?;
+
+        self.begin_object_value()?;
+        self.serialize_map(Some(len))
     }
 }
 
@@ -754,19 +791,35 @@ pub enum Compound<'a, W> {
     },
 }
 
-impl<'a, W> SerializeSeq for Compound<'a, W> {
+impl<'a, W> SerializeSeq for Compound<'a, W>
+where
+    W: Write,
+{
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, _value: &T) -> Result<(), Self::Error>
+    #[inline]
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        match self {
+            Compound::Map { ser, state } | Compound::Seq { ser, state } => {
+                ser.begin_sequence_value(*state == CompoundState::First)?;
+                *state = CompoundState::Rest;
+                value.serialize(&mut **ser)?;
+                ser.end_sequence_value()
+            }
+        }
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        match self {
+            Compound::Map { ser, state } | Compound::Seq { ser, state } => match state {
+                CompoundState::Empty => Ok(()),
+                _ => ser.end_sequence(),
+            },
+        }
     }
 }
 
@@ -782,22 +835,36 @@ where
         T: ?Sized + Serialize,
     {
         match self {
-            Compound::Map { ser, .. } => key.serialize(&mut **ser)?,
-            Compound::Seq { ser, .. } => key.serialize(&mut **ser)?,
+            Compound::Map { ser, .. } | Compound::Seq { ser, .. } => {
+                ser.in_key = true;
+                key.serialize(&mut **ser)?;
+                ser.in_key = false;
+            }
         }
 
         Ok(())
     }
 
-    fn serialize_value<T>(&mut self, _value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        match self {
+            Compound::Map { ser, .. } | Compound::Seq { ser, .. } => {
+                ser.begin_object_value()?;
+                value.serialize(&mut **ser)?;
+                ser.end_object_value()
+            }
+        }
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        match self {
+            Compound::Map { ser, state, .. } | Compound::Seq { ser, state } => match state {
+                CompoundState::Empty => Ok(()),
+                _ => ser.end_object_value(),
+            },
+        }
     }
 }
 
@@ -885,7 +952,9 @@ impl<'a, W> ser::SerializeStruct for Compound<'a, W> {
 mod tests {
     use crate::ser::PrettyFormatterConfig;
     use crate::to_pretty_string;
+    use alloc::collections::BTreeMap;
     use alloc::string::ToString;
+    use alloc::vec;
     use serde::Serialize;
 
     const MULTI_LINE_STRING1_ACTUAL: &str = "One quick brown fox jumps over the lazy dog";
@@ -923,5 +992,19 @@ dog""#;
         let formatter = PrettyFormatterConfig::pretty();
         let result = to_pretty_string(&Measurement(0), formatter);
         assert_eq!(result, Ok("0".to_string()));
+    }
+
+    const COMPLEX_KEY_EXPECTED: &str = r#"? - 1
+  - 2
+: 34"#;
+
+    #[test]
+    fn test_serialize_complex_key() {
+        let key = vec![1, 2];
+        let value = 34;
+        let map = BTreeMap::from([(key, value)]);
+
+        let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
+        assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
     }
 }
