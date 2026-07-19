@@ -1,7 +1,7 @@
 use crate::binary;
 use crate::escape_str::{escape_double_quotes, peekz_byte};
 use alloc::borrow::Cow;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
 use ser::{SerializeSeq, Serializer};
@@ -76,7 +76,9 @@ where
     }
 
     pub(crate) fn begin_object(&mut self) -> Result<(), Error> {
-        if !(self.use_block_form()) {
+        if self.use_block_form() {
+            self.write_indent(self.current_depth)?;
+        } else {
             self.write_ascii("{")?;
         }
         Ok(())
@@ -148,7 +150,7 @@ where
     }
 
     pub(crate) fn write_seq_start(&mut self) -> Result<(), Error> {
-        if self.use_block_form() {
+        if !self.use_block_form() {
             self.write_indent(self.current_depth)?;
         } else {
             self.write_ascii("{")?;
@@ -769,6 +771,13 @@ where
         self.begin_object_value()?;
         self.serialize_map(Some(len))
     }
+
+    fn collect_str<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Display,
+    {
+        self.serialize_str(&value.to_string())
+    }
 }
 
 #[doc(hidden)]
@@ -994,7 +1003,8 @@ dog""#;
         assert_eq!(result, Ok("0".to_string()));
     }
 
-    const COMPLEX_KEY_EXPECTED: &str = r#"? - 1
+    const COMPLEX_KEY_EXPECTED: &str = r#"
+? - 1
   - 2
 : 34"#;
 
