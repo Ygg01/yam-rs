@@ -95,7 +95,7 @@ where
     #[inline]
     pub(crate) fn begin_sequence(&mut self) -> Result<(), Error> {
         if self.use_block_form() {
-            self.write_indent(self.current_depth)?;
+            self.write_to_pos(self.position)?;
         } else {
             self.write_ascii("{")?;
         }
@@ -248,6 +248,16 @@ where
             self.writer.write_str(&self.formatter.indentor)?;
         }
         self.position = indent * self.indentor_len;
+        Ok(())
+    }
+
+    fn write_to_pos(&mut self, pos: u32) -> Result<(), Error> {
+        let space_num = pos.saturating_sub(self.position);
+
+        let spaces = " ".repeat(space_num as usize);
+        self.writer.write_str(&spaces)?;
+
+        self.position += space_num;
         Ok(())
     }
 
