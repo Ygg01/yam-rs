@@ -31,7 +31,7 @@ impl YamlWhitespace for str {
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
-    pub(crate) position: u32,
+    pub(crate) indent_pos: u32,
     pub(crate) current_depth: u32,
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatterConfig,
@@ -55,7 +55,7 @@ where
         YamSerializer {
             writer,
             formatter,
-            position: 0,
+            indent_pos: 0,
             current_depth: 1,
             indentor_len: indentor_size,
             in_block_form: true,
@@ -140,6 +140,7 @@ where
     }
 
     pub(crate) fn begin_object_value(&mut self) -> Result<(), Error> {
+        self.write_ascii(": ")?;
         Ok(())
     }
 
@@ -165,7 +166,7 @@ where
 
     fn write_char(&mut self, c: char) -> Result<(), Error> {
         let res = self.writer.write_char(c);
-        self.position += 1;
+        self.indent_pos += 1;
         res
     }
 
@@ -176,7 +177,7 @@ where
             .count()
             .try_into()
             .expect("Expected less than u32::MAX sized line");
-        self.position += str_count;
+        self.indent_pos += str_count;
         res
     }
 
@@ -198,14 +199,14 @@ where
     /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     fn write_ascii(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
-        self.position += str.len() as u32;
+        self.indent_pos += str.len() as u32;
         res
     }
 
     #[inline]
     fn write_nl(&mut self) -> Result<(), Error> {
         let res = self.writer.write_char('\n');
-        self.position = 0;
+        self.indent_pos = 0;
         res
     }
 
@@ -216,8 +217,8 @@ where
     }
 
     fn write_to_indent(&mut self, indent: u32) -> Result<(), Error> {
-        if indent > self.position {
-            let diff = (indent - self.position) as usize;
+        if indent > self.indent_pos {
+            let diff = (indent - self.indent_pos) as usize;
             let indent = " ".repeat(diff);
             self.writer.write_str(&indent)?;
         }
@@ -225,7 +226,7 @@ where
     }
 
     fn is_time_to_split(&self, buff_len: u32) -> bool {
-        self.position + buff_len > self.formatter.pref_string_length
+        self.indent_pos + buff_len > self.formatter.pref_string_length
     }
 
     /// Writes an indented newline to the underlying writer.
@@ -259,10 +260,11 @@ where
     ///
     fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
         self.writer.write_char('\n')?;
-        for _ in 0..indent {
+        let corrected_indent = indent.saturating_sub(1);
+        for _ in 0..corrected_indent {
             self.writer.write_str(&self.formatter.indentor)?;
         }
-        self.position = indent * self.indentor_len;
+        self.indent_pos = corrected_indent * self.indentor_len;
         Ok(())
     }
 
@@ -271,7 +273,7 @@ where
         self.write_string(escaped_str)?;
         self.write_string(fence)?;
         let grapheme_count: u32 = escaped_str.graphemes(true).count().try_into().unwrap();
-        self.position += 2 * (fence.len() as u32) + grapheme_count;
+        self.indent_pos += 2 * (fence.len() as u32) + grapheme_count;
         Ok(())
     }
 
@@ -351,7 +353,7 @@ where
         }
 
         self.writer.write_str(&line_buff)?;
-        self.position = line_buff_grapheme_len;
+        self.indent_pos = line_buff_grapheme_len;
         self.write_ascii(suffix)?;
         Ok(())
     }
@@ -411,7 +413,7 @@ impl<W> YamSerializer<W> {
         YamSerializer {
             writer,
             formatter: PrettyFormatterConfig::default(),
-            position: 0,
+            indent_pos: 0,
             indentor_len: 0,
             current_depth: 0,
             in_block_form: true,
@@ -529,7 +531,7 @@ where
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         let str = if v { "true" } else { "false" };
         self.writer.write_str(str)?;
-        self.position += str.len() as u32;
+        self.indent_pos += str.len() as u32;
         Ok(())
     }
 
@@ -623,7 +625,7 @@ where
                 let remaining_byte = self
                     .formatter
                     .pref_string_length
-                    .saturating_sub(self.position);
+                    .saturating_sub(self.indent_pos);
                 let write = encoded_bytes.split_off(remaining_byte as usize);
                 self.write_ascii(&write)?;
             }
@@ -645,7 +647,7 @@ where
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
         self.writer.write_str(&self.formatter.null_format)?;
-        self.position += self.formatter.null_format.len() as u32;
+        self.indent_pos += self.formatter.null_format.len() as u32;
         Ok(())
     }
 
@@ -704,7 +706,7 @@ where
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         self.begin_sequence()?;
-        let indent = self.position;
+        let indent = self.indent_pos;
         if len == Some(0) {
             self.end_sequence()?;
             Ok(Compound::Seq {
@@ -750,7 +752,7 @@ where
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         self.begin_object()?;
-        let indent = self.position;
+        let indent = self.indent_pos;
         if len == Some(0) {
             self.end_object()?;
             Ok(Compound::Map {
