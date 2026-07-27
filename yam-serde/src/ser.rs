@@ -8,6 +8,7 @@ use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
+use yam_core::prelude::ScalarType;
 
 trait YamlWhitespace {
     fn is_splittable_ws(&self) -> bool;
@@ -75,6 +76,19 @@ where
             self.write_ascii("{")?;
         }
         Ok(())
+    }
+
+    #[inline]
+    pub(crate) fn which_str_type(&mut self, string: &str) -> ScalarType {
+        let is_multiline = string.contains('\n');
+        let use_block_form = self.use_block_form();
+
+        match (use_block_form, is_multiline) {
+            (true, true) => ScalarType::Folded,
+            (true, false) => ScalarType::Plain,
+            (false, true) => ScalarType::DoubleQuote,
+            (false, false) => ScalarType::Plain,
+        }
     }
 
     #[inline]
@@ -277,12 +291,13 @@ where
         Ok(())
     }
 
-    fn write_block_string(&mut self, str: &str) -> Result<(), Error> {
+    fn write_block_string(&mut self, is_folded: bool, str: &str) -> Result<(), Error> {
         let mut string_writer = String::with_capacity(str.len() * 2);
+        let chr = if is_folded { '>' } else { '|' };
         string_writer.push_str(str);
 
         // Write the pipe without updating position
-        self.writer.write_char('|')?;
+        self.writer.write_char(chr)?;
         // then indent the string and write the block.
         self.write_indent(self.current_depth)?;
         self.write_string(&string_writer)?;
@@ -597,17 +612,23 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        if !self.use_block_form() {
-            let escaped_single = {
-                let mut str_writer = String::with_capacity(v.len());
-                escape_double_quotes(&mut str_writer, v)?;
-                str_writer
-            };
-            self.write_single_line("\"", &escaped_single)?;
-        } else {
-            self.write_multi_line_string("\"", v, "\"")?;
+        match self.which_str_type(v) {
+            ScalarType::Plain => self.write_single_line("", v),
+            ScalarType::Folded => self.write_block_string(true, v),
+            ScalarType::Literal => self.write_block_string(true, v),
+            ScalarType::SingleQuote => {
+                let mut var = String::with_capacity(v.len() * 2);
+                escape_single_quotes(&mut var, v)?;
+                self.write_multi_line_string("'", &var, "'")?;
+                Ok(())
+            }
+            ScalarType::DoubleQuote => {
+                let mut var = String::with_capacity(v.len() * 2);
+                escape_double_quotes(&mut var, v)?;
+                self.write_multi_line_string("'", &var, "'")?;
+                Ok(())
+            }
         }
-        Ok(())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
