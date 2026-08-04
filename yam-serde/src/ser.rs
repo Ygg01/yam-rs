@@ -1,5 +1,5 @@
 use crate::binary;
-use crate::escape_str::{escape_double_quotes, peekz_byte};
+use crate::escape_str::{CanBeScalar, escape_double_quotes, peekz_byte};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -15,6 +15,23 @@ trait YamlWhitespace {
     fn is_last_char_splittable_ws(&self) -> bool;
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum FlowStyle {
+    Plain,
+    DoubleQuote,
+    SingleQuote,
+}
+
+impl FlowStyle {
+    pub(crate) fn to_scalar_type(self) -> ScalarType {
+        match self {
+            FlowStyle::Plain => ScalarType::Plain,
+            FlowStyle::DoubleQuote => ScalarType::DoubleQuote,
+            FlowStyle::SingleQuote => ScalarType::SingleQuote,
+        }
+    }
+}
+
 impl YamlWhitespace for str {
     fn is_splittable_ws(&self) -> bool {
         self.bytes().all(|c| c == b' ' || c == b'\n')
@@ -28,6 +45,56 @@ impl YamlWhitespace for str {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+enum SerializerState {
+    #[default]
+    Root,
+    Block,
+    Flow,
+    ExplicitKey,
+    ExplicitValue,
+    FlowKey,
+    BlockKey,
+}
+
+impl SerializerState {
+    #[inline]
+    pub(crate) fn switch_to_base(&self) {
+        todo!()
+    }
+    #[inline]
+    fn is_block_form(&self) -> bool {
+        matches!(
+            self,
+            SerializerState::Block | SerializerState::ExplicitKey | SerializerState::BlockKey
+        )
+    }
+
+    #[inline]
+    fn is_key(&self) -> bool {
+        matches!(
+            self,
+            SerializerState::FlowKey | SerializerState::BlockKey | SerializerState::ExplicitKey
+        )
+    }
+
+    #[inline]
+    fn is_flow_restricted(&self) -> bool {
+        matches!(
+            self,
+            SerializerState::FlowKey | SerializerState::BlockKey | SerializerState::ExplicitKey
+        )
+    }
+
+    #[inline]
+    fn is_explicit_map(&self) -> bool {
+        matches!(
+            self,
+            SerializerState::ExplicitKey | SerializerState::ExplicitValue
+        )
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
@@ -37,8 +104,8 @@ pub struct YamSerializer<W> {
     /// Pretty configuration option for formatting
     pub(crate) formatter: PrettyFormatterConfig,
     pub(crate) indentor_len: u32,
-    in_block_form: bool,
     complex_key_prefix: String,
+    serializer_state: SerializerState,
 }
 
 impl<W> YamSerializer<W>
@@ -59,15 +126,17 @@ where
             indent_pos: 0,
             current_depth: 1,
             indentor_len: indentor_size,
-            in_block_form: true,
             complex_key_prefix: String::new(),
+            serializer_state: SerializerState::Root,
         }
     }
 
     #[inline]
     pub(crate) fn use_block_form(&mut self) -> bool {
-        self.in_block_form = self.current_depth <= self.formatter.block_depth_limit;
-        self.in_block_form
+        if self.current_depth <= self.formatter.block_depth_limit {
+            self.serializer_state = SerializerState::Block;
+        }
+        self.serializer_state.is_block_form()
     }
 
     pub(crate) fn begin_object(&mut self) -> Result<(), Error> {
@@ -78,17 +147,28 @@ where
         Ok(())
     }
 
-    #[inline]
-    pub(crate) fn which_str_type(&mut self, string: &str) -> ScalarType {
-        let is_multiline = string.contains('\n');
-        let use_block_form = self.use_block_form();
+    fn preferred_string(&self, string: &str) -> ScalarType {
+        let in_block_form = self.serializer_state.is_block_form();
+        let in_flow_restricted = self.serializer_state.is_flow_restricted();
+        // Are we in key or another context?
+        let mut preferred_style = if self.serializer_state.is_key() {
+            self.formatter.key_preferred_style
+        } else if self.current_depth == 1 {
+            // In root use root preferred style
+            self.formatter.root_preferred_style
+        } else if !in_block_form {
+            self.formatter.flow_string_style.to_scalar_type()
+        } else {
+            // Otherwise usually it's block
+            self.formatter.block_preferred_style
+        };
 
-        match (use_block_form, is_multiline) {
-            (true, true) => ScalarType::Folded,
-            (true, false) => ScalarType::Plain,
-            (false, true) => ScalarType::DoubleQuote,
-            (false, false) => ScalarType::Plain,
+        // Plain style is one style which can't serialize a given string
+        if preferred_style == ScalarType::Plain && !string.can_be_plain(in_flow_restricted) {
+            preferred_style = self.formatter.flow_string_style.to_scalar_type();
         }
+
+        preferred_style
     }
 
     #[inline]
@@ -142,9 +222,13 @@ where
     pub(crate) fn begin_object_key(&mut self, is_first: bool) -> Result<(), Error> {
         if self.use_block_form() {
             self.complex_key_prefix.push_str("? ");
-        } else if is_first {
-            self.write_ascii(",")?;
         }
+        if !is_first && !self.serializer_state.is_block_form() {
+            self.write_ascii(",")?;
+        } else if !is_first && self.serializer_state.is_block_form() {
+            self.write_nl()?;
+        }
+        self.serializer_state = SerializerState::BlockKey;
         Ok(())
     }
 
@@ -153,7 +237,10 @@ where
         Ok(())
     }
 
-    pub(crate) fn begin_object_value(&mut self) -> Result<(), Error> {
+    pub(crate) fn begin_object_value(&mut self, is_first: bool) -> Result<(), Error> {
+        if self.serializer_state.is_explicit_map() {
+            self.write_indent(self.current_depth.saturating_sub(1))?;
+        }
         self.write_ascii(": ")?;
         Ok(())
     }
@@ -431,8 +518,8 @@ impl<W> YamSerializer<W> {
             indent_pos: 0,
             indentor_len: 0,
             current_depth: 0,
-            in_block_form: true,
             complex_key_prefix: String::new(),
+            serializer_state: Default::default(),
         }
     }
 }
@@ -464,9 +551,6 @@ pub enum NullFormat {
 
 #[derive(Debug)]
 pub struct PrettyFormatterConfig {
-    /// Pretty YAML-like format
-    pub yaml_format: bool,
-
     /// Limit depth
     pub block_depth_limit: u32,
 
@@ -481,17 +565,35 @@ pub struct PrettyFormatterConfig {
 
     /// How to format null
     null_format: Cow<'static, str>,
+
+    /// How to format a string in block style
+    pub block_preferred_style: ScalarType,
+
+    /// How to format a string in root
+    pub root_preferred_style: ScalarType,
+
+    /// How to format a string in block style
+    pub flow_string_style: FlowStyle,
+
+    pub key_preferred_style: ScalarType,
+
+    /// Whether to prefer string to fit in single line
+    pub compat_strings: bool,
 }
 
 impl Default for PrettyFormatterConfig {
     fn default() -> Self {
         Self {
-            yaml_format: false,
             block_depth_limit: 0,
             pref_string_length: 80,
             indentor: Cow::Borrowed(""),
             new_line: Cow::Borrowed(""),
             null_format: Cow::Borrowed(""),
+            block_preferred_style: ScalarType::Plain,
+            root_preferred_style: ScalarType::DoubleQuote,
+            flow_string_style: FlowStyle::DoubleQuote,
+            key_preferred_style: ScalarType::Plain,
+            compat_strings: false,
         }
     }
 }
@@ -499,12 +601,16 @@ impl Default for PrettyFormatterConfig {
 impl PrettyFormatterConfig {
     pub fn pretty() -> Self {
         Self {
-            yaml_format: true,
             block_depth_limit: 10,
             pref_string_length: 80,
             indentor: Cow::Borrowed("  "),
             new_line: Cow::Borrowed("\n"),
             null_format: Cow::Borrowed("null"),
+            block_preferred_style: ScalarType::Plain,
+            root_preferred_style: ScalarType::DoubleQuote,
+            flow_string_style: FlowStyle::DoubleQuote,
+            key_preferred_style: ScalarType::Plain,
+            compat_strings: false,
         }
     }
 
@@ -612,20 +718,35 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        match self.which_str_type(v) {
-            ScalarType::Plain => self.write_single_line("", v),
+        let prefer_single_line = self.formatter.compat_strings;
+        match self.preferred_string(v) {
+            ScalarType::Plain => {
+                if prefer_single_line {
+                    self.write_single_line("", v)
+                } else {
+                    self.write_multi_line_string("", v, "")
+                }
+            }
             ScalarType::Folded => self.write_block_string(true, v),
             ScalarType::Literal => self.write_block_string(true, v),
             ScalarType::SingleQuote => {
                 let mut var = String::with_capacity(v.len() * 2);
                 escape_single_quotes(&mut var, v)?;
-                self.write_multi_line_string("'", &var, "'")?;
+                if prefer_single_line {
+                    self.write_single_line("'", &var)?;
+                } else {
+                    self.write_multi_line_string("'", &var, "'")?;
+                }
                 Ok(())
             }
             ScalarType::DoubleQuote => {
                 let mut var = String::with_capacity(v.len() * 2);
                 escape_double_quotes(&mut var, v)?;
-                self.write_multi_line_string("'", &var, "'")?;
+                if prefer_single_line {
+                    self.write_single_line("\"", &var)?;
+                } else {
+                    self.write_multi_line_string("\"", &var, "\"")?;
+                }
                 Ok(())
             }
         }
@@ -717,7 +838,7 @@ where
         self.serialize_str(variant)?;
         self.end_object_key()?;
 
-        self.begin_object_value()?;
+        self.begin_object_value(true)?;
         value.serialize(&mut *self)?;
         self.end_object_value()?;
 
@@ -767,7 +888,7 @@ where
         self.begin_object_key(true)?;
         self.serialize_str(name)?;
         self.end_object_key()?;
-        self.begin_object_value()?;
+        self.begin_object_value(true)?;
         self.serialize_seq(Some(len))
     }
 
@@ -811,7 +932,7 @@ where
         self.serialize_str(_variant)?;
         self.end_object_key()?;
 
-        self.begin_object_value()?;
+        self.begin_object_value(true)?;
         self.serialize_map(Some(len))
     }
 }
@@ -822,6 +943,12 @@ pub enum CompoundState {
     Empty,
     First,
     Rest,
+}
+
+impl CompoundState {
+    fn is_first(&self) -> bool {
+        matches!(self, CompoundState::First)
+    }
 }
 
 #[doc(hidden)]
@@ -883,12 +1010,12 @@ where
     {
         match self {
             Compound::Map { ser, state, .. } => {
-                ser.begin_object_key(*state == CompoundState::First)?;
+                ser.begin_object_key(state.is_first())?;
                 key.serialize(&mut **ser)?;
                 ser.end_object_key()?;
             }
             Compound::Seq { ser, state, .. } => {
-                ser.begin_object_key(*state == CompoundState::First)?;
+                ser.begin_object_key(state.is_first())?;
                 key.serialize(&mut **ser)?;
                 ser.end_object_key()?;
             }
@@ -902,9 +1029,10 @@ where
         T: ?Sized + Serialize,
     {
         match self {
-            Compound::Map { ser, .. } | Compound::Seq { ser, .. } => {
-                ser.begin_object_value()?;
+            Compound::Map { ser, state, .. } | Compound::Seq { ser, state, .. } => {
+                ser.begin_object_value(state.is_first())?;
                 value.serialize(&mut **ser)?;
+                *state = CompoundState::Rest;
                 ser.end_object_value()
             }
         }

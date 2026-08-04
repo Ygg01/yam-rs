@@ -136,3 +136,36 @@ pub(crate) fn escape_single_quotes<W: Write>(writer: &mut W, value: &str) -> Res
     writer.write_str(prev_str)?;
     Ok(())
 }
+
+pub trait CanBeScalar {
+    fn can_be_plain(&self, flow_in: bool) -> bool;
+}
+
+impl CanBeScalar for &str {
+    fn can_be_plain(&self, flow_in: bool) -> bool {
+        // First character can't be restricted
+        let start_byte = self.as_bytes().first().unwrap_or(&0u8);
+        let second_byte = self.as_bytes().get(1).unwrap_or(&0u8);
+        if b" \t\r\n,[]{}#&*!|>\"'%@~".contains(start_byte) {
+            return false;
+        }
+
+        // First character can be '?, '-', ':' iff second character is a safe character.
+        if b"?-:".contains(start_byte) && is_unsafe_char(second_byte, flow_in) {
+            return false;
+        }
+
+        // Plain scalar can't contain `: ` or ` #`
+        if self.contains(": ") || self.contains(" #") {
+            return false;
+        }
+
+        true
+    }
+}
+
+fn is_unsafe_char(chr: &u8, flow_in: bool) -> bool {
+    // Whitespace characters are unsafe always
+    // while flow indicators are unsafe in implict key or flow collection
+    b" \t\r\n".contains(chr) || (flow_in && b"{},[]".contains(chr))
+}
