@@ -45,7 +45,7 @@ impl YamlWhitespace for str {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 enum SerializerState {
     #[default]
     Root,
@@ -822,18 +822,11 @@ where
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         self.begin_sequence()?;
-        let indent = self.indent_pos;
         if len == Some(0) {
             self.end_sequence()?;
-            Ok(Compound::Seq {
-                ser: self,
-                info: CompoundInfo::empty(indent),
-            })
+            Ok(Compound::empty(self))
         } else {
-            Ok(Compound::Seq {
-                ser: self,
-                info: CompoundInfo::first(indent),
-            })
+            Ok(Compound::first(self))
         }
     }
 
@@ -869,15 +862,9 @@ where
         let indent = self.indent_pos;
         if len == Some(0) {
             self.end_object()?;
-            Ok(Compound::Map {
-                ser: self,
-                info: CompoundInfo::empty(indent),
-            })
+            Ok(Compound::empty(self))
         } else {
-            Ok(Compound::Map {
-                ser: self,
-                info: CompoundInfo::first(indent),
-            })
+            Ok(Compound::first(self))
         }
     }
 
@@ -919,51 +906,55 @@ pub enum CompoundState {
 #[derive(Eq, PartialEq)]
 pub struct CompoundInfo {
     state: CompoundState,
+    prev_state: SerializerState,
     current_is_collection: bool,
     indent: u32,
+    seq: bool,
 }
 
 impl CompoundInfo {
-    fn first(indent: u32) -> Self {
-        CompoundInfo {
-            current_is_collection: false,
-            state: CompoundState::First,
-            indent,
-        }
-    }
-    fn empty(indent: u32) -> Self {
-        CompoundInfo {
-            state: CompoundState::Empty,
-            current_is_collection: false,
-            indent,
-        }
-    }
-
     fn is_first(&self) -> bool {
         matches!(self.state, CompoundState::First)
     }
 }
 
 #[doc(hidden)]
-pub enum Compound<'a, W: Write> {
-    Map {
-        ser: &'a mut YamSerializer<W>,
-        info: CompoundInfo,
-    },
-    Seq {
-        ser: &'a mut YamSerializer<W>,
-        info: CompoundInfo,
-    },
+pub struct Compound<'a, W: Write> {
+    ser: &'a mut YamSerializer<W>,
+    info: CompoundInfo,
 }
 
 impl<'a, W: Write> Compound<'a, W> {
+    pub(crate) fn empty(ser: &'a mut YamSerializer<W>) -> Self {
+        let prev_state = ser.serializer_state.clone();
+        Compound {
+            ser,
+            info: CompoundInfo {
+                state: CompoundState::Empty,
+                prev_state,
+                current_is_collection: false,
+                indent: 0,
+                seq: false,
+            },
+        }
+    }
+
+    pub(crate) fn first(ser: &'a mut YamSerializer<W>) -> Self {
+        let prev_state = ser.serializer_state.clone();
+        Compound {
+            ser,
+            info: CompoundInfo {
+                state: CompoundState::First,
+                prev_state,
+                current_is_collection: false,
+                indent: 0,
+                seq: false,
+            },
+        }
+    }
     #[inline]
     pub(crate) fn set_current_is_collection(&mut self, is_collection: bool) {
-        match self {
-            Compound::Map { ser, info } | Compound::Seq { ser, info } => {
-                info.current_is_collection = is_collection;
-            }
-        }
+        self.info.current_is_collection = is_collection;
     }
 }
 
@@ -979,22 +970,16 @@ where
     where
         T: ?Sized + Serialize,
     {
-        match self {
-            Compound::Map { ser, info } | Compound::Seq { ser, info } => {
-                ser.begin_sequence_value(info)?;
-                info.state = CompoundState::Rest;
-                value.serialize(&mut **ser)?;
-                ser.end_sequence_value()
-            }
-        }
+        self.ser.begin_sequence_value(&self.info)?;
+        self.info.state = CompoundState::Rest;
+        value.serialize(&mut *self.ser)?;
+        self.ser.end_sequence_value()
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        match self {
-            Compound::Map { ser, info } | Compound::Seq { ser, info } => match info.state {
-                CompoundState::Empty => Ok(()),
-                _ => ser.end_sequence(),
-            },
+        match self.info.state {
+            CompoundState::Empty => Ok(()),
+            _ => self.ser.end_sequence(),
         }
     }
 }
@@ -1010,13 +995,9 @@ where
     where
         T: ?Sized + Serialize,
     {
-        match self {
-            Compound::Map { ser, info, .. } | Compound::Seq { ser, info, .. } => {
-                ser.begin_object_key(info.is_first())?;
-                key.serialize(&mut **ser)?;
-                ser.end_object_key()?;
-            }
-        }
+        self.ser.begin_object_key(self.info.is_first())?;
+        key.serialize(&mut *self.ser)?;
+        self.ser.end_object_key()?;
 
         Ok(())
     }
@@ -1025,22 +1006,16 @@ where
     where
         T: ?Sized + Serialize,
     {
-        match self {
-            Compound::Map { ser, info } | Compound::Seq { ser, info } => {
-                ser.begin_object_value(false)?;
-                value.serialize(&mut **ser)?;
-                info.state = CompoundState::Rest;
-                ser.end_object_value()
-            }
-        }
+        self.ser.begin_object_value(false)?;
+        value.serialize(&mut *self.ser)?;
+        self.info.state = CompoundState::Rest;
+        self.ser.end_object_value()
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        match self {
-            Compound::Map { ser, info } | Compound::Seq { ser, info } => match info.state {
-                CompoundState::Empty => Ok(()),
-                _ => ser.end_object_value(),
-            },
+        match self.info.state {
+            CompoundState::Empty => Ok(()),
+            _ => self.ser.end_object_value(),
         }
     }
 }
