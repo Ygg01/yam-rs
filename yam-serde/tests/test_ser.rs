@@ -1,6 +1,6 @@
 use core::fmt::Error;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use yam_serde::ser::PrettyFormatterConfig;
 use yam_serde::to_pretty_string;
 
@@ -86,4 +86,50 @@ fn test_serialize_simple_key() {
 
     let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(SIMPLE_MAP_EXPECTED.to_string()));
+}
+
+const SIMPLE_STRUCT_EXPECTED: &str = r#"num: 3
+string: test"#;
+
+#[test]
+fn test_serialize_struct() {
+    #[derive(Serialize, Eq, Hash, PartialEq)]
+    struct Example {
+        num: i16,
+        string: String,
+    }
+
+    let strct = Example {
+        num: 3,
+        string: "test".to_string(),
+    };
+    let result = to_pretty_string(&strct, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(SIMPLE_STRUCT_EXPECTED.to_string()));
+}
+
+const COMPLEX_STRUCT_EXPECTED: &str = r#"v:
+  - - 0
+m:
+  ? val: 1
+  : 3"#;
+
+#[test]
+fn test_serialize_complex_struct() {
+    #[derive(Serialize)]
+    struct Measurement {
+        v: Vec<Vec<u8>>,
+        m: HashMap<Inner, i64>,
+    }
+
+    #[derive(Serialize, Eq, Hash, PartialEq)]
+    struct Inner {
+        val: i16,
+    }
+
+    let cmplx = Measurement {
+        v: vec![vec![0]],
+        m: HashMap::from([(Inner { val: 1 }, 3)]),
+    };
+    let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
 }

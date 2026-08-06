@@ -1,7 +1,7 @@
 use crate::binary;
-use crate::escape_str::{CanBeScalar, escape_double_quotes, peekz_byte};
+use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
 use alloc::borrow::Cow;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
 use ser::{SerializeSeq, Serializer};
@@ -106,6 +106,7 @@ pub struct YamSerializer<W> {
     pub(crate) indentor_len: u32,
     complex_key_prefix: String,
     serializer_state: SerializerState,
+    key_value_separator: String,
 }
 
 impl<W> YamSerializer<W>
@@ -128,14 +129,19 @@ where
             indentor_len: indentor_size,
             complex_key_prefix: String::new(),
             serializer_state: SerializerState::Root,
+            key_value_separator: String::new(),
         }
     }
 
     #[inline]
     pub(crate) fn use_block_form(&mut self) -> bool {
-        if self.current_depth <= self.formatter.block_depth_limit {
+        let switch_to_flow = self.current_depth > self.formatter.block_depth_limit;
+        if switch_to_flow && self.serializer_state.is_block_form() {
+            self.serializer_state = SerializerState::Flow;
+        } else if !switch_to_flow && !self.serializer_state.is_block_form() {
             self.serializer_state = SerializerState::Block;
         }
+
         self.serializer_state.is_block_form()
     }
 
@@ -204,9 +210,6 @@ where
 
     #[inline]
     pub(crate) fn end_sequence_value(&mut self) -> Result<(), Error> {
-        if self.use_block_form() {
-            self.write_nl()?;
-        }
         Ok(())
     }
 
@@ -234,14 +237,25 @@ where
 
     #[inline]
     pub(crate) fn end_object_key(&mut self) -> Result<(), Error> {
+        self.complex_key_prefix.clear();
+        if !self.serializer_state.is_explicit_map() {
+            self.key_value_separator = ": ".to_string();
+        }
         Ok(())
     }
 
-    pub(crate) fn begin_object_value(&mut self, is_first: bool) -> Result<(), Error> {
+    pub(crate) fn begin_object_value(&mut self, is_collection: bool) -> Result<(), Error> {
         if self.serializer_state.is_explicit_map() {
             self.write_indent(self.current_depth.saturating_sub(1))?;
+            self.complex_key_prefix = "".to_string();
+        } else if is_collection {
+            self.write_ascii(":")?;
+            self.write_indent(self.current_depth)?;
+            self.key_value_separator = "".to_string();
         }
-        self.write_ascii(": ")?;
+        self.serializer_state = SerializerState::Block;
+        self.write_separtor()?;
+
         Ok(())
     }
 
@@ -301,6 +315,12 @@ where
     fn write_ascii(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
         self.indent_pos += str.len() as u32;
+        res
+    }
+
+    fn write_separtor(&mut self) -> Result<(), Error> {
+        let res = self.writer.write_str(&*self.key_value_separator);
+        self.indent_pos += self.key_value_separator.len() as u32;
         res
     }
 
@@ -461,54 +481,6 @@ where
     }
 }
 
-pub(crate) fn escape_single_quotes<W: Write>(writer: &mut W, value: &str) -> Result<(), Error> {
-    let bytes = value.as_bytes();
-
-    let (mut old_pos, mut pos) = (0, 0);
-    while pos < bytes.len() {
-        let byte_char = bytes[pos];
-        let peek_char = peekz_byte(bytes, pos + 1);
-        match (byte_char, peek_char) {
-            (b'\'', _) => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                write!(writer, "''")?;
-                pos += 1;
-                old_pos = pos;
-            }
-            (b'\t', _) => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                write!(writer, "\\t")?;
-                pos += 1;
-                old_pos = pos;
-            }
-            (b'\r', b'\n') => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                write!(writer, "\\n")?;
-                pos += 2;
-                old_pos = pos;
-            }
-            (b'\n', ..) => {
-                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-                writer.write_str(prev_str)?;
-                write!(writer, "\\n")?;
-                pos += 1;
-                old_pos = pos;
-            }
-            _ => {
-                pos += 1;
-            }
-        }
-    }
-    if pos != old_pos {
-        let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-        writer.write_str(prev_str)?;
-    }
-    Ok(())
-}
-
 impl<W> YamSerializer<W> {
     #[inline]
     pub fn new_simple(writer: W) -> Self {
@@ -518,8 +490,9 @@ impl<W> YamSerializer<W> {
             indent_pos: 0,
             indentor_len: 0,
             current_depth: 0,
-            complex_key_prefix: String::new(),
+            complex_key_prefix: String::with_capacity(2),
             serializer_state: Default::default(),
+            key_value_separator: String::with_capacity(2),
         }
     }
 }
@@ -838,7 +811,7 @@ where
         self.serialize_str(variant)?;
         self.end_object_key()?;
 
-        self.begin_object_value(true)?;
+        self.begin_object_value(false)?;
         value.serialize(&mut *self)?;
         self.end_object_value()?;
 
@@ -853,14 +826,12 @@ where
             self.end_sequence()?;
             Ok(Compound::Seq {
                 ser: self,
-                indent,
-                state: CompoundState::Empty,
+                info: CompoundInfo::empty(indent),
             })
         } else {
             Ok(Compound::Seq {
                 ser: self,
-                indent,
-                state: CompoundState::First,
+                info: CompoundInfo::first(indent),
             })
         }
     }
@@ -888,7 +859,7 @@ where
         self.begin_object_key(true)?;
         self.serialize_str(name)?;
         self.end_object_key()?;
-        self.begin_object_value(true)?;
+        self.begin_object_value(false)?;
         self.serialize_seq(Some(len))
     }
 
@@ -899,14 +870,12 @@ where
             self.end_object()?;
             Ok(Compound::Map {
                 ser: self,
-                indent,
-                state: CompoundState::Empty,
+                info: CompoundInfo::empty(indent),
             })
         } else {
             Ok(Compound::Map {
                 ser: self,
-                indent,
-                state: CompoundState::First,
+                info: CompoundInfo::first(indent),
             })
         }
     }
@@ -923,16 +892,16 @@ where
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         self.begin_object()?;
 
         self.begin_object_key(true)?;
-        self.serialize_str(_variant)?;
+        self.serialize_str(variant)?;
         self.end_object_key()?;
 
-        self.begin_object_value(true)?;
+        self.begin_object_value(false)?;
         self.serialize_map(Some(len))
     }
 }
@@ -945,23 +914,48 @@ pub enum CompoundState {
     Rest,
 }
 
-impl CompoundState {
+#[doc(hidden)]
+#[derive(Eq, PartialEq)]
+pub struct CompoundInfo {
+    state: CompoundState,
+    current_is_collection: bool,
+    indent: u32,
+}
+
+impl CompoundInfo {
+    fn first(indent: u32) -> Self {
+        CompoundInfo {
+            current_is_collection: false,
+            state: CompoundState::First,
+            indent,
+        }
+    }
+    fn empty(indent: u32) -> Self {
+        CompoundInfo {
+            state: CompoundState::Empty,
+            current_is_collection: false,
+            indent,
+        }
+    }
+
     fn is_first(&self) -> bool {
-        matches!(self, CompoundState::First)
+        matches!(self.state, CompoundState::First)
+    }
+
+    fn is_collection(&self) -> bool {
+        self.current_is_collection
     }
 }
 
 #[doc(hidden)]
-pub enum Compound<'a, W> {
+pub enum Compound<'a, W: Write> {
     Map {
-        indent: u32,
         ser: &'a mut YamSerializer<W>,
-        state: CompoundState,
+        info: CompoundInfo,
     },
     Seq {
-        indent: u32,
         ser: &'a mut YamSerializer<W>,
-        state: CompoundState,
+        info: CompoundInfo,
     },
 }
 
@@ -978,9 +972,9 @@ where
         T: ?Sized + Serialize,
     {
         match self {
-            Compound::Map { ser, state, indent } | Compound::Seq { ser, state, indent } => {
-                ser.begin_sequence_value(*state == CompoundState::First, *indent)?;
-                *state = CompoundState::Rest;
+            Compound::Map { ser, info } | Compound::Seq { ser, info } => {
+                ser.begin_sequence_value(info.is_first(), info.indent)?;
+                info.state = CompoundState::Rest;
                 value.serialize(&mut **ser)?;
                 ser.end_sequence_value()
             }
@@ -989,7 +983,7 @@ where
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
         match self {
-            Compound::Map { ser, state, .. } | Compound::Seq { ser, state, .. } => match state {
+            Compound::Map { ser, info } | Compound::Seq { ser, info } => match info.state {
                 CompoundState::Empty => Ok(()),
                 _ => ser.end_sequence(),
             },
@@ -1009,13 +1003,8 @@ where
         T: ?Sized + Serialize,
     {
         match self {
-            Compound::Map { ser, state, .. } => {
-                ser.begin_object_key(state.is_first())?;
-                key.serialize(&mut **ser)?;
-                ser.end_object_key()?;
-            }
-            Compound::Seq { ser, state, .. } => {
-                ser.begin_object_key(state.is_first())?;
+            Compound::Map { ser, info, .. } | Compound::Seq { ser, info, .. } => {
+                ser.begin_object_key(info.is_first())?;
                 key.serialize(&mut **ser)?;
                 ser.end_object_key()?;
             }
@@ -1029,10 +1018,10 @@ where
         T: ?Sized + Serialize,
     {
         match self {
-            Compound::Map { ser, state, .. } | Compound::Seq { ser, state, .. } => {
-                ser.begin_object_value(state.is_first())?;
+            Compound::Map { ser, info } | Compound::Seq { ser, info } => {
+                ser.begin_object_value(info.is_collection())?;
                 value.serialize(&mut **ser)?;
-                *state = CompoundState::Rest;
+                info.state = CompoundState::Rest;
                 ser.end_object_value()
             }
         }
@@ -1040,7 +1029,7 @@ where
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
         match self {
-            Compound::Map { ser, state, .. } | Compound::Seq { ser, state, .. } => match state {
+            Compound::Map { ser, info } | Compound::Seq { ser, info } => match info.state {
                 CompoundState::Empty => Ok(()),
                 _ => ser.end_object_value(),
             },
@@ -1048,7 +1037,10 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTuple for Compound<'a, W> {
+impl<'a, W> ser::SerializeTuple for Compound<'a, W>
+where
+    W: Write,
+{
     type Ok = ();
     type Error = Error;
 
@@ -1064,7 +1056,10 @@ impl<'a, W> ser::SerializeTuple for Compound<'a, W> {
     }
 }
 
-impl<'a, W> ser::SerializeTupleStruct for Compound<'a, W> {
+impl<'a, W> ser::SerializeTupleStruct for Compound<'a, W>
+where
+    W: Write,
+{
     type Ok = ();
     type Error = Error;
 
@@ -1080,23 +1075,31 @@ impl<'a, W> ser::SerializeTupleStruct for Compound<'a, W> {
     }
 }
 
-impl<'a, W> SerializeStructVariant for Compound<'a, W> {
+impl<'a, W> SerializeStructVariant for Compound<'a, W>
+where
+    W: Write,
+{
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        self.serialize_key(key)?;
+        self.serialize_value(value)?;
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 }
 
-impl<'a, W> ser::SerializeTupleVariant for Compound<'a, W> {
+impl<'a, W> ser::SerializeTupleVariant for Compound<'a, W>
+where
+    W: Write,
+{
     type Ok = ();
     type Error = Error;
 
@@ -1112,18 +1115,23 @@ impl<'a, W> ser::SerializeTupleVariant for Compound<'a, W> {
     }
 }
 
-impl<'a, W> ser::SerializeStruct for Compound<'a, W> {
+impl<'a, W> ser::SerializeStruct for Compound<'a, W>
+where
+    W: Write,
+{
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        self.serialize_key(key)?;
+        self.serialize_value(value)?;
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 }
