@@ -169,7 +169,7 @@ where
             self.formatter.block_preferred_style
         };
 
-        // Plain style is one style which can't serialize a given string
+        // Plain style is one style that can't serialize a given string
         if preferred_style == ScalarType::Plain && !string.can_be_plain(in_flow_restricted) {
             preferred_style = self.formatter.flow_string_style.to_scalar_type();
         }
@@ -197,8 +197,9 @@ where
     }
 
     #[inline]
-    pub(crate) fn begin_sequence_value(&mut self, first: bool, indent: u32) -> Result<(), Error> {
-        self.write_to_indent(indent)?;
+    pub(crate) fn begin_sequence_value(&mut self, info: &CompoundInfo) -> Result<(), Error> {
+        let first = info.is_first();
+        self.write_to_indent(info.indent)?;
         if self.use_block_form() {
             self.write_ascii("- ")
         } else if !first && self.use_block_form() {
@@ -254,7 +255,7 @@ where
             self.key_value_separator = "".to_string();
         }
         self.serializer_state = SerializerState::Block;
-        self.write_separtor()?;
+        self.write_separator()?;
 
         Ok(())
     }
@@ -318,8 +319,8 @@ where
         res
     }
 
-    fn write_separtor(&mut self) -> Result<(), Error> {
-        let res = self.writer.write_str(&*self.key_value_separator);
+    fn write_separator(&mut self) -> Result<(), Error> {
+        let res = self.writer.write_str(&self.key_value_separator);
         self.indent_pos += self.key_value_separator.len() as u32;
         res
     }
@@ -550,7 +551,7 @@ pub struct PrettyFormatterConfig {
 
     pub key_preferred_style: ScalarType,
 
-    /// Whether to prefer string to fit in single line
+    /// Whether to prefer string to fit in a single line
     pub compat_strings: bool,
 }
 
@@ -941,10 +942,6 @@ impl CompoundInfo {
     fn is_first(&self) -> bool {
         matches!(self.state, CompoundState::First)
     }
-
-    fn is_collection(&self) -> bool {
-        self.current_is_collection
-    }
 }
 
 #[doc(hidden)]
@@ -957,6 +954,17 @@ pub enum Compound<'a, W: Write> {
         ser: &'a mut YamSerializer<W>,
         info: CompoundInfo,
     },
+}
+
+impl<'a, W: Write> Compound<'a, W> {
+    #[inline]
+    pub(crate) fn set_current_is_collection(&mut self, is_collection: bool) {
+        match self {
+            Compound::Map { ser, info } | Compound::Seq { ser, info } => {
+                info.current_is_collection = is_collection;
+            }
+        }
+    }
 }
 
 impl<'a, W> SerializeSeq for Compound<'a, W>
@@ -973,7 +981,7 @@ where
     {
         match self {
             Compound::Map { ser, info } | Compound::Seq { ser, info } => {
-                ser.begin_sequence_value(info.is_first(), info.indent)?;
+                ser.begin_sequence_value(info)?;
                 info.state = CompoundState::Rest;
                 value.serialize(&mut **ser)?;
                 ser.end_sequence_value()
@@ -1019,7 +1027,7 @@ where
     {
         match self {
             Compound::Map { ser, info } | Compound::Seq { ser, info } => {
-                ser.begin_object_value(info.is_collection())?;
+                ser.begin_object_value(false)?;
                 value.serialize(&mut **ser)?;
                 info.state = CompoundState::Rest;
                 ser.end_object_value()
@@ -1086,6 +1094,7 @@ where
     where
         T: ?Sized + Serialize,
     {
+        self.set_current_is_collection(true);
         self.serialize_key(key)?;
         self.serialize_value(value)?;
         Ok(())
