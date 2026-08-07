@@ -122,12 +122,13 @@ impl SerializerState {
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
-    pub(crate) indent_pos: u32,
-    pub(crate) current_depth: u32,
+    indent_pos: u32,
+    current_depth: u32,
     /// Pretty configuration option for formatting
-    pub(crate) formatter: PrettyFormatterConfig,
-    pub(crate) indentor_len: u32,
+    formatter: PrettyFormatterConfig,
+    indentor_len: u32,
     complex_key_prefix: String,
+    key_val_separator: String,
     serializer_state: SerializerState,
 }
 
@@ -160,6 +161,7 @@ pub fn push_indent_to_writer<W: Write>(
     indent: u32,
     indentor: &str,
 ) -> Result<u32, Error> {
+    writer.write_char('\n')?;
     let corrected_indent = indent.saturating_sub(1);
     for _ in 0..corrected_indent {
         writer.write_str(indentor)?;
@@ -186,6 +188,7 @@ where
             current_depth: 1,
             indentor_len: indentor_size,
             complex_key_prefix: String::new(),
+            key_val_separator: String::new(),
             serializer_state: SerializerState::Block,
         }
     }
@@ -307,8 +310,11 @@ where
 
     pub(crate) fn begin_object_value(&mut self, is_collection: bool) -> Result<(), Error> {
         // To begin object value we must write a key_value separator
-        let mut str = String::with_capacity(4);
+        let mut str =
+            String::with_capacity(self.current_depth.saturating_mul(self.indentor_len) as usize);
         let mut new_pos = self.indent_pos;
+
+        // ZZZ
         let kv_sep_style = self.get_key_value_separator_style(is_collection);
 
         match kv_sep_style {
@@ -448,7 +454,6 @@ where
     /// # Example
     ///
     fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
-        self.writer.write_char('\n')?;
         let corrected_indent =
             push_indent_to_writer(&mut self.writer, indent, &self.formatter.indentor)?;
         self.indent_pos = corrected_indent * self.indentor_len;
@@ -568,6 +573,7 @@ impl<W> YamSerializer<W> {
             indentor_len: 0,
             current_depth: 0,
             complex_key_prefix: String::with_capacity(2),
+            key_val_separator: String::new(),
             serializer_state: Default::default(),
         }
     }
@@ -1082,7 +1088,8 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.ser.begin_object_value(false)?;
+        self.ser
+            .begin_object_value(self.info.current_is_collection)?;
         value.serialize(&mut *self.ser)?;
         self.info.state = CompoundState::Rest;
         self.ser.end_object_value()
