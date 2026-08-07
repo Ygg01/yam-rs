@@ -1,7 +1,7 @@
 use crate::binary;
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
 use alloc::borrow::Cow;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
 use ser::{SerializeSeq, Serializer};
@@ -48,25 +48,42 @@ impl YamlWhitespace for str {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 enum SerializerState {
     #[default]
-    Root,
     Block,
     Flow,
     ExplicitKey,
     ExplicitValue,
     FlowKey,
+    FlowValue,
+    BlockValue,
     BlockKey,
 }
 
 impl SerializerState {
-    #[inline]
-    pub(crate) fn switch_to_base(&self) {
-        todo!()
+    pub(crate) fn switch_to_explicit(&mut self) -> bool {
+        match self {
+            SerializerState::BlockKey => {
+                *self = SerializerState::ExplicitKey;
+            }
+            SerializerState::BlockValue => {
+                *self = SerializerState::ExplicitValue;
+            }
+            _ => {}
+        }
+        matches!(
+            self,
+            SerializerState::ExplicitKey | SerializerState::ExplicitValue
+        )
     }
+
     #[inline]
     fn is_block_form(&self) -> bool {
         matches!(
             self,
-            SerializerState::Block | SerializerState::ExplicitKey | SerializerState::BlockKey
+            SerializerState::BlockValue
+                | SerializerState::ExplicitKey
+                | SerializerState::BlockKey
+                | SerializerState::ExplicitValue
+                | SerializerState::Block
         )
     }
 
@@ -106,7 +123,42 @@ pub struct YamSerializer<W> {
     pub(crate) indentor_len: u32,
     complex_key_prefix: String,
     serializer_state: SerializerState,
-    key_value_separator: String,
+}
+
+#[doc(hidden)]
+/// Writes a specified level of indentation to a given writer using a specified indentor string.
+///
+/// # Parameters
+/// - `writer`: A mutable reference to an object implementing the `Write` trait,
+///   where the indentation will be written.
+/// - `indent`: The desired number of indentation levels. If this value is 1, no
+///   indentation will be written.
+/// - `indentor`: The string used to represent a single level of indentation,
+///   such as `"    "` or `"\t"`.
+///
+/// # Returns
+/// - `Result<u32, Error>`: Returns the number of bytes written
+///   (adjusted by subtracting 1 from the requested `indent` value) wrapped in `Ok`, or an error
+///   wrapped in `Err` if the write operation fails.
+///
+/// # Errors
+/// - Returns an error if writing to the `writer` fails, encapsulated in the `Error` type.
+///
+/// # Notes
+/// - This function ensures that the computed indentation level (`indent.saturating_sub(1)`) is
+///   non-negative, even if `indent` is 0.
+/// - The function writes the `indentor` string `corrected_indent` times to the given `writer`.
+///
+pub fn push_indent_to_writer<W: Write>(
+    writer: &mut W,
+    indent: u32,
+    indentor: &str,
+) -> Result<u32, Error> {
+    let corrected_indent = indent.saturating_sub(1);
+    for _ in 0..corrected_indent {
+        writer.write_str(indentor)?;
+    }
+    Ok(corrected_indent)
 }
 
 impl<W> YamSerializer<W>
@@ -128,8 +180,7 @@ where
             current_depth: 1,
             indentor_len: indentor_size,
             complex_key_prefix: String::new(),
-            serializer_state: SerializerState::Root,
-            key_value_separator: String::new(),
+            serializer_state: SerializerState::Block,
         }
     }
 
@@ -139,7 +190,7 @@ where
         if switch_to_flow && self.serializer_state.is_block_form() {
             self.serializer_state = SerializerState::Flow;
         } else if !switch_to_flow && !self.serializer_state.is_block_form() {
-            self.serializer_state = SerializerState::Block;
+            self.serializer_state = SerializerState::BlockValue;
         }
 
         self.serializer_state.is_block_form()
@@ -197,12 +248,18 @@ where
     }
 
     #[inline]
-    pub(crate) fn begin_sequence_value(&mut self, info: &CompoundInfo) -> Result<(), Error> {
+    pub(crate) fn begin_sequence_value(&mut self, info: &mut CompoundInfo) -> Result<(), Error> {
         let first = info.is_first();
-        self.write_to_indent(info.indent)?;
-        if self.use_block_form() {
+        let use_block_form = self.use_block_form() && self.serializer_state.switch_to_explicit();
+
+        if !first {
+            self.write_to_pos(info.pos)?;
+        } else {
+            info.pos = self.indent_pos;
+        }
+        if use_block_form {
             self.write_ascii("- ")
-        } else if !first && self.use_block_form() {
+        } else if !first && use_block_form {
             self.write_ascii(",")
         } else {
             Ok(())
@@ -239,24 +296,26 @@ where
     #[inline]
     pub(crate) fn end_object_key(&mut self) -> Result<(), Error> {
         self.complex_key_prefix.clear();
-        if !self.serializer_state.is_explicit_map() {
-            self.key_value_separator = ": ".to_string();
-        }
         Ok(())
     }
 
     pub(crate) fn begin_object_value(&mut self, is_collection: bool) -> Result<(), Error> {
-        if self.serializer_state.is_explicit_map() {
-            self.write_indent(self.current_depth.saturating_sub(1))?;
-            self.complex_key_prefix = "".to_string();
-        } else if is_collection {
-            self.write_ascii(":")?;
-            self.write_indent(self.current_depth)?;
-            self.key_value_separator = "".to_string();
-        }
-        self.serializer_state = SerializerState::Block;
-        self.write_separator()?;
+        // To begin object value we must write a key_value separator
+        let mut str = String::with_capacity(4);
+        let mut new_pos = self.indent_pos;
 
+        if self.serializer_state.is_explicit_map() {
+            str.push_str("\n: ");
+            new_pos = 2;
+        } else if is_collection {
+            str.push_str(":\n");
+            // ZZZZ
+            new_pos = 2;
+        }
+
+        self.serializer_state = SerializerState::BlockValue;
+        self.writer.write_str(&str)?;
+        self.indent_pos = new_pos;
         Ok(())
     }
 
@@ -319,12 +378,6 @@ where
         res
     }
 
-    fn write_separator(&mut self) -> Result<(), Error> {
-        let res = self.writer.write_str(&self.key_value_separator);
-        self.indent_pos += self.key_value_separator.len() as u32;
-        res
-    }
-
     #[inline]
     fn write_nl(&mut self) -> Result<(), Error> {
         let res = self.writer.write_char('\n');
@@ -338,12 +391,12 @@ where
         Ok(())
     }
 
-    fn write_to_indent(&mut self, indent: u32) -> Result<(), Error> {
-        if indent > self.indent_pos {
-            let diff = (indent - self.indent_pos) as usize;
-            let indent = " ".repeat(diff);
-            self.writer.write_str(&indent)?;
-        }
+    fn write_to_pos(&mut self, pos: u32) -> Result<(), Error> {
+        self.writer.write_char('\n')?;
+        let indent = " ".repeat(pos as usize);
+        self.writer.write_str(&indent)?;
+        self.indent_pos = pos;
+
         Ok(())
     }
 
@@ -382,10 +435,8 @@ where
     ///
     fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
         self.writer.write_char('\n')?;
-        let corrected_indent = indent.saturating_sub(1);
-        for _ in 0..corrected_indent {
-            self.writer.write_str(&self.formatter.indentor)?;
-        }
+        let corrected_indent =
+            push_indent_to_writer(&mut self.writer, indent, &self.formatter.indentor)?;
         self.indent_pos = corrected_indent * self.indentor_len;
         Ok(())
     }
@@ -493,7 +544,6 @@ impl<W> YamSerializer<W> {
             current_depth: 0,
             complex_key_prefix: String::with_capacity(2),
             serializer_state: Default::default(),
-            key_value_separator: String::with_capacity(2),
         }
     }
 }
@@ -511,7 +561,7 @@ pub enum NullFormat {
     /// example: !!null null
     /// ```
     TaggedYaml,
-    /// Null that's just an empty yaml.
+    /// Null that's just an empty YAML.
     /// ```yaml
     /// example: # the value of null key is null.
     /// ```
@@ -543,7 +593,7 @@ pub struct PrettyFormatterConfig {
     /// How to format a string in block style
     pub block_preferred_style: ScalarType,
 
-    /// How to format a string in root
+    /// How to format a string in a root
     pub root_preferred_style: ScalarType,
 
     /// How to format a string in block style
@@ -859,7 +909,6 @@ where
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         self.begin_object()?;
-        let indent = self.indent_pos;
         if len == Some(0) {
             self.end_object()?;
             Ok(Compound::empty(self))
@@ -908,7 +957,7 @@ pub struct CompoundInfo {
     state: CompoundState,
     prev_state: SerializerState,
     current_is_collection: bool,
-    indent: u32,
+    pos: u32,
     seq: bool,
 }
 
@@ -926,28 +975,30 @@ pub struct Compound<'a, W: Write> {
 
 impl<'a, W: Write> Compound<'a, W> {
     pub(crate) fn empty(ser: &'a mut YamSerializer<W>) -> Self {
-        let prev_state = ser.serializer_state.clone();
+        let prev_state = ser.serializer_state;
+        let pos = ser.indent_pos;
         Compound {
             ser,
             info: CompoundInfo {
                 state: CompoundState::Empty,
                 prev_state,
                 current_is_collection: false,
-                indent: 0,
+                pos,
                 seq: false,
             },
         }
     }
 
     pub(crate) fn first(ser: &'a mut YamSerializer<W>) -> Self {
-        let prev_state = ser.serializer_state.clone();
+        let prev_state = ser.serializer_state;
+        let pos = ser.indent_pos;
         Compound {
             ser,
             info: CompoundInfo {
                 state: CompoundState::First,
                 prev_state,
                 current_is_collection: false,
-                indent: 0,
+                pos,
                 seq: false,
             },
         }
@@ -970,7 +1021,7 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.ser.begin_sequence_value(&self.info)?;
+        self.ser.begin_sequence_value(&mut self.info)?;
         self.info.state = CompoundState::Rest;
         value.serialize(&mut *self.ser)?;
         self.ser.end_sequence_value()
