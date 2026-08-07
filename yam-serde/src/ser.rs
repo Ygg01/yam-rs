@@ -102,27 +102,44 @@ impl SerializerState {
 
     pub(crate) fn switch_to_key(&mut self) {
         *self = match self {
-            SerializerState::Block => SerializerState::BlockKey,
-            SerializerState::Flow => SerializerState::FlowKey,
-            SerializerState::ExplicitKey => SerializerState::ExplicitKey,
-            SerializerState::ExplicitValue => SerializerState::ExplicitKey,
-            SerializerState::FlowKey => SerializerState::FlowKey,
-            SerializerState::FlowValue => SerializerState::FlowKey,
-            SerializerState::BlockValue => SerializerState::BlockKey,
-            SerializerState::BlockKey => SerializerState::BlockKey,
+            SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
+                SerializerState::BlockKey
+            }
+            SerializerState::Flow | SerializerState::FlowKey | SerializerState::FlowValue => {
+                SerializerState::FlowKey
+            }
+            SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
+                SerializerState::ExplicitKey
+            }
         }
     }
 
     pub(crate) fn switch_to_value(&mut self) {
         *self = match self {
-            SerializerState::Block => SerializerState::BlockValue,
-            SerializerState::Flow => SerializerState::FlowValue,
-            SerializerState::ExplicitKey => SerializerState::ExplicitValue,
-            SerializerState::ExplicitValue => SerializerState::ExplicitValue,
-            SerializerState::FlowKey => SerializerState::FlowValue,
-            SerializerState::FlowValue => SerializerState::FlowValue,
-            SerializerState::BlockValue => SerializerState::BlockValue,
-            SerializerState::BlockKey => SerializerState::BlockValue,
+            SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
+                SerializerState::BlockValue
+            }
+            SerializerState::Flow | SerializerState::FlowKey | SerializerState::FlowValue => {
+                SerializerState::FlowValue
+            }
+            SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
+                SerializerState::ExplicitValue
+            }
+        }
+    }
+
+    pub(crate) fn switch_to_flow(&mut self) {
+        match self {
+            SerializerState::Block => {
+                *self = SerializerState::Flow;
+            }
+            SerializerState::ExplicitKey | SerializerState::BlockKey => {
+                *self = SerializerState::FlowKey;
+            }
+            SerializerState::ExplicitValue | SerializerState::BlockValue => {
+                *self = SerializerState::FlowValue;
+            }
+            _ => {}
         }
     }
 
