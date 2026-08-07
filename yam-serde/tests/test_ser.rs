@@ -114,7 +114,7 @@ m:
   : 3"#;
 
 #[test]
-fn test_serialize_complex_struct() {
+fn test_serialize_complex_value() {
     #[derive(Serialize)]
     struct Measurement {
         v: Vec<Vec<u8>>,

@@ -93,6 +93,39 @@ impl SerializerState {
         )
     }
 
+    pub(crate) fn is_in_map(&self) -> bool {
+        matches!(
+            self,
+            SerializerState::BlockValue | SerializerState::ExplicitValue
+        )
+    }
+
+    pub(crate) fn switch_to_key(&mut self) {
+        *self = match self {
+            SerializerState::Block => SerializerState::BlockKey,
+            SerializerState::Flow => SerializerState::FlowKey,
+            SerializerState::ExplicitKey => SerializerState::ExplicitKey,
+            SerializerState::ExplicitValue => SerializerState::ExplicitKey,
+            SerializerState::FlowKey => SerializerState::FlowKey,
+            SerializerState::FlowValue => SerializerState::FlowKey,
+            SerializerState::BlockValue => SerializerState::BlockKey,
+            SerializerState::BlockKey => SerializerState::BlockKey,
+        }
+    }
+
+    pub(crate) fn switch_to_value(&mut self) {
+        *self = match self {
+            SerializerState::Block => SerializerState::BlockValue,
+            SerializerState::Flow => SerializerState::FlowValue,
+            SerializerState::ExplicitKey => SerializerState::ExplicitValue,
+            SerializerState::ExplicitValue => SerializerState::ExplicitValue,
+            SerializerState::FlowKey => SerializerState::FlowValue,
+            SerializerState::FlowValue => SerializerState::FlowValue,
+            SerializerState::BlockValue => SerializerState::BlockValue,
+            SerializerState::BlockKey => SerializerState::BlockValue,
+        }
+    }
+
     #[inline]
     fn is_key(&self) -> bool {
         matches!(
@@ -196,9 +229,11 @@ where
     #[inline]
     pub(crate) fn use_block_form(&mut self) -> bool {
         let switch_to_flow = self.current_depth > self.formatter.block_depth_limit;
-        if switch_to_flow && self.serializer_state.is_block_form() {
-            self.serializer_state = SerializerState::Flow;
-        } else if !switch_to_flow && !self.serializer_state.is_block_form() {
+        let is_block_value = self.serializer_state.is_block_form();
+
+        if switch_to_flow && is_block_value {
+            self.serializer_state = SerializerState::FlowValue;
+        } else if !switch_to_flow && !is_block_value {
             self.serializer_state = SerializerState::BlockValue;
         }
 
@@ -298,7 +333,7 @@ where
         } else if !is_first && self.serializer_state.is_block_form() {
             self.write_nl()?;
         }
-        self.serializer_state = SerializerState::BlockKey;
+        self.serializer_state.switch_to_key();
         Ok(())
     }
 
@@ -308,13 +343,20 @@ where
         Ok(())
     }
 
-    pub(crate) fn begin_object_value(&mut self, is_collection: bool) -> Result<(), Error> {
+    pub(crate) fn begin_object_value(&mut self) -> Result<(), Error> {
+        self.serializer_state.switch_to_value();
+        Ok(())
+    }
+
+    pub(crate) fn prepend_key_val_separator(&mut self, is_collection: bool) -> Result<(), Error> {
+        if !self.serializer_state.is_in_map() {
+            return Ok(());
+        }
         // To begin object value we must write a key_value separator
         let mut str =
             String::with_capacity(self.current_depth.saturating_mul(self.indentor_len) as usize);
         let mut new_pos = self.indent_pos;
 
-        // ZZZ
         let kv_sep_style = self.get_key_value_separator_style(is_collection);
 
         match kv_sep_style {
@@ -333,7 +375,6 @@ where
             }
         }
 
-        self.serializer_state = SerializerState::BlockValue;
         self.writer.write_str(&str)?;
         self.indent_pos = new_pos;
         Ok(())
@@ -705,6 +746,7 @@ where
     type SerializeStructVariant = Compound<'a, W>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         let str = if v { "true" } else { "false" };
         self.writer.write_str(str)?;
         self.indent_pos += str.len() as u32;
@@ -712,38 +754,47 @@ where
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.serialize_nums(v)
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         if v.is_nan() && v.is_sign_negative() {
             write!(self.writer, "-")?;
         }
@@ -754,6 +805,7 @@ where
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         if v.is_nan() && v.is_sign_negative() {
             write!(self.writer, "-")?;
         }
@@ -764,6 +816,7 @@ where
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         let string_chr = if v == '\'' { '"' } else { '\'' };
 
         self.writer.write_char(string_chr)?;
@@ -773,6 +826,7 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         let prefer_single_line = self.formatter.compat_strings;
         match self.preferred_string(v) {
             ScalarType::Plain => {
@@ -808,6 +862,7 @@ where
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(false)?;
         self.write_ascii("!!binary")?;
         let mut encoded_bytes = binary::encode_as_base64(v);
         if !self.use_block_form() {
@@ -843,12 +898,14 @@ where
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(true)?;
         self.writer.write_str(&self.formatter.null_format)?;
         self.indent_pos += self.formatter.null_format.len() as u32;
         Ok(())
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(true)?;
         self.write_ascii("{")?;
         self.write_ascii("}")?;
         Ok(())
@@ -860,6 +917,7 @@ where
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
+        self.prepend_key_val_separator(true)?;
         self.write_ascii("{")?;
         self.write_string(variant)?;
         self.write_ascii("}")?;
@@ -893,7 +951,7 @@ where
         self.serialize_str(variant)?;
         self.end_object_key()?;
 
-        self.begin_object_value(false)?;
+        self.begin_object_value()?;
         value.serialize(&mut *self)?;
         self.end_object_value()?;
 
@@ -934,11 +992,12 @@ where
         self.begin_object_key(true)?;
         self.serialize_str(name)?;
         self.end_object_key()?;
-        self.begin_object_value(false)?;
+        self.begin_object_value()?;
         self.serialize_seq(Some(len))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        self.prepend_key_val_separator(true)?;
         self.begin_object()?;
         if len == Some(0) {
             self.end_object()?;
@@ -969,7 +1028,7 @@ where
         self.serialize_str(variant)?;
         self.end_object_key()?;
 
-        self.begin_object_value(false)?;
+        self.begin_object_value()?;
         self.serialize_map(Some(len))
     }
 }
@@ -1088,8 +1147,7 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.ser
-            .begin_object_value(self.info.current_is_collection)?;
+        self.ser.begin_object_value()?;
         value.serialize(&mut *self.ser)?;
         self.info.state = CompoundState::Rest;
         self.ser.end_object_value()
