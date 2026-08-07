@@ -169,6 +169,15 @@ impl SerializerState {
 }
 
 #[derive(Debug, Default)]
+struct KeyValSeparator(String, u32);
+
+impl KeyValSeparator {
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
@@ -178,7 +187,7 @@ pub struct YamSerializer<W> {
     formatter: PrettyFormatterConfig,
     indentor_len: u32,
     complex_key_prefix: String,
-    key_val_separator: String,
+    key_val_separator: KeyValSeparator,
     serializer_state: SerializerState,
 }
 
@@ -238,7 +247,7 @@ where
             current_depth: 1,
             indentor_len: indentor_size,
             complex_key_prefix: String::new(),
-            key_val_separator: String::new(),
+            key_val_separator: KeyValSeparator::default(),
             serializer_state: SerializerState::Block,
         }
     }
@@ -374,8 +383,14 @@ where
         is_collection: bool,
         serializer_state: SerializerState,
     ) -> Result<(), Error> {
-        if !serializer_state.is_in_map() {
-            return Ok(());
+        self.set_key_val_separator(is_collection, serializer_state);
+        self.write_key_val_separator(serializer_state)?;
+        Ok(())
+    }
+
+    fn set_key_val_separator(&mut self, is_collection: bool, serializer_state: SerializerState) {
+        if !self.key_val_separator.is_empty() {
+            return;
         }
         // To begin object value we must write a key_value separator
         let mut str =
@@ -396,12 +411,22 @@ where
             KVSeparatorStyle::Newline => {
                 str.push(':');
                 new_pos =
-                    push_indent_to_writer(&mut str, self.current_depth, &self.formatter.indentor)?;
+                    push_indent_to_writer(&mut str, self.current_depth, &self.formatter.indentor)
+                        .unwrap_or(self.indent_pos + 1);
             }
         }
 
-        self.writer.write_str(&str)?;
-        self.indent_pos = new_pos;
+        self.key_val_separator = KeyValSeparator(str, new_pos);
+    }
+
+    fn write_key_val_separator(&mut self, serializer_state: SerializerState) -> Result<(), Error> {
+        if !serializer_state.is_in_map() || self.key_val_separator.is_empty() {
+            return Ok(());
+        }
+
+        self.writer.write_str(&self.key_val_separator.0)?;
+        self.indent_pos = self.key_val_separator.1;
+        self.key_val_separator = KeyValSeparator::default();
         Ok(())
     }
 
@@ -642,7 +667,7 @@ impl<W> YamSerializer<W> {
             indentor_len: 0,
             current_depth: 0,
             complex_key_prefix: String::with_capacity(2),
-            key_val_separator: String::new(),
+            key_val_separator: KeyValSeparator::default(),
             serializer_state: Default::default(),
         }
     }
@@ -1025,7 +1050,6 @@ where
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        // self.prepend_key_val_separator(true)?; //ZZZZ
         self.begin_object()?;
         if len == Some(0) {
             self.end_object()?;
@@ -1178,14 +1202,11 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.ser
-            .prepend_key_val_separator(true, self.ser.serializer_state)?;
+        // self.ser.prepend_key_val_separator(true, self.ser.serializer_state)?;
         self.ser.begin_object_value()?;
         value.serialize(&mut *self.ser)?;
         self.info.state = CompoundState::Rest;
         self.ser.end_object_value()?;
-        self.ser.serializer_state = self.info.prev_state;
-
         Ok(())
     }
 
