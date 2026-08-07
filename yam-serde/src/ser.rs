@@ -254,8 +254,6 @@ where
 
         if switch_to_flow && is_block_value {
             self.serializer_state = SerializerState::FlowValue;
-        } else if !switch_to_flow {
-            self.serializer_state.switch_to_key();
         }
 
         self.serializer_state.is_block_form()
@@ -309,13 +307,14 @@ where
         } else {
             self.write_prefix(self.complex_key_prefix.clone())?;
         }
+        self.serializer_state = SerializerState::Block;
         Ok(())
     }
 
     #[inline]
     pub(crate) fn begin_sequence_value(&mut self, info: &mut CompoundInfo) -> Result<(), Error> {
         let first = info.is_first();
-        let use_block_form = self.use_block_form() && self.serializer_state.switch_to_explicit();
+        let use_block_form = self.use_block_form();
 
         if !first {
             self.write_to_pos(info.pos)?;
@@ -1168,6 +1167,7 @@ where
         T: ?Sized + Serialize,
     {
         self.ser.begin_object_key(self.info.is_first())?;
+        self.info.prev_state = self.ser.serializer_state;
         key.serialize(&mut *self.ser)?;
         self.ser.end_object_key()?;
 
@@ -1178,10 +1178,15 @@ where
     where
         T: ?Sized + Serialize,
     {
+        self.ser
+            .prepend_key_val_separator(true, self.ser.serializer_state)?;
         self.ser.begin_object_value()?;
         value.serialize(&mut *self.ser)?;
         self.info.state = CompoundState::Rest;
-        self.ser.end_object_value()
+        self.ser.end_object_value()?;
+        self.ser.serializer_state = self.info.prev_state;
+
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
