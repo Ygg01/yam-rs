@@ -22,6 +22,12 @@ pub enum FlowStyle {
     SingleQuote,
 }
 
+pub enum KVSeparatorStyle {
+    Inline,
+    Explicit,
+    Newline,
+}
+
 impl FlowStyle {
     pub(crate) fn to_scalar_type(self) -> ScalarType {
         match self {
@@ -303,14 +309,22 @@ where
         // To begin object value we must write a key_value separator
         let mut str = String::with_capacity(4);
         let mut new_pos = self.indent_pos;
+        let kv_sep_style = self.get_key_value_separator_style(is_collection);
 
-        if self.serializer_state.is_explicit_map() {
-            str.push_str("\n: ");
-            new_pos = 2;
-        } else if is_collection {
-            str.push_str(":\n");
-            // ZZZZ
-            new_pos = 2;
+        match kv_sep_style {
+            KVSeparatorStyle::Inline => {
+                str.push_str(": ");
+                new_pos += 2;
+            }
+            KVSeparatorStyle::Explicit => {
+                str.push_str("\n: ");
+                new_pos = 2;
+            }
+            KVSeparatorStyle::Newline => {
+                str.push(':');
+                new_pos =
+                    push_indent_to_writer(&mut str, self.current_depth, &self.formatter.indentor)?;
+            }
         }
 
         self.serializer_state = SerializerState::BlockValue;
@@ -530,6 +544,17 @@ where
         self.indent_pos = line_buff_grapheme_len;
         self.write_ascii(suffix)?;
         Ok(())
+    }
+
+    #[inline]
+    fn get_key_value_separator_style(&self, in_collection: bool) -> KVSeparatorStyle {
+        if self.serializer_state.is_explicit_map() {
+            KVSeparatorStyle::Explicit
+        } else if in_collection {
+            KVSeparatorStyle::Newline
+        } else {
+            KVSeparatorStyle::Inline
+        }
     }
 }
 
