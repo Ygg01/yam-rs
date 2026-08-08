@@ -381,7 +381,7 @@ where
     }
 
     fn write_nspaces(&mut self, pos: u32) -> Result<(), Error> {
-        let indent = " ".repeat(pos as usize);
+        let indent = self.formatter.indentor.repeat(pos as usize);
         self.writer.write_str(&indent)?;
         self.indent_pos += pos;
 

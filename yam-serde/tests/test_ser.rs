@@ -149,7 +149,8 @@ fn test_list() {
 const NESTED_LIST_EXPECTED: &str = r#"- - 1
   - 2
 - - 3
-  - 4"#;
+  - 4
+"#;
 
 #[test]
 fn test_nested_list() {
