@@ -5,7 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
 use ser::{SerializeSeq, Serializer};
-use serde_core::ser::{SerializeMap, SerializeStructVariant, SerializeTupleVariant};
+use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
 use yam_core::prelude::ScalarType;
@@ -234,11 +234,11 @@ pub fn push_indent_to_writer<W: Write>(
     indent: u32,
     indentor: &str,
 ) -> Result<u32, Error> {
-    writer.write_char('\n')?;
-    for _ in 0..indent {
+    let corrected_indent = indent.saturating_sub(1);
+    for _ in 0..corrected_indent {
         writer.write_str(indentor)?;
     }
-    Ok(indent)
+    Ok(corrected_indent)
 }
 
 impl<W> YamSerializer<W>
@@ -422,6 +422,7 @@ where
     /// # Example
     ///
     fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
+        self.writer.write_char('\n')?;
         let corrected_indent =
             push_indent_to_writer(&mut self.writer, indent, &self.formatter.indentor)?;
         self.indent_pos = corrected_indent * self.indentor_len;
