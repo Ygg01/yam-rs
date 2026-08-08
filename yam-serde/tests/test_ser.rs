@@ -133,3 +133,15 @@ fn test_serialize_complex_value() {
     let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
 }
+
+const LIST_EXPECTED: &str = r#"- 2
+- 3
+- 4
+"#;
+
+#[test]
+fn test_list() {
+    let example = vec![2, 3, 4];
+    let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(LIST_EXPECTED.to_string()));
+}
