@@ -147,13 +147,13 @@ fn test_list() {
 }
 
 const NESTED_LIST_EXPECTED: &str = r#"- - 1
-- - 2
-  - 3
+  - 2
+- - 3
   - 4"#;
 
 #[test]
 fn test_nested_list() {
-    let example = vec![vec![1], vec![2, 3, 4]];
+    let example = vec![vec![1, 2], vec![3, 4]];
 
     let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(NESTED_LIST_EXPECTED.to_string()));
