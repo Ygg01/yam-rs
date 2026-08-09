@@ -1032,9 +1032,7 @@ trait YamlSerializerTrait {
     where
         T: ?Sized + Serialize;
 
-    fn begin_obj_val(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
+    fn begin_obj_val(&mut self) -> Result<(), Error>;
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
     where
@@ -1067,6 +1065,10 @@ impl<'a, W: Write> YamlSerializerTrait for FlowCollection<'a, W> {
         Ok(())
     }
 
+    fn begin_obj_val(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
@@ -1078,7 +1080,7 @@ impl<'a, W: Write> YamlSerializerTrait for FlowCollection<'a, W> {
         Ok(())
     }
 
-    fn serialize_seq_element<T>(&mut self, value: &T) -> Result<(), Error>
+    fn serialize_seq_element<T>(&mut self, _value: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
     {
@@ -1091,6 +1093,11 @@ impl<'a, W: Write> YamlSerializerTrait for BlockCollection<'a, W> {
         T: ?Sized + Serialize,
     {
         key.serialize(&mut *self.ser)
+    }
+
+    fn begin_obj_val(&mut self) -> Result<(), Error> {
+        self.ser.write_ascii(":")?;
+        Ok(())
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
@@ -1133,7 +1140,10 @@ impl<'a, W: Write> YamlSerializerTrait for BlockCollection<'a, W> {
     }
 }
 
-impl<'a, W: Write> Compound<'a, W> {
+impl<'a, W> Compound<'a, W>
+where
+    W: Write,
+{
     fn new(
         ser: &'a mut YamSerializer<W>,
         style: CompoundStyle,
@@ -1173,6 +1183,17 @@ impl<'a, W: Write> Compound<'a, W> {
         match self {
             Compound::Flow(fc) => fc.begin_seq(),
             Compound::Block(bc) => bc.begin_seq(),
+            Compound::ExplicitMap(_) => todo!(),
+        }
+    }
+
+    pub(crate) fn sequence_elem<T>(&mut self, value: &T) -> Result<(), Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        match self {
+            Compound::Flow(fc) => fc.serialize_seq_element(value),
+            Compound::Block(bc) => bc.serialize_seq_element(value),
             Compound::ExplicitMap(_) => todo!(),
         }
     }
@@ -1290,15 +1311,15 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, _value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        self.sequence_elem(value)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_sequence()
     }
 }
 
@@ -1313,11 +1334,11 @@ where
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        self.sequence_elem(_value)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_sequence()
     }
 }
 
@@ -1328,11 +1349,16 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        self.begin_object()?;
+        self.begin_object_key()?;
+        self.serialize_key(_key)?;
+        self.begin_object_value()?;
+        self.serialize_value(_value)?;
+        self.end_object()
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -1351,11 +1377,11 @@ where
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        self.serialize_element(_value)
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 }
 
@@ -1370,9 +1396,14 @@ where
     where
         T: ?Sized + Serialize,
     {
+        self.begin_object()?;
+
+        self.begin_object_key()?;
         self.serialize_key(key)?;
+
+        self.begin_object_value()?;
         self.serialize_value(value)?;
-        Ok(())
+        self.end_object()
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
