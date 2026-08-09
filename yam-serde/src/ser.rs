@@ -4,6 +4,7 @@ use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
+use core::num::NonZero;
 use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
@@ -22,11 +23,13 @@ pub enum FlowStyle {
     SingleQuote,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum KVSeparatorStyle {
-    Inline,
-    Explicit,
-    Newline,
+    Inline = 1,
+    Explicit = 2,
+    Newline = 3,
 }
+pub type NonZeroKVSeparator = NonZero<KVSeparatorStyle>;
 
 impl FlowStyle {
     pub(crate) fn to_scalar_type(self) -> ScalarType {
@@ -139,14 +142,7 @@ impl SerializerState {
     }
 }
 
-#[derive(Debug, Default)]
-struct KeyValSeparator(String, u32);
 
-impl KeyValSeparator {
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct YamSerializer<W> {
@@ -160,7 +156,7 @@ pub struct YamSerializer<W> {
     /// Serialization states
     serializer_state: SerializerState,
     is_scalar: bool,
-    key_val_sep: KeyValSeparator,
+    key_val_sep: Option<KVSeparatorStyle>,
 }
 
 #[doc(hidden)]
@@ -224,9 +220,14 @@ where
     }
 
     pub(crate) fn flush_block_value(&mut self) -> Result<(), Error> {
-        if !self.key_val_sep.is_empty() {
-            self.indent_pos = self.key_val_sep.1;
-            return self.writer.write_str(&self.key_val_sep.0);
+        match self.key_val_sep {
+            Some(KVSeparatorStyle::Newline) => {
+                self.write_indent(self.current_depth)?;
+            }
+            Some(_) if self.is_scalar => {
+                self.write_nspaces(self.indentor_len.saturating_sub(1))?;
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -238,7 +239,6 @@ where
 
     #[inline]
     pub(crate) fn use_block_form(&mut self) -> bool {
-        // ZZZZ
         let switch_to_flow = self.current_depth > self.formatter.block_depth_limit;
         let is_block_value = matches!(
             self.serializer_state,
@@ -340,6 +340,16 @@ where
     }
 
     #[inline]
+    fn write_explicit_map_start(&mut self) -> Result<(), Error> {
+        let mut string = String::with_capacity(self.indentor_len as usize);
+        string.push('?');
+        string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
+        self.writer.write_str(&string)?;
+        self.indent_pos += string.len() as u32;
+        Ok(())
+    }
+
+    #[inline]
     fn write_nl(&mut self) -> Result<(), Error> {
         let res = self.writer.write_char('\n');
         self.indent_pos = 0;
@@ -353,7 +363,7 @@ where
     }
 
     fn write_nspaces(&mut self, pos: u32) -> Result<(), Error> {
-        let indent = self.formatter.indentor.repeat(pos as usize);
+        let indent = " ".repeat(pos as usize);
         self.writer.write_str(&indent)?;
         self.indent_pos += pos;
 
@@ -1077,11 +1087,11 @@ impl<'a, W: Write> YamlSerializerTrait for FlowCollection<'a, W> {
         T: ?Sized + Serialize,
     {
         key.serialize(&mut *self.ser)?;
-        self.ser.write_ascii(": ")?;
         Ok(())
     }
 
     fn begin_obj_val(&mut self) -> Result<(), Error> {
+        self.ser.write_ascii(": ")?;
         Ok(())
     }
 
@@ -1112,6 +1122,7 @@ impl<'a, W: Write> YamlSerializerTrait for BlockCollection<'a, W> {
     }
 
     fn begin_obj_val(&mut self) -> Result<(), Error> {
+        self.ser.key_val_sep = Some(KVSeparatorStyle::Inline);
         self.ser.write_ascii(":")?;
         Ok(())
     }
@@ -1153,6 +1164,36 @@ impl<'a, W: Write> YamlSerializerTrait for BlockCollection<'a, W> {
     fn end_seq(&mut self) -> Result<(), Error> {
         self.ser.current_depth -= 1;
         Ok(())
+    }
+}
+
+impl<'a, W> YamlSerializerTrait for ExplicitMapCollection<'a, W>
+where W: Write
+{
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Error>
+    where
+        T: ?Sized + Serialize
+    {
+        self.ser.write_explicit_map_start()?;
+        Ok(())
+    }
+
+    fn begin_obj_val(&mut self) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
+    where
+        T: ?Sized + Serialize
+    {
+        todo!()
+    }
+
+    fn serialize_seq_element<T>(&mut self, value: &T) -> Result<(), Error>
+    where
+        T: ?Sized + Serialize
+    {
+        todo!()
     }
 }
 
