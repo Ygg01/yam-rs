@@ -114,49 +114,6 @@ impl SerializerState {
         )
     }
 
-    pub(crate) fn switch_to_key(&mut self) {
-        *self = match self {
-            SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
-                SerializerState::BlockKey
-            }
-            SerializerState::Flow | SerializerState::FlowKey | SerializerState::FlowValue => {
-                SerializerState::FlowKey
-            }
-            SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
-                SerializerState::ExplicitKey
-            }
-        }
-    }
-
-    pub(crate) fn switch_to_value(&mut self) {
-        *self = match self {
-            SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
-                SerializerState::BlockValue
-            }
-            SerializerState::Flow | SerializerState::FlowKey | SerializerState::FlowValue => {
-                SerializerState::FlowValue
-            }
-            SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
-                SerializerState::ExplicitValue
-            }
-        }
-    }
-
-    pub(crate) fn switch_to_flow(&mut self) {
-        match self {
-            SerializerState::Block => {
-                *self = SerializerState::Flow;
-            }
-            SerializerState::ExplicitKey | SerializerState::BlockKey => {
-                *self = SerializerState::FlowKey;
-            }
-            SerializerState::ExplicitValue | SerializerState::BlockValue => {
-                *self = SerializerState::FlowValue;
-            }
-            _ => {}
-        }
-    }
-
     #[inline]
     fn is_key(&self) -> bool {
         matches!(
@@ -203,6 +160,7 @@ pub struct YamSerializer<W> {
     /// Serialization states
     serializer_state: SerializerState,
     is_scalar: bool,
+    key_val_sep: KeyValSeparator,
 }
 
 #[doc(hidden)]
@@ -261,7 +219,21 @@ where
             indentor_len: indentor_size,
             is_scalar: false,
             serializer_state: SerializerState::Block,
+            key_val_sep: Default::default(),
         }
+    }
+
+    pub(crate) fn flush_block_value(&mut self) -> Result<(), Error> {
+        if !self.key_val_sep.is_empty() {
+            self.indent_pos = self.key_val_sep.1;
+            return self.writer.write_str(&self.key_val_sep.0);
+        }
+        Ok(())
+    }
+
+    fn serialize_nums<T: Display>(&mut self, value: T) -> Result<(), Error> {
+        write!(self.writer, "{value}")?;
+        Ok(())
     }
 
     #[inline]
@@ -546,6 +518,7 @@ impl<W> YamSerializer<W> {
             current_depth: 0,
             is_scalar: false,
             serializer_state: Default::default(),
+            key_val_sep: Default::default(),
         }
     }
 }
@@ -651,16 +624,6 @@ impl PrettyFormatterConfig {
     }
 }
 
-impl<'a, W> YamSerializer<W>
-where
-    W: Write,
-{
-    fn serialize_nums<T: Display>(&mut self, value: T) -> Result<(), Error> {
-        write!(self.writer, "{value}")?;
-        Ok(())
-    }
-}
-
 impl<'a, W> Serializer for &'a mut YamSerializer<W>
 where
     W: Write,
@@ -677,6 +640,7 @@ where
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         let str = if v { "true" } else { "false" };
         self.writer.write_str(str)?;
         self.indent_pos += str.len() as u32;
@@ -685,46 +649,55 @@ where
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.serialize_nums(v)
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         if v.is_nan() && v.is_sign_negative() {
             write!(self.writer, "-")?;
         }
@@ -736,6 +709,7 @@ where
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         if v.is_nan() && v.is_sign_negative() {
             write!(self.writer, "-")?;
         }
@@ -747,6 +721,7 @@ where
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         let string_chr = if v == '\'' { '"' } else { '\'' };
 
         self.writer.write_char(string_chr)?;
@@ -757,6 +732,7 @@ where
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         let prefer_single_line = self.formatter.compat_strings;
         match self.preferred_string(v) {
             ScalarType::Plain => {
@@ -793,6 +769,7 @@ where
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
+        self.flush_block_value()?;
         self.write_ascii("!!binary")?;
         let mut encoded_bytes = binary::encode_as_base64(v);
         if !self.use_block_form() {
@@ -828,12 +805,16 @@ where
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        self.is_scalar = true;
+        self.flush_block_value()?;
         self.writer.write_str(&self.formatter.null_format)?;
         self.indent_pos += self.formatter.null_format.len() as u32;
         Ok(())
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        self.is_scalar = true;
+        self.flush_block_value()?;
         self.write_ascii("{}")?;
         Ok(())
     }
@@ -968,7 +949,7 @@ where
 }
 
 #[doc(hidden)]
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub enum CompoundState {
     Empty,
     First,
@@ -976,7 +957,7 @@ pub enum CompoundState {
 }
 
 #[doc(hidden)]
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub struct CompoundInfo {
     state: CompoundState,
     is_root: bool,
@@ -989,17 +970,52 @@ impl CompoundInfo {
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub enum CompoundStyle {
     Flow,
     Block,
     ExplicitMap,
 }
 
+#[allow(private_interfaces)]
 #[doc(hidden)]
 pub enum Compound<'a, W: Write> {
     Flow(FlowCollection<'a, W>),
     Block(BlockCollection<'a, W>),
     ExplicitMap(ExplicitMapCollection<'a, W>),
+}
+
+impl<'a, W> Compound<'a, W>
+where
+    W: Write,
+{
+    fn get_style(&self) -> CompoundStyle {
+        match self {
+            Compound::Flow(_) => CompoundStyle::Flow,
+            Compound::Block(_) => CompoundStyle::Block,
+            Compound::ExplicitMap(_) => CompoundStyle::ExplicitMap,
+        }
+    }
+
+    fn switch_to(mut self, style: CompoundStyle) {
+        if self.get_style() == style {
+            return;
+        }
+
+        let (ser, info) = match self {
+            Compound::Flow(flow) => (flow.ser, flow.info),
+            Compound::Block(block) => (block.ser, block.info),
+            Compound::ExplicitMap(explicit_map) => (explicit_map.ser, explicit_map.info),
+        };
+
+        self = match style {
+            CompoundStyle::Flow => Compound::Flow(FlowCollection { ser, info }),
+            CompoundStyle::Block => Compound::Block(BlockCollection { ser, info }),
+            CompoundStyle::ExplicitMap => {
+                Compound::ExplicitMap(ExplicitMapCollection { ser, info })
+            }
+        }
+    }
 }
 
 #[doc(hidden)]
