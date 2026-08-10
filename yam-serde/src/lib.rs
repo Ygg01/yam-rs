@@ -77,5 +77,6 @@ where
 {
     let mut serializer = ser::YamSerializer::new_pretty(String::new(), formatter);
     value.serialize(&mut serializer)?;
+    serializer.finish()?;
     Ok(serializer.writer)
 }

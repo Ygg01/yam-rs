@@ -62,22 +62,6 @@ enum SerializerState {
 }
 
 impl SerializerState {
-    pub(crate) fn switch_to_explicit(&mut self) -> bool {
-        match self {
-            SerializerState::BlockKey => {
-                *self = SerializerState::ExplicitKey;
-            }
-            SerializerState::BlockValue => {
-                *self = SerializerState::ExplicitValue;
-            }
-            _ => {}
-        }
-        matches!(
-            self,
-            SerializerState::ExplicitKey | SerializerState::ExplicitValue
-        )
-    }
-
     fn to_compound_style(self) -> CompoundStyle {
         match self {
             SerializerState::Block | SerializerState::BlockKey | SerializerState::BlockValue => {
@@ -214,6 +198,7 @@ where
     pub(crate) fn flush_block_value(&mut self) -> Result<(), Error> {
         match self.key_val_sep.take() {
             Some(CompoundStyle::Block) if self.is_scalar => {
+                self.is_scalar = false;
                 self.write_nspaces(self.indentor_len.saturating_sub(1))?;
             }
             Some(CompoundStyle::Block) => {
@@ -221,6 +206,11 @@ where
             }
             _ => {}
         };
+
+        Ok(())
+    }
+
+    pub(crate) fn finish(&self) -> Result<(), Error> {
         Ok(())
     }
 
