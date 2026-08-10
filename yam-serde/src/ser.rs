@@ -1,6 +1,5 @@
-use crate::binary;
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
-use alloc::borrow::Cow;
+use crate::{PrettyFormatterConfig, binary};
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
@@ -133,42 +132,6 @@ pub struct YamSerializer<W> {
     serializer_state: SerializerState,
     is_scalar: bool,
     key_val_sep: Option<CompoundStyle>,
-}
-
-#[doc(hidden)]
-/// Writes a specified level of indentation to a given writer using a specified indentor string.
-///
-/// # Parameters
-/// - `writer`: A mutable reference to an object implementing the `Write` trait,
-///   where the indentation will be written.
-/// - `indent`: The desired number of indentation levels. If this value is 1, no
-///   indentation will be written.
-/// - `indentor`: The string used to represent a single level of indentation,
-///   such as `"    "` or `"\t"`.
-///
-/// # Returns
-/// - `Result<u32, Error>`: Returns the number of bytes written
-///   (adjusted by subtracting 1 from the requested `indent` value) wrapped in `Ok`, or an error
-///   wrapped in `Err` if the write operation fails.
-///
-/// # Errors
-/// - Returns an error if writing to the `writer` fails, encapsulated in the `Error` type.
-///
-/// # Notes
-/// - This function ensures that the computed indentation level (`indent.saturating_sub(1)`) is
-///   non-negative, even if `indent` is 0.
-/// - The function writes the `indentor` string `corrected_indent` times to the given `writer`.
-///
-pub fn push_indent_to_writer<W: Write>(
-    writer: &mut W,
-    indent: u32,
-    indentor: &str,
-) -> Result<u32, Error> {
-    let corrected_indent = indent.saturating_sub(1);
-    for _ in 0..corrected_indent {
-        writer.write_str(indentor)?;
-    }
-    Ok(corrected_indent)
 }
 
 impl<W> YamSerializer<W>
@@ -396,7 +359,7 @@ where
     fn write_indentor(&mut self, repeat: u32) -> Result<(), Error> {
         let corrected_indent = self.formatter.indentor.repeat(repeat as usize);
         self.writer.write_str(&corrected_indent)?;
-        self.indent_pos += (corrected_indent.len() as u32);
+        self.indent_pos += corrected_indent.len() as u32;
 
         Ok(())
     }
@@ -506,107 +469,6 @@ impl<W> YamSerializer<W> {
             serializer_state: Default::default(),
             key_val_sep: Default::default(),
         }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default)]
-pub enum NullFormat {
-    #[default]
-    /// Null that has corresponds to JSON null
-    /// ```yaml
-    /// example: null
-    /// ```
-    JsonNull,
-    /// Null that has a schema built in.
-    /// ```yaml
-    /// example: !!null null
-    /// ```
-    TaggedYaml,
-    /// Null that's just an empty YAML.
-    /// ```yaml
-    /// example: # the value of null key is null.
-    /// ```
-    Plain,
-    /// Null used in Yaml 1.1 i.e.
-    /// ```yaml
-    /// example: ~
-    /// ```
-    OldYaml,
-}
-
-#[derive(Debug)]
-pub struct PrettyFormatterConfig {
-    /// Limit depth
-    pub block_depth_limit: u32,
-
-    /// Preferred string length
-    pub pref_string_length: u32,
-
-    /// Indentation string
-    pub indentor: Cow<'static, str>,
-
-    /// New line string
-    pub new_line: Cow<'static, str>,
-
-    /// How to format null
-    null_format: Cow<'static, str>,
-
-    /// How to format a string in block style
-    pub block_preferred_style: ScalarType,
-
-    /// How to format a string in a root
-    pub root_preferred_style: ScalarType,
-
-    /// How to format a string in block style
-    pub flow_string_style: FlowStyle,
-
-    pub key_preferred_style: ScalarType,
-
-    /// Whether to prefer string to fit in a single line
-    pub compat_strings: bool,
-}
-
-impl Default for PrettyFormatterConfig {
-    fn default() -> Self {
-        Self {
-            block_depth_limit: 0,
-            pref_string_length: 80,
-            indentor: Cow::Borrowed(""),
-            new_line: Cow::Borrowed(""),
-            null_format: Cow::Borrowed(""),
-            block_preferred_style: ScalarType::Plain,
-            root_preferred_style: ScalarType::DoubleQuote,
-            flow_string_style: FlowStyle::DoubleQuote,
-            key_preferred_style: ScalarType::Plain,
-            compat_strings: false,
-        }
-    }
-}
-
-impl PrettyFormatterConfig {
-    pub fn pretty() -> Self {
-        Self {
-            block_depth_limit: 10,
-            pref_string_length: 80,
-            indentor: Cow::Borrowed("  "),
-            new_line: Cow::Borrowed("\n"),
-            null_format: Cow::Borrowed("null"),
-            block_preferred_style: ScalarType::Plain,
-            root_preferred_style: ScalarType::DoubleQuote,
-            flow_string_style: FlowStyle::DoubleQuote,
-            key_preferred_style: ScalarType::Plain,
-            compat_strings: false,
-        }
-    }
-
-    #[inline]
-    fn set_null_format(&mut self, fmt: NullFormat) {
-        self.null_format = match fmt {
-            NullFormat::JsonNull => Cow::Borrowed("null"),
-            NullFormat::TaggedYaml => Cow::Borrowed("!!null null"),
-            NullFormat::Plain => Cow::Borrowed(""),
-            NullFormat::OldYaml => Cow::Borrowed("~"),
-        };
     }
 }
 
@@ -928,18 +790,18 @@ where
 
 #[doc(hidden)]
 #[derive(Eq, PartialEq, Copy, Clone)]
-pub enum CompoundState {
-    Empty,
-    First,
-    Rest,
-}
-
-#[doc(hidden)]
-#[derive(Eq, PartialEq, Copy, Clone)]
 pub struct CompoundInfo {
     state: CompoundState,
     is_root: bool,
     depth: u32,
+}
+
+#[doc(hidden)]
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub enum CompoundState {
+    Empty,
+    First,
+    Rest,
 }
 
 impl CompoundInfo {
@@ -977,9 +839,9 @@ where
         }
     }
 
-    fn switch_to(mut self, style: CompoundStyle) {
+    fn to_style(self, style: CompoundStyle) -> Self {
         if self.get_style() == style {
-            return;
+            return self;
         }
 
         let (ser, info) = match self {
@@ -988,7 +850,7 @@ where
             Compound::ExplicitMap(explicit_map) => (explicit_map.ser, explicit_map.info),
         };
 
-        self = match style {
+        match style {
             CompoundStyle::Flow => Compound::Flow(FlowCollection { ser, info }),
             CompoundStyle::Block => Compound::Block(BlockCollection { ser, info }),
             CompoundStyle::ExplicitMap => {
@@ -1271,7 +1133,6 @@ where
         match self {
             Compound::Block(bc) => bc.serialize_seq_element(value),
             Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-            _ => todo!(),
         }
     }
 
@@ -1280,7 +1141,6 @@ where
             // Compound::Flow(mut fc) => fc.end_seq(),
             Compound::Block(mut fc) => fc.end_seq(),
             Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-            _ => todo!(),
         }
     }
 }
@@ -1431,4 +1291,40 @@ where
     fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
+}
+
+#[doc(hidden)]
+/// Writes a specified level of indentation to a given writer using a specified indentor string.
+///
+/// # Parameters
+/// - `writer`: A mutable reference to an object implementing the `Write` trait,
+///   where the indentation will be written.
+/// - `indent`: The desired number of indentation levels. If this value is 1, no
+///   indentation will be written.
+/// - `indentor`: The string used to represent a single level of indentation,
+///   such as `"    "` or `"\t"`.
+///
+/// # Returns
+/// - `Result<u32, Error>`: Returns the number of bytes written
+///   (adjusted by subtracting 1 from the requested `indent` value) wrapped in `Ok`, or an error
+///   wrapped in `Err` if the write operation fails.
+///
+/// # Errors
+/// - Returns an error if writing to the `writer` fails, encapsulated in the `Error` type.
+///
+/// # Notes
+/// - This function ensures that the computed indentation level (`indent.saturating_sub(1)`) is
+///   non-negative, even if `indent` is 0.
+/// - The function writes the `indentor` string `corrected_indent` times to the given `writer`.
+///
+pub fn push_indent_to_writer<W: Write>(
+    writer: &mut W,
+    indent: u32,
+    indentor: &str,
+) -> Result<u32, Error> {
+    let corrected_indent = indent.saturating_sub(1);
+    for _ in 0..corrected_indent {
+        writer.write_str(indentor)?;
+    }
+    Ok(corrected_indent)
 }

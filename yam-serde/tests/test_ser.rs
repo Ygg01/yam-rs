@@ -1,7 +1,7 @@
 use core::fmt::Error;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
-use yam_serde::ser::PrettyFormatterConfig;
+use yam_serde::PrettyFormatterConfig;
 use yam_serde::to_pretty_string;
 
 fn assert_eq_strings(result: Result<String, Error>, correct: &str) {
@@ -109,7 +109,8 @@ fn test_serialize_struct() {
     assert_eq!(result, Ok(SIMPLE_STRUCT_EXPECTED.to_string()));
 }
 
-const COMPLEX_STRUCT_EXPECTED: &str = r#"v:
+const COMPLEX_STRUCT_EXPECTED: &str = r#"
+v:
   - - 0
 m:
   ? val: 1
