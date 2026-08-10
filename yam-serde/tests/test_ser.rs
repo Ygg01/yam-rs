@@ -73,7 +73,8 @@ fn test_serialize_complex_key() {
     let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
 }
-const SIMPLE_MAP_EXPECTED: &str = r#"a: 34
+const SIMPLE_MAP_EXPECTED: &str = r#"
+a: 34
 b: 1"#;
 
 #[test]
@@ -88,7 +89,8 @@ fn test_serialize_simple_key() {
     assert_eq!(result, Ok(SIMPLE_MAP_EXPECTED.to_string()));
 }
 
-const SIMPLE_STRUCT_EXPECTED: &str = r#"num: 3
+const SIMPLE_STRUCT_EXPECTED: &str = r#"
+num: 3
 string: test"#;
 
 #[test]
