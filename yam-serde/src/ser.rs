@@ -305,7 +305,7 @@ where
     }
 
     #[inline]
-    fn write_after_block_elem(&mut self, info: &mut CompoundInfo) -> Result<(), Error> {
+    fn write_after_block_elem(&mut self) -> Result<(), Error> {
         if self.is_scalar {
             self.is_scalar = false;
             self.write_nl()?;
@@ -1002,7 +1002,7 @@ where
         value.serialize(&mut *self.ser)?;
 
         match self.style {
-            CompoundStyle::Block => self.ser.write_after_block_elem(&mut self.info)?,
+            CompoundStyle::Block => self.ser.write_after_block_elem()?,
             _ => todo!(),
         }
         Ok(())
