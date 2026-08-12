@@ -1,5 +1,5 @@
+use crate::PrettyFormatterConfig;
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
-use crate::{PrettyFormatterConfig, binary};
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Error, Write};
@@ -60,7 +60,35 @@ enum SerializerState {
     BlockKey,
 }
 
+impl SerializerState {}
+
 impl SerializerState {
+    pub(crate) fn go_to_key(&mut self) {
+        *self = match self {
+            SerializerState::ExplicitValue
+            | SerializerState::Block
+            | SerializerState::BlockValue
+            | SerializerState::ExplicitKey => SerializerState::BlockKey,
+            SerializerState::FlowValue | SerializerState::FlowKey | SerializerState::Flow => {
+                SerializerState::FlowKey
+            }
+            SerializerState::BlockKey => SerializerState::ExplicitKey,
+        }
+    }
+
+    pub(crate) fn go_to_value(&mut self) {
+        *self = match self {
+            SerializerState::Block => SerializerState::BlockValue,
+            SerializerState::Flow => SerializerState::FlowValue,
+            SerializerState::ExplicitKey => SerializerState::ExplicitValue,
+            SerializerState::ExplicitValue => SerializerState::ExplicitValue,
+            SerializerState::FlowKey => SerializerState::FlowValue,
+            SerializerState::FlowValue => SerializerState::FlowValue,
+            SerializerState::BlockValue => SerializerState::BlockValue,
+            SerializerState::BlockKey => SerializerState::BlockValue,
+        }
+    }
+
     fn to_compound_style(self) -> CompoundStyle {
         match self {
             SerializerState::Block | SerializerState::BlockKey | SerializerState::BlockValue => {
@@ -138,26 +166,6 @@ impl<W> YamSerializer<W>
 where
     W: Write,
 {
-    #[inline]
-    pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
-        let indentor_size: u32 = formatter
-            .indentor
-            .graphemes(true)
-            .count()
-            .try_into()
-            .unwrap_or_default();
-        YamSerializer {
-            writer,
-            formatter,
-            indent_pos: 0,
-            current_depth: 1,
-            indentor_len: indentor_size,
-            is_scalar: false,
-            serializer_state: SerializerState::Block,
-            key_val_sep: Default::default(),
-        }
-    }
-
     pub(crate) fn flush_block_value(&mut self) -> Result<(), Error> {
         match self.key_val_sep.take() {
             Some(CompoundStyle::Block) if self.is_scalar => {
@@ -180,21 +188,6 @@ where
     fn serialize_nums<T: Display>(&mut self, value: T) -> Result<(), Error> {
         write!(self.writer, "{value}")?;
         Ok(())
-    }
-
-    #[inline]
-    pub(crate) fn use_block_form(&mut self) -> bool {
-        let switch_to_flow = self.current_depth > self.formatter.block_depth_limit;
-        let is_block_value = matches!(
-            self.serializer_state,
-            SerializerState::BlockValue | SerializerState::ExplicitValue
-        );
-
-        if switch_to_flow && is_block_value {
-            self.serializer_state = SerializerState::FlowValue;
-        }
-
-        self.serializer_state.is_block_form()
     }
 
     fn preferred_string(&self, string: &str) -> ScalarType {
@@ -226,12 +219,15 @@ where
         W: Write,
     {
         match self.serializer_state {
-            SerializerState::Block => Compound::new(self, CompoundStyle::Block, None, true),
-            SerializerState::Flow => Compound::new(self, CompoundStyle::Flow, None, true),
+            SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
+                Compound::new(self, CompoundStyle::Block, None, true)
+            }
+            SerializerState::Flow | SerializerState::FlowKey | SerializerState::FlowValue => {
+                Compound::new(self, CompoundStyle::Flow, None, true)
+            }
             SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
                 Compound::new(self, CompoundStyle::ExplicitMap, None, true)
             }
-            _ => todo!(),
         }
     }
 
@@ -277,10 +273,43 @@ where
     #[inline]
     fn write_block_seq_start(&mut self) -> Result<(), Error> {
         let mut string = String::with_capacity(self.indentor_len as usize);
+
+        // write a `- ` with proper indentation
         string.push('-');
         string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
+
         self.writer.write_str(&string)?;
         self.indent_pos += string.len() as u32;
+        Ok(())
+    }
+
+    #[inline]
+    fn write_before_block_elem(&mut self, info: &mut CompoundInfo) -> Result<(), Error> {
+        let mut string = String::with_capacity(self.indentor_len as usize);
+
+        if !info.is_first() {
+            // write indentation
+            let diff_depth = self.current_depth.saturating_sub(info.depth) as usize;
+            string.write_str(&self.formatter.indentor.repeat(diff_depth))?;
+
+            // write a `- ` with proper indentation
+            string.push('-');
+            string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
+
+            self.writer.write_str(&string)?;
+            self.indent_pos += string.len() as u32;
+        }
+
+        info.state = CompoundState::Rest;
+        Ok(())
+    }
+
+    #[inline]
+    fn write_after_block_elem(&mut self, info: &mut CompoundInfo) -> Result<(), Error> {
+        if self.is_scalar {
+            self.is_scalar = false;
+            self.write_nl()?;
+        }
         Ok(())
     }
 
@@ -470,6 +499,41 @@ impl<W> YamSerializer<W> {
             key_val_sep: Default::default(),
         }
     }
+
+    #[inline]
+    pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
+        let indentor_size: u32 = formatter
+            .indentor
+            .graphemes(true)
+            .count()
+            .try_into()
+            .unwrap_or_default();
+        YamSerializer {
+            writer,
+            formatter,
+            indent_pos: 0,
+            current_depth: 1,
+            indentor_len: indentor_size,
+            is_scalar: false,
+            serializer_state: SerializerState::Block,
+            key_val_sep: Default::default(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn use_block_form(&mut self) -> bool {
+        let switch_to_flow = self.current_depth > self.formatter.block_depth_limit;
+        let is_block_value = matches!(
+            self.serializer_state,
+            SerializerState::BlockValue | SerializerState::ExplicitValue
+        );
+
+        if switch_to_flow && is_block_value {
+            self.serializer_state = SerializerState::FlowValue;
+        }
+
+        self.serializer_state.is_block_form()
+    }
 }
 
 impl<'a, W> Serializer for &'a mut YamSerializer<W>
@@ -616,28 +680,29 @@ where
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.is_scalar = true;
-        self.flush_block_value()?;
-        self.write_ascii("!!binary")?;
-        let mut encoded_bytes = binary::encode_as_base64(v);
-        if !self.use_block_form() {
-            self.write_ascii("\"")?;
-            self.write_ascii(&encoded_bytes)?;
-            self.write_ascii("\"")?;
-        } else {
-            self.write_ascii("|\n")?;
-
-            while !encoded_bytes.is_empty() {
-                self.write_indent(self.current_depth)?;
-                let remaining_byte = self
-                    .formatter
-                    .pref_string_length
-                    .saturating_sub(self.indent_pos);
-                let write = encoded_bytes.split_off(remaining_byte as usize);
-                self.write_ascii(&write)?;
-            }
-            self.write_ascii(&encoded_bytes)?;
-        }
+        // TODO later
+        // self.is_scalar = true;
+        // self.flush_block_value()?;
+        // self.write_ascii("!!binary")?;
+        // let mut encoded_bytes = binary::encode_as_base64(v);
+        // if !self.use_block_form() {
+        //     self.write_ascii("\"")?;
+        //     self.write_ascii(&encoded_bytes)?;
+        //     self.write_ascii("\"")?;
+        // } else {
+        //     self.write_ascii("|\n")?;
+        //
+        //     while !encoded_bytes.is_empty() {
+        //         self.write_indent(self.current_depth)?;
+        //         let remaining_byte = self
+        //             .formatter
+        //             .pref_string_length
+        //             .saturating_sub(self.indent_pos);
+        //         let write = encoded_bytes.split_off(remaining_byte as usize);
+        //         self.write_ascii(&write)?;
+        //     }
+        //     self.write_ascii(&encoded_bytes)?;
+        // }
         Ok(())
     }
 
@@ -710,7 +775,6 @@ where
         collection_serializer.begin_object()?;
 
         collection_serializer.serialize_key(variant)?;
-
         collection_serializer.serialize_value(value)?;
 
         collection_serializer.end_object()
@@ -719,7 +783,7 @@ where
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         let mut collection_serializer =
             Compound::new(self, self.serializer_state.to_compound_style(), len, true);
-        collection_serializer.begin_sequence()?;
+        collection_serializer.begin_seq()?;
 
         Ok(collection_serializer)
     }
@@ -821,219 +885,37 @@ pub enum CompoundStyle {
 
 #[allow(private_interfaces)]
 #[doc(hidden)]
-pub enum Compound<'a, W: Write> {
-    Flow(FlowCollection<'a, W>),
-    Block(BlockCollection<'a, W>),
-    ExplicitMap(ExplicitMapCollection<'a, W>),
-}
-
-impl<'a, W> Compound<'a, W>
-where
-    W: Write,
-{
-    fn get_style(&self) -> CompoundStyle {
-        match self {
-            Compound::Flow(_) => CompoundStyle::Flow,
-            Compound::Block(_) => CompoundStyle::Block,
-            Compound::ExplicitMap(_) => CompoundStyle::ExplicitMap,
-        }
-    }
-
-    fn to_style(self, style: CompoundStyle) -> Self {
-        if self.get_style() == style {
-            return self;
-        }
-
-        let (ser, info) = match self {
-            Compound::Flow(flow) => (flow.ser, flow.info),
-            Compound::Block(block) => (block.ser, block.info),
-            Compound::ExplicitMap(explicit_map) => (explicit_map.ser, explicit_map.info),
-        };
-
-        match style {
-            CompoundStyle::Flow => Compound::Flow(FlowCollection { ser, info }),
-            CompoundStyle::Block => Compound::Block(BlockCollection { ser, info }),
-            CompoundStyle::ExplicitMap => {
-                Compound::ExplicitMap(ExplicitMapCollection { ser, info })
-            }
-        }
-    }
-}
-
-#[doc(hidden)]
-pub(crate) struct FlowCollection<'a, W: Write> {
+pub struct Compound<'a, W> {
     ser: &'a mut YamSerializer<W>,
     info: CompoundInfo,
+    style: CompoundStyle,
 }
 
-#[doc(hidden)]
-pub(crate) struct BlockCollection<'a, W: Write> {
-    ser: &'a mut YamSerializer<W>,
-    info: CompoundInfo,
-}
-#[doc(hidden)]
-pub(crate) struct ExplicitMapCollection<'a, W: Write> {
-    ser: &'a mut YamSerializer<W>,
-    info: CompoundInfo,
-}
+impl<'a, W> Compound<'a, W> {
+    fn switch_to_style(&mut self, style: CompoundStyle) {
+        if self.style == style {
+            return;
+        }
 
-trait YamlSerializerTrait {
-    fn begin_obj(&mut self) -> Result<(), Error> {
-        Ok(())
+        self.style = style;
     }
 
-    fn begin_obj_key(&mut self) -> Result<(), Error>;
-
-    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize;
-
-    fn begin_obj_val(&mut self) -> Result<(), Error>;
-
-    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize;
-
-    fn end_obj(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn begin_seq(&mut self) -> Result<(), Error>;
-
-    fn serialize_seq_element<T>(&mut self, value: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize;
-
-    fn end_seq(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-// impl<'a, W: Write> YamlSerializerTrait for FlowCollection<'a, W> {
-//     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Error>
-//     where
-//         T: ?Sized + Serialize,
-//     {
-//         key.serialize(&mut *self.ser)?;
-//         Ok(())
-//     }
-//
-//     fn begin_obj_val(&mut self) -> Result<(), Error> {
-//         self.ser.write_ascii(": ")?;
-//         Ok(())
-//     }
-//
-//     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
-//     where
-//         T: ?Sized + Serialize,
-//     {
-//         if !self.info.is_first() {
-//             self.ser.write_ascii(", ")?;
-//         }
-//         value.serialize(&mut *self.ser)?;
-//         Ok(())
-//     }
-//
-//     fn serialize_seq_element<T>(&mut self, _value: &T) -> Result<(), Error>
-//     where
-//         T: ?Sized + Serialize,
-//     {
-//         todo!()
-//     }
-// }
-impl<'a, W: Write> YamlSerializerTrait for BlockCollection<'a, W> {
-    fn begin_obj_key(&mut self) -> Result<(), Error> {
-        self.ser.write_nl()
-    }
-
-    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        key.serialize(&mut *self.ser)
-    }
-
-    fn begin_obj_val(&mut self) -> Result<(), Error> {
-        self.ser.key_val_sep = Some(CompoundStyle::Block);
-        self.ser.write_ascii(":")?;
-        Ok(())
-    }
-
-    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        value.serialize(&mut *self.ser)
-    }
-
-    fn begin_seq(&mut self) -> Result<(), Error> {
-        self.ser.current_depth += 1;
-        self.ser.flush_block_value()?;
-        self.ser.write_block_seq_start()?;
-
-        Ok(())
-    }
-
-    fn serialize_seq_element<T>(&mut self, value: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        if self.info.is_first() {
-            self.info.state = CompoundState::Rest;
+    fn switch_on_depth_limit(&mut self) -> bool {
+        let mut changed = false;
+        let serializer = &self.ser;
+        let current_state = serializer.serializer_state.to_compound_style();
+        let new_state = if serializer.current_depth > serializer.formatter.block_depth_limit {
+            CompoundStyle::Flow
         } else {
-            let indent_diff = self.ser.current_depth.saturating_sub(self.info.depth);
-            self.ser.write_indentor(indent_diff)?;
-            self.ser.write_block_seq_start()?;
-        }
-
-        value.serialize(&mut *self.ser)?;
-        if self.ser.is_scalar {
-            self.ser.is_scalar = false;
-            self.ser.write_nl()?;
-        }
-        Ok(())
+            CompoundStyle::Block
+        };
+        if current_state != new_state {
+            changed = true;
+            self.switch_to_style(new_state);
+        };
+        changed
     }
 
-    fn end_seq(&mut self) -> Result<(), Error> {
-        self.ser.current_depth -= 1;
-        Ok(())
-    }
-}
-
-// impl<'a, W> YamlSerializerTrait for ExplicitMapCollection<'a, W>
-// where W: Write
-// {
-//     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Error>
-//     where
-//         T: ?Sized + Serialize
-//     {
-//         self.ser.write_explicit_map_start()?;
-//         Ok(())
-//     }
-//
-//     fn begin_obj_val(&mut self) -> Result<(), Error> {
-//         todo!()
-//     }
-//
-//     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
-//     where
-//         T: ?Sized + Serialize
-//     {
-//         todo!()
-//     }
-//
-//     fn serialize_seq_element<T>(&mut self, value: &T) -> Result<(), Error>
-//     where
-//         T: ?Sized + Serialize
-//     {
-//         todo!()
-//     }
-// }
-
-impl<'a, W> Compound<'a, W>
-where
-    W: Write,
-{
     fn new(
         ser: &'a mut YamSerializer<W>,
         style: CompoundStyle,
@@ -1050,71 +932,53 @@ where
             is_root,
             depth: 2,
         };
-        match style {
-            CompoundStyle::Flow => Compound::Flow(FlowCollection { ser, info }),
-            CompoundStyle::Block => Compound::Block(BlockCollection { ser, info }),
-            CompoundStyle::ExplicitMap => {
-                Compound::ExplicitMap(ExplicitMapCollection { ser, info })
-            }
-        }
+        Compound { ser, info, style }
+    }
+}
+
+impl<'a, W> Compound<'a, W>
+where
+    W: Write,
+{
+    fn begin_obj_val(&mut self) -> Result<(), Error> {
+        self.ser.key_val_sep = Some(CompoundStyle::Block);
+        self.ser.write_ascii(":")?;
+        Ok(())
+    }
+
+    fn ser_key<T>(&mut self, key: &T) -> Result<(), Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        key.serialize(&mut *self.ser)
     }
 
     pub(crate) fn begin_object(&mut self) -> Result<(), Error> {
-        self.ser().current_depth += 1;
+        self.ser.current_depth += 1;
+        self.switch_on_depth_limit();
+        Ok(())
+    }
+
+    fn begin_obj_key(&mut self) -> Result<(), Error> {
+        self.ser.write_nl()
+    }
+
+    fn begin_seq(&mut self) -> Result<(), Error> {
+        self.ser.current_depth += 1;
+        self.ser.flush_block_value()?;
+        self.ser.write_block_seq_start()?;
+
+        Ok(())
+    }
+
+    fn end_seq(&mut self) -> Result<(), Error> {
+        self.ser.current_depth -= 1;
         Ok(())
     }
 
     pub(crate) fn end_object(&mut self) -> Result<(), Error> {
-        self.ser().current_depth += 1;
+        self.ser.current_depth -= 1;
         Ok(())
-    }
-
-    pub(crate) fn begin_sequence(&mut self) -> Result<(), Error> {
-        match self {
-            Compound::Block(bc) => bc.begin_seq(),
-            Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-        }
-    }
-
-    pub(crate) fn sequence_elem<T>(&mut self, value: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        match self {
-            Compound::Block(bc) => bc.serialize_seq_element(value),
-            Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-        }
-    }
-
-    pub(crate) fn end_sequence(&mut self) -> Result<(), Error> {
-        match self {
-            Compound::Block(bc) => bc.end_seq(),
-            Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn begin_object_key(&mut self) -> Result<(), Error> {
-        match self {
-            Compound::Block(bc) => bc.begin_obj_key(),
-            Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn begin_object_value(&mut self) -> Result<(), Error> {
-        match self {
-            Compound::Block(bc) => bc.begin_obj_val(),
-            Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-        }
-    }
-
-    fn ser(&mut self) -> &mut YamSerializer<W> {
-        match self {
-            Compound::Flow(FlowCollection { ser, .. })
-            | Compound::Block(BlockCollection { ser, .. })
-            | Compound::ExplicitMap(ExplicitMapCollection { ser, .. }) => ser,
-        }
     }
 }
 
@@ -1130,18 +994,23 @@ where
     where
         T: ?Sized + Serialize,
     {
-        match self {
-            Compound::Block(bc) => bc.serialize_seq_element(value),
-            Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
+        match self.style {
+            CompoundStyle::Block => self.ser.write_before_block_elem(&mut self.info)?,
+            _ => todo!(),
         }
+
+        value.serialize(&mut *self.ser)?;
+
+        match self.style {
+            CompoundStyle::Block => self.ser.write_after_block_elem(&mut self.info)?,
+            _ => todo!(),
+        }
+        Ok(())
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        match self {
-            // Compound::Flow(mut fc) => fc.end_seq(),
-            Compound::Block(mut fc) => fc.end_seq(),
-            Compound::ExplicitMap(_) | Compound::Flow(_) => todo!(),
-        }
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_seq()?;
+        Ok(())
     }
 }
 
@@ -1156,14 +1025,9 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.begin_object_key()?;
-        match self {
-            // Compound::Flow(fc) => {
-            //     fc.serialize_key(key)?;
-            // }
-            Compound::Block(bc) => {
-                bc.serialize_key(key)?;
-            }
+        self.begin_obj_key()?;
+        match self.style {
+            CompoundStyle::Block => {}
             _ => todo!(),
         };
         Ok(())
@@ -1173,20 +1037,12 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.begin_object_value()?;
-        match self {
-            // Compound::Flow(fc) => fc.serialize_value(value),
-            Compound::Block(bc) => bc.serialize_value(value),
-            _ => todo!(),
-        }
+        self.begin_obj_val()?;
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        match self {
-            // Compound::Flow(mut fc) => fc.end_obj(),
-            Compound::Block(mut bc) => bc.end_obj(),
-            _ => todo!(),
-        }
+        todo!()
     }
 }
 
@@ -1201,11 +1057,11 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.sequence_elem(value)
+        SerializeSeq::serialize_element(self, value)
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        self.end_sequence()
+        self.end_seq()
     }
 }
 
@@ -1220,11 +1076,11 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.sequence_elem(_value)
+        self.serialize_element(_value)
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        self.end_sequence()
+        self.end_seq()
     }
 }
 
