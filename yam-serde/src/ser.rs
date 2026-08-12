@@ -940,29 +940,6 @@ impl<'a, W> Compound<'a, W>
 where
     W: Write,
 {
-    fn begin_obj_val(&mut self) -> Result<(), Error> {
-        self.ser.key_val_sep = Some(CompoundStyle::Block);
-        self.ser.write_ascii(":")?;
-        Ok(())
-    }
-
-    fn ser_key<T>(&mut self, key: &T) -> Result<(), Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        key.serialize(&mut *self.ser)
-    }
-
-    pub(crate) fn begin_object(&mut self) -> Result<(), Error> {
-        self.ser.current_depth += 1;
-        self.switch_on_depth_limit();
-        Ok(())
-    }
-
-    fn begin_obj_key(&mut self) -> Result<(), Error> {
-        self.ser.write_nl()
-    }
-
     fn begin_seq(&mut self) -> Result<(), Error> {
         self.ser.current_depth += 1;
         self.ser.flush_block_value()?;
@@ -976,7 +953,31 @@ where
         Ok(())
     }
 
-    pub(crate) fn end_object(&mut self) -> Result<(), Error> {
+    fn begin_object(&mut self) -> Result<(), Error> {
+        self.ser.current_depth += 1;
+        self.switch_on_depth_limit();
+        Ok(())
+    }
+
+    fn begin_obj_key(&mut self) -> Result<(), Error> {
+        self.ser.write_nl()
+    }
+
+    fn end_obj_key(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn begin_obj_val(&mut self) -> Result<(), Error> {
+        self.ser.key_val_sep = Some(CompoundStyle::Block);
+        self.ser.write_ascii(":")?;
+        Ok(())
+    }
+
+    fn end_obj_val(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn end_object(&mut self) -> Result<(), Error> {
         self.ser.current_depth -= 1;
         Ok(())
     }
@@ -994,22 +995,36 @@ where
     where
         T: ?Sized + Serialize,
     {
+        self.begin_col_elem()?;
+        value.serialize(&mut *self.ser)?;
+        self.end_col_elem()
+    }
+
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_seq()?;
+        Ok(())
+    }
+}
+
+impl<'a, W> Compound<'a, W> where W: Write {}
+
+impl<'a, W> Compound<'a, W>
+where
+    W: Write,
+{
+    fn begin_col_elem(&'_ mut self) -> Result<(), Error> {
         match self.style {
             CompoundStyle::Block => self.ser.write_before_block_elem(&mut self.info)?,
-            _ => todo!(),
-        }
-
-        value.serialize(&mut *self.ser)?;
-
-        match self.style {
-            CompoundStyle::Block => self.ser.write_after_block_elem()?,
             _ => todo!(),
         }
         Ok(())
     }
 
-    fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        self.end_seq()?;
+    fn end_col_elem(&mut self) -> Result<(), Error> {
+        match self.style {
+            CompoundStyle::Block => self.ser.write_after_block_elem()?,
+            _ => todo!(),
+        }
         Ok(())
     }
 }
@@ -1026,10 +1041,8 @@ where
         T: ?Sized + Serialize,
     {
         self.begin_obj_key()?;
-        match self.style {
-            CompoundStyle::Block => {}
-            _ => todo!(),
-        };
+        key.serialize(&mut *self.ser)?;
+        self.end_obj_key()?;
         Ok(())
     }
 
@@ -1038,11 +1051,13 @@ where
         T: ?Sized + Serialize,
     {
         self.begin_obj_val()?;
+        value.serialize(&mut *self.ser)?;
+        self.end_obj_val()?;
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 }
 
