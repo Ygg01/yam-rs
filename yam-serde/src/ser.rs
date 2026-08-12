@@ -948,6 +948,22 @@ where
         Ok(())
     }
 
+    fn begin_col_elem(&'_ mut self) -> Result<(), Error> {
+        match self.style {
+            CompoundStyle::Block => self.ser.write_before_block_elem(&mut self.info)?,
+            _ => todo!(),
+        }
+        Ok(())
+    }
+
+    fn end_col_elem(&mut self) -> Result<(), Error> {
+        match self.style {
+            CompoundStyle::Block => self.ser.write_after_block_elem()?,
+            _ => todo!(),
+        }
+        Ok(())
+    }
+
     fn end_seq(&mut self) -> Result<(), Error> {
         self.ser.current_depth -= 1;
         Ok(())
@@ -960,6 +976,7 @@ where
     }
 
     fn begin_obj_key(&mut self) -> Result<(), Error> {
+        self.ser.serializer_state.go_to_key();
         self.ser.write_nl()
     }
 
@@ -968,6 +985,7 @@ where
     }
 
     fn begin_obj_val(&mut self) -> Result<(), Error> {
+        self.ser.serializer_state.go_to_value();
         self.ser.key_val_sep = Some(CompoundStyle::Block);
         self.ser.write_ascii(":")?;
         Ok(())
@@ -1002,61 +1020,6 @@ where
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
         self.end_seq()?;
-        Ok(())
-    }
-}
-
-impl<'a, W> Compound<'a, W> where W: Write {}
-
-impl<'a, W> Compound<'a, W>
-where
-    W: Write,
-{
-    fn begin_col_elem(&'_ mut self) -> Result<(), Error> {
-        match self.style {
-            CompoundStyle::Block => self.ser.write_before_block_elem(&mut self.info)?,
-            _ => todo!(),
-        }
-        Ok(())
-    }
-
-    fn end_col_elem(&mut self) -> Result<(), Error> {
-        match self.style {
-            CompoundStyle::Block => self.ser.write_after_block_elem()?,
-            _ => todo!(),
-        }
-        Ok(())
-    }
-}
-
-impl<'a, W> SerializeMap for Compound<'a, W>
-where
-    W: Write,
-{
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        self.begin_obj_key()?;
-        key.serialize(&mut *self.ser)?;
-        self.end_obj_key()?;
-        Ok(())
-    }
-
-    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        self.begin_obj_val()?;
-        value.serialize(&mut *self.ser)?;
-        self.end_obj_val()?;
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 }
@@ -1099,28 +1062,6 @@ where
     }
 }
 
-impl<'a, W> SerializeStructVariant for Compound<'a, W>
-where
-    W: Write,
-{
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<(), Self::Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        self.begin_object()?;
-        self.serialize_key(_key)?;
-        self.serialize_value(_value)?;
-        self.end_object()
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-    }
-}
-
 impl<'a, W> ser::SerializeTupleVariant for Compound<'a, W>
 where
     W: Write,
@@ -1133,6 +1074,38 @@ where
         T: ?Sized + Serialize,
     {
         self.serialize_element(_value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+}
+
+impl<'a, W> SerializeMap for Compound<'a, W>
+where
+    W: Write,
+{
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.begin_obj_key()?;
+        key.serialize(&mut *self.ser)?;
+        self.end_obj_key()?;
+        Ok(())
+    }
+
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.begin_obj_val()?;
+        value.serialize(&mut *self.ser)?;
+        self.end_obj_val()?;
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -1156,6 +1129,28 @@ where
         self.serialize_key(key)?;
 
         self.serialize_value(value)?;
+        self.end_object()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+}
+
+impl<'a, W> SerializeStructVariant for Compound<'a, W>
+where
+    W: Write,
+{
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.begin_object()?;
+        self.serialize_key(_key)?;
+        self.serialize_value(_value)?;
         self.end_object()
     }
 
