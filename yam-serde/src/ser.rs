@@ -972,7 +972,9 @@ where
 
     fn begin_col_elem(&'_ mut self) -> Result<(), Error> {
         match self.style {
-            CompoundStyle::Block => self.ser.write_before_block_elem(&mut self.info)?,
+            CompoundStyle::Block | CompoundStyle::ExplicitMap => {
+                self.ser.write_before_block_elem(&mut self.info)?
+            }
             _ => todo!(),
         }
         Ok(())
@@ -981,6 +983,7 @@ where
     fn end_col_elem(&mut self) -> Result<(), Error> {
         match self.style {
             CompoundStyle::Block => self.ser.write_after_block_elem()?,
+            CompoundStyle::ExplicitMap => self.ser.write_nl()?,
             _ => todo!(),
         }
         Ok(())
