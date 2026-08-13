@@ -270,6 +270,10 @@ where
         res
     }
 
+    fn write_block_obj_start(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
     #[inline]
     fn write_block_seq_start(&mut self) -> Result<(), Error> {
         let mut string = String::with_capacity(self.indentor_len as usize);
@@ -942,9 +946,27 @@ where
 {
     fn begin_seq(&mut self) -> Result<(), Error> {
         self.ser.current_depth += 1;
-        self.ser.flush_block_value()?;
-        self.ser.write_block_seq_start()?;
+        if matches!(
+            self.ser.serializer_state,
+            SerializerState::BlockKey | SerializerState::ExplicitKey
+        ) && self.style == CompoundStyle::Block
+        {
+            self.switch_to_style(CompoundStyle::ExplicitMap);
+        }
+        match self.style {
+            CompoundStyle::Block => {
+                self.ser.flush_block_value()?;
+                self.ser.write_block_seq_start()?;
+            }
+            CompoundStyle::Flow => {}
+            CompoundStyle::ExplicitMap => self.ser.write_explicit_map_start()?,
+        }
 
+        Ok(())
+    }
+
+    fn end_seq(&mut self) -> Result<(), Error> {
+        self.ser.current_depth -= 1;
         Ok(())
     }
 
@@ -964,14 +986,18 @@ where
         Ok(())
     }
 
-    fn end_seq(&mut self) -> Result<(), Error> {
-        self.ser.current_depth -= 1;
+    fn begin_object(&mut self) -> Result<(), Error> {
+        self.ser.current_depth += 1;
+        match self.style {
+            CompoundStyle::Block => self.ser.write_block_obj_start()?,
+            _ => todo!(),
+        }
+        self.switch_on_depth_limit();
         Ok(())
     }
 
-    fn begin_object(&mut self) -> Result<(), Error> {
-        self.ser.current_depth += 1;
-        self.switch_on_depth_limit();
+    fn end_object(&mut self) -> Result<(), Error> {
+        self.ser.current_depth -= 1;
         Ok(())
     }
 
@@ -992,11 +1018,6 @@ where
     }
 
     fn end_obj_val(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn end_object(&mut self) -> Result<(), Error> {
-        self.ser.current_depth -= 1;
         Ok(())
     }
 }

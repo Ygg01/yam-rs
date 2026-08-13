@@ -60,19 +60,6 @@ fn test_serialize_newtype_struct() {
     assert_eq!(result, Ok("0".to_string()));
 }
 
-const COMPLEX_KEY_EXPECTED: &str = r#"? - 1
-  - 2
-: 34"#;
-
-#[test]
-fn test_serialize_complex_key() {
-    let key = vec![1, 2];
-    let value = 34;
-    let map = BTreeMap::from([(key, value)]);
-
-    let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
-    assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
-}
 const SIMPLE_MAP_EXPECTED: &str = r#"
 a: 34
 b: 1"#;
@@ -109,6 +96,46 @@ fn test_serialize_struct() {
     assert_eq!(result, Ok(SIMPLE_STRUCT_EXPECTED.to_string()));
 }
 
+const LIST_EXPECTED: &str = r#"- 2
+- 3
+- 4
+"#;
+
+#[test]
+fn test_list() {
+    let example = vec![2, 3, 4];
+    let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(LIST_EXPECTED.to_string()));
+}
+
+const NESTED_LIST_EXPECTED: &str = r#"- - 1
+  - 2
+- - 3
+  - 4
+"#;
+
+#[test]
+fn test_nested_list() {
+    let example = vec![vec![1, 2], vec![3, 4]];
+
+    let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(NESTED_LIST_EXPECTED.to_string()));
+}
+
+const COMPLEX_KEY_EXPECTED: &str = r#"? - 1
+  - 2
+: 34"#;
+
+#[test]
+fn test_serialize_complex_key() {
+    let key = vec![1, 2];
+    let value = 34;
+    let map = BTreeMap::from([(key, value)]);
+
+    let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
+}
+
 const COMPLEX_STRUCT_EXPECTED: &str = r#"
 v:
   - - 0
@@ -135,30 +162,4 @@ fn test_serialize_complex_value() {
     };
     let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
-}
-
-const LIST_EXPECTED: &str = r#"- 2
-- 3
-- 4
-"#;
-
-#[test]
-fn test_list() {
-    let example = vec![2, 3, 4];
-    let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
-    assert_eq!(result, Ok(LIST_EXPECTED.to_string()));
-}
-
-const NESTED_LIST_EXPECTED: &str = r#"- - 1
-  - 2
-- - 3
-  - 4
-"#;
-
-#[test]
-fn test_nested_list() {
-    let example = vec![vec![1, 2], vec![3, 4]];
-
-    let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
-    assert_eq!(result, Ok(NESTED_LIST_EXPECTED.to_string()));
 }
