@@ -60,8 +60,7 @@ fn test_serialize_newtype_struct() {
     assert_eq!(result, Ok("0".to_string()));
 }
 
-const SIMPLE_MAP_EXPECTED: &str = r#"
-a: 34
+const SIMPLE_MAP_EXPECTED: &str = r#"a: 34
 b: 1"#;
 
 #[test]
@@ -76,8 +75,7 @@ fn test_serialize_simple_key() {
     assert_eq!(result, Ok(SIMPLE_MAP_EXPECTED.to_string()));
 }
 
-const SIMPLE_STRUCT_EXPECTED: &str = r#"
-num: 3
+const SIMPLE_STRUCT_EXPECTED: &str = r#"num: 3
 string: test"#;
 
 #[test]
@@ -136,8 +134,7 @@ fn test_serialize_complex_key() {
     assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
 }
 
-const COMPLEX_STRUCT_EXPECTED: &str = r#"
-v:
+const COMPLEX_STRUCT_EXPECTED: &str = r#"v:
   - - 0
 m:
   ? val: 1

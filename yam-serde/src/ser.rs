@@ -159,6 +159,7 @@ pub struct YamSerializer<W> {
     /// Serialization states
     serializer_state: SerializerState,
     is_scalar: bool,
+    is_first: bool,
     key_val_sep: Option<CompoundStyle>,
 }
 
@@ -499,6 +500,7 @@ impl<W> YamSerializer<W> {
             indentor_len: 0,
             current_depth: 0,
             is_scalar: false,
+            is_first: true,
             serializer_state: Default::default(),
             key_val_sep: Default::default(),
         }
@@ -519,6 +521,7 @@ impl<W> YamSerializer<W> {
             current_depth: 1,
             indentor_len: indentor_size,
             is_scalar: false,
+            is_first: true,
             serializer_state: SerializerState::Block,
             key_val_sep: Default::default(),
         }
@@ -683,7 +686,7 @@ where
         }
     }
 
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
         // TODO later
         // self.is_scalar = true;
         // self.flush_block_value()?;
@@ -952,6 +955,7 @@ where
         ) && self.style == CompoundStyle::Block
         {
             self.switch_to_style(CompoundStyle::ExplicitMap);
+            self.ser.write_explicit_map_start()?
         }
         match self.style {
             CompoundStyle::Block => {
@@ -959,7 +963,10 @@ where
                 self.ser.write_block_seq_start()?;
             }
             CompoundStyle::Flow => {}
-            CompoundStyle::ExplicitMap => self.ser.write_explicit_map_start()?,
+            CompoundStyle::ExplicitMap => {
+                self.ser.flush_block_value()?;
+                self.ser.write_block_seq_start()?;
+            }
         }
 
         Ok(())
@@ -1006,6 +1013,10 @@ where
 
     fn begin_obj_key(&mut self) -> Result<(), Error> {
         self.ser.serializer_state.go_to_key();
+        if self.ser.is_first {
+            self.ser.is_first = false;
+            return Ok(());
+        }
         self.ser.write_nl()
     }
 
