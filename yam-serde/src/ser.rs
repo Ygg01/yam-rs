@@ -159,7 +159,6 @@ pub struct YamSerializer<W> {
     /// Serialization states
     serializer_state: SerializerState,
     is_scalar: bool,
-    is_first: bool,
     key_val_sep: Option<CompoundStyle>,
 }
 
@@ -500,7 +499,6 @@ impl<W> YamSerializer<W> {
             indentor_len: 0,
             current_depth: 0,
             is_scalar: false,
-            is_first: true,
             serializer_state: Default::default(),
             key_val_sep: Default::default(),
         }
@@ -521,7 +519,6 @@ impl<W> YamSerializer<W> {
             current_depth: 1,
             indentor_len: indentor_size,
             is_scalar: false,
-            is_first: true,
             serializer_state: SerializerState::Block,
             key_val_sep: Default::default(),
         }
@@ -1013,11 +1010,16 @@ where
 
     fn begin_obj_key(&mut self) -> Result<(), Error> {
         self.ser.serializer_state.go_to_key();
-        if self.ser.is_first {
-            self.ser.is_first = false;
-            return Ok(());
+        let expected_indent_pos = self.ser.current_depth.saturating_sub(2) * self.ser.indentor_len;
+        match self.style {
+            CompoundStyle::Block | CompoundStyle::ExplicitMap => {
+                if self.ser.indent_pos != expected_indent_pos {
+                    self.ser.write_indent(expected_indent_pos)?;
+                }
+            }
+            CompoundStyle::Flow => {}
         }
-        self.ser.write_nl()
+        Ok(())
     }
 
     fn end_obj_key(&mut self) -> Result<(), Error> {
@@ -1159,16 +1161,12 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.begin_object()?;
-
         self.serialize_key(key)?;
-
-        self.serialize_value(value)?;
-        self.end_object()
+        self.serialize_value(value)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_object()
     }
 }
 
