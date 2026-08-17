@@ -134,14 +134,37 @@ fn test_serialize_complex_key() {
     assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
 }
 
-const COMPLEX_STRUCT_EXPECTED: &str = r#"v:
+const COMPLEX_STRUCT_EXPECTED: &str = r#"m:
+  ? val: 1
+  : 3"#;
+
+#[test]
+fn test_serialize_complex_value() {
+    #[derive(Serialize)]
+    struct Measurement {
+        m: HashMap<Inner, i64>,
+    }
+
+    #[derive(Serialize, Eq, Hash, PartialEq)]
+    struct Inner {
+        val: i16,
+    }
+
+    let cmplx = Measurement {
+        m: HashMap::from([(Inner { val: 1 }, 3)]),
+    };
+    let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
+}
+
+const NESTED_STRUCT_EXPECTED: &str = r#"v:
   - - 0
 m:
   ? val: 1
   : 3"#;
 
 #[test]
-fn test_serialize_complex_value() {
+fn test_serialize_nested_value() {
     #[derive(Serialize)]
     struct Measurement {
         v: Vec<Vec<u8>>,
@@ -158,5 +181,5 @@ fn test_serialize_complex_value() {
         m: HashMap::from([(Inner { val: 1 }, 3)]),
     };
     let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
-    assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
+    assert_eq!(result, Ok(NESTED_STRUCT_EXPECTED.to_string()));
 }
