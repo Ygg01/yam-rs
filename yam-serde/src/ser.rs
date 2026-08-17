@@ -63,32 +63,6 @@ enum SerializerState {
 impl SerializerState {}
 
 impl SerializerState {
-    pub(crate) fn go_to_key(&mut self) {
-        *self = match self {
-            SerializerState::ExplicitValue
-            | SerializerState::Block
-            | SerializerState::BlockValue
-            | SerializerState::ExplicitKey => SerializerState::BlockKey,
-            SerializerState::FlowValue | SerializerState::FlowKey | SerializerState::Flow => {
-                SerializerState::FlowKey
-            }
-            SerializerState::BlockKey => SerializerState::ExplicitKey,
-        }
-    }
-
-    pub(crate) fn go_to_value(&mut self) {
-        *self = match self {
-            SerializerState::Block => SerializerState::BlockValue,
-            SerializerState::Flow => SerializerState::FlowValue,
-            SerializerState::ExplicitKey => SerializerState::ExplicitValue,
-            SerializerState::ExplicitValue => SerializerState::ExplicitValue,
-            SerializerState::FlowKey => SerializerState::FlowValue,
-            SerializerState::FlowValue => SerializerState::FlowValue,
-            SerializerState::BlockValue => SerializerState::BlockValue,
-            SerializerState::BlockKey => SerializerState::BlockValue,
-        }
-    }
-
     fn to_compound_style(self) -> CompoundStyle {
         match self {
             SerializerState::Block | SerializerState::BlockKey | SerializerState::BlockValue => {
@@ -170,7 +144,7 @@ where
         match self.key_val_sep.take() {
             Some(CompoundStyle::Block) if self.is_scalar => {
                 self.is_scalar = false;
-                self.write_nspaces(self.indentor_len.saturating_sub(1))?;
+                self.write_n_spaces(self.indentor_len.saturating_sub(1))?;
             }
             Some(CompoundStyle::Block) => {
                 self.write_indent(self.current_depth.saturating_sub(1))?;
@@ -340,10 +314,10 @@ where
         Ok(())
     }
 
-    fn write_nspaces(&mut self, pos: u32) -> Result<(), Error> {
-        let indent = " ".repeat(pos as usize);
+    fn write_n_spaces(&mut self, n: u32) -> Result<(), Error> {
+        let indent = " ".repeat(n as usize);
         self.writer.write_str(&indent)?;
-        self.indent_pos += pos;
+        self.indent_pos += n;
 
         Ok(())
     }
@@ -862,6 +836,7 @@ pub struct CompoundInfo {
     state: CompoundState,
     is_root: bool,
     depth: u32,
+    prev_ser_state: SerializerState,
 }
 
 #[doc(hidden)]
@@ -935,6 +910,7 @@ impl<'a, W> Compound<'a, W> {
             state,
             is_root,
             depth: 2,
+            prev_ser_state: ser.serializer_state,
         };
         Compound { ser, info, style }
     }
@@ -1009,7 +985,7 @@ where
     }
 
     fn begin_obj_key(&mut self) -> Result<(), Error> {
-        self.ser.serializer_state.go_to_key();
+        self.go_to_key();
         let expected_indent_pos = self.ser.current_depth.saturating_sub(2) * self.ser.indentor_len;
         match self.style {
             CompoundStyle::Block | CompoundStyle::ExplicitMap => {
@@ -1027,10 +1003,42 @@ where
     }
 
     fn begin_obj_val(&mut self) -> Result<(), Error> {
-        self.ser.serializer_state.go_to_value();
+        self.go_to_value();
         self.ser.key_val_sep = Some(CompoundStyle::Block);
         self.ser.write_ascii(":")?;
         Ok(())
+    }
+
+    fn go_to_value(&mut self) {
+        self.info.prev_ser_state = self.ser.serializer_state;
+        self.ser.serializer_state = match self.info.prev_ser_state {
+            SerializerState::Block => SerializerState::BlockValue,
+            SerializerState::Flow => SerializerState::FlowValue,
+            SerializerState::ExplicitKey => SerializerState::ExplicitValue,
+            SerializerState::ExplicitValue => SerializerState::ExplicitValue,
+            SerializerState::FlowKey => SerializerState::FlowValue,
+            SerializerState::FlowValue => SerializerState::FlowValue,
+            SerializerState::BlockValue => SerializerState::BlockValue,
+            SerializerState::BlockKey => SerializerState::BlockValue,
+        }
+    }
+
+    fn go_to_key(&mut self) {
+        self.info.prev_ser_state = self.ser.serializer_state;
+        self.ser.serializer_state = match self.info.prev_ser_state {
+            SerializerState::ExplicitValue
+            | SerializerState::Block
+            | SerializerState::BlockValue
+            | SerializerState::ExplicitKey => SerializerState::BlockKey,
+            SerializerState::FlowValue | SerializerState::FlowKey | SerializerState::Flow => {
+                SerializerState::FlowKey
+            }
+            SerializerState::BlockKey => SerializerState::ExplicitKey,
+        }
+    }
+
+    fn restore_prev(&mut self) {
+        self.ser.serializer_state = self.info.prev_ser_state;
     }
 
     fn end_obj_val(&mut self) -> Result<(), Error> {
