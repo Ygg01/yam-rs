@@ -77,6 +77,7 @@ impl SerializerState {
             }
         }
     }
+
     #[inline]
     fn is_block_form(&self) -> bool {
         matches!(
@@ -296,7 +297,7 @@ where
     }
 
     #[inline]
-    fn write_explicit_map_start(&mut self) -> Result<(), Error> {
+    fn write_explicit_obj_start(&mut self) -> Result<(), Error> {
         let mut string = String::with_capacity(self.indentor_len as usize);
         string.push('?');
         string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
@@ -884,6 +885,7 @@ impl<'a, W> Compound<'a, W> {
         self.style = style;
     }
 
+    #[inline]
     fn switch_on_depth_limit(&mut self) -> bool {
         let mut changed = false;
         let serializer = &self.ser;
@@ -899,6 +901,9 @@ impl<'a, W> Compound<'a, W> {
         };
         changed
     }
+
+    #[inline]
+    fn switch_on_nested(&mut self) {}
 
     fn new(
         ser: &'a mut YamSerializer<W>,
@@ -933,7 +938,7 @@ where
         ) && self.style == CompoundStyle::Block
         {
             self.switch_to_style(CompoundStyle::Explicit);
-            self.ser.write_explicit_map_start()?
+            self.ser.write_explicit_obj_start()?
         }
         match self.style {
             CompoundStyle::Block => {
@@ -979,11 +984,17 @@ where
         self.ser.is_scalar = false;
 
         self.switch_on_depth_limit();
+        if matches!(
+            self.ser.serializer_state,
+            SerializerState::BlockValue | SerializerState::BlockKey
+        ) {
+            self.ser.serializer_state = SerializerState::ExplicitKey;
+            self.style = CompoundStyle::Explicit;
+        }
         match self.style {
-            CompoundStyle::Block => self.ser.write_block_obj_start()?,
+            CompoundStyle::Block | CompoundStyle::Explicit => self.ser.write_block_obj_start()?,
             _ => todo!(),
         }
-        self.go_to_key();
         Ok(())
     }
 
