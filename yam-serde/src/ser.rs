@@ -179,7 +179,7 @@ where
         // Are we in key or another context?
         let mut preferred_style = if self.serializer_state().is_key() {
             self.formatter.key_preferred_style
-        } else if self.current_depth() == 1 {
+        } else if self.current_depth() == 0 {
             // In root use root preferred style
             self.formatter.root_preferred_style
         } else if !in_block_form {
@@ -476,14 +476,13 @@ impl<W> YamSerializer<W> {
     #[inline]
     pub fn new_simple(writer: W) -> Self {
         let formatter = PrettyFormatterConfig::default();
-        let root_style = formatter.root_style.into();
         YamSerializer {
             writer,
             formatter,
             indent_pos: 0,
             indentor_len: 0,
             is_scalar: false,
-            serializer_states: vec![root_style],
+            serializer_states: Vec::new(),
             key_val_sep: Default::default(),
         }
     }
@@ -496,14 +495,13 @@ impl<W> YamSerializer<W> {
             .count()
             .try_into()
             .unwrap_or_default();
-        let root_style = formatter.root_style.into();
         YamSerializer {
             writer,
             formatter,
             indent_pos: 0,
             indentor_len: indentor_size,
             is_scalar: false,
-            serializer_states: vec![root_style],
+            serializer_states: vec![],
             key_val_sep: Default::default(),
         }
     }
@@ -812,12 +810,12 @@ where
         _variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        let mut struct_serializer = Compound::new(
-            self,
-            self.serializer_state().to_compound_style(),
-            Some(len),
-            true,
-        );
+        let compound_style = self
+            .serializer_states
+            .last()
+            .copied()
+            .map_or(self.formatter.root_style, |x| x.to_compound_style());
+        let mut struct_serializer = Compound::new(self, compound_style, Some(len), true);
 
         struct_serializer.begin_object()?;
         struct_serializer.serialize_key(name)?;
@@ -826,8 +824,13 @@ where
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        let mut collection_serializer =
-            Compound::new(self, self.serializer_state().to_compound_style(), len, true);
+        let compound_style = self
+            .serializer_states
+            .last()
+            .copied()
+            .map_or(self.formatter.root_style, |x| x.to_compound_style());
+
+        let mut collection_serializer = Compound::new(self, compound_style, len, true);
 
         collection_serializer.begin_object()?;
         Ok(collection_serializer)
@@ -921,7 +924,7 @@ impl<'a, W> Compound<'a, W> {
         let info = CompoundInfo {
             state,
             is_root,
-            depth: 2,
+            depth: 1,
         };
         Compound { ser, info, style }
     }
@@ -974,7 +977,7 @@ where
         Ok(())
     }
 
-    fn begin_col_elem(&'_ mut self) -> Result<(), Error> {
+    fn begin_seq_elem(&'_ mut self) -> Result<(), Error> {
         match self.style {
             YamlStyle::Block | YamlStyle::Explicit => {
                 self.ser.write_before_block_elem(&mut self.info)?
@@ -984,7 +987,7 @@ where
         Ok(())
     }
 
-    fn end_col_elem(&mut self) -> Result<(), Error> {
+    fn end_seq_elem(&mut self) -> Result<(), Error> {
         match self.style {
             YamlStyle::Block => self.ser.write_after_block_elem()?,
             YamlStyle::Explicit => self.ser.write_nl()?,
@@ -1083,9 +1086,9 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.begin_col_elem()?;
+        self.begin_seq_elem()?;
         value.serialize(&mut *self.ser)?;
-        self.end_col_elem()
+        self.end_seq_elem()
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
