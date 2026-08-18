@@ -149,9 +149,14 @@ where
                     (self.indentor_len * self.current_depth).saturating_sub(1),
                     1,
                 );
+                self.write_ascii(":")?;
                 self.write_n_spaces(spaces)?;
             }
             Some(CompoundStyle::Block) => {
+                self.write_ascii(":")?;
+                self.write_indent(self.current_depth.saturating_sub(1))?;
+            }
+            Some(CompoundStyle::Explicit) => {
                 self.write_indent(self.current_depth.saturating_sub(1))?;
             }
             _ => {}
@@ -902,9 +907,6 @@ impl<'a, W> Compound<'a, W> {
         changed
     }
 
-    #[inline]
-    fn switch_on_nested(&mut self) {}
-
     fn new(
         ser: &'a mut YamSerializer<W>,
         style: CompoundStyle,
@@ -932,6 +934,23 @@ where
     fn begin_seq(&mut self) -> Result<(), Error> {
         self.ser.current_depth += 1;
         self.ser.is_scalar = false;
+        self.switch_on_nested()?;
+        self.ser.flush_block_value()?;
+
+        match self.style {
+            CompoundStyle::Block => {
+                self.ser.write_block_seq_start()?;
+            }
+            CompoundStyle::Flow => {}
+            CompoundStyle::Explicit => {
+                self.ser.write_block_seq_start()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn switch_on_nested(&mut self) -> Result<(), Error> {
         if matches!(
             self.ser.serializer_state,
             SerializerState::BlockKey | SerializerState::ExplicitKey
@@ -940,18 +959,6 @@ where
             self.switch_to_style(CompoundStyle::Explicit);
             self.ser.write_explicit_obj_start()?
         }
-        match self.style {
-            CompoundStyle::Block => {
-                self.ser.flush_block_value()?;
-                self.ser.write_block_seq_start()?;
-            }
-            CompoundStyle::Flow => {}
-            CompoundStyle::Explicit => {
-                self.ser.flush_block_value()?;
-                self.ser.write_block_seq_start()?;
-            }
-        }
-
         Ok(())
     }
 
@@ -981,16 +988,13 @@ where
 
     fn begin_object(&mut self) -> Result<(), Error> {
         self.ser.current_depth += 1;
+
+        // Flush
         self.ser.is_scalar = false;
+        self.ser.flush_block_value()?;
 
         self.switch_on_depth_limit();
-        if matches!(
-            self.ser.serializer_state,
-            SerializerState::BlockValue | SerializerState::BlockKey
-        ) {
-            self.ser.serializer_state = SerializerState::ExplicitKey;
-            self.style = CompoundStyle::Explicit;
-        }
+        self.switch_on_nested()?;
         match self.style {
             CompoundStyle::Block | CompoundStyle::Explicit => self.ser.write_block_obj_start()?,
             _ => todo!(),
@@ -1000,16 +1004,18 @@ where
 
     fn end_object(&mut self) -> Result<(), Error> {
         self.ser.current_depth -= 1;
+
         Ok(())
     }
 
     fn begin_obj_key(&mut self) -> Result<(), Error> {
         self.go_to_key();
+        let expected_indent = self.ser.current_depth.saturating_sub(2);
         let expected_indent_pos = self.ser.current_depth.saturating_sub(2) * self.ser.indentor_len;
         match self.style {
             CompoundStyle::Block | CompoundStyle::Explicit => {
                 if self.ser.indent_pos != expected_indent_pos {
-                    self.ser.write_indent(expected_indent_pos)?;
+                    self.ser.write_indent(expected_indent)?;
                 }
             }
             CompoundStyle::Flow => {}
@@ -1023,8 +1029,7 @@ where
 
     fn begin_obj_val(&mut self) -> Result<(), Error> {
         self.go_to_value();
-        self.ser.key_val_sep = Some(CompoundStyle::Block);
-        self.ser.write_ascii(":")?;
+        self.ser.key_val_sep = Some(self.ser.serializer_state.to_compound_style());
         Ok(())
     }
 
