@@ -8,7 +8,7 @@ mod escape_str;
 pub mod ser;
 
 use crate::de::DeYamlError;
-use crate::ser::FlowStyle;
+use crate::ser::{FlowStyle, YamlStyle};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use core::fmt::Error;
@@ -138,6 +138,9 @@ pub struct PrettyFormatterConfig {
 
     /// Whether to prefer string to fit in a single line
     pub compat_strings: bool,
+
+    /// What is the default style for Root element
+    pub root_style: YamlStyle,
 }
 
 impl Default for PrettyFormatterConfig {
@@ -153,6 +156,7 @@ impl Default for PrettyFormatterConfig {
             flow_string_style: FlowStyle::DoubleQuote,
             key_preferred_style: ScalarType::Plain,
             compat_strings: false,
+            root_style: Default::default(),
         }
     }
 }
@@ -170,6 +174,7 @@ impl PrettyFormatterConfig {
             flow_string_style: FlowStyle::DoubleQuote,
             key_preferred_style: ScalarType::Plain,
             compat_strings: false,
+            root_style: Default::default(),
         }
     }
 
