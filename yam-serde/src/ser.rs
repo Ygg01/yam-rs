@@ -156,12 +156,12 @@ where
                 self.write_indent(self.current_depth())?;
             }
             Some(YamlStyle::Explicit) => {
-                //
-                // let spaces = min(
-                //     (self.indentor_len * self.current_depth()).saturating_sub(1),
-                //     1,
-                // );
-                self.write_indent(self.current_depth())?;
+                let expected_indent = self.indentor_len * (self.current_depth() - 1);
+                if self.indent_pos > expected_indent {
+                    self.write_nl()?;
+                }
+                let diff_indent = expected_indent - self.indent_pos;
+                self.write_n_spaces(diff_indent)?;
                 self.write_ascii(": ")?;
             }
             _ => {}
@@ -341,35 +341,6 @@ where
         self.indent_pos + buff_len > self.formatter.pref_string_length
     }
 
-    /// Writes an indented newline to the underlying writer.
-    ///
-    /// This function appends a newline character (`'\n'`) to the writer
-    /// and then writes the specified amount of indentation based on the
-    /// configured indentation string and level.
-    ///
-    /// # Arguments
-    ///
-    /// * `indent` - The number of indentation levels to write. Each level
-    ///   corresponds to the `indentor` string defined in the
-    ///   formatter.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if the newline and indentation are successfully written.
-    /// * `Err(Error)` if writing to the underlying writer fails.
-    ///
-    /// # Side Effects
-    ///
-    /// * Updates the `position` field to reflect the new cursor position
-    ///   based on the total length of the written indentation.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the `write_str` operation on the writer fails
-    /// (e.g., if the writer encounters an I/O error).
-    ///
-    /// # Example
-    ///
     fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
         self.writer.write_char('\n')?;
         let corrected_indent =
