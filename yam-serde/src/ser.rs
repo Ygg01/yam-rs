@@ -153,10 +153,16 @@ where
             }
             Some(YamlStyle::Block) => {
                 self.write_ascii(":")?;
-                self.write_indent(self.current_depth().saturating_sub(1))?;
+                self.write_indent(self.current_depth())?;
             }
             Some(YamlStyle::Explicit) => {
-                self.write_indent(self.current_indent_depth())?;
+                //
+                // let spaces = min(
+                //     (self.indentor_len * self.current_depth()).saturating_sub(1),
+                //     1,
+                // );
+                self.write_indent(self.current_depth())?;
+                self.write_ascii(": ")?;
             }
             _ => {}
         };
