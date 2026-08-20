@@ -267,6 +267,26 @@ where
         Ok(())
     }
 
+    fn write_flow_obj_start(&mut self) -> Result<(), Error> {
+        self.write_ascii("{")?;
+        self.write_n_spaces(1)
+    }
+
+    fn write_flow_obj_end(&mut self) -> Result<(), Error> {
+        self.write_n_spaces(1)?;
+        self.write_ascii("}")
+    }
+
+    fn write_flow_seq_start(&mut self) -> Result<(), Error> {
+        self.write_ascii("[")?;
+        self.write_n_spaces(1)
+    }
+
+    fn write_flow_seq_end(&mut self) -> Result<(), Error> {
+        self.write_n_spaces(1)?;
+        self.write_ascii("]")
+    }
+
     #[inline]
     fn write_block_seq_start(&mut self) -> Result<(), Error> {
         let mut string = String::with_capacity(self.indentor_len as usize);
@@ -656,30 +676,32 @@ where
         }
     }
 
-    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        // TODO later
-        // self.is_scalar = true;
-        // self.flush_block_value()?;
-        // self.write_ascii("!!binary")?;
-        // let mut encoded_bytes = binary::encode_as_base64(v);
-        // if !self.use_block_form() {
-        //     self.write_ascii("\"")?;
-        //     self.write_ascii(&encoded_bytes)?;
-        //     self.write_ascii("\"")?;
-        // } else {
-        //     self.write_ascii("|\n")?;
-        //
-        //     while !encoded_bytes.is_empty() {
-        //         self.write_indent(self.current_depth)?;
-        //         let remaining_byte = self
-        //             .formatter
-        //             .pref_string_length
-        //             .saturating_sub(self.indent_pos);
-        //         let write = encoded_bytes.split_off(remaining_byte as usize);
-        //         self.write_ascii(&write)?;
-        //     }
-        //     self.write_ascii(&encoded_bytes)?;
-        // }
+    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        self.is_scalar = true;
+        self.flush_block_value()?;
+        self.write_ascii("!!binary")?;
+        let mut encoded_bytes = binary::encode_as_base64(v);
+        if matches!(
+            self.serializer_state(),
+            SerializerState::FlowValue | SerializerState::Flow | SerializerState::FlowKey
+        ) {
+            self.write_ascii("\"")?;
+            self.write_ascii(&encoded_bytes)?;
+            self.write_ascii("\"")?;
+        } else {
+            self.write_ascii("|\n")?;
+
+            while !encoded_bytes.is_empty() {
+                self.write_indent(self.current_depth())?;
+                let remaining_byte = self
+                    .formatter
+                    .pref_string_length
+                    .saturating_sub(self.indent_pos);
+                let write = encoded_bytes.split_off(remaining_byte as usize);
+                self.write_ascii(&write)?;
+            }
+            self.write_ascii(&encoded_bytes)?;
+        }
         Ok(())
     }
 
@@ -784,14 +806,9 @@ where
         _variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        let compound_style = self
-            .serializer_states
-            .last()
-            .copied()
-            .map_or(self.formatter.root_style, |x| x.to_compound_style());
-        let mut struct_serializer = Compound::new(self, compound_style, Some(len), true);
+        let mut struct_serializer = Compound::new(self, YamlStyle::Flow, Some(len), true);
 
-        struct_serializer.begin_object()?;
+        struct_serializer.begin_seq()?;
         struct_serializer.serialize_key(name)?;
 
         Ok(struct_serializer)
@@ -947,13 +964,18 @@ where
             YamlStyle::Block | YamlStyle::Explicit => {
                 self.ser.write_block_seq_start()?;
             }
-            YamlStyle::Flow => {}
+            YamlStyle::Flow => {
+                self.ser.write_flow_seq_start()?;
+            }
         }
 
         Ok(())
     }
 
     fn end_seq(&mut self) -> Result<(), Error> {
+        if self.style == YamlStyle::Flow {
+            self.ser.write_flow_seq_end()?;
+        }
         self.ser.serializer_states.pop();
         Ok(())
     }
@@ -963,7 +985,7 @@ where
             YamlStyle::Block | YamlStyle::Explicit => {
                 self.ser.write_before_block_elem(&mut self.info)?
             }
-            _ => todo!(),
+            _ => {}
         }
         Ok(())
     }
