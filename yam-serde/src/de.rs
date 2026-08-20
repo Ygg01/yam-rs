@@ -500,7 +500,7 @@ where
     type Error = DeYamlError;
 
     fn unit_variant(self) -> Result<(), Self::Error> {
-        todo!()
+        de::Deserialize::deserialize(self.de)
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
