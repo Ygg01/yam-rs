@@ -147,6 +147,17 @@ pub enum NullFormat {
     OldYaml,
 }
 
+impl NullFormat {
+    pub fn to_null_string(self) -> Cow<'static, str> {
+        match self {
+            NullFormat::JsonNull => Cow::Borrowed("null"),
+            NullFormat::TaggedYaml => Cow::Borrowed("!!null null"),
+            NullFormat::Plain => Cow::Borrowed(""),
+            NullFormat::OldYaml => Cow::Borrowed("~"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct PrettyFormatterConfig {
     /// Limit depth
@@ -187,8 +198,8 @@ impl Default for PrettyFormatterConfig {
         Self {
             block_depth_limit: 0,
             pref_string_length: 80,
-            indentor: Cow::Borrowed(""),
-            new_line: Cow::Borrowed(""),
+            indentor: Cow::Borrowed("  "),
+            new_line: Cow::Borrowed("\n"),
             null_format: Cow::Borrowed(""),
             block_preferred_style: ScalarType::Plain,
             root_preferred_style: ScalarType::DoubleQuote,
@@ -220,11 +231,6 @@ impl PrettyFormatterConfig {
 
     #[inline]
     pub fn set_null_format(&mut self, fmt: NullFormat) {
-        self.null_format = match fmt {
-            NullFormat::JsonNull => Cow::Borrowed("null"),
-            NullFormat::TaggedYaml => Cow::Borrowed("!!null null"),
-            NullFormat::Plain => Cow::Borrowed(""),
-            NullFormat::OldYaml => Cow::Borrowed("~"),
-        };
+        self.null_format = fmt.to_null_string();
     }
 }

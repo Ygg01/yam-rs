@@ -1,11 +1,21 @@
 use core::fmt::Error;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
-use yam_serde::PrettyFormatterConfig;
 use yam_serde::to_pretty_string;
+use yam_serde::{NullFormat, PrettyFormatterConfig};
 
 fn assert_eq_strings(result: Result<String, Error>, correct: &str) {
     assert_eq!(result, Ok(correct.to_string()));
+}
+const VEC_EXPECTED: &str = "- xyz\n- abc\n";
+
+#[test]
+fn test_vec_str() {
+    let x = vec!["xyz".to_string(), "abc".to_string()];
+    let fmt = PrettyFormatterConfig::default();
+    let result = to_pretty_string(&x, fmt);
+
+    assert_eq_strings(result, VEC_EXPECTED);
 }
 
 #[test]
@@ -14,13 +24,24 @@ fn test_null_fmt() {
     let fmt = PrettyFormatterConfig::default();
     let result = to_pretty_string(&x, fmt);
 
-    assert_eq_strings(result, "");
+    assert_eq_strings(result, NullFormat::Plain.to_null_string().as_ref());
 
-    let x: Option<i32> = None;
     let fmt = PrettyFormatterConfig::pretty();
     let result = to_pretty_string(&x, fmt);
 
-    assert_eq_strings(result, "null");
+    assert_eq_strings(result, NullFormat::JsonNull.to_null_string().as_ref());
+
+    let mut fmt = PrettyFormatterConfig::default();
+    fmt.set_null_format(NullFormat::OldYaml);
+    let result = to_pretty_string(&x, fmt);
+
+    assert_eq_strings(result, NullFormat::OldYaml.to_null_string().as_ref());
+
+    let mut fmt = PrettyFormatterConfig::default();
+    fmt.set_null_format(NullFormat::TaggedYaml);
+    let result = to_pretty_string(&x, fmt);
+
+    assert_eq_strings(result, NullFormat::TaggedYaml.to_null_string().as_ref());
 }
 
 const MULTI_LINE_STRING1_ACTUAL: &str = "One quick brown fox jumps over the lazy dog";
