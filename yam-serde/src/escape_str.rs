@@ -175,7 +175,7 @@ impl CanBeScalar for &str {
         }
 
         // First character can be '?, '-', ':' iff second character is a safe character.
-        if b"?-:".contains(start_byte) && is_unsafe_char(second_byte, flow_in) {
+        if b"?-:".contains(start_byte) && is_unsafe_char(*second_byte, flow_in) {
             return false;
         }
 
@@ -188,8 +188,8 @@ impl CanBeScalar for &str {
     }
 }
 
-fn is_unsafe_char(chr: &u8, flow_in: bool) -> bool {
+fn is_unsafe_char(chr: u8, flow_in: bool) -> bool {
     // Whitespace characters are unsafe always
     // while flow indicators are unsafe in implict key or flow collection
-    b" \t\r\n".contains(chr) || (flow_in && b"{},[]".contains(chr))
+    b" \t\r\n".contains(&chr) || (flow_in && b"{},[]".contains(&chr))
 }

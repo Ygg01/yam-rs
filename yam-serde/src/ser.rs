@@ -6,6 +6,7 @@ use alloc::{format, vec};
 use core::cmp::min;
 use core::fmt::{Debug, Display, Error, Write};
 use core::num::NonZero;
+use core::option::Option;
 use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
@@ -45,10 +46,7 @@ impl YamlWhitespace for str {
     }
 
     fn is_last_char_splittable_ws(&self) -> bool {
-        self.bytes()
-            .last()
-            .map(|c| c == b' ' || c == b'\n')
-            .unwrap_or_default()
+        self.bytes().last().is_some_and(|c| c == b' ' || c == b'\n')
     }
 }
 
@@ -79,7 +77,7 @@ impl SerializerState {
     }
 
     #[inline]
-    fn is_block_form(&self) -> bool {
+    fn is_block_form(self) -> bool {
         matches!(
             self,
             SerializerState::BlockValue
@@ -90,7 +88,7 @@ impl SerializerState {
         )
     }
 
-    pub(crate) fn is_in_map(&self) -> bool {
+    pub(crate) fn is_in_map(self) -> bool {
         matches!(
             self,
             SerializerState::BlockValue | SerializerState::ExplicitValue
@@ -98,7 +96,7 @@ impl SerializerState {
     }
 
     #[inline]
-    fn is_key(&self) -> bool {
+    fn is_key(self) -> bool {
         matches!(
             self,
             SerializerState::FlowKey | SerializerState::BlockKey | SerializerState::ExplicitKey
@@ -106,7 +104,7 @@ impl SerializerState {
     }
 
     #[inline]
-    fn is_flow_restricted(&self) -> bool {
+    fn is_flow_restricted(self) -> bool {
         matches!(
             self,
             SerializerState::FlowKey | SerializerState::BlockKey | SerializerState::ExplicitKey
@@ -114,7 +112,7 @@ impl SerializerState {
     }
 
     #[inline]
-    fn is_explicit_map(&self) -> bool {
+    fn is_explicit_map(self) -> bool {
         matches!(
             self,
             SerializerState::ExplicitKey | SerializerState::ExplicitValue
@@ -172,12 +170,8 @@ where
                 self.write_ascii(": ")?;
             }
             _ => {}
-        };
+        }
 
-        Ok(())
-    }
-
-    pub(crate) fn finish(&self) -> Result<(), Error> {
         Ok(())
     }
 
@@ -262,12 +256,9 @@ where
     /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     fn write_ascii(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
-        self.indent_pos += str.len() as u32;
+        let str_len = u32::try_from(str.len()).expect("String length is greater than u32::MAX");
+        self.indent_pos += str_len;
         res
-    }
-
-    fn write_block_obj_start(&mut self) -> Result<(), Error> {
-        Ok(())
     }
 
     fn write_flow_obj_start(&mut self) -> Result<(), Error> {
@@ -299,7 +290,8 @@ where
         string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
 
         self.writer.write_str(&string)?;
-        self.indent_pos += string.len() as u32;
+        let string_len = u32::try_from(string.len()).expect("Indentation is too large");
+        self.indent_pos += string_len;
         Ok(())
     }
 
@@ -317,7 +309,8 @@ where
             string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
 
             self.writer.write_str(&string)?;
-            self.indent_pos += string.len() as u32;
+            let string_len = u32::try_from(string.len()).expect("String elem is too long");
+            self.indent_pos += string_len;
         }
 
         info.state = CompoundState::Rest;
@@ -336,10 +329,11 @@ where
     #[inline]
     fn write_explicit_obj_start(&mut self) -> Result<(), Error> {
         let mut string = String::with_capacity(self.indentor_len as usize);
+        let indentor_len_u32 = self.indentor_len.saturating_sub(1);
         string.push('?');
-        string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
+        string.write_str(&" ".repeat(indentor_len_u32 as usize))?;
         self.writer.write_str(&string)?;
-        self.indent_pos += string.len() as u32;
+        self.indent_pos += indentor_len_u32 + 1;
         Ok(())
     }
 
@@ -351,8 +345,8 @@ where
     }
 
     #[inline]
-    fn write_prefix(&mut self, prefix: String) -> Result<(), Error> {
-        self.write_ascii(prefix.as_str())?;
+    fn write_prefix(&mut self, prefix: &str) -> Result<(), Error> {
+        self.write_ascii(prefix)?;
         Ok(())
     }
 
@@ -379,7 +373,7 @@ where
     fn write_indentor(&mut self, repeat: u32) -> Result<(), Error> {
         let corrected_indent = self.formatter.indentor.repeat(repeat as usize);
         self.writer.write_str(&corrected_indent)?;
-        self.indent_pos += corrected_indent.len() as u32;
+        self.indent_pos += u32::try_from(corrected_indent.len()).expect("Indentation too large");
 
         Ok(())
     }
@@ -389,7 +383,8 @@ where
         self.write_string(escaped_str)?;
         self.write_string(fence)?;
         let grapheme_count: u32 = escaped_str.graphemes(true).count().try_into().unwrap();
-        self.indent_pos += 2 * (fence.len() as u32) + grapheme_count;
+        let fence_u32 = u32::try_from(fence.len()).expect("String is too large to write");
+        self.indent_pos += 2 * fence_u32 + grapheme_count;
         Ok(())
     }
 
@@ -457,7 +452,7 @@ where
 
                     line_buff.clear();
                     line_buff.push_str(front);
-                    line_buff_grapheme_len = front.len() as u32;
+                    line_buff_grapheme_len = u32::try_from(front.len()).expect("Line is too large");
                 } else {
                     // Write the word to buffer
                     line_buff.push_str(word);
@@ -487,7 +482,7 @@ impl<W> YamSerializer<W> {
             indentor_len: 0,
             is_scalar: false,
             serializer_states: Vec::new(),
-            key_val_sep: Default::default(),
+            key_val_sep: Option::default(),
         }
     }
 
@@ -506,7 +501,7 @@ impl<W> YamSerializer<W> {
             indentor_len: indentor_size,
             is_scalar: false,
             serializer_states: vec![],
-            key_val_sep: Default::default(),
+            key_val_sep: Option::default(),
         }
     }
     fn serializer_state(&self) -> SerializerState {
@@ -527,12 +522,7 @@ impl<W> YamSerializer<W> {
 
     #[inline]
     pub(crate) fn current_depth(&self) -> u32 {
-        self.serializer_states.len() as u32
-    }
-
-    #[inline]
-    pub(crate) fn current_indent_depth(&self) -> u32 {
-        self.serializer_states.len().saturating_sub(1) as u32
+        u32::try_from(self.serializer_states.len()).unwrap_or(u32::MAX)
     }
 }
 
@@ -553,9 +543,9 @@ where
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        let str = if v { "true" } else { "false" };
+        let (str, len) = if v { ("true", 4) } else { ("false", 5) };
         self.writer.write_str(str)?;
-        self.indent_pos += str.len() as u32;
+        self.indent_pos += len;
         Ok(())
     }
 
@@ -654,8 +644,7 @@ where
                     self.write_multi_line_string("", v, "")
                 }
             }
-            ScalarType::Folded => self.write_block_string(true, v),
-            ScalarType::Literal => self.write_block_string(true, v),
+            ScalarType::Folded | ScalarType::Literal => self.write_block_string(true, v),
             ScalarType::SingleQuote => {
                 let mut var = String::with_capacity(v.len() * 2);
                 escape_single_quotes(&mut var, v)?;
@@ -719,6 +708,8 @@ where
         value.serialize(self)
     }
 
+    // Allowing this since we control null format
+    #[allow(clippy::cast_possible_truncation)]
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
@@ -813,7 +804,7 @@ where
         struct_serializer.serialize_key(variant)?;
 
         // Serialize the `: ` part
-        struct_serializer.begin_obj_val()?;
+        struct_serializer.begin_obj_val();
 
         // Serialize the ['values', 'in', 'tuple']
         struct_serializer.begin_seq()?;
@@ -822,11 +813,10 @@ where
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        let compound_style = self
-            .serializer_states
-            .last()
-            .copied()
-            .map_or(self.formatter.root_style, |x| x.to_compound_style());
+        let compound_style = self.serializer_states.last().copied().map_or(
+            self.formatter.root_style,
+            SerializerState::to_compound_style,
+        );
 
         let mut collection_serializer = Compound::new(self, compound_style, len);
 
@@ -859,7 +849,7 @@ where
         collection_serializer.serialize_key(variant)?;
 
         // Serialize the `: ` part
-        collection_serializer.begin_obj_val()?;
+        collection_serializer.begin_obj_val();
 
         // Serialize the `{ key: "value"}` part
 
@@ -870,7 +860,7 @@ where
     where
         T: ?Sized + Display,
     {
-        self.serialize_str(&format!("{}", value))
+        self.serialize_str(&format!("{value}"))
     }
 }
 
@@ -891,7 +881,7 @@ pub enum CompoundState {
 }
 
 impl CompoundInfo {
-    fn is_first(&self) -> bool {
+    fn is_first(self) -> bool {
         matches!(self.state, CompoundState::First)
     }
 }
@@ -949,12 +939,13 @@ impl<'a, W> Compound<'a, W> {
     }
 }
 
-impl<'a, W> Compound<'a, W>
+impl<W> Compound<'_, W>
 where
     W: Write,
 {
     fn push_state_in_seq(&mut self) -> Result<(), Error> {
-        let depth = self.ser.serializer_states.len() as u32;
+        let depth = u32::try_from(self.ser.serializer_states.len())
+            .expect("Depth can't be greater than u32::MAX");
 
         if matches!(
             self.ser.serializer_state(),
@@ -1006,7 +997,7 @@ where
     fn begin_seq_elem(&'_ mut self) -> Result<(), Error> {
         match self.style {
             YamlStyle::Block | YamlStyle::Explicit => {
-                self.ser.write_before_block_elem(&mut self.info)?
+                self.ser.write_before_block_elem(&mut self.info)?;
             }
             YamlStyle::Flow => {
                 if !self.info.is_first() {
@@ -1022,7 +1013,7 @@ where
         match self.style {
             YamlStyle::Block => self.ser.write_after_block_elem()?,
             YamlStyle::Explicit => self.ser.write_nl()?,
-            _ => {}
+            YamlStyle::Flow => {}
         }
         Ok(())
     }
@@ -1035,7 +1026,7 @@ where
         self.ser.flush_block_value()?;
 
         match self.style {
-            YamlStyle::Block | YamlStyle::Explicit => self.ser.write_block_obj_start()?,
+            YamlStyle::Block | YamlStyle::Explicit => {}
             YamlStyle::Flow => self.ser.write_flow_obj_start()?,
         }
         Ok(())
@@ -1061,14 +1052,9 @@ where
         Ok(())
     }
 
-    fn end_obj_key(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn begin_obj_val(&mut self) -> Result<(), Error> {
+    fn begin_obj_val(&mut self) {
         self.go_to_value();
         self.ser.key_val_sep = Some(self.ser.serializer_state().to_compound_style());
-        Ok(())
     }
 
     fn go_to_value(&mut self) {
@@ -1098,13 +1084,9 @@ where
             }
         }
     }
-
-    fn end_obj_val(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
 }
 
-impl<'a, W> SerializeSeq for Compound<'a, W>
+impl<W> SerializeSeq for Compound<'_, W>
 where
     W: Write,
 {
@@ -1127,7 +1109,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTuple for Compound<'a, W>
+impl<W> ser::SerializeTuple for Compound<'_, W>
 where
     W: Write,
 {
@@ -1146,18 +1128,18 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTupleStruct for Compound<'a, W>
+impl<W> ser::SerializeTupleStruct for Compound<'_, W>
 where
     W: Write,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        self.serialize_element(_value)
+        self.serialize_element(value)
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
@@ -1165,7 +1147,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTupleVariant for Compound<'a, W>
+impl<W> ser::SerializeTupleVariant for Compound<'_, W>
 where
     W: Write,
 {
@@ -1185,7 +1167,7 @@ where
     }
 }
 
-impl<'a, W> SerializeMap for Compound<'a, W>
+impl<W> SerializeMap for Compound<'_, W>
 where
     W: Write,
 {
@@ -1198,7 +1180,6 @@ where
     {
         self.begin_obj_key()?;
         key.serialize(&mut *self.ser)?;
-        self.end_obj_key()?;
         Ok(())
     }
 
@@ -1206,9 +1187,8 @@ where
     where
         T: ?Sized + Serialize,
     {
-        self.begin_obj_val()?;
+        self.begin_obj_val();
         value.serialize(&mut *self.ser)?;
-        self.end_obj_val()?;
         Ok(())
     }
 
@@ -1217,7 +1197,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeStruct for Compound<'a, W>
+impl<W> ser::SerializeStruct for Compound<'_, W>
 where
     W: Write,
 {
@@ -1237,7 +1217,7 @@ where
     }
 }
 
-impl<'a, W> SerializeStructVariant for Compound<'a, W>
+impl<W> SerializeStructVariant for Compound<'_, W>
 where
     W: Write,
 {
