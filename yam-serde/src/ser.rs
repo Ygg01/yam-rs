@@ -532,13 +532,6 @@ where
         Ok(())
     }
 
-    fn collect_str<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: ?Sized + Display,
-    {
-        self.serialize_str(&format!("{}", value))
-    }
-
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
@@ -834,6 +827,13 @@ where
         collection_serializer.serialize_key(variant)?;
 
         Ok(collection_serializer)
+    }
+
+    fn collect_str<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Display,
+    {
+        self.serialize_str(&format!("{}", value))
     }
 }
 
