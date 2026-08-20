@@ -183,3 +183,25 @@ fn test_serialize_nested_value() {
     let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(NESTED_STRUCT_EXPECTED.to_string()));
 }
+
+const ENUM_UNIT_EXPECTED: &str = r#"{ UnitVariant }"#;
+const ENUM_TUPLE_EXPECTED: &str = r#"{ UnitVariant }"#;
+
+#[test]
+fn test_various_enum() {
+    #[derive(Serialize)]
+    enum Example {
+        UnitVariant,
+        TupleVariant(u8, u16),
+    }
+
+    // TODO re-enable everything
+
+    // let enum1 = Example::UnitVariant;
+    // let result = to_pretty_string(&enum1, PrettyFormatterConfig::pretty());
+    // assert_eq!(result, Ok(ENUM_UNIT_EXPECTED.to_string()));
+
+    let enum1 = Example::TupleVariant(0, 15);
+    let result = to_pretty_string(&enum1, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(ENUM_TUPLE_EXPECTED.to_string()));
+}

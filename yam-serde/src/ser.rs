@@ -1,5 +1,5 @@
-use crate::PrettyFormatterConfig;
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
+use crate::{PrettyFormatterConfig, binary};
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -809,6 +809,7 @@ where
         let mut struct_serializer = Compound::new(self, YamlStyle::Flow, Some(len), true);
 
         struct_serializer.begin_seq()?;
+
         struct_serializer.serialize_key(name)?;
 
         Ok(struct_serializer)
@@ -994,7 +995,11 @@ where
         match self.style {
             YamlStyle::Block => self.ser.write_after_block_elem()?,
             YamlStyle::Explicit => self.ser.write_nl()?,
-            _ => todo!(),
+            YamlStyle::Flow => {
+                if !self.info.is_first() {
+                    self.ser.write_ascii(", ")?;
+                }
+            }
         }
         Ok(())
     }
@@ -1008,13 +1013,17 @@ where
 
         match self.style {
             YamlStyle::Block | YamlStyle::Explicit => self.ser.write_block_obj_start()?,
-            _ => todo!(),
+            YamlStyle::Flow => self.ser.write_flow_obj_start()?,
         }
         Ok(())
     }
 
     fn end_object(&mut self) -> Result<(), Error> {
+        if self.style == YamlStyle::Flow {
+            self.ser.write_flow_obj_end()?;
+        }
         self.ser.serializer_states.pop();
+
         Ok(())
     }
 
@@ -1140,15 +1149,15 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        self.serialize_element(_value)
+        self.serialize_element(value)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_seq()
     }
 }
 
