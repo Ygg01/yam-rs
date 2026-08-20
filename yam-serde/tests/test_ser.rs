@@ -185,7 +185,7 @@ fn test_serialize_nested_value() {
 }
 
 const ENUM_UNIT_EXPECTED: &str = r#"{ UnitVariant }"#;
-const ENUM_TUPLE_EXPECTED: &str = r#"{ TupleVariant: [0, 15] }"#;
+const ENUM_TUPLE_EXPECTED: &str = r#"{ TupleVariant: [ 0, 15 ] }"#;
 
 #[test]
 fn test_various_enum() {

@@ -168,6 +168,9 @@ where
                 self.ensure_indent()?;
                 self.write_ascii(": ")?;
             }
+            Some(YamlStyle::Flow) => {
+                self.write_ascii(": ")?;
+            }
             _ => {}
         };
 
@@ -807,6 +810,7 @@ where
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         let mut struct_serializer = Compound::new(self, YamlStyle::Flow, Some(len), true);
+        *struct_serializer.ser.serializer_state_mut() = SerializerState::Flow;
 
         // Tuple variant is written as `Variant: ['values', 'in', 'tuple']
         struct_serializer.begin_object()?;
@@ -954,7 +958,9 @@ where
             self.ser.write_explicit_obj_start()?;
         }
 
-        let state = if depth > self.ser.formatter.block_depth_limit {
+        let state = if depth > self.ser.formatter.block_depth_limit
+            || !self.ser.serializer_state().is_block_form()
+        {
             SerializerState::Flow
         } else {
             SerializerState::Block
