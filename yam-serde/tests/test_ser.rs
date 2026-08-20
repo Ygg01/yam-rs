@@ -184,24 +184,36 @@ fn test_serialize_nested_value() {
     assert_eq!(result, Ok(NESTED_STRUCT_EXPECTED.to_string()));
 }
 
-const ENUM_UNIT_EXPECTED: &str = r#"{ UnitVariant }"#;
-const ENUM_TUPLE_EXPECTED: &str = r#"{ TupleVariant: [ 0, 15 ] }"#;
+const ENUM_UNIT_EXPECTED: &str = r#"{ Unit }"#;
+const ENUM_TUPLE_EXPECTED: &str = r#"{ Tuple: [ 0, 15 ] }"#;
+const ENUM_STRUCT_EXPECTED: &str = r#"{ Struct: { name: "XYZ" } }"#;
+const ENUM_OUTER_EXPECTED: &str = r#"{ Outer: [ 2, 4, 16 ] }"#;
 
 #[test]
 fn test_various_enum() {
     #[derive(Serialize)]
     enum Example {
-        UnitVariant,
-        TupleVariant(u8, u16),
+        Unit,
+        Tuple(u8, u16),
+        Struct { name: String },
+        Outer(Vec<u8>),
     }
 
-    // TODO re-enable everything
-
-    let enum1 = Example::UnitVariant;
-    let result = to_pretty_string(&enum1, PrettyFormatterConfig::pretty());
+    let enum_unit = Example::Unit;
+    let result = to_pretty_string(&enum_unit, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(ENUM_UNIT_EXPECTED.to_string()));
 
-    let enum1 = Example::TupleVariant(0, 15);
-    let result = to_pretty_string(&enum1, PrettyFormatterConfig::pretty());
+    let enum_tuple = Example::Tuple(0, 15);
+    let result = to_pretty_string(&enum_tuple, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(ENUM_TUPLE_EXPECTED.to_string()));
+
+    let enum_struct = Example::Struct {
+        name: "XYZ".to_string(),
+    };
+    let result = to_pretty_string(&enum_struct, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(ENUM_STRUCT_EXPECTED.to_string()));
+
+    let enum_outer = Example::Outer(vec![2, 4, 16]);
+    let result = to_pretty_string(&enum_outer, PrettyFormatterConfig::pretty());
+    assert_eq!(result, Ok(ENUM_OUTER_EXPECTED.to_string()));
 }

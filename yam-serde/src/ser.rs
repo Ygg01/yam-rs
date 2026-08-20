@@ -767,12 +767,8 @@ where
     where
         T: ?Sized + Serialize,
     {
-        let mut collection_serializer = Compound::new(
-            self,
-            self.serializer_state().to_compound_style(),
-            Some(1),
-            false,
-        );
+        let mut collection_serializer = Compound::new(self, YamlStyle::Flow, Some(1), true);
+        *collection_serializer.ser.serializer_state_mut() = SerializerState::Flow;
 
         collection_serializer.begin_object()?;
 
@@ -856,9 +852,19 @@ where
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         let mut collection_serializer = Compound::new(self, YamlStyle::Flow, Some(len), true);
+        *collection_serializer.ser.serializer_state_mut() = SerializerState::Flow;
+
+        // Struct variant is written as `Variant: { key: "value"}
+
         collection_serializer.begin_object()?;
 
+        // Serialize the `Variant` part
         collection_serializer.serialize_key(variant)?;
+
+        // Serialize the `: ` part
+        collection_serializer.begin_obj_val()?;
+
+        // Serialize the `{ key: "value"}` part
 
         Ok(collection_serializer)
     }
@@ -1236,18 +1242,18 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + Serialize,
     {
         self.begin_object()?;
-        self.serialize_key(_key)?;
-        self.serialize_value(_value)?;
+        self.serialize_key(key)?;
+        self.serialize_value(value)?;
         self.end_object()
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_object()
     }
 }
 
