@@ -88,13 +88,6 @@ impl SerializerState {
         )
     }
 
-    pub(crate) fn is_in_map(self) -> bool {
-        matches!(
-            self,
-            SerializerState::BlockValue | SerializerState::ExplicitValue
-        )
-    }
-
     #[inline]
     fn is_key(self) -> bool {
         matches!(
@@ -108,14 +101,6 @@ impl SerializerState {
         matches!(
             self,
             SerializerState::FlowKey | SerializerState::BlockKey | SerializerState::ExplicitKey
-        )
-    }
-
-    #[inline]
-    fn is_explicit_map(self) -> bool {
-        matches!(
-            self,
-            SerializerState::ExplicitKey | SerializerState::ExplicitValue
         )
     }
 }
@@ -204,29 +189,6 @@ where
         preferred_style
     }
 
-    fn get_collection_serializer(&mut self) -> Compound<'_, W>
-    where
-        W: Write,
-    {
-        match self.serializer_state() {
-            SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
-                Compound::new(self, YamlStyle::Block, None)
-            }
-            SerializerState::Flow | SerializerState::FlowKey | SerializerState::FlowValue => {
-                Compound::new(self, YamlStyle::Flow, None)
-            }
-            SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
-                Compound::new(self, YamlStyle::Explicit, None)
-            }
-        }
-    }
-
-    fn write_char(&mut self, c: char) -> Result<(), Error> {
-        let res = self.writer.write_char(c);
-        self.indent_pos += 1;
-        res
-    }
-
     fn write_string(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
         let str_count: u32 = str
@@ -261,21 +223,25 @@ where
         res
     }
 
+    #[inline]
     fn write_flow_obj_start(&mut self) -> Result<(), Error> {
         self.write_ascii("{")?;
         self.write_n_spaces(1)
     }
 
+    #[inline]
     fn write_flow_obj_end(&mut self) -> Result<(), Error> {
         self.write_n_spaces(1)?;
         self.write_ascii("}")
     }
 
+    #[inline]
     fn write_flow_seq_start(&mut self) -> Result<(), Error> {
         self.write_ascii("[")?;
         self.write_n_spaces(1)
     }
 
+    #[inline]
     fn write_flow_seq_end(&mut self) -> Result<(), Error> {
         self.write_n_spaces(1)?;
         self.write_ascii("]")
@@ -345,11 +311,6 @@ where
     }
 
     #[inline]
-    fn write_prefix(&mut self, prefix: &str) -> Result<(), Error> {
-        self.write_ascii(prefix)?;
-        Ok(())
-    }
-
     fn write_n_spaces(&mut self, n: u32) -> Result<(), Error> {
         let indent = " ".repeat(n as usize);
         self.writer.write_str(&indent)?;
@@ -358,10 +319,12 @@ where
         Ok(())
     }
 
+    #[inline]
     fn is_time_to_split(&self, buff_len: u32) -> bool {
         self.indent_pos + buff_len > self.formatter.pref_string_length
     }
 
+    #[inline]
     fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
         self.writer.write_char('\n')?;
         let corrected_indent =
@@ -370,14 +333,7 @@ where
         Ok(())
     }
 
-    fn write_indentor(&mut self, repeat: u32) -> Result<(), Error> {
-        let corrected_indent = self.formatter.indentor.repeat(repeat as usize);
-        self.writer.write_str(&corrected_indent)?;
-        self.indent_pos += u32::try_from(corrected_indent.len()).expect("Indentation too large");
-
-        Ok(())
-    }
-
+    #[inline]
     fn write_single_line(&mut self, fence: &str, escaped_str: &str) -> Result<(), Error> {
         self.write_string(fence)?;
         self.write_string(escaped_str)?;
@@ -388,6 +344,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn write_block_string(&mut self, is_folded: bool, str: &str) -> Result<(), Error> {
         let mut string_writer = String::with_capacity(str.len() * 2);
         let chr = if is_folded { '>' } else { '|' };
@@ -402,6 +359,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn line_split_at(&mut self, line_buff: &str, line_split: &str) -> Result<(), Error> {
         let escaped = if line_split == " " { "" } else { "\n" };
         self.writer.write_str(line_buff)?;
@@ -409,6 +367,7 @@ where
         self.write_indent(self.current_depth())
     }
 
+    #[inline]
     fn write_multi_line_string(
         &mut self,
         prefix: &str,
@@ -504,6 +463,8 @@ impl<W> YamSerializer<W> {
             key_val_sep: Option::default(),
         }
     }
+
+    #[inline]
     fn serializer_state(&self) -> SerializerState {
         match self.serializer_states.last() {
             Some(state) => *state,
@@ -511,6 +472,7 @@ impl<W> YamSerializer<W> {
         }
     }
 
+    #[inline]
     fn serializer_state_mut(&mut self) -> &mut SerializerState {
         if self.serializer_states.is_empty() {
             self.serializer_states
@@ -943,6 +905,7 @@ impl<W> Compound<'_, W>
 where
     W: Write,
 {
+    #[inline]
     fn push_state_in_seq(&mut self) -> Result<(), Error> {
         let depth = u32::try_from(self.ser.serializer_states.len())
             .expect("Depth can't be greater than u32::MAX");
@@ -969,6 +932,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn begin_seq(&mut self) -> Result<(), Error> {
         self.ser.is_scalar = false;
         self.push_state_in_seq()?;
@@ -986,6 +950,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn end_seq(&mut self) -> Result<(), Error> {
         if self.style == YamlStyle::Flow {
             self.ser.write_flow_seq_end()?;
@@ -994,6 +959,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn begin_seq_elem(&'_ mut self) -> Result<(), Error> {
         match self.style {
             YamlStyle::Block | YamlStyle::Explicit => {
@@ -1008,6 +974,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn end_seq_elem(&mut self) -> Result<(), Error> {
         self.info.state = CompoundState::Rest;
         match self.style {
@@ -1018,6 +985,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn begin_object(&mut self) -> Result<(), Error> {
         // Flush
         self.ser.is_scalar = false;
@@ -1032,6 +1000,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn end_object(&mut self) -> Result<(), Error> {
         if self.style == YamlStyle::Flow {
             self.ser.write_flow_obj_end()?;
@@ -1041,6 +1010,7 @@ where
         Ok(())
     }
 
+    #[inline]
     fn begin_obj_key(&mut self) -> Result<(), Error> {
         self.go_to_key();
         match self.style {
@@ -1052,11 +1022,13 @@ where
         Ok(())
     }
 
+    #[inline]
     fn begin_obj_val(&mut self) {
         self.go_to_value();
         self.ser.key_val_sep = Some(self.ser.serializer_state().to_compound_style());
     }
 
+    #[inline]
     fn go_to_value(&mut self) {
         *self.ser.serializer_state_mut() = match self.ser.serializer_state() {
             SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
@@ -1071,6 +1043,7 @@ where
         }
     }
 
+    #[inline]
     fn go_to_key(&mut self) {
         *self.ser.serializer_state_mut() = match self.ser.serializer_state() {
             SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
