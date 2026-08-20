@@ -140,6 +140,15 @@ impl<W> YamSerializer<W>
 where
     W: Write,
 {
+    pub(crate) fn ensure_indent(&mut self) -> Result<(), Error> {
+        let expected_indent = self.indentor_len * (self.current_depth() - 1);
+        if self.indent_pos > expected_indent {
+            self.write_nl()?;
+        }
+        let diff_indent = expected_indent - self.indent_pos;
+        self.write_n_spaces(diff_indent)
+    }
+
     pub(crate) fn flush_block_value(&mut self) -> Result<(), Error> {
         match self.key_val_sep.take() {
             Some(YamlStyle::Block) if self.is_scalar => {
@@ -156,12 +165,7 @@ where
                 self.write_indent(self.current_depth())?;
             }
             Some(YamlStyle::Explicit) => {
-                let expected_indent = self.indentor_len * (self.current_depth() - 1);
-                if self.indent_pos > expected_indent {
-                    self.write_nl()?;
-                }
-                let diff_indent = expected_indent - self.indent_pos;
-                self.write_n_spaces(diff_indent)?;
+                self.ensure_indent()?;
                 self.write_ascii(": ")?;
             }
             _ => {}
@@ -994,14 +998,9 @@ where
 
     fn begin_obj_key(&mut self) -> Result<(), Error> {
         self.go_to_key();
-        let expected_indent = self.ser.current_depth().saturating_sub(2);
-        let expected_indent_pos =
-            self.ser.current_depth().saturating_sub(2) * self.ser.indentor_len;
         match self.style {
             YamlStyle::Block | YamlStyle::Explicit => {
-                if self.ser.indent_pos != expected_indent_pos {
-                    self.ser.write_indent(expected_indent)?;
-                }
+                self.ser.ensure_indent()?;
             }
             YamlStyle::Flow => {}
         }
