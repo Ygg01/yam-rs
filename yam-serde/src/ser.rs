@@ -801,16 +801,24 @@ where
 
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
+        _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         let mut struct_serializer = Compound::new(self, YamlStyle::Flow, Some(len), true);
 
-        struct_serializer.begin_seq()?;
+        // Tuple variant is written as `Variant: ['values', 'in', 'tuple']
+        struct_serializer.begin_object()?;
 
-        struct_serializer.serialize_key(name)?;
+        // Serialize the `Variant` part
+        struct_serializer.serialize_key(variant)?;
+
+        // Serialize the `: ` part
+        struct_serializer.begin_obj_val()?;
+
+        // Serialize the ['values', 'in', 'tuple']
+        struct_serializer.begin_seq()?;
 
         Ok(struct_serializer)
     }
@@ -986,20 +994,21 @@ where
             YamlStyle::Block | YamlStyle::Explicit => {
                 self.ser.write_before_block_elem(&mut self.info)?
             }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    fn end_seq_elem(&mut self) -> Result<(), Error> {
-        match self.style {
-            YamlStyle::Block => self.ser.write_after_block_elem()?,
-            YamlStyle::Explicit => self.ser.write_nl()?,
             YamlStyle::Flow => {
                 if !self.info.is_first() {
                     self.ser.write_ascii(", ")?;
                 }
             }
+        }
+        Ok(())
+    }
+
+    fn end_seq_elem(&mut self) -> Result<(), Error> {
+        self.info.state = CompoundState::Rest;
+        match self.style {
+            YamlStyle::Block => self.ser.write_after_block_elem()?,
+            YamlStyle::Explicit => self.ser.write_nl()?,
+            _ => {}
         }
         Ok(())
     }
@@ -1138,7 +1147,7 @@ where
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        self.end_seq()
+        self.end_object()
     }
 }
 
@@ -1157,7 +1166,8 @@ where
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        self.end_seq()
+        self.end_seq()?;
+        self.end_object()
     }
 }
 
