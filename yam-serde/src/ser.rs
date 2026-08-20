@@ -216,13 +216,13 @@ where
     {
         match self.serializer_state() {
             SerializerState::Block | SerializerState::BlockValue | SerializerState::BlockKey => {
-                Compound::new(self, YamlStyle::Block, None, true)
+                Compound::new(self, YamlStyle::Block, None)
             }
             SerializerState::Flow | SerializerState::FlowKey | SerializerState::FlowValue => {
-                Compound::new(self, YamlStyle::Flow, None, true)
+                Compound::new(self, YamlStyle::Flow, None)
             }
             SerializerState::ExplicitKey | SerializerState::ExplicitValue => {
-                Compound::new(self, YamlStyle::Explicit, None, true)
+                Compound::new(self, YamlStyle::Explicit, None)
             }
         }
     }
@@ -767,8 +767,7 @@ where
     where
         T: ?Sized + Serialize,
     {
-        let mut collection_serializer = Compound::new(self, YamlStyle::Flow, Some(1), true);
-        *collection_serializer.ser.serializer_state_mut() = SerializerState::Flow;
+        let mut collection_serializer = Compound::flow(self, Some(1));
 
         collection_serializer.begin_object()?;
 
@@ -780,7 +779,7 @@ where
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         let mut collection_serializer =
-            Compound::new(self, self.serializer_state().to_compound_style(), len, true);
+            Compound::new(self, self.serializer_state().to_compound_style(), len);
         collection_serializer.begin_seq()?;
 
         Ok(collection_serializer)
@@ -805,8 +804,7 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        let mut struct_serializer = Compound::new(self, YamlStyle::Flow, Some(len), true);
-        *struct_serializer.ser.serializer_state_mut() = SerializerState::Flow;
+        let mut struct_serializer = Compound::flow(self, Some(len));
 
         // Tuple variant is written as `Variant: ['values', 'in', 'tuple']
         struct_serializer.begin_object()?;
@@ -830,7 +828,7 @@ where
             .copied()
             .map_or(self.formatter.root_style, |x| x.to_compound_style());
 
-        let mut collection_serializer = Compound::new(self, compound_style, len, true);
+        let mut collection_serializer = Compound::new(self, compound_style, len);
 
         collection_serializer.begin_object()?;
         Ok(collection_serializer)
@@ -851,8 +849,7 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        let mut collection_serializer = Compound::new(self, YamlStyle::Flow, Some(len), true);
-        *collection_serializer.ser.serializer_state_mut() = SerializerState::Flow;
+        let mut collection_serializer = Compound::flow(self, Some(len));
 
         // Struct variant is written as `Variant: { key: "value"}
 
@@ -931,7 +928,7 @@ impl<'a, W> Compound<'a, W> {
         ser: &'a mut YamSerializer<W>,
         style: YamlStyle,
         len: Option<usize>,
-        is_root: bool,
+        // is_root: bool,
     ) -> Self {
         let state = if len == Some(0) {
             CompoundState::Empty
@@ -940,10 +937,15 @@ impl<'a, W> Compound<'a, W> {
         };
         let info = CompoundInfo {
             state,
-            is_root,
+            is_root: false,
             depth: 1,
         };
         Compound { ser, info, style }
+    }
+
+    fn flow(ser: &'a mut YamSerializer<W>, len: Option<usize>) -> Self {
+        *ser.serializer_state_mut() = SerializerState::Flow;
+        Compound::new(ser, YamlStyle::Flow, len)
     }
 }
 
