@@ -49,10 +49,10 @@ where
     }
 
     fn peek_null(&mut self) -> bool {
-        if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
-            scalar.is_null()
-        } else {
-            false
+        match self.skip_doc() {
+            Some(YamEvent::Scalar(scalar)) => scalar.is_null(),
+            None => true,
+            _ => false,
         }
     }
 
@@ -340,7 +340,8 @@ where
     R: Source,
 {
     fn skip_doc<'a>(&'a mut self) -> Option<YamEvent<'de>> {
-        match self.next_el() {
+        let next_el = self.next_el();
+        match next_el {
             Some(YamEvent::DocStart) => {
                 self.skip();
                 self.next_el()
@@ -500,7 +501,7 @@ where
     type Error = DeYamlError;
 
     fn unit_variant(self) -> Result<(), Self::Error> {
-        todo!()
+        de::Deserialize::deserialize(self.de)
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>

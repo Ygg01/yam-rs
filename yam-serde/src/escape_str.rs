@@ -113,27 +113,83 @@ pub(crate) fn escape_double_quotes<W: Write>(writer: &mut W, value: &str) -> Res
     Ok(())
 }
 
-// TODO Enable or delete
-// pub(crate) fn escape_single_quotes<W: Write>(writer: &mut W, value: &str) -> Result<(), Error> {
-//     let bytes = value.as_bytes();
-//
-//     let (mut old_pos, mut pos) = (0, 0);
-//     while pos < bytes.len() {
-//         let byte_char = bytes[pos];
-//         match byte_char {
-//             b'\'' => {
-//                 let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-//                 writer.write_str(prev_str)?;
-//                 write!(writer, "\\'")?;
-//                 pos += 1;
-//                 old_pos = pos;
-//             }
-//             _ => {
-//                 pos += 1;
-//             }
-//         }
-//     }
-//     let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
-//     writer.write_str(prev_str)?;
-//     Ok(())
-// }
+pub(crate) fn escape_single_quotes<W: Write>(writer: &mut W, value: &str) -> Result<(), Error> {
+    let bytes = value.as_bytes();
+
+    let (mut old_pos, mut pos) = (0, 0);
+    while pos < bytes.len() {
+        let byte_char = bytes[pos];
+        let peek_char = peekz_byte(bytes, pos + 1);
+        match (byte_char, peek_char) {
+            (b'\'', _) => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "''")?;
+                pos += 1;
+                old_pos = pos;
+            }
+            (b'\t', _) => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "\\t")?;
+                pos += 1;
+                old_pos = pos;
+            }
+            (b'\r', b'\n') => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "\\n")?;
+                pos += 2;
+                old_pos = pos;
+            }
+            (b'\n', ..) => {
+                let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+                writer.write_str(prev_str)?;
+                write!(writer, "\\n")?;
+                pos += 1;
+                old_pos = pos;
+            }
+            _ => {
+                pos += 1;
+            }
+        }
+    }
+    if pos != old_pos {
+        let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
+        writer.write_str(prev_str)?;
+    }
+    Ok(())
+}
+
+pub trait CanBeScalar {
+    fn can_be_plain(&self, flow_in: bool) -> bool;
+}
+
+impl CanBeScalar for &str {
+    fn can_be_plain(&self, flow_in: bool) -> bool {
+        // First character can't be restricted
+        let start_byte = self.as_bytes().first().unwrap_or(&0u8);
+        let second_byte = self.as_bytes().get(1).unwrap_or(&0u8);
+        if b" \t\r\n,[]{}#&*!|>\"'%@~".contains(start_byte) {
+            return false;
+        }
+
+        // First character can be '?, '-', ':' iff second character is a safe character.
+        if b"?-:".contains(start_byte) && is_unsafe_char(*second_byte, flow_in) {
+            return false;
+        }
+
+        // Plain scalar can't contain `: ` or ` #`
+        if self.contains(": ") || self.contains(" #") {
+            return false;
+        }
+
+        true
+    }
+}
+
+fn is_unsafe_char(chr: u8, flow_in: bool) -> bool {
+    // Whitespace characters are unsafe always
+    // while flow indicators are unsafe in implict key or flow collection
+    b" \t\r\n".contains(&chr) || (flow_in && b"{},[]".contains(&chr))
+}
