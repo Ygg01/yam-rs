@@ -148,6 +148,7 @@ pub enum NullFormat {
 }
 
 impl NullFormat {
+    #[must_use]
     pub fn to_null_string(self) -> Cow<'static, str> {
         match self {
             NullFormat::JsonNull => Cow::Borrowed("null"),

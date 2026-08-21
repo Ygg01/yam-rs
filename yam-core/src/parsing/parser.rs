@@ -1610,7 +1610,7 @@ impl<'input, T: Source> Parser<'input, T> {
             // "!" introduces a local tag. Local tags may have their prefix overridden.
             match self.tags.get("") {
                 Some(prefix) => Tag {
-                    handle: prefix.to_string(),
+                    handle: prefix.clone(),
                     suffix,
                 },
                 None => Tag {
@@ -1623,7 +1623,7 @@ impl<'input, T: Source> Parser<'input, T> {
             let prefix = self.tags.get(handle);
             if let Some(prefix) = prefix {
                 Tag {
-                    handle: prefix.to_string(),
+                    handle: prefix.clone(),
                     suffix,
                 }
             } else {
