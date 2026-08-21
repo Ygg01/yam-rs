@@ -166,11 +166,8 @@ pub struct PrettyFormatterConfig {
     /// Preferred string length
     pub pref_string_length: u32,
 
-    /// Indentation string
-    pub indentor: Cow<'static, str>,
-
-    /// New line string
-    pub new_line: Cow<'static, str>,
+    /// Preferred indent length
+    indent_len: u32,
 
     /// How to format null
     null_format: Cow<'static, str>,
@@ -198,8 +195,7 @@ impl Default for PrettyFormatterConfig {
         Self {
             block_depth_limit: 0,
             pref_string_length: 80,
-            indentor: Cow::Borrowed("  "),
-            new_line: Cow::Borrowed("\n"),
+            indent_len: 2,
             null_format: Cow::Borrowed(""),
             block_preferred_style: ScalarType::Plain,
             root_preferred_style: ScalarType::DoubleQuote,
@@ -217,8 +213,7 @@ impl PrettyFormatterConfig {
         Self {
             block_depth_limit: 10,
             pref_string_length: 80,
-            indentor: Cow::Borrowed("  "),
-            new_line: Cow::Borrowed("\n"),
+            indent_len: 2,
             null_format: Cow::Borrowed("null"),
             block_preferred_style: ScalarType::Plain,
             root_preferred_style: ScalarType::DoubleQuote,

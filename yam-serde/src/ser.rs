@@ -145,7 +145,7 @@ where
             }
             Some(YamlStyle::Block) => {
                 self.write_ascii(":")?;
-                self.write_indent(self.current_depth())?;
+                self.write_indent(self.current_indent())?;
             }
             Some(YamlStyle::Explicit) => {
                 self.ensure_indent()?;
@@ -267,8 +267,8 @@ where
 
         if !info.is_first() {
             // write indentation
-            let diff_depth = self.current_depth().saturating_sub(info.depth) as usize;
-            string.write_str(&self.formatter.indentor.repeat(diff_depth))?;
+            let diff_depth = self.current_depth().saturating_sub(info.depth) * self.indentor_len;
+            string.write_str(&" ".repeat(diff_depth as usize))?;
 
             // write a `- ` with proper indentation
             string.push('-');
@@ -327,9 +327,9 @@ where
     #[inline]
     fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
         self.writer.write_char('\n')?;
-        let corrected_indent =
-            push_indent_to_writer(&mut self.writer, indent, &self.formatter.indentor)?;
-        self.indent_pos = corrected_indent * self.indentor_len;
+        let spaces = indent * self.formatter.indent_len;
+        self.write_n_spaces(spaces)?;
+        self.indent_pos = spaces;
         Ok(())
     }
 
@@ -447,17 +447,12 @@ impl<W> YamSerializer<W> {
 
     #[inline]
     pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
-        let indentor_size: u32 = formatter
-            .indentor
-            .graphemes(true)
-            .count()
-            .try_into()
-            .unwrap_or_default();
+        let indentor_len = formatter.indent_len;
         YamSerializer {
             writer,
             formatter,
             indent_pos: 0,
-            indentor_len: indentor_size,
+            indentor_len,
             is_scalar: false,
             serializer_states: vec![],
             key_val_sep: Option::default(),
@@ -485,6 +480,11 @@ impl<W> YamSerializer<W> {
     #[inline]
     pub(crate) fn current_depth(&self) -> u32 {
         u32::try_from(self.serializer_states.len()).unwrap_or(u32::MAX)
+    }
+
+    #[inline]
+    pub(crate) fn current_indent(&self) -> u32 {
+        u32::try_from(self.serializer_states.len().saturating_sub(1)).unwrap_or(u32::MAX)
     }
 }
 
