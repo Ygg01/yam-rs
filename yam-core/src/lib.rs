@@ -12,7 +12,7 @@
 //! cargo add yam-std
 //! ```
 //!
-//! # Minimal example
+//! # Minimal examples
 //! ```rust
 //! use yam_core::prelude::{Yaml, YamlLoader};
 //!

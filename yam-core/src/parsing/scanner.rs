@@ -1685,7 +1685,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         // bar
         // ```
         // We need to set the indent to 0 and not 1. In all other cases, the indent must be at
-        // least 1. When in the above example, `self.indent` will be set to -1.
+        // least 1. When in the above examples, `self.indent` will be set to -1.
         *indent = max_indent.max(self.indent + 1);
         if self.indent > 0 {
             *indent = (*indent).max(1);

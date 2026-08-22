@@ -433,7 +433,7 @@ impl<'input, T: Source> Parser<'input, T> {
     /// of the yaml-test-suite:
     ///
     /// ```yaml
-    /// %TAG !prefix! tag:example.com,2011:
+    /// %TAG !prefix! tag:examples.com,2011:
     /// --- !prefix!A
     /// a: b
     /// --- !prefix!B

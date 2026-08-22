@@ -26,6 +26,25 @@ To add yam to your project
 cargo add yam-core #or `yam-serde`/`yam-std`
 ```
 
+Create a simple load a YAML example, and assert.
+
+```rust
+extern crate yam_core;
+
+use yam_core::prelude::*;
+
+fn main() {
+    let yaml_str = "{a: b, c: d}";
+
+    if let Ok(yaml) = Yaml::load_single(yaml_str) {
+        let b = yaml["a"].as_str().unwrap_or_default();
+        let d = yaml["c"].as_str().unwrap_or_default();
+        assert_eq!(d, "d");
+        assert_eq!(b, "b");
+    }
+}
+```
+
 # Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md)

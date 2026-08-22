@@ -123,13 +123,13 @@ pub enum ChompIndicator {
 ///
 #[derive(Copy, Clone, PartialEq)]
 pub enum DirectiveType {
-    /// Represents a YAML directive, typically used to define version or encoding information in a YAML document. For example:
+    /// Represents a YAML directive, typically used to define version or encoding information in a YAML document. For examples:
     /// ```yaml
     /// %YAML 1.1
     /// #^------^
     /// ```
     Yaml,
-    /// Represents a Tag directive, which is used to associate a handle with a URI prefix for shorthand node tags in YAML. For example:
+    /// Represents a Tag directive, which is used to associate a handle with a URI prefix for shorthand node tags in YAML. For examples:
     /// ```yaml
     /// %TAG ! !foo
     /// #^--------^

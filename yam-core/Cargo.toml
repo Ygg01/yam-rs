@@ -32,3 +32,5 @@ exclude =[
 default = []
 comment = []
 
+[[example]]
+name = "simple_parse"
