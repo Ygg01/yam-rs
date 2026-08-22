@@ -1,25 +1,45 @@
-Yam-rs
-------
-Yam-rs is set of tools for working with YAML files. 
+Yam
+-----
 
-Building from sources
----
-1. `git clone https://github.com/Ygg01/yam-rs`
-2. `cd yam-rs`
-3. `git submodule update --init`
-4. `cargo install cargo-nextest`
-5. `cargo install cargo-criterion`
-6. `cargo nextest run`
+This project provides a [saphyr-rs](https://github.com/saphyr-rs/saphyr) derived/forked YAML parser and serde
+integration. It implements the [YAML 1.2.2](https://yaml.org/spec/1.2.2/) compliant parser. It passes
+the [YAML 1.2.2](https://yaml.org/spec/1.2.2/) test suite.
 
-Plans
----
-It's in development yet, but plans include:
-- Emitter
-- serde integration
-- SIMD?
+## Why use it?
 
-It contains few crates:
-- yam-core - `no_std` + `alloc` lib that contains the core processing logic
-- yam - library that relies on `yam-core` to work. It provides IO integration.
-- yam-dark-core - experimental `no_std` + `alloc` lib with SIMD acceleration.
-    - yam-dark-memo - crate containing large tables, due to size/compilation it's pulled into separate crate.
+If you need a `no_std` zero-copy YAML parser, with few dependencies, spans, and comment support (use `yam-core`). If you
+need to serialize structs to and from YAML (use `yam-serde`). If you need a buffered YAML parser (use `yam-std`).
+
+## Why not use it?
+
+- You need to parse YAML in 1.1 mode.
+- If you need to serialize complex graphs, aliases and circular references.
+- You really need a YAML emitter.
+- You need GB/s YAML parsing.
+- You need precise whitespace AST handling, for formatting.
+
+# Instalation & Usage
+
+To add yam to your project
+
+```sh 
+cargo add yam-core #or `yam-serde`/`yam-std`
+```
+
+# Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+# Credits
+
+This crate takes a lot of code from saphyr-rs. So many thanks to Ethiarc and ChenYuheng for their work on saphyr-rs.
+They are mentioned under [License folder](./.license).
+
+# License
+
+Licensed under either of
+
+- GNU Lesser General Public License, Version 3.0 (LICENSE-LGPL or https://opensource.org/license/lgpl-3-0)
+- MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
+
+at your option.
