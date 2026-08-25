@@ -26,7 +26,9 @@ To add yam to your project
 cargo add yam-core #or `yam-serde`/`yam-std`
 ```
 
-Create a simple load a YAML example, and assert.
+## Simple parsing
+
+This example creates a simple Yaml string. Parses it and pulls out elements using indexes.
 
 ```rust
 extern crate yam_core;
@@ -42,6 +44,46 @@ fn main() {
         assert_eq!(d, "d");
         assert_eq!(b, "b");
     }
+}
+```
+
+Line `let yaml_str = "{a: b, c: d}";` creates a Yaml flow map with two entries.
+
+It's loaded using `Yaml::load_single` and parsed into a `Yaml` struct. `load_single` returns a `Result<Yaml, Error>` while a `load_from`
+returns a `Result<Vec<Yaml>, Error>` which is unnecessary for this example.
+
+To access the individual fields, `yaml["a"]` and `yaml["c"]` are used to get the `YamlData`. Since YamlData is an `enum`, the `as_str` part
+will return an `Option<&str>`, that needs to be dealt with (via `unwrap_or_default` because we don't care about the error case).
+
+## Simple emitter
+
+Creates simple Yaml model and dump it to a string.
+
+```rust
+extern crate yam_core;
+
+use yam_core::prelude::{Yaml, YamlEmitter};
+
+fn main() {
+    let mut string = String::new();
+    let mut emitter = YamlEmitter::new(&mut string);
+
+    let yaml = Yaml::from(vec![(vec![1, 2], 1), (vec![1, 3], 2)]);
+    if emitter.dump(&yaml).is_ok() {
+        println!("{}", string);
+    }
+}
+```
+
+In line `let mut emitter = YamlEmitter::new(&mut string);` a string is used as the output for the emitter.
+
+In line `let yaml = Yaml::from(vec![(vec![1,2], 1), (vec![1,3], 2)]);` a vector of tuples is used to create a `Yaml` mapping.
+
+And lines ensure we only print on success.
+
+```
+if emitter.dump(&yaml).is_ok() {
+    println!("{}", string);
 }
 ```
 

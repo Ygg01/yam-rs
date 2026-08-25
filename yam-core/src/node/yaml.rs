@@ -487,3 +487,65 @@ impl<'a> From<Vec<Yaml<'a>>> for Yaml<'a> {
         Yaml(YamlData::Sequence(value))
     }
 }
+
+impl From<Vec<f64>> for Yaml<'_> {
+    fn from(value: Vec<f64>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
+impl From<Vec<f32>> for Yaml<'_> {
+    fn from(value: Vec<f32>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
+impl From<Vec<i64>> for Yaml<'_> {
+    fn from(value: Vec<i64>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
+impl From<Vec<i32>> for Yaml<'_> {
+    fn from(value: Vec<i32>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
+impl From<Vec<i16>> for Yaml<'_> {
+    fn from(value: Vec<i16>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+impl From<Vec<i8>> for Yaml<'_> {
+    fn from(value: Vec<i8>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
+impl<'a> From<Vec<&'a str>> for Yaml<'a> {
+    fn from(value: Vec<&'a str>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
+impl<'a, K, V> From<Vec<(K, V)>> for Yaml<'a>
+where
+    K: Into<Yaml<'a>>,
+    V: Into<Yaml<'a>>,
+{
+    fn from(value: Vec<(K, V)>) -> Self {
+        let sequence = value
+            .into_iter()
+            .map(|(key, value)| YamlEntry::new(key.into(), value.into()))
+            .collect();
+        Yaml(YamlData::Mapping(sequence))
+    }
+}
