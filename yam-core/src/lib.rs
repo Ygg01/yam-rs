@@ -37,9 +37,9 @@ pub mod escaper;
 #[doc(hidden)]
 pub use lazy_expander::{Expanable, LazyExpander, LazyExpanderMap, LazyExpanderVec};
 
+mod emitter;
 mod lazy_expander;
 pub mod node;
 pub mod parsing;
 pub mod prelude;
-mod saphyr_emitter;
 mod util;

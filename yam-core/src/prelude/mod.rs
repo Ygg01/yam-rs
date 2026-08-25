@@ -1,4 +1,5 @@
 //! Use `yam_core::prelude::*` to import common components and traits.
+pub use crate::emitter::YamlEmitter;
 pub use crate::node::YamlScalar;
 pub use crate::node::spanned_yaml::SpannedYaml;
 pub use crate::node::yaml::Yaml;
