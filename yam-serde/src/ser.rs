@@ -109,10 +109,10 @@ impl SerializerState {
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: W,
-    indent_pos: u32,
+    indent_pos: usize,
     /// Pretty configuration option for formatting
     formatter: PrettyFormatterConfig,
-    indentor_len: u32,
+    indentor_len: usize,
     /// Serialization states
     serializer_states: Vec<SerializerState>,
     is_scalar: bool,
@@ -191,11 +191,7 @@ where
 
     fn write_string(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
-        let str_count: u32 = str
-            .graphemes(true)
-            .count()
-            .try_into()
-            .expect("Expected less than u32::MAX sized line");
+        let str_count = str.graphemes(true).count();
         self.indent_pos += str_count;
         res
     }
@@ -218,7 +214,7 @@ where
     /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     fn write_ascii(&mut self, str: &str) -> Result<(), Error> {
         let res = self.writer.write_str(str);
-        let str_len = u32::try_from(str.len()).expect("String length is greater than u32::MAX");
+        let str_len = str.len();
         self.indent_pos += str_len;
         res
     }
@@ -256,8 +252,7 @@ where
         string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
 
         self.writer.write_str(&string)?;
-        let string_len = u32::try_from(string.len()).expect("Indentation is too large");
-        self.indent_pos += string_len;
+        self.indent_pos += string.len();
         Ok(())
     }
 
@@ -267,7 +262,8 @@ where
 
         if !info.is_first() {
             // write indentation
-            let diff_depth = self.current_depth().saturating_sub(info.depth) * self.indentor_len;
+            let diff_depth =
+                self.current_depth().saturating_sub(info.depth as usize) * self.indentor_len;
             string.write_str(&" ".repeat(diff_depth as usize))?;
 
             // write a `- ` with proper indentation
@@ -275,8 +271,7 @@ where
             string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
 
             self.writer.write_str(&string)?;
-            let string_len = u32::try_from(string.len()).expect("String elem is too long");
-            self.indent_pos += string_len;
+            self.indent_pos += string.len();
         }
 
         info.state = CompoundState::Rest;
@@ -311,8 +306,8 @@ where
     }
 
     #[inline]
-    fn write_n_spaces(&mut self, n: u32) -> Result<(), Error> {
-        let indent = " ".repeat(n as usize);
+    fn write_n_spaces(&mut self, n: usize) -> Result<(), Error> {
+        let indent = " ".repeat(n);
         self.writer.write_str(&indent)?;
         self.indent_pos += n;
 
@@ -320,14 +315,14 @@ where
     }
 
     #[inline]
-    fn is_time_to_split(&self, buff_len: u32) -> bool {
-        self.indent_pos + buff_len > self.formatter.pref_string_length
+    fn is_time_to_split(&self, buff_len: usize) -> bool {
+        self.indent_pos + buff_len > self.formatter.pref_string_length as usize
     }
 
     #[inline]
-    fn write_indent(&mut self, indent: u32) -> Result<(), Error> {
+    fn write_indent(&mut self, indent: usize) -> Result<(), Error> {
         self.writer.write_char('\n')?;
-        let spaces = indent * self.formatter.indent_len;
+        let spaces = indent * (self.formatter.indent_len as usize);
         self.write_n_spaces(spaces)?;
         self.indent_pos = spaces;
         Ok(())
@@ -338,9 +333,8 @@ where
         self.write_string(fence)?;
         self.write_string(escaped_str)?;
         self.write_string(fence)?;
-        let grapheme_count: u32 = escaped_str.graphemes(true).count().try_into().unwrap();
-        let fence_u32 = u32::try_from(fence.len()).expect("String is too large to write");
-        self.indent_pos += 2 * fence_u32 + grapheme_count;
+        let grapheme_count = escaped_str.graphemes(true).count();
+        self.indent_pos += 2 * fence.len() + grapheme_count;
         Ok(())
     }
 
@@ -388,9 +382,6 @@ where
             .collect::<Vec<(&str, usize)>>();
 
         for (word, grapheme_len) in word_bounds {
-            let grapheme_len: u32 = grapheme_len
-                .try_into()
-                .expect("Word length is larger than u32::MAX");
             if self.is_time_to_split(line_buff_grapheme_len + grapheme_len) {
                 let word_is_splittable = word.is_splittable_ws();
                 let line_buff_is_splittable = line_buff.is_last_char_splittable_ws();
@@ -411,7 +402,7 @@ where
 
                     line_buff.clear();
                     line_buff.push_str(front);
-                    line_buff_grapheme_len = u32::try_from(front.len()).expect("Line is too large");
+                    line_buff_grapheme_len = front.len();
                 } else {
                     // Write the word to buffer
                     line_buff.push_str(word);
@@ -447,7 +438,7 @@ impl<W> YamSerializer<W> {
 
     #[inline]
     pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
-        let indentor_len = formatter.indent_len;
+        let indentor_len = formatter.indent_len as usize;
         YamSerializer {
             writer,
             formatter,
@@ -478,13 +469,13 @@ impl<W> YamSerializer<W> {
     }
 
     #[inline]
-    pub(crate) fn current_depth(&self) -> u32 {
-        u32::try_from(self.serializer_states.len()).unwrap_or(u32::MAX)
+    pub(crate) fn current_depth(&self) -> usize {
+        self.serializer_states.len()
     }
 
     #[inline]
-    pub(crate) fn current_indent(&self) -> u32 {
-        u32::try_from(self.serializer_states.len().saturating_sub(1)).unwrap_or(u32::MAX)
+    pub(crate) fn current_indent(&self) -> usize {
+        self.serializer_states.len().saturating_sub(1)
     }
 }
 
@@ -647,10 +638,8 @@ where
 
             while !encoded_bytes.is_empty() {
                 self.write_indent(self.current_depth())?;
-                let remaining_byte = self
-                    .formatter
-                    .pref_string_length
-                    .saturating_sub(self.indent_pos);
+                let remaining_byte =
+                    (self.formatter.pref_string_length as usize).saturating_sub(self.indent_pos);
                 let write = encoded_bytes.split_off(remaining_byte as usize);
                 self.write_ascii(&write)?;
             }
@@ -676,7 +665,7 @@ where
         self.is_scalar = true;
         self.flush_block_value()?;
         self.writer.write_str(&self.formatter.null_format)?;
-        self.indent_pos += self.formatter.null_format.len() as u32;
+        self.indent_pos += self.formatter.null_format.len();
         Ok(())
     }
 
