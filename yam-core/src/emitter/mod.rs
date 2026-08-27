@@ -2,14 +2,71 @@ use crate::parsing::is_valid_literal_block_scalar;
 use crate::prelude::{IsEmpty, MappingLike, SequenceLike, YamlDocAccess, YamlScalar};
 use crate::prelude::{ToMut, YamlData};
 use crate::prelude::{Yaml, YamlEntry};
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::fmt;
 use core::marker::PhantomData;
 
+pub struct YamlWriter<'a> {
+    /// Writer that outputs data
+    input: &'a mut dyn fmt::Write,
+    /// Position from the last newline
+    indent_pos: usize,
+    /// Indent level
+    level: usize,
+    /// Indentor length
+    indentor_len: usize,
+}
+
+impl<'a> YamlWriter<'a> {
+    pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
+        Self {
+            input: writer,
+            indent_pos: 0,
+            level: 0,
+            indentor_len: 2,
+        }
+    }
+
+    #[inline]
+    pub fn write_doc_start(&mut self) -> EmitResult {
+        writeln!(self.input, "---")?;
+        self.indent_pos += 3;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn write_indent(&mut self) -> EmitResult {
+        let best_indent = self.indentor_len * self.level.saturating_sub(1);
+        write!(self.input, "{}", &" ".repeat(best_indent))?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn writeln(&mut self) -> EmitResult {
+        self.input.write_char('\n')?;
+        self.indent_pos = 0;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn write_ascii(&mut self, s: &str) -> EmitResult {
+        self.input.write_str(s)?;
+        self.indent_pos += s.len();
+        Ok(())
+    }
+
+    #[inline]
+    pub fn write_str(&mut self, s: &str) -> EmitResult {
+        self.input.write_str(s)?;
+        self.indent_pos += s.len();
+        Ok(())
+    }
+}
+
 #[allow(clippy::module_name_repetitions)]
 pub struct YamlEmitter<'a, FP, INT> {
-    writer: &'a mut dyn fmt::Write,
-    best_indent: usize,
+    writer: YamlWriter<'a>,
     compact: bool,
     level: isize,
     multiline_strings: bool,
@@ -20,8 +77,8 @@ pub struct YamlEmitter<'a, FP, INT> {
 pub type EmitResult = Result<(), fmt::Error>;
 
 // from serialize::json
-fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> EmitResult {
-    wr.write_str("\"")?;
+fn escape_str(wr: &mut YamlWriter, v: &str) -> EmitResult {
+    wr.write_ascii("\"")?;
 
     let bytes = v.as_bytes();
     let mut start = 0;
@@ -31,14 +88,14 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> EmitResult {
             .iter()
             .position(|&b| matches!(b, b'"' | b'\\' | b'\x00'..=b'\x1f' | b'\x7f'))
         else {
-            wr.write_str(&v[start..])?;
+            wr.write_ascii(&v[start..])?;
             break;
         };
 
         let i = start + i;
 
         if start < i {
-            wr.write_str(&v[start..i])?;
+            wr.write_ascii(&v[start..i])?;
         }
 
         let escaped = match bytes[i] {
@@ -80,11 +137,11 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> EmitResult {
             _ => unreachable!(),
         };
 
-        wr.write_str(escaped)?;
+        wr.write_ascii(escaped)?;
         start = i + 1;
     }
 
-    wr.write_str("\"")?;
+    wr.write_ascii("\"")?;
     Ok(())
 }
 
@@ -97,8 +154,7 @@ where
     /// Create a new emitter serializing into `writer`.
     pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
         YamlEmitter {
-            writer,
-            best_indent: 2,
+            writer: YamlWriter::new(writer),
             compact: true,
             level: -1,
             multiline_strings: false,
@@ -153,21 +209,9 @@ where
     /// Returns `EmitError` when an error occurs.
     pub fn dump(&mut self, doc: &Yaml<'a, FP, INT>) -> EmitResult {
         // write DocumentStart
-        writeln!(self.writer, "---")?;
+        self.writer.write_doc_start()?;
         self.level = -1;
         self.emit_node(doc)
-    }
-
-    fn write_indent(&mut self) -> EmitResult {
-        if self.level <= 0 {
-            return Ok(());
-        }
-        for _ in 0..self.level {
-            for _ in 0..self.best_indent {
-                write!(self.writer, " ")?;
-            }
-        }
-        Ok(())
     }
 
     fn emit_node(&mut self, node: &Yaml<'a, FP, INT>) -> EmitResult {
@@ -178,31 +222,31 @@ where
                 if self.should_emit_string_as_block(v.as_ref()) {
                     self.emit_literal_block(v.as_ref())?;
                 } else if need_quotes(v.as_ref()) {
-                    escape_str(self.writer, v.as_ref())?;
+                    escape_str(&mut self.writer, v.as_ref())?;
                 } else {
-                    write!(self.writer, "{0}", v.as_ref())?;
+                    self.writer.write_str(v.as_ref())?;
                 }
                 Ok(())
             }
             YamlData::Scalar(YamlScalar::Bool(v)) => {
                 if *v {
-                    self.writer.write_str("true")?;
+                    self.writer.write_ascii("true")?;
                 } else {
-                    self.writer.write_str("false")?;
+                    self.writer.write_ascii("false")?;
                 }
                 Ok(())
             }
             YamlData::Scalar(YamlScalar::Integer(v)) => {
-                Ok(write!(self.writer, "{0}", v.as_owned())?)
+                self.writer.write_ascii(&v.as_owned().to_string())
             }
             YamlData::Scalar(YamlScalar::FloatingPoint(v)) => {
-                Ok(write!(self.writer, "{0}", <FP as Into<f64>>::into(*v))?)
+                self.writer.write_ascii(&v.as_owned().to_string())
             }
             YamlData::BadValue | YamlData::Scalar(YamlScalar::Null(_)) => {
-                Ok(write!(self.writer, "~")?)
+                self.writer.write_ascii("~")
             }
             YamlData::Tagged(tag, node) => {
-                write!(self.writer, "{} ", tag.as_ref())?;
+                self.writer.write_str(&tag.as_ref().to_string())?;
                 // We need to insert a newline after the tag in the following cases:
                 //   - We have a non-empty sequence or mapping. `emit_sequence` and `emit_mapping`
                 //     do not add that extra newline at the beginning.
@@ -225,8 +269,7 @@ where
                 //         - b
                 if node.is_non_empty_collection() {
                     self.level += 1;
-                    writeln!(self.writer)?;
-                    self.write_indent()?;
+                    self.writer.write_indent()?;
                     self.level -= 1;
                 }
                 self.emit_node(node.as_ref())
@@ -239,18 +282,18 @@ where
     fn emit_literal_block(&mut self, v: &str) -> EmitResult {
         let ends_with_newline = v.ends_with('\n');
         if ends_with_newline {
-            self.writer.write_str("|")?;
+            self.writer.write_ascii("|")?;
         } else {
-            self.writer.write_str("|-")?;
+            self.writer.write_ascii("|-")?;
         }
 
         self.level += 1;
         // lines() will omit the last line if it is empty.
         for line in v.lines() {
-            writeln!(self.writer)?;
-            self.write_indent()?;
+            self.writer.writeln()?;
+            self.writer.write_indent()?;
             // It's literal text, so don't escape special chars.
-            self.writer.write_str(line)?;
+            self.writer.write_ascii(line)?;
         }
         self.level -= 1;
         Ok(())
@@ -258,15 +301,15 @@ where
 
     fn emit_sequence(&mut self, v: &Vec<Yaml<'a, FP, INT>>) -> EmitResult {
         if v.is_collection_empty() {
-            write!(self.writer, "[]")?;
+            self.writer.write_ascii("[]")?;
         } else {
             self.level += 1;
             for (cnt, x) in v.vec().iter().enumerate() {
                 if cnt > 0 {
-                    writeln!(self.writer)?;
-                    self.write_indent()?;
+                    self.writer.writeln()?;
+                    self.writer.write_indent()?;
                 }
-                write!(self.writer, "-")?;
+                self.writer.write_ascii("-")?;
                 self.emit_val(true, x)?;
             }
             self.level -= 1;
@@ -276,26 +319,26 @@ where
 
     fn emit_mapping(&mut self, h: &Vec<YamlEntry<'a, Yaml<'a, FP, INT>>>) -> EmitResult {
         if h.is_collection_empty() {
-            self.writer.write_str("{}")?;
+            self.writer.write_ascii("{}")?;
         } else {
             self.level += 1;
             for (cnt, entry) in h.entries().iter().enumerate() {
                 let complex_key =
                     matches!(entry.key.0, YamlData::Mapping(_) | YamlData::Sequence(_));
                 if cnt > 0 {
-                    writeln!(self.writer)?;
-                    self.write_indent()?;
+                    self.writer.writeln()?;
+                    self.writer.write_indent()?;
                 }
                 if complex_key {
-                    write!(self.writer, "?")?;
+                    self.writer.write_ascii("?")?;
                     self.emit_val(true, &entry.key)?;
-                    writeln!(self.writer)?;
-                    self.write_indent()?;
-                    write!(self.writer, ":")?;
+                    self.writer.writeln()?;
+                    self.writer.write_indent()?;
+                    self.writer.write_ascii(":")?;
                     self.emit_val(true, &entry.value)?;
                 } else {
                     self.emit_node(&entry.key)?;
-                    write!(self.writer, ":")?;
+                    self.writer.write_ascii(":")?;
                     self.emit_val(false, &entry.value)?;
                 }
             }
@@ -312,11 +355,11 @@ where
         macro_rules! write_collection {
             ($v:expr ) => {
                 if (inline && self.compact) || $v.is_collection_empty() {
-                    write!(self.writer, " ")?;
+                    self.writer.write_ascii(" ")?;
                 } else {
-                    writeln!(self.writer)?;
+                    self.writer.writeln()?;
                     self.level += 1;
-                    self.write_indent()?;
+                    self.writer.write_indent()?;
                     self.level -= 1;
                 }
             };
@@ -332,7 +375,7 @@ where
                 self.emit_mapping(v)
             }
             _ => {
-                write!(self.writer, " ")?;
+                self.writer.write_ascii(" ")?;
                 self.emit_node(val)
             }
         }

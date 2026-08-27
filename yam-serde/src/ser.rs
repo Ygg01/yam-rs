@@ -220,30 +220,6 @@ where
     }
 
     #[inline]
-    fn write_flow_obj_start(&mut self) -> Result<(), Error> {
-        self.write_ascii("{")?;
-        self.write_n_spaces(1)
-    }
-
-    #[inline]
-    fn write_flow_obj_end(&mut self) -> Result<(), Error> {
-        self.write_n_spaces(1)?;
-        self.write_ascii("}")
-    }
-
-    #[inline]
-    fn write_flow_seq_start(&mut self) -> Result<(), Error> {
-        self.write_ascii("[")?;
-        self.write_n_spaces(1)
-    }
-
-    #[inline]
-    fn write_flow_seq_end(&mut self) -> Result<(), Error> {
-        self.write_n_spaces(1)?;
-        self.write_ascii("]")
-    }
-
-    #[inline]
     fn write_block_seq_start(&mut self) -> Result<(), Error> {
         let mut string = String::with_capacity(self.indentor_len as usize);
 
@@ -932,7 +908,8 @@ where
                 self.ser.write_block_seq_start()?;
             }
             YamlStyle::Flow => {
-                self.ser.write_flow_seq_start()?;
+                self.ser.write_ascii("[")?;
+                self.ser.write_n_spaces(1)?;
             }
         }
 
@@ -942,7 +919,8 @@ where
     #[inline]
     fn end_seq(&mut self) -> Result<(), Error> {
         if self.style == YamlStyle::Flow {
-            self.ser.write_flow_seq_end()?;
+            self.ser.write_n_spaces(1)?;
+            self.ser.write_ascii("]")?;
         }
         self.ser.serializer_states.pop();
         Ok(())
@@ -984,7 +962,10 @@ where
 
         match self.style {
             YamlStyle::Block | YamlStyle::Explicit => {}
-            YamlStyle::Flow => self.ser.write_flow_obj_start()?,
+            YamlStyle::Flow => {
+                self.ser.write_ascii("{")?;
+                self.ser.write_n_spaces(1)?
+            }
         }
         Ok(())
     }
@@ -992,7 +973,8 @@ where
     #[inline]
     fn end_object(&mut self) -> Result<(), Error> {
         if self.style == YamlStyle::Flow {
-            self.ser.write_flow_obj_end()?;
+            self.ser.write_n_spaces(1)?;
+            self.ser.write_ascii("}")?;
         }
         self.ser.serializer_states.pop();
 
