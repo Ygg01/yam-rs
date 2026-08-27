@@ -18,7 +18,7 @@ need to serialize structs to and from YAML (use `yam-serde`). If you need a buff
 - You need GB/s YAML parsing.
 - You need precise whitespace AST handling, for formatting.
 
-# Instalation & Usage
+# Installation & Usage
 
 To add yam to your project
 
