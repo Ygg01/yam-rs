@@ -5,11 +5,12 @@ use crate::prelude::{Yaml, YamlEntry};
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::fmt;
+use core::fmt::Write;
 use core::marker::PhantomData;
 
-pub struct YamlWriter<'a> {
+pub struct YamlWriter<W> {
     /// Writer that outputs data
-    input: &'a mut dyn fmt::Write,
+    input: W,
     /// Position from the last newline
     indent_pos: usize,
     /// Indent level
@@ -18,8 +19,8 @@ pub struct YamlWriter<'a> {
     indentor_len: usize,
 }
 
-impl<'a> YamlWriter<'a> {
-    pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
+impl<W> YamlWriter<W> {
+    pub fn new(writer: W) -> Self {
         Self {
             input: writer,
             indent_pos: 0,
@@ -27,12 +28,18 @@ impl<'a> YamlWriter<'a> {
             indentor_len: 2,
         }
     }
+}
 
+impl<W: Write> YamlWriter<W> {
     #[inline]
     pub fn write_doc_start(&mut self) -> EmitResult {
         writeln!(self.input, "---")?;
         self.indent_pos += 3;
         Ok(())
+    }
+
+    pub fn into_inner(self) -> W {
+        self.input
     }
 
     #[inline]
@@ -65,8 +72,8 @@ impl<'a> YamlWriter<'a> {
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub struct YamlEmitter<'a, FP, INT> {
-    writer: YamlWriter<'a>,
+pub struct YamlEmitter<FP, INT, W> {
+    writer: YamlWriter<W>,
     compact: bool,
     level: isize,
     multiline_strings: bool,
@@ -77,7 +84,7 @@ pub struct YamlEmitter<'a, FP, INT> {
 pub type EmitResult = Result<(), fmt::Error>;
 
 // from serialize::json
-fn escape_str(wr: &mut YamlWriter, v: &str) -> EmitResult {
+fn escape_str<W: fmt::Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
     wr.write_ascii("\"")?;
 
     let bytes = v.as_bytes();
@@ -146,13 +153,14 @@ fn escape_str(wr: &mut YamlWriter, v: &str) -> EmitResult {
 }
 
 #[allow(dead_code)]
-impl<'a, FP, INT> YamlEmitter<'a, FP, INT>
+impl<'a, FP, INT, W> YamlEmitter<FP, INT, W>
 where
     FP: Copy + ToMut<f64> + Into<f64>,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+    W: Write,
 {
     /// Create a new emitter serializing into `writer`.
-    pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
+    pub fn new(writer: W) -> Self {
         YamlEmitter {
             writer: YamlWriter::new(writer),
             compact: true,

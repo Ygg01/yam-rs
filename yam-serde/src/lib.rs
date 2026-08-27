@@ -119,7 +119,7 @@ where
 {
     let mut serializer = ser::YamSerializer::new_pretty(String::new(), formatter);
     value.serialize(&mut serializer)?;
-    Ok(serializer.writer)
+    Ok(serializer.writer.into_inner())
 }
 
 #[derive(Debug, Copy, Clone, Default)]

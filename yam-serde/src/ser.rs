@@ -1,6 +1,6 @@
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
 use crate::{PrettyFormatterConfig, binary};
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::cmp::min;
@@ -11,6 +11,7 @@ use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
+use yam_core::emitter::YamlWriter;
 use yam_core::prelude::ScalarType;
 
 trait YamlWhitespace {
@@ -105,10 +106,9 @@ impl SerializerState {
     }
 }
 
-#[derive(Debug, Default)]
 pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
-    pub(crate) writer: W,
+    pub(crate) writer: YamlWriter<W>,
     indent_pos: usize,
     /// Pretty configuration option for formatting
     formatter: PrettyFormatterConfig,
@@ -126,7 +126,7 @@ where
     pub(crate) fn ensure_indent(&mut self) -> Result<(), Error> {
         let expected_indent = self.indentor_len * (self.current_depth() - 1);
         if self.indent_pos > expected_indent {
-            self.write_nl()?;
+            self.writer.writeln()?;
         }
         let diff_indent = expected_indent - self.indent_pos;
         self.write_n_spaces(diff_indent)
@@ -145,7 +145,7 @@ where
             }
             Some(YamlStyle::Block) => {
                 self.write_ascii(":")?;
-                self.write_indent(self.current_indent())?;
+                self.writer.write_indent()?;
             }
             Some(YamlStyle::Explicit) => {
                 self.ensure_indent()?;
@@ -161,8 +161,7 @@ where
     }
 
     fn serialize_nums<T: Display>(&mut self, value: T) -> Result<(), Error> {
-        write!(self.writer, "{value}")?;
-        Ok(())
+        self.writer.write_ascii(&value.to_string())
     }
 
     fn preferred_string(&self, string: &str) -> ScalarType {
@@ -221,11 +220,11 @@ where
 
     #[inline]
     fn write_block_seq_start(&mut self) -> Result<(), Error> {
-        let mut string = String::with_capacity(self.indentor_len as usize);
+        let mut string = String::with_capacity(self.indentor_len);
 
         // write a `- ` with proper indentation
         string.push('-');
-        string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
+        string.write_str(&" ".repeat(self.indentor_len.saturating_sub(1)))?;
 
         self.writer.write_str(&string)?;
         self.indent_pos += string.len();
@@ -234,17 +233,17 @@ where
 
     #[inline]
     fn write_before_block_elem(&mut self, info: &mut CompoundInfo) -> Result<(), Error> {
-        let mut string = String::with_capacity(self.indentor_len as usize);
+        let mut string = String::with_capacity(self.indentor_len);
 
         if !info.is_first() {
             // write indentation
             let diff_depth =
                 self.current_depth().saturating_sub(info.depth as usize) * self.indentor_len;
-            string.write_str(&" ".repeat(diff_depth as usize))?;
+            string.write_str(&" ".repeat(diff_depth))?;
 
             // write a `- ` with proper indentation
             string.push('-');
-            string.write_str(&" ".repeat((self.indentor_len as usize).saturating_sub(1)))?;
+            string.write_str(&" ".repeat(self.indentor_len.saturating_sub(1)))?;
 
             self.writer.write_str(&string)?;
             self.indent_pos += string.len();
@@ -258,27 +257,20 @@ where
     fn write_after_block_elem(&mut self) -> Result<(), Error> {
         if self.is_scalar {
             self.is_scalar = false;
-            self.write_nl()?;
+            self.writer.writeln()?;
         }
         Ok(())
     }
 
     #[inline]
     fn write_explicit_obj_start(&mut self) -> Result<(), Error> {
-        let mut string = String::with_capacity(self.indentor_len as usize);
+        let mut string = String::with_capacity(self.indentor_len);
         let indentor_len_u32 = self.indentor_len.saturating_sub(1);
         string.push('?');
-        string.write_str(&" ".repeat(indentor_len_u32 as usize))?;
+        string.write_str(&" ".repeat(indentor_len_u32))?;
         self.writer.write_str(&string)?;
         self.indent_pos += indentor_len_u32 + 1;
         Ok(())
-    }
-
-    #[inline]
-    fn write_nl(&mut self) -> Result<(), Error> {
-        let res = self.writer.write_char('\n');
-        self.indent_pos = 0;
-        res
     }
 
     #[inline]
@@ -296,15 +288,6 @@ where
     }
 
     #[inline]
-    fn write_indent(&mut self, indent: usize) -> Result<(), Error> {
-        self.writer.write_char('\n')?;
-        let spaces = indent * (self.formatter.indent_len as usize);
-        self.write_n_spaces(spaces)?;
-        self.indent_pos = spaces;
-        Ok(())
-    }
-
-    #[inline]
     fn write_single_line(&mut self, fence: &str, escaped_str: &str) -> Result<(), Error> {
         self.write_string(fence)?;
         self.write_string(escaped_str)?;
@@ -317,13 +300,13 @@ where
     #[inline]
     fn write_block_string(&mut self, is_folded: bool, str: &str) -> Result<(), Error> {
         let mut string_writer = String::with_capacity(str.len() * 2);
-        let chr = if is_folded { '>' } else { '|' };
+        let chr = if is_folded { ">" } else { "|" };
         string_writer.push_str(str);
 
         // Write the pipe without updating position
-        self.writer.write_char(chr)?;
+        self.writer.write_ascii(chr)?;
         // then indent the string and write the block.
-        self.write_indent(self.current_depth())?;
+        self.writer.write_indent()?;
         self.write_string(&string_writer)?;
 
         Ok(())
@@ -334,7 +317,7 @@ where
         let escaped = if line_split == " " { "" } else { "\n" };
         self.writer.write_str(line_buff)?;
         self.writer.write_str(escaped)?;
-        self.write_indent(self.current_depth())
+        self.writer.write_indent()
     }
 
     #[inline]
@@ -345,7 +328,7 @@ where
         suffix: &str,
     ) -> Result<(), Error> {
         if self.is_time_to_split(0) {
-            self.write_indent(self.current_depth())?;
+            self.writer.write_indent()?;
         }
         self.write_ascii(prefix)?;
 
@@ -402,7 +385,7 @@ impl<W> YamSerializer<W> {
     pub fn new_simple(writer: W) -> Self {
         let formatter = PrettyFormatterConfig::default();
         YamSerializer {
-            writer,
+            writer: YamlWriter::new(writer),
             formatter,
             indent_pos: 0,
             indentor_len: 0,
@@ -416,7 +399,7 @@ impl<W> YamSerializer<W> {
     pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
         let indentor_len = formatter.indent_len as usize;
         YamSerializer {
-            writer,
+            writer: YamlWriter::new(writer),
             formatter,
             indent_pos: 0,
             indentor_len,
@@ -529,35 +512,23 @@ where
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        if v.is_nan() && v.is_sign_negative() {
-            write!(self.writer, "-")?;
-        }
-
-        write!(self.writer, "{v}")?;
-
-        Ok(())
+        self.writer.write_ascii(&v.to_string())
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        if v.is_nan() && v.is_sign_negative() {
-            write!(self.writer, "-")?;
-        }
-
-        write!(self.writer, "{v}")?;
-
-        Ok(())
+        self.writer.write_ascii(&v.to_string())
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        let string_chr = if v == '\'' { '"' } else { '\'' };
+        let string_chr = if v == '\'' { "\"" } else { "'" };
 
-        self.writer.write_char(string_chr)?;
-        self.writer.write_char(v)?;
-        self.writer.write_char(string_chr)?;
+        self.writer.write_ascii(string_chr)?;
+        self.writer.write_str(&v.to_string())?;
+        self.writer.write_ascii(string_chr)?;
         Ok(())
     }
 
@@ -613,10 +584,10 @@ where
             self.write_ascii("|\n")?;
 
             while !encoded_bytes.is_empty() {
-                self.write_indent(self.current_depth())?;
+                self.writer.write_indent()?;
                 let remaining_byte =
                     (self.formatter.pref_string_length as usize).saturating_sub(self.indent_pos);
-                let write = encoded_bytes.split_off(remaining_byte as usize);
+                let write = encoded_bytes.split_off(remaining_byte);
                 self.write_ascii(&write)?;
             }
             self.write_ascii(&encoded_bytes)?;
@@ -946,7 +917,7 @@ where
         self.info.state = CompoundState::Rest;
         match self.style {
             YamlStyle::Block => self.ser.write_after_block_elem()?,
-            YamlStyle::Explicit => self.ser.write_nl()?,
+            YamlStyle::Explicit => self.ser.writer.writeln()?,
             YamlStyle::Flow => {}
         }
         Ok(())
