@@ -2,10 +2,10 @@ use crate::parsing::is_valid_literal_block_scalar;
 use crate::prelude::{IsEmpty, MappingLike, SequenceLike, YamlDocAccess, YamlScalar};
 use crate::prelude::{ToMut, YamlData};
 use crate::prelude::{Yaml, YamlEntry};
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
-use core::fmt::Write;
+use core::fmt::{Error, Write};
 use core::marker::PhantomData;
 
 pub struct YamlWriter<W> {
@@ -14,17 +14,38 @@ pub struct YamlWriter<W> {
     /// Position from the last newline
     indent_pos: usize,
     /// Indent level
-    level: usize,
+    // level: usize,
     /// Indentor length
     indentor_len: usize,
 }
 
 impl<W> YamlWriter<W> {
+    #[inline]
+    pub fn indent_pos(&self) -> usize {
+        self.indent_pos
+    }
+
+    #[inline]
+    #[doc(hidden)]
+    pub fn set_indent_pos(&mut self, indent_pos: usize) {
+        self.indent_pos = indent_pos;
+    }
+
+    #[inline]
+    #[doc(hidden)]
+    pub fn incr_indent_pos(&mut self, incr_by: usize) {
+        self.indent_pos += incr_by;
+    }
+
+    #[inline]
+    pub fn indentor_len(&self) -> usize {
+        self.indentor_len
+    }
+
     pub fn new(writer: W) -> Self {
         Self {
             input: writer,
             indent_pos: 0,
-            level: 0,
             indentor_len: 2,
         }
     }
@@ -43,8 +64,8 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
-    pub fn write_indent(&mut self) -> EmitResult {
-        let best_indent = self.indentor_len * self.level.saturating_sub(1);
+    pub fn write_indent(&mut self, level: usize) -> EmitResult {
+        let best_indent = self.indentor_len * level.saturating_sub(1);
         write!(self.input, "{}", &" ".repeat(best_indent))?;
         Ok(())
     }
@@ -57,6 +78,21 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
+    /// Writes an ASCII string to the underlying writer and updates the current position.
+    ///
+    /// # Parameters
+    /// - `str`: A reference to the ASCII string that will be written to the underlying writer.
+    ///   If the string is not ASCII, this function will cause set position to the wrong value.
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `position` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_ascii(&mut self, s: &str) -> EmitResult {
         self.input.write_str(s)?;
         self.indent_pos += s.len();
@@ -69,19 +105,59 @@ impl<W: Write> YamlWriter<W> {
         self.indent_pos += s.len();
         Ok(())
     }
+
+    #[inline]
+    pub fn write_bool(&mut self, v: bool) -> EmitResult {
+        let (str, len) = if v { ("true", 4) } else { ("false", 5) };
+        self.input.write_str(str)?;
+        self.indent_pos += len;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn write_inline(&mut self, escaped_string: &str, fence: &str) -> EmitResult {
+        self.input.write_str(fence)?;
+        self.input.write_str(escaped_string)?;
+        self.input.write_str(fence)?;
+        self.indent_pos += 2 * fence.len() + escaped_string.len();
+        Ok(())
+    }
+
+    #[inline]
+    pub fn write_block_seq_start(&mut self, chr: char) -> Result<(), Error> {
+        let mut string = String::with_capacity(self.indentor_len);
+
+        // write a `- ` with proper indentation
+        string.push(chr);
+        string.write_str(&" ".repeat(self.indentor_len.saturating_sub(1)))?;
+
+        self.write_str(&string)?;
+        self.indent_pos += string.len();
+        Ok(())
+    }
+
+    #[inline]
+    pub fn write_n_spaces(&mut self, n: usize) -> Result<(), Error> {
+        // write a `- ` with proper indentation
+        self.input.write_char('-')?;
+        self.write_str(&" ".repeat(n.saturating_sub(1)))?;
+
+        self.indent_pos += n;
+        Ok(())
+    }
 }
 
 #[allow(clippy::module_name_repetitions)]
 pub struct YamlEmitter<FP, INT, W> {
     writer: YamlWriter<W>,
     compact: bool,
-    level: isize,
+    level: usize,
     multiline_strings: bool,
     _marker: PhantomData<(FP, INT)>,
 }
 
 /// A convenience alias for emitter functions that may fail without returning a value.
-pub type EmitResult = Result<(), fmt::Error>;
+pub type EmitResult = Result<(), Error>;
 
 // from serialize::json
 fn escape_str<W: fmt::Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
@@ -164,7 +240,7 @@ where
         YamlEmitter {
             writer: YamlWriter::new(writer),
             compact: true,
-            level: -1,
+            level: 0,
             multiline_strings: false,
             _marker: PhantomData,
         }
@@ -218,7 +294,7 @@ where
     pub fn dump(&mut self, doc: &Yaml<'a, FP, INT>) -> EmitResult {
         // write DocumentStart
         self.writer.write_doc_start()?;
-        self.level = -1;
+        self.level = 0;
         self.emit_node(doc)
     }
 
@@ -236,14 +312,7 @@ where
                 }
                 Ok(())
             }
-            YamlData::Scalar(YamlScalar::Bool(v)) => {
-                if *v {
-                    self.writer.write_ascii("true")?;
-                } else {
-                    self.writer.write_ascii("false")?;
-                }
-                Ok(())
-            }
+            YamlData::Scalar(YamlScalar::Bool(v)) => self.writer.write_bool(*v),
             YamlData::Scalar(YamlScalar::Integer(v)) => {
                 self.writer.write_ascii(&v.as_owned().to_string())
             }
@@ -277,7 +346,7 @@ where
                 //         - b
                 if node.is_non_empty_collection() {
                     self.level += 1;
-                    self.writer.write_indent()?;
+                    self.writer.write_indent(self.level)?;
                     self.level -= 1;
                 }
                 self.emit_node(node.as_ref())
@@ -299,7 +368,7 @@ where
         // lines() will omit the last line if it is empty.
         for line in v.lines() {
             self.writer.writeln()?;
-            self.writer.write_indent()?;
+            self.writer.write_indent(self.level)?;
             // It's literal text, so don't escape special chars.
             self.writer.write_ascii(line)?;
         }
@@ -315,7 +384,7 @@ where
             for (cnt, x) in v.vec().iter().enumerate() {
                 if cnt > 0 {
                     self.writer.writeln()?;
-                    self.writer.write_indent()?;
+                    self.writer.write_indent(self.level)?;
                 }
                 self.writer.write_ascii("-")?;
                 self.emit_val(true, x)?;
@@ -335,13 +404,13 @@ where
                     matches!(entry.key.0, YamlData::Mapping(_) | YamlData::Sequence(_));
                 if cnt > 0 {
                     self.writer.writeln()?;
-                    self.writer.write_indent()?;
+                    self.writer.write_indent(self.level)?;
                 }
                 if complex_key {
                     self.writer.write_ascii("?")?;
                     self.emit_val(true, &entry.key)?;
                     self.writer.writeln()?;
-                    self.writer.write_indent()?;
+                    self.writer.write_indent(self.level)?;
                     self.writer.write_ascii(":")?;
                     self.emit_val(true, &entry.value)?;
                 } else {
@@ -367,7 +436,7 @@ where
                 } else {
                     self.writer.writeln()?;
                     self.level += 1;
-                    self.writer.write_indent()?;
+                    self.writer.write_indent(self.level)?;
                     self.level -= 1;
                 }
             };
