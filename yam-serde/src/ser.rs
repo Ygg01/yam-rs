@@ -122,7 +122,7 @@ where
     W: Write,
 {
     pub(crate) fn ensure_indent(&mut self) -> Result<(), Error> {
-        let expected_indent = self.writer.indent_pos() * (self.current_depth() - 1);
+        let expected_indent = self.writer.indentor_len() * (self.current_depth() - 1);
         if self.writer.indent_pos() > expected_indent {
             self.writer.writeln()?;
         }
@@ -143,7 +143,7 @@ where
             }
             Some(YamlStyle::Block) => {
                 self.writer.write_ascii(":")?;
-                self.writer.write_indent(self.current_depth())?;
+                self.writer.write_newline_indent(self.current_depth())?;
             }
             Some(YamlStyle::Explicit) => {
                 self.ensure_indent()?;
@@ -234,7 +234,7 @@ where
         let escaped = if line_split == " " { "" } else { "\n" };
         self.writer.write_str(line_buff)?;
         self.writer.write_str(escaped)?;
-        self.writer.write_indent(self.current_depth())
+        self.writer.write_newline_indent(self.current_depth())
     }
 
     #[inline]

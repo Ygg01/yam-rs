@@ -142,13 +142,13 @@ impl<W: Write> YamlWriter<W> {
         string.write_str(&" ".repeat(self.indentor_len.saturating_sub(1)))?;
 
         self.write_str(&string)?;
-        self.indent_pos += string.len();
+
         Ok(())
     }
 
     #[inline]
     pub fn write_n_spaces(&mut self, n: usize) -> Result<(), Error> {
-        self.write_str(&" ".repeat(n.saturating_sub(1)))?;
+        self.write_str(&" ".repeat(n))?;
 
         self.indent_pos += n;
         Ok(())
