@@ -245,7 +245,7 @@ where
         suffix: &str,
     ) -> Result<(), Error> {
         if self.is_time_to_split(0) {
-            self.writer.write_indent(self.current_depth())?;
+            self.writer.write_newline_indent(self.current_depth())?;
         }
         self.writer.write_ascii(prefix)?;
 

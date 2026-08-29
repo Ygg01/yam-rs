@@ -67,6 +67,16 @@ impl<W: Write> YamlWriter<W> {
     pub fn write_indent(&mut self, level: usize) -> EmitResult {
         let best_indent = self.indentor_len * level.saturating_sub(1);
         write!(self.input, "{}", &" ".repeat(best_indent))?;
+        self.indent_pos += best_indent;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn write_newline_indent(&mut self, level: usize) -> EmitResult {
+        self.input.write_char('\n')?;
+        let best_indent = self.indentor_len * level.saturating_sub(1);
+        write!(self.input, "{}", &" ".repeat(best_indent))?;
+        self.indent_pos = best_indent;
         Ok(())
     }
 
@@ -138,8 +148,6 @@ impl<W: Write> YamlWriter<W> {
 
     #[inline]
     pub fn write_n_spaces(&mut self, n: usize) -> Result<(), Error> {
-        // write a `- ` with proper indentation
-        self.input.write_char('-')?;
         self.write_str(&" ".repeat(n.saturating_sub(1)))?;
 
         self.indent_pos += n;
