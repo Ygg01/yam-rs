@@ -32,9 +32,6 @@ extern crate alloc;
 extern crate core;
 
 #[doc(hidden)]
-pub mod escaper;
-
-#[doc(hidden)]
 pub use lazy_expander::{Expanable, LazyExpander, LazyExpanderMap, LazyExpanderVec};
 
 pub mod emitter;
