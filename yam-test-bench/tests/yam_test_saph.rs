@@ -388,7 +388,7 @@ fn run_docs() {
     assert_eq_event_case_with_opts(
         X2_P2AD_INPUT,
         X2_P2AD_EVENTS,
-        ParsingOptions::Buffered,
+        ParsingOptions::String,
         &FormatOpts::InlineTestDetailed,
     );
 }

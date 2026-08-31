@@ -2,7 +2,7 @@ use crate::parsing::Source;
 use crate::parsing::char_utils::is_break;
 use crate::parsing::scanner::SkipTabs;
 use crate::parsing::source::shared_skip_ws_to_eol;
-use crate::util::{BitOps, HIGH_NIBBLE_WS, LOW_NIBBLE_WS, U8X16, U8X32};
+use crate::util::{BitOps, U8X16, U8X32};
 use alloc::vec::Vec;
 use core::iter::Copied;
 use core::mem::{MaybeUninit, transmute};
@@ -10,6 +10,39 @@ use core::slice;
 use core::slice::Iter;
 
 const MAX_LEN: usize = 32;
+
+//
+// Split interesting chars into sets:
+//
+// | Code points    | Characters | Desired values |
+// |----------------|------------|----------------|
+// | `0x09`,        | `\t`       | 1              |
+// | `0x0A`, `0x0D` | `\n`, `\r` | 2              |
+// | `0x20`         | ` `        | 4              |
+// | `0x23`         | `#`        | 8              |
+// | Anything else  |            | 0              |
+// //
+// These are nibbles used to find WS and tabs
+//
+// |            | 0 | 1 | 2 | 3 | ... | 8 | 9 | A | B | C | D | E | F | high nibble |
+// |------------|---|---|---|---|-----|---|---|---|---|---|---|---|---|-------------|
+// | 0          |   |   |   |   |     |   | 1 | 2 |   |   | 2 |   |   | 3           |
+// | 1          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
+// | 2          | 4 |   |   | 8 |     |   |   |   |   |   |   |   |   | 12          |
+// | 3          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
+// | 4          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
+// | 5          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
+// | 6          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
+// | 7          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
+// | ...        |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
+// | low nibble | 4 |   |   | 8 | ... |   | 1 | 2 |   |   | 2 |   |   |             |
+
+#[doc(hidden)]
+pub(crate) const LOW_NIBBLE_WS: U8X16 =
+    U8X16::from_array([4, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 0, 0]);
+#[doc(hidden)]
+pub(crate) const HIGH_NIBBLE_WS: U8X16 =
+    U8X16::from_array([3, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
 #[allow(dead_code)]
 pub struct BufferedBytesSource<T> {
@@ -171,13 +204,15 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
                 .to_bitmask();
             let nl = !U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
             let hash = !U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
+            let comment = hash & !(sp << 1); // only `# ` is a valid commment.
 
-            let end_of_line = (hash & !(sp << 1)) | nl;
+            let end_of_line = comment | nl;
+            let continual_sp = sp & !end_of_line;
 
             has_yaml_ws |= sp != 0;
 
             if end_of_line != 0 {
-                consume = end_of_line.trailing_zeros();
+                consume = continual_sp.trailing_ones();
                 consumed_bytes += consume;
                 skip_tabs_res = SkipTabs::Result {
                     any_tabs,
@@ -203,6 +238,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 mod tests {
     use crate::parsing::Source;
     use crate::parsing::buffered_source::{BufferedBytesSource, MAX_LEN};
+    use crate::parsing::scanner::SkipTabs;
     use alloc::vec::Vec;
 
     #[test]
@@ -307,5 +343,21 @@ mod tests {
         let res2 = source.skip_ws_to_eol(false, false);
         assert!(res2.1.is_ok());
         assert_eq!(res2.0, 72);
+    }
+
+    #[test]
+    fn skip_ws_doesnt_skip_non_ws() {
+        let folded_ex = "  - folded example where \nyou need to skip only to the `-` character\n not to this part";
+        let mut source = BufferedBytesSource::new_from_str(folded_ex);
+        assert_eq!(source.peekz(0), b' ');
+        let res1 = source.skip_ws_to_eol(true, false);
+        assert_eq!(res1.0, 2);
+        assert_eq!(
+            res1.1,
+            Ok(SkipTabs::Result {
+                any_tabs: false,
+                has_yaml_ws: true
+            })
+        );
     }
 }

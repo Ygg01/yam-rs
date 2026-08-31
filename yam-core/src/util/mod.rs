@@ -4,13 +4,6 @@ mod u8x32;
 pub(crate) use u8x16::U8X16;
 pub(crate) use u8x32::U8X32;
 
-#[doc(hidden)]
-pub(crate) const LOW_NIBBLE_WS: U8X16 =
-    U8X16::from_array([4, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 0, 0]);
-#[doc(hidden)]
-pub(crate) const HIGH_NIBBLE_WS: U8X16 =
-    U8X16::from_array([3, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
 pub trait BitOps {
     type ByteOut;
 
