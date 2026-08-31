@@ -19,17 +19,6 @@ pub struct BufferedBytesSource<T> {
 }
 
 impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
-    #[allow(dead_code)]
-    pub fn new(input: T) -> Self {
-        let mut x = Self {
-            input,
-            buf: [MaybeUninit::uninit(); MAX_LEN],
-            len: 0,
-        };
-        x.fill_buf_to_max();
-        x
-    }
-
     fn fill_buf_to_max(&mut self) {
         for x in self.len..self.buf_max_len() {
             match self.input.next() {
@@ -64,7 +53,7 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
 
 #[allow(dead_code)]
 impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
-    pub fn from_bytes(input: &'a [u8]) -> Self {
+    pub fn new_from_bytes(input: &'a [u8]) -> Self {
         let mut x = Self {
             input: input.iter().copied(),
             buf: [MaybeUninit::uninit(); MAX_LEN],
@@ -74,8 +63,8 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
         x
     }
 
-    pub fn from_str(input: &'a str) -> Self {
-        Self::from_bytes(input.as_bytes())
+    pub fn new_from_str(input: &'a str) -> Self {
+        Self::new_from_bytes(input.as_bytes())
     }
 }
 unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
@@ -218,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_create() {
-        let source = BufferedBytesSource::from_bytes(b"Hello, world!");
+        let source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
         assert_eq!(source.len, 13);
         assert_eq!(source.peekz(0), b'H');
         assert_eq!(source.peekz(1), b'e');
@@ -226,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_skip() {
-        let mut source = BufferedBytesSource::from_bytes(b"Hello, world!");
+        let mut source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
         assert_eq!(source.len, 13);
         assert_eq!(source.peekz(0), b'H');
         assert_eq!(source.peekz(1), b'e');
@@ -242,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_skip_big() {
-        let mut source = BufferedBytesSource::from_bytes(
+        let mut source = BufferedBytesSource::new_from_bytes(
             br#"Lorem ipsum dolor sit amet, 
             consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet, 
             ornare vitae erat. Aenean bibendum arcu et risus auctor, 
@@ -263,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_create_empty() {
-        let mut source = BufferedBytesSource::from_bytes(b"");
+        let mut source = BufferedBytesSource::new_from_bytes(b"");
         assert_eq!(source.len, 0);
         assert_eq!(source.peekz(0), b'\0');
         assert_eq!(source.peekz(1), b'\0');
@@ -275,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_push_breakz() {
-        let mut source = BufferedBytesSource::from_bytes(b"Lorem ipsum dolor sit amet,
+        let mut source = BufferedBytesSource::new_from_bytes(b"Lorem ipsum dolor sit amet,
                                                         consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet,
                                                         ornare vitae erat. Aenean bibendum arcu et risus auctor,");
         let mut dest = Vec::new();
@@ -303,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_tabs() {
-        let mut source = BufferedBytesSource::from_str(YAML_WS_TABS);
+        let mut source = BufferedBytesSource::new_from_str(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert!(res1.1.is_ok());
@@ -313,7 +302,7 @@ mod tests {
         assert!(skip_tabs.found_tabs());
         assert!(skip_tabs.has_valid_yaml_ws());
 
-        let mut source = BufferedBytesSource::from_str(YAML_WS_TABS);
+        let mut source = BufferedBytesSource::new_from_str(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
         let res2 = source.skip_ws_to_eol(false, false);
         assert!(res2.1.is_ok());

@@ -2,36 +2,36 @@ pub mod consts;
 
 use std::borrow::Cow;
 use std::fmt::Write;
+use yam_core::parsing::BufferedBytesSource;
 use yam_core::parsing::Event;
 use yam_core::parsing::{Parser, ScalarValue, Source};
 use yam_core::prelude::Tag;
 
-///
-/// Assert that in for given input, the parser generates expected set of events
-///
-/// # Panics
-///
-///    Function panics if there is a difference between expected events string and one generated
-///    from the input.
-pub fn assert_eq_event_case_saph(input: &str, events: &str) {
-    let mut line = String::new();
-    let mut parser = Parser::new_from_str(input);
-
-    write_str_from_event(&mut line, &mut parser, &FormatOpts::default());
-    let expected_err = events.ends_with("ERR");
-    let actual_err = events.ends_with("ERR");
-    assert_eq!(actual_err, expected_err);
-    if !expected_err {
-        assert_eq!(line, unescape_text(events), "Error in case: {input}");
-    }
+#[derive(Copy, Clone)]
+pub enum ParsingOptions {
+    String,
+    Buffered,
 }
 
 #[doc(hidden)]
-pub fn assert_eq_event_case_with_opts(input: &str, events: &str, emit_opt: &FormatOpts) {
+pub fn assert_eq_event_case_with_opts(
+    input: &str,
+    events: &str,
+    parsing_options: ParsingOptions,
+    emit_opt: &FormatOpts,
+) {
     let mut line = String::new();
-    let mut parser = Parser::new_from_str(input);
+    match parsing_options {
+        ParsingOptions::String => {
+            let mut parser = Parser::new_from_str(input);
+            write_str_from_event(&mut line, &mut parser, emit_opt);
+        }
+        ParsingOptions::Buffered => {
+            let mut parser = Parser::new(BufferedBytesSource::new_from_bytes(input.as_bytes()));
+            write_str_from_event(&mut line, &mut parser, emit_opt);
+        }
+    };
 
-    write_str_from_event(&mut line, &mut parser, emit_opt);
     let expected_err = events.ends_with("ERR");
     let actual_err = events.ends_with("ERR");
     assert_eq!(actual_err, expected_err);

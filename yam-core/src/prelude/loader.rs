@@ -465,16 +465,3 @@ where
         }
     }
 }
-
-#[cfg(test)]
-mod test {
-    use crate::prelude::{Yaml, YamlLoader};
-    use alloc::borrow::ToOwned;
-    use alloc::vec::Vec;
-
-    #[test]
-    fn test_simple() {
-        let yaml_str = "{a : b, c: d}".to_owned();
-        let doc: Vec<Yaml> = YamlLoader::load_from(yaml_str).unwrap();
-    }
-}

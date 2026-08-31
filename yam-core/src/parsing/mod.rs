@@ -11,6 +11,7 @@ use crate::prelude::{ScalarType, YamlError};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
+pub use buffered_source::BufferedBytesSource;
 use core::fmt;
 use core::fmt::{Display, Formatter};
 pub use parser::EventReceiver;

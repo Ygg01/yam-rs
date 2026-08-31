@@ -330,7 +330,7 @@ mod test {
             })
         );
 
-        let mut x = BufferedBytesSource::from_str(TEST_STR);
+        let mut x = BufferedBytesSource::new_from_str(TEST_STR);
         let (consume, skip) = x.skip_ws_to_eol(true, false);
         assert_eq!(consume, 38);
         assert_eq!(
