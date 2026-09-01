@@ -5,7 +5,6 @@ use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::cmp::min;
 use core::fmt::{Debug, Display, Error, Write};
-use core::num::NonZero;
 use core::option::Option;
 use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
@@ -28,8 +27,6 @@ pub enum FlowStyle {
     /// Single-quoted flow strings e.g. `['foo', 'bar']`.
     SingleQuote,
 }
-
-pub type NonZeroKVSeparator = NonZero<YamlStyle>;
 
 impl FlowStyle {
     pub(crate) fn to_scalar_type(self) -> ScalarType {

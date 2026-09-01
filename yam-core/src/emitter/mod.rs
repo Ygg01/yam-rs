@@ -13,8 +13,6 @@ pub struct YamlWriter<W> {
     input: W,
     /// Position from the last newline
     indent_pos: usize,
-    /// Indent level
-    // level: usize,
     /// Indentor length
     indentor_len: usize,
 }
