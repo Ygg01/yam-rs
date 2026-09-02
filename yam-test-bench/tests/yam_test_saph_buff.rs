@@ -357,7 +357,8 @@ fn run_docs() {
     assert_eq_event_case_with_opts(
         X1_735Y_INPUT,
         X1_735Y_EVENTS,
-        ParsingOptions::Buffered,
+        ParsingOptions::String,
+        // ParsingOptions::Buffered,
         &FormatOpts::InlineTestDetailed,
     );
 }

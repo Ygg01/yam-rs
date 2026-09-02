@@ -4,9 +4,10 @@
 //! compliance, and emits a stream of YAML events. This stream can for instance be used to create
 //! YAML objects.
 
+use crate::parsing::buffered_source::BufferedBytesSourceIter;
 use crate::parsing::scanner::{Scanner, Token};
 pub(crate) use crate::parsing::source::{Source, StrSource};
-use crate::parsing::{Tag, TokenType};
+use crate::parsing::{BufferedBytesSource, Tag, TokenType};
 use crate::prelude::{Marker, ScalarType, Span, YamlError};
 use alloc::{
     borrow::Cow,
@@ -1675,5 +1676,12 @@ impl<'input> Parser<'input, StrSource<'input>> {
     #[must_use]
     pub fn new_from_str(input: &'input str) -> Self {
         Parser::new(StrSource::new(input))
+    }
+}
+
+impl<'input> Parser<'input, BufferedBytesSourceIter<'input>> {
+    #[must_use]
+    pub fn new_from_bytes(input: &'input str) -> Self {
+        Parser::new(BufferedBytesSource::new_from_bytes(input.as_bytes()))
     }
 }

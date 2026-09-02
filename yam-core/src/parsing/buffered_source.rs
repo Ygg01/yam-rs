@@ -51,6 +51,8 @@ pub struct BufferedBytesSource<T> {
     len: usize,
 }
 
+pub type BufferedBytesSourceIter<'a> = BufferedBytesSource<Copied<Iter<'a, u8>>>;
+
 impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
     fn fill_buf_to_max(&mut self) {
         for x in self.len..self.buf_max_len() {
@@ -204,8 +206,16 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
                 .to_bitmask();
             let nl = !U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
             let hash = !U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
-            let comment_start = hash & (sp << 1); // only `# ` is a valid comment.
-            let in_comment = nl.wrapping_sub(comment_start);
+
+            // Valid comments start with `# `
+            // So we need hash symbols followed by a space
+            // TODO what if `#\n` is found?
+            let comment_start = hash & (sp << 1);
+
+            // Once we have `comment_start` we need can get comment end by substracting
+            // next newlines from them.
+            // We must exclude newlines from the result because function stops at (CR)LF.
+            let in_comment = nl.saturating_sub(comment_start) & !nl;
             let space_with_fixed_nl = sp & !nl;
 
             let continual_sp = space_with_fixed_nl | in_comment;
@@ -394,6 +404,27 @@ mod tests {
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 18);
+        assert_eq!(
+            res1.1,
+            Ok(SkipTabs::Result {
+                any_tabs: false,
+                has_yaml_ws: true
+            })
+        );
+        assert_eq!(source.peekz(0), b'\n');
+    }
+
+    #[test]
+    #[cfg(not(feature = "comment"))]
+    fn skip_comments_multiline2() {
+        let multiline_comment = r#"
+ - test minor            
+                                           
+---"#;
+        let mut source = BufferedBytesSource::new_from_str(multiline_comment);
+        assert_eq!(source.peekz(0), b'\n');
+        let res1 = source.skip_ws_to_eol(true, false);
+        assert_eq!(res1.0, 0);
         assert_eq!(
             res1.1,
             Ok(SkipTabs::Result {
