@@ -191,7 +191,7 @@ fn run_block_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::Buffered,
         &FormatOpts::InlineTest,
     );
 }
@@ -236,7 +236,7 @@ fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::Buffered,
         &FormatOpts::InlineTest,
     );
 }
@@ -284,7 +284,6 @@ fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
 #[case::flow_zxt5_x1_1(X1_1_ZXT5_INPUT, X1_ZXT5_EVENTS)]
 #[case::flow_zxt5_x1_2(X1_2_ZXT5_INPUT, X1_ZXT5_EVENTS)]
 #[case::flow_wz62(X1_WZ62_INPUT, X1_WZ62_EVENTS)]
-#[case::flow_wz62(X1_WZ62_INPUT, X1_WZ62_EVENTS)]
 #[case::flow_c2dt(X_C2DT_INPUT, X_C2DT_EVENTS)]
 #[case::flow_n782_x1(X1_N782_INPUT, X1_N782_EVENTS)]
 #[case::flow_n782_x2(X2_N782_INPUT, X2_N782_EVENTS)]
@@ -312,7 +311,7 @@ fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::Buffered,
         &FormatOpts::InlineTest,
     );
 }
@@ -329,7 +328,7 @@ fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::Buffered,
         &FormatOpts::InlineTest,
     );
 }
@@ -348,7 +347,7 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::Buffered,
         &FormatOpts::InlineTest,
     );
 }
@@ -356,9 +355,9 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
 #[test]
 fn run_docs() {
     assert_eq_event_case_with_opts(
-        X1_BEC7_INPUT,
-        X1_BEC7_EVENTS,
-        ParsingOptions::String,
+        X1_735Y_INPUT,
+        X1_735Y_EVENTS,
+        ParsingOptions::Buffered,
         &FormatOpts::InlineTestDetailed,
     );
 }

@@ -39,7 +39,7 @@ const MAX_LEN: usize = 32;
 
 #[doc(hidden)]
 pub(crate) const LOW_NIBBLE_WS: U8X16 =
-    U8X16::from_array([4, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 0, 0]);
+    U8X16::from_array([4, 0, 0, 8, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 0, 0]);
 #[doc(hidden)]
 pub(crate) const HIGH_NIBBLE_WS: U8X16 =
     U8X16::from_array([3, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
@@ -204,14 +204,15 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
                 .to_bitmask();
             let nl = !U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
             let hash = !U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
-            let comment = hash & !(sp << 1); // only `# ` is a valid commment.
+            let comment_start = hash & (sp << 1); // only `# ` is a valid comment.
+            let in_comment = nl.wrapping_sub(comment_start);
+            let space_with_fixed_nl = sp & !nl;
 
-            let end_of_line = comment | nl;
-            let continual_sp = sp & !end_of_line;
+            let continual_sp = space_with_fixed_nl | in_comment;
 
             has_yaml_ws |= sp != 0;
 
-            if end_of_line != 0 {
+            if nl != 0 {
                 consume = continual_sp.trailing_ones();
                 consumed_bytes += consume;
                 skip_tabs_res = SkipTabs::Result {
@@ -359,5 +360,47 @@ mod tests {
                 has_yaml_ws: true
             })
         );
+    }
+
+    #[test]
+    #[cfg(not(feature = "comment"))]
+    fn skip_comment() {
+        let folded_ex =
+            "   # commented out \nyou need to skip only to the `-` character\n not to this part";
+        let mut source = BufferedBytesSource::new_from_str(folded_ex);
+        assert_eq!(source.peekz(0), b' ');
+        let res1 = source.skip_ws_to_eol(true, false);
+        assert_eq!(res1.0, 19);
+        assert_eq!(
+            res1.1,
+            Ok(SkipTabs::Result {
+                any_tabs: false,
+                has_yaml_ws: true
+            })
+        );
+        assert_eq!(source.peekz(0), b'\n');
+    }
+
+    #[test]
+    #[cfg(not(feature = "comment"))]
+    fn skip_comments_multiline() {
+        let multiline_comment = r#"
+%YAML 1.3 # Attempt parsing
+          # with a warning
+---"#;
+        let mut source = BufferedBytesSource::new_from_str(multiline_comment);
+        assert_eq!(source.peekz(0), b'\n');
+        source.skip(10);
+        assert_eq!(source.peekz(0), b' ');
+        let res1 = source.skip_ws_to_eol(true, false);
+        assert_eq!(res1.0, 18);
+        assert_eq!(
+            res1.1,
+            Ok(SkipTabs::Result {
+                any_tabs: false,
+                has_yaml_ws: true
+            })
+        );
+        assert_eq!(source.peekz(0), b'\n');
     }
 }
