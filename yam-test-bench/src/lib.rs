@@ -13,6 +13,8 @@ pub enum ParsingOptions {
     Buffered,
 }
 
+pub const PAD: &str = "                                               ";
+
 #[doc(hidden)]
 pub fn assert_eq_event_case_with_opts(
     input: &str,

@@ -308,6 +308,7 @@ fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
 #[case::flow_y79y(X1_Y79Y_003_INPUT, X1_Y79Y_003_EVENTS)]
 #[case::flow_5t43(X1_5T43_INPUT, X1_5T43_EVENTS)]
 #[case::flow_frk4(X1_FRK4_INPUT, X1_FRK4_EVENTS)]
+#[case::flow_r52l(X1_R52L_INPUT, X1_R52L_EVENT)]
 fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,

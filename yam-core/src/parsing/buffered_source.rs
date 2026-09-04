@@ -215,14 +215,14 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             // Once we have `comment_start` we need can get comment end by substracting
             // next newlines from them.
             // We must exclude newlines from the result because function stops at (CR)LF.
-            let in_comment = nl.saturating_sub(comment_start) & !nl;
+            let in_comment = (compute_quote_mask(comment_start | nl)) & !nl;
             let space_with_fixed_nl = sp & !nl;
 
             let continual_sp = space_with_fixed_nl | in_comment;
 
             has_yaml_ws |= sp != 0;
 
-            if nl != 0 {
+            if !continual_sp != 0 {
                 consume = continual_sp.trailing_ones();
                 consumed_bytes += consume;
                 skip_tabs_res = SkipTabs::Result {
@@ -243,6 +243,15 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 
         shared_skip_ws_to_eol(self, skip_tab, consumed_bytes, any_tabs, has_yaml_ws)
     }
+}
+
+fn compute_quote_mask(quote_bits: u32) -> u32 {
+    let mut quote_mask = quote_bits ^ (quote_bits << 1);
+    quote_mask = quote_mask ^ (quote_mask << 2);
+    quote_mask = quote_mask ^ (quote_mask << 4);
+    quote_mask = quote_mask ^ (quote_mask << 8);
+    quote_mask = quote_mask ^ (quote_mask << 16);
+    quote_mask
 }
 
 #[cfg(test)]
@@ -433,5 +442,22 @@ mod tests {
             })
         );
         assert_eq!(source.peekz(0), b'\n');
+    }
+
+    #[test]
+    fn skip_whitespace() {
+        let multiline_comment =
+            r#" { }                                                           "#;
+        let mut source = BufferedBytesSource::new_from_str(multiline_comment);
+        assert_eq!(source.peekz(0), b' ');
+        let res1 = source.skip_ws_to_eol(true, false);
+        assert_eq!(res1.0, 1);
+        assert_eq!(
+            res1.1,
+            Ok(SkipTabs::Result {
+                any_tabs: false,
+                has_yaml_ws: true
+            })
+        );
     }
 }
