@@ -11,6 +11,7 @@ criterion = "0.8.1"
 [dev-dependencies]
 libtest-mimic = "0.6.0"
 rstest = "0.26.1"
+quickcheck = "1.1.0"
 
 [[test]]
 name = "yaml_test_suite"
