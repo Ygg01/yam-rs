@@ -9,7 +9,7 @@ use core::mem::{MaybeUninit, transmute};
 use core::slice;
 use core::slice::Iter;
 
-const MAX_LEN: usize = 32;
+pub(crate) const MAX_LEN: usize = 32;
 
 //
 // Split interesting chars into sets:
@@ -108,8 +108,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn peek_checked(&self, n: usize) -> Option<u8> {
-        debug_assert!(n < self.buf_max_len());
-        if n >= self.len {
+        if n >= self.len || n >= self.buf_max_len() {
             return None;
         }
         unsafe { Some(self.peek_unsafe(n)) }
@@ -459,5 +458,12 @@ mod tests {
                 has_yaml_ws: true
             })
         );
+    }
+
+    #[test]
+    fn test_empty() {
+        let x = "";
+        let source = BufferedBytesSource::new_from_str(x);
+        assert_eq!(source.peekz(32), b'\0');
     }
 }

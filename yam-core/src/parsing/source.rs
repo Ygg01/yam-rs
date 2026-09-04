@@ -1,3 +1,4 @@
+use crate::parsing::buffered_source::MAX_LEN;
 use crate::parsing::char_utils::{
     is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
 };
@@ -46,6 +47,34 @@ use alloc::vec::Vec;
 ///   scalar. `in_flow` it determines if its plain scalar is in flow or block mode.
 /// - `next_is_document_indicator() -> bool`: Checks if the next characters form a document indicator.
 pub unsafe trait Source {
+    /// Returns the `n`-th byte from the internal buffer without consuming it.
+    ///
+    /// This function attempts to retrieve the byte at the specified index `n` in the buffer.
+    /// If the index `n` is out of bounds or greater than MAX_BUFFER_SIZE, it returns `0`.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - The index of the byte to retrieve from the buffer.
+    ///
+    /// # Returns
+    ///
+    /// * `u8` - The byte at the specified index, or `0` if `n` is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use yam_core::parsing::StrSource;
+    /// use yam_core::parsing::Source;
+    ///
+    /// let buffer = StrSource::new("example");
+    /// assert_eq!(buffer.peekz(2), b'a');
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// This function is marked with `#[must_use]`, meaning its return value should not
+    /// be ignored. If unused, the compiler will emit a warning.
+    ///
     #[must_use]
     fn peekz(&self, n: usize) -> u8 {
         self.peek_checked(n).unwrap_or(0)
@@ -83,7 +112,7 @@ pub unsafe trait Source {
 
     #[must_use]
     fn buf_max_len(&self) -> usize {
-        128
+        MAX_LEN
     }
 
     fn buf_is_empty(&self) -> bool;
@@ -268,6 +297,9 @@ unsafe impl Source for StrSource<'_> {
     }
 
     fn peek_checked(&self, n: usize) -> Option<u8> {
+        if n >= self.buf_max_len() || n > self.input.len() {
+            return None;
+        }
         self.input.get(self.pos + n).copied()
     }
 
