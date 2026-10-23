@@ -22,7 +22,7 @@ pub fn assert_eq_event_case_with_opts(
     parsing_options: ParsingOptions,
     emit_opt: &FormatOpts,
 ) {
-    let mut line = String::new();
+    let mut line = String::with_capacity(events.len());
     match parsing_options {
         ParsingOptions::String => {
             let mut parser = Parser::new_from_str(input);
