@@ -390,9 +390,9 @@ impl<'input, S: Source> Scanner<'input, S> {
                 .push(ImplicitMappingState::Possible);
         }
 
-        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
-
         let span = self.get_span(start_mark);
+
+        self.skip_ws_to_eol(SkipTabs::Yes, false)?;
         self.tokens.push_back(Token { span, token_type });
 
         Ok(())

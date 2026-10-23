@@ -9,8 +9,8 @@ pub const X1_R52L_INPUT: &str = r#"
 
 pub const X1_R52L_EXPECTED: &str = r#"
 +STR Span { start: Marker { pos: 0, col: 1, line: 1 }, end: Marker { pos: 0, col: 1, line: 1 } }
-+DOC Span { start: Marker { pos: 1, col: 1, line: 2 }, end: Marker { pos: 3, col: 3, line: 2 } }
-+MAP Span { start: Marker { pos: 1, col: 1, line: 2 }, end: Marker { pos: 3, col: 3, line: 2 } }
++DOC Span { start: Marker { pos: 1, col: 1, line: 2 }, end: Marker { pos: 2, col: 2, line: 2 } }
++MAP Span { start: Marker { pos: 1, col: 1, line: 2 }, end: Marker { pos: 2, col: 2, line: 2 } }
 :SCA Span { start: Marker { pos: 23, col: 5, line: 4 }, end: Marker { pos: 27, col: 9, line: 4 } }
 +SEQ Span { start: Marker { pos: 29, col: 11, line: 4 }, end: Marker { pos: 30, col: 12, line: 4 } }
 :SCA Span { start: Marker { pos: 30, col: 12, line: 4 }, end: Marker { pos: 34, col: 16, line: 4 } }
