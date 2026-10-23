@@ -1486,6 +1486,11 @@ impl<'input, T: Source> Parser<'input, T> {
             self.skip();
         }
         match *self.peek_token()? {
+            #[cfg(feature = "comment")]
+            Token {
+                span,
+                token_type: TokenType::Comment(_),
+            } => self.extract_comment(),
             Token {
                 span,
                 token_type: TokenType::BlockEnd,

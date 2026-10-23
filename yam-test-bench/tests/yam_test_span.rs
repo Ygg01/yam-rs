@@ -21,7 +21,7 @@ pub const X1_R52L_EXPECTED: &str = r#"
 -STR Span { start: Marker { pos: 45, col: 1, line: 6 }, end: Marker { pos: 45, col: 1, line: 6 } }"#;
 
 #[test]
-fn run_docs() {
+fn test_spans() {
     assert_eq_spanned_events(X1_R52L_INPUT, X1_R52L_EXPECTED);
 }
 

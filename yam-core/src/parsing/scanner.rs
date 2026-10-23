@@ -889,10 +889,16 @@ impl<'input, S: Source> Scanner<'input, S> {
                         self.simple_key_allowed = true;
                     }
                 }
+                #[cfg(not(feature = "comment"))]
                 b'#' => {
                     let comment_length = self.src.skip_while_non_breakz();
                     self.mark.pos += comment_length;
                     self.mark.col += comment_length as u32;
+                }
+                #[cfg(feature = "comment")]
+                b'#' => {
+                    let token = self.scan_comment();
+                    self.tokens.push_back(token);
                 }
                 _ => break,
             }
