@@ -1513,18 +1513,17 @@ impl<'input, T: Source> Parser<'input, T> {
                     self.state = State::BlockSequenceEntry;
                     Ok((Event::empty_scalar(), span))
                 } else {
+                    self.push_state(State::BlockSequenceEntry);
+
                     #[cfg(feature = "comment")]
                     if let Token {
                         token_type: TokenType::Comment(..),
                         ..
                     } = self.peek_token()?
                     {
-                        self.push_state(State::BlockSequenceEntry);
-                        self.state = State::BlockNode;
                         return self.extract_comment();
                     }
 
-                    self.push_state(State::BlockSequenceEntry);
                     self.parse_node(true, false)
                 }
             }
