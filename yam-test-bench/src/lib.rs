@@ -76,6 +76,7 @@ impl FormatOpts {
     }
 }
 
+#[doc(hidden)]
 pub fn write_str_from_event<T: Source>(
     line: &mut String,
     parser: &mut Parser<T>,

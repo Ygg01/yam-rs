@@ -1414,6 +1414,20 @@ pub const X1_735Y_EVENTS: &str = r"
 -MAP
 -SEQ
 -DOC";
+
+pub const X2_735Y_INPUT: &str = r"
+- !!map # Block collection
+  foo : bar
+";
+pub const X2_735Y_EVENTS: &str = r"
++DOC
++SEQ
++MAP <tag:yaml.org,2002:map>
+=VAL :foo
+=VAL :bar
+-MAP
+-SEQ
+-DOC";
 pub const MIX_BLOCK_INPUT: &str = r"
 -
   key: x

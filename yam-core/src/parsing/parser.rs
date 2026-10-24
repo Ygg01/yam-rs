@@ -267,6 +267,8 @@ pub struct Parser<'input, T: Source> {
     token: Option<Token<'input>>,
     /// The next YAML event to emit.
     current: Option<(Event<'input>, Span)>,
+    /// Current tag for next YAML event.
+    current_tag: Option<Cow<'input, Tag>>,
     /// Anchors that have been encountered in the YAML document.
     anchors: BTreeMap<Cow<'input, str>, usize>,
     /// Next ID available for an anchor.
@@ -415,6 +417,7 @@ impl<'input, T: Source> Parser<'input, T> {
             state: State::StreamStart,
             token: None,
             current: None,
+            current_tag: None,
 
             anchors: BTreeMap::new(),
             // valid anchor_id starts from 1
@@ -1017,7 +1020,7 @@ impl<'input, T: Source> Parser<'input, T> {
         'input: 'a,
     {
         let mut anchor_id = 0;
-        let mut tag = None;
+
         match *self.peek_token()? {
             Token {
                 token_type: TokenType::Alias(_),
@@ -1051,7 +1054,8 @@ impl<'input, T: Source> Parser<'input, T> {
                     anchor_id = self.register_anchor(name, &span);
                     if let TokenType::Tag { .. } = self.peek_token()?.token_type {
                         if let TokenType::Tag { handle, suffix } = self.fetch_token().token_type {
-                            tag = Some(self.resolve_tag(span, &handle, suffix.to_string())?);
+                            self.current_tag =
+                                Some(self.resolve_tag(span, &handle, suffix.to_string())?);
                         } else {
                             unreachable!()
                         }
@@ -1065,7 +1069,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::Tag { .. },
             } => {
                 if let TokenType::Tag { handle, suffix } = self.fetch_token().token_type {
-                    tag = Some(self.resolve_tag(span, &handle, suffix.to_string())?);
+                    self.current_tag = Some(self.resolve_tag(span, &handle, suffix.to_string())?);
                     if let TokenType::Anchor(_) = &self.peek_token()?.token_type {
                         if let Token {
                             span,
@@ -1083,19 +1087,26 @@ impl<'input, T: Source> Parser<'input, T> {
             }
             _ => {}
         }
+        let is_tag_populated = self.current_tag.is_some();
         match *self.peek_token()? {
+            #[cfg(feature = "comment")]
+            Token {
+                token_type: TokenType::Comment(..),
+                ..
+            } => {
+                self.push_state(State::BlockNode);
+                self.extract_comment()
+            }
             Token {
                 span,
                 token_type: TokenType::BlockEntry,
             } if indentless_sequence => {
                 self.state = State::IndentlessSequenceEntry;
-                Ok((Event::SequenceStart(anchor_id, tag), span))
+                Ok((
+                    Event::SequenceStart(anchor_id, self.current_tag.take()),
+                    span,
+                ))
             }
-            #[cfg(feature = "comment")]
-            Token {
-                token_type: TokenType::Comment(_),
-                ..
-            } => self.extract_comment(),
             Token {
                 token_type: TokenType::Scalar { .. },
                 ..
@@ -1106,6 +1117,7 @@ impl<'input, T: Source> Parser<'input, T> {
                     token_type: TokenType::Scalar { scalar_type, value },
                 } = self.fetch_token()
                 {
+                    let tag = self.current_tag.take();
                     Ok((
                         Event::Scalar(ScalarValue {
                             value,
@@ -1124,6 +1136,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::FlowSequenceStart,
             } => {
                 self.state = State::FlowSequenceFirstEntry;
+                let tag = self.current_tag.take();
                 Ok((Event::SequenceStart(anchor_id, tag), span))
             }
             Token {
@@ -1131,6 +1144,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::FlowMappingStart,
             } => {
                 self.state = State::FlowMappingFirstKey;
+                let tag = self.current_tag.take();
                 Ok((Event::MappingStart(anchor_id, tag), span))
             }
             Token {
@@ -1138,6 +1152,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::BlockSequenceStart,
             } if block => {
                 self.state = State::BlockSequenceFirstEntry;
+                let tag = self.current_tag.take();
                 Ok((Event::SequenceStart(anchor_id, tag), span))
             }
             Token {
@@ -1145,10 +1160,13 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::BlockMappingStart,
             } if block => {
                 self.state = State::BlockMappingFirstKey;
+                let tag = self.current_tag.take();
                 Ok((Event::MappingStart(anchor_id, tag), span))
             }
+
             // ex 7.2, an empty scalar can follow a secondary tag
-            Token { span, .. } if tag.is_some() || anchor_id > 0 => {
+            Token { span, .. } if is_tag_populated || anchor_id > 0 => {
+                let tag = self.current_tag.take();
                 self.pop_state();
                 Ok((
                     Event::Scalar(ScalarValue::empty_scalar_with_anchor(anchor_id, tag)),
@@ -1486,6 +1504,15 @@ impl<'input, T: Source> Parser<'input, T> {
             self.skip();
         }
         match *self.peek_token()? {
+            #[cfg(feature = "comment")]
+            Token {
+                token_type: TokenType::Comment(_),
+                ..
+            } => {
+                self.push_state(State::BlockSequenceEntry);
+                self.state = State::BlockNode;
+                self.extract_comment()
+            }
             Token {
                 span,
                 token_type: TokenType::BlockEnd,
@@ -1500,6 +1527,17 @@ impl<'input, T: Source> Parser<'input, T> {
             } => {
                 self.skip();
 
+                #[cfg(feature = "comment")]
+                if let Token {
+                    token_type: TokenType::Comment(..),
+                    ..
+                } = self.peek_token()?
+                {
+                    self.push_state(State::BlockSequenceEntry);
+                    self.state = State::BlockNode;
+                    return self.extract_comment();
+                }
+
                 if let Token {
                     token_type: TokenType::BlockEntry | TokenType::BlockEnd,
                     span,
@@ -1508,17 +1546,6 @@ impl<'input, T: Source> Parser<'input, T> {
                     self.state = State::BlockSequenceEntry;
                     Ok((Event::empty_scalar(), span))
                 } else {
-                    #[cfg(feature = "comment")]
-                    if let Token {
-                        token_type: TokenType::Comment(..),
-                        ..
-                    } = self.peek_token()?
-                    {
-                        self.push_state(State::BlockSequenceEntry);
-                        self.state = State::BlockNode;
-                        return self.extract_comment();
-                    }
-
                     self.push_state(State::BlockSequenceEntry);
                     self.parse_node(true, false)
                 }
