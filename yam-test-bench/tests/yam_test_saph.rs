@@ -358,9 +358,9 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
 #[test]
 fn run_docs() {
     assert_eq_event_case_with_opts(
-        X2_735Y_INPUT,
-        X2_735Y_EVENTS,
-        ParsingOptions::Buffered,
+        X1_6ZKB_INPUT,
+        X1_6ZKB_EVENTS,
+        ParsingOptions::String,
         &FormatOpts::InlineTestDetailed,
     );
 }

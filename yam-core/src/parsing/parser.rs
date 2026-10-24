@@ -1022,20 +1022,6 @@ impl<'input, T: Source> Parser<'input, T> {
         let mut anchor_id = 0;
 
         match *self.peek_token()? {
-            #[cfg(feature = "comment")]
-            Token {
-                token_type: TokenType::Comment(..),
-                ..
-            } => {
-                if let Token {
-                    span,
-                    token_type: TokenType::Comment(name),
-                } = self.fetch_token()
-                {
-                    self.state = State::BlockNode;
-                    return Ok((Event::Comment(name), span));
-                }
-            }
             Token {
                 token_type: TokenType::Alias(_),
                 ..
@@ -1108,7 +1094,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::Comment(..),
                 ..
             } => {
-                self.state = State::BlockNode;
+                self.push_state(State::BlockNode);
                 self.extract_comment()
             }
             Token {
