@@ -866,6 +866,21 @@ impl<'input, T: Source> Parser<'input, T> {
 
     #[cfg(feature = "comment")]
     // #[inline]
+    fn push_comment<'a>(&mut self)
+    where
+        'input: 'a,
+    {
+        if let Token {
+            span,
+            token_type: TokenType::Comment(comment),
+        } = self.fetch_token()
+        {
+            self.current_comments.push((Event::Comment(comment), span));
+        }
+    }
+
+    #[cfg(feature = "comment")]
+    // #[inline]
     fn extract_comment<'a>(&mut self) -> ParseResult<'a>
     where
         'input: 'a,
@@ -875,9 +890,9 @@ impl<'input, T: Source> Parser<'input, T> {
             token_type: TokenType::Comment(comment),
         } = self.fetch_token()
         {
-            Ok((Event::Comment(comment), span))
+            return Ok((Event::Comment(comment), span));
         } else {
-            unreachable!()
+            Err(YamlError::Io("Unexpected comment".to_string()))
         }
     }
 
@@ -928,7 +943,10 @@ impl<'input, T: Source> Parser<'input, T> {
         'input: 'a,
     {
         self.parser_process_directives()?;
+    
         match *self.peek_token()? {
+            #[cfg(feature = "comment")]
+            Token { token_type: TokenType::Comment(..), .. } => self.extract_comment(),
             Token {
                 span,
                 token_type: TokenType::DocumentStart,
@@ -1283,8 +1301,7 @@ impl<'input, T: Source> Parser<'input, T> {
                     ..
                 } = *self.peek_token()?
                 {
-                    self.state = State::BlockMappingValueCont;
-                    return self.extract_comment();
+                    self.push_comment();
                 }
 
                 self.push_state(State::BlockMappingKey);
@@ -1350,7 +1367,7 @@ impl<'input, T: Source> Parser<'input, T> {
                         } = *self.peek_token()?
                         {
                             self.state = State::FlowMappingFirstKeyCont;
-                            return self.extract_comment();
+                            self.push_comment();
                         }
 
                         self.push_state(State::FlowMappingValue);
@@ -1428,10 +1445,10 @@ impl<'input, T: Source> Parser<'input, T> {
         match *self.peek_token()? {
             #[cfg(feature = "comment")]
             Token {
-                token_type: TokenType::Comment(..), ..
+                token_type: TokenType::Comment(..),
+                ..
             } => {
-                let ev = self.extract_comment()?;
-                self.current_comments.push(ev);
+                self.push_comment();
             }
             Token {
                 span,
@@ -1551,7 +1568,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 {
                     self.push_state(State::BlockSequenceEntry);
                     self.state = State::BlockNode;
-                    return self.extract_comment();
+                    self.push_comment();
                 }
 
                 if let Token {
