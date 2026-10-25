@@ -1094,7 +1094,7 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::Comment(..),
                 ..
             } => {
-                self.push_state(State::BlockNode);
+                self.state = State::BlockNode;
                 self.extract_comment()
             }
             Token {
