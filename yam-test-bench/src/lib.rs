@@ -85,46 +85,53 @@ pub fn write_str_from_event<T: Source>(
     if !emit_opt.emit_stream() {
         line.push('\n');
     }
-    while let Some(Ok((ev, _))) = parser.next() {
-        let _ = match ev {
-            Event::StreamStart if emit_opt.emit_stream() => writeln!(line, "+STR"),
-            Event::StreamEnd if emit_opt.emit_stream() => writeln!(line, "-STR"),
-            Event::DocumentStart(_) => writeln!(line, "+DOC"),
-            Event::DocumentEnd => writeln!(line, "-DOC"),
-            Event::Alias(anchor_id) => {
-                let anchor = parser
-                    .get_anchor(anchor_id)
-                    .map_or(String::default(), ToString::to_string);
-                writeln!(line, "=ALI *{anchor}")
+    loop {
+        let parsed = parser.next();
+        if parsed.is_none() {
+            break;
+        }
+        if let Some(Err(err)) = parsed {
+            if emit_opt.emit_err() {
+                writeln!(line, "ERR {err:?}").unwrap();
             }
-            Event::Scalar(ScalarValue {
-                value,
-                scalar_type,
-                anchor_id,
-                tag,
-            }) => {
-                let anchor = extract_anchor(parser, anchor_id);
-                let tag_info = extract_tag_full(tag);
-                writeln!(line, "=VAL{anchor}{tag_info} {scalar_type}{value}")
-            }
-            Event::SequenceStart(anchor_id, tag) => {
-                let tag_info = extract_tag_full(tag);
-                let anchor = extract_anchor(parser, anchor_id);
-                writeln!(line, "+SEQ{anchor}{tag_info}")
-            }
-            Event::SequenceEnd => writeln!(line, "-SEQ"),
-            Event::MappingStart(anchor_id, tag) => {
-                let tag_info = extract_tag_full(tag);
-                let anchor = extract_anchor(parser, anchor_id);
-                writeln!(line, "+MAP{anchor}{tag_info}")
-            }
-            Event::MappingEnd => writeln!(line, "-MAP"),
-            _ => write!(line, ""),
-        };
-    }
-    if let Some(Err(err)) = parser.next() {
-        if emit_opt.emit_err() {
-            writeln!(line, "ERR {err:?}").unwrap();
+            break;
+        }
+        if let Some(Ok((ev, _))) = parsed {
+            let _ = match ev {
+                Event::StreamStart if emit_opt.emit_stream() => writeln!(line, "+STR"),
+                Event::StreamEnd if emit_opt.emit_stream() => writeln!(line, "-STR"),
+                Event::DocumentStart(_) => writeln!(line, "+DOC"),
+                Event::DocumentEnd => writeln!(line, "-DOC"),
+                Event::Alias(anchor_id) => {
+                    let anchor = parser
+                        .get_anchor(anchor_id)
+                        .map_or(String::default(), ToString::to_string);
+                    writeln!(line, "=ALI *{anchor}")
+                }
+                Event::Scalar(ScalarValue {
+                    value,
+                    scalar_type,
+                    anchor_id,
+                    tag,
+                }) => {
+                    let anchor = extract_anchor(parser, anchor_id);
+                    let tag_info = extract_tag_full(tag);
+                    writeln!(line, "=VAL{anchor}{tag_info} {scalar_type}{value}")
+                }
+                Event::SequenceStart(anchor_id, tag) => {
+                    let tag_info = extract_tag_full(tag);
+                    let anchor = extract_anchor(parser, anchor_id);
+                    writeln!(line, "+SEQ{anchor}{tag_info}")
+                }
+                Event::SequenceEnd => writeln!(line, "-SEQ"),
+                Event::MappingStart(anchor_id, tag) => {
+                    let tag_info = extract_tag_full(tag);
+                    let anchor = extract_anchor(parser, anchor_id);
+                    writeln!(line, "+MAP{anchor}{tag_info}")
+                }
+                Event::MappingEnd => writeln!(line, "-MAP"),
+                _ => write!(line, ""),
+            };
         }
     }
     if emit_opt.is_inline() {
