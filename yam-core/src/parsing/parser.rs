@@ -269,6 +269,8 @@ pub struct Parser<'input, T: Source> {
     current: Option<(Event<'input>, Span)>,
     /// Current tag for next YAML event.
     current_tag: Option<Cow<'input, Tag>>,
+    /// Current comments
+    current_comments: Vec<(Event<'input>, Span)>,
     /// Anchors that have been encountered in the YAML document.
     anchors: BTreeMap<Cow<'input, str>, usize>,
     /// Next ID available for an anchor.
@@ -413,11 +415,12 @@ impl<'input, T: Source> Parser<'input, T> {
     pub fn new(src: T) -> Self {
         Parser {
             scanner: Scanner::new(src),
-            states: Vec::new(),
+            states: Vec::with_capacity(20),
             state: State::StreamStart,
             token: None,
             current: None,
             current_tag: None,
+            current_comments: Vec::with_capacity(10),
 
             anchors: BTreeMap::new(),
             // valid anchor_id starts from 1
@@ -862,6 +865,7 @@ impl<'input, T: Source> Parser<'input, T> {
     }
 
     #[cfg(feature = "comment")]
+    // #[inline]
     fn extract_comment<'a>(&mut self) -> ParseResult<'a>
     where
         'input: 'a,
@@ -1422,6 +1426,13 @@ impl<'input, T: Source> Parser<'input, T> {
             self.skip();
         }
         match *self.peek_token()? {
+            #[cfg(feature = "comment")]
+            Token {
+                token_type: TokenType::Comment(..), ..
+            } => {
+                let ev = self.extract_comment()?;
+                self.current_comments.push(ev);
+            }
             Token {
                 span,
                 token_type: TokenType::FlowSequenceEnd,
