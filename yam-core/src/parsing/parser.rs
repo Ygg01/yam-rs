@@ -946,6 +946,11 @@ impl<'input, T: Source> Parser<'input, T> {
         'input: 'a,
     {
         match *self.peek_token()? {
+            #[cfg(feature = "comment")]
+            Token {
+                token_type: TokenType::Comment(..),
+                ..
+            } => self.extract_comment(),
             Token {
                 span,
                 token_type:
