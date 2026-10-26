@@ -92,7 +92,7 @@ pub fn write_str_from_event<T: Source>(
         }
         if let Some(Err(err)) = parsed {
             if emit_opt.emit_err() {
-                writeln!(line, "ERR {err:?}").unwrap();
+                let _ = writeln!(line, "ERR {err:?}");
             }
             break;
         }
