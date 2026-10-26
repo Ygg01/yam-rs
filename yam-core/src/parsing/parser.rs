@@ -842,11 +842,6 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.skip();
                 Ok((Event::StreamEnd, span))
             }
-            // #[cfg(feature = "comment")]
-            // Token {
-            //     token_type: TokenType::Comment(..),
-            //     ..
-            // } => self.extract_comment(),
             Token {
                 token_type:
                     TokenType::VersionDirective { .. }
@@ -870,37 +865,6 @@ impl<'input, T: Source> Parser<'input, T> {
         }
     }
 
-    // #[cfg(feature = "comment")]
-    // // #[inline]
-    // fn push_comment<'a>(&mut self)
-    // where
-    //     'input: 'a,
-    // {
-    //     if let Token {
-    //         span,
-    //         token_type: TokenType::Comment(comment),
-    //     } = self.fetch_token()
-    //     {
-    //         self.current_comments.push((Event::Comment(comment), span));
-    //     }
-    // }
-
-    // #[cfg(feature = "comment")]
-    // // #[inline]
-    // fn extract_comment<'a>(&mut self) -> ParseResult<'a>
-    // where
-    //     'input: 'a,
-    // {
-    //     if let Token {
-    //         span,
-    //         token_type: TokenType::Comment(comment),
-    //     } = self.fetch_token()
-    //     {
-    //         return Ok((Event::Comment(comment), span));
-    //     } else {
-    //         Err(YamlError::Io("Unexpected comment".to_string()))
-    //     }
-    // }
 
     fn parser_process_directives(&mut self) -> Result<(), YamlError> {
         let mut version_directive_received = false;
@@ -951,8 +915,6 @@ impl<'input, T: Source> Parser<'input, T> {
         self.parser_process_directives()?;
     
         match *self.peek_token()? {
-            // #[cfg(feature = "comment")]
-            // Token { token_type: TokenType::Comment(..), .. } => self.extract_comment(),
             Token {
                 span,
                 token_type: TokenType::DocumentStart,
@@ -974,11 +936,6 @@ impl<'input, T: Source> Parser<'input, T> {
         'input: 'a,
     {
         match *self.peek_token()? {
-            // #[cfg(feature = "comment")]
-            // Token {
-            //     token_type: TokenType::Comment(..),
-            //     ..
-            // } => self.extract_comment(),
             Token {
                 span,
                 token_type:
@@ -1055,13 +1012,7 @@ impl<'input, T: Source> Parser<'input, T> {
         let mut anchor_id = 0;
 
         match *self.peek_token()? {
-            // #[cfg(feature = "comment")]
-            // Token {
-            //     token_type: TokenType::Comment(..),
-            //     ..
-            // } => {
-            //     self.push_comment();
-            // }
+
             Token {
                 token_type: TokenType::Alias(_),
                 ..
@@ -1129,14 +1080,6 @@ impl<'input, T: Source> Parser<'input, T> {
         }
         let is_tag_populated = self.current_tag.is_some();
         match *self.peek_token()? {
-            // #[cfg(feature = "comment")]
-            // Token {
-            //     token_type: TokenType::Comment(..),
-            //     ..
-            // } => {
-            //     self.state = State::BlockNode;
-            //     self.extract_comment()
-            // }
             Token {
                 span,
                 token_type: TokenType::BlockEntry,
@@ -1229,17 +1172,6 @@ impl<'input, T: Source> Parser<'input, T> {
             let _ = self.peek_token()?;
 
             self.skip();
-
-            // #[cfg(feature = "comment")]
-            // if let Token {
-            //     token_type: TokenType::Comment(..),
-            //     ..
-            // } = self.peek_token()?
-            // {
-            //     // Ensure we don't skip next entry on repeat entry
-            //     self.state = State::BlockMappingKey;
-            //     return self.extract_comment();
-            // }
         }
         match *self.peek_token()? {
             Token {
@@ -1276,11 +1208,6 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.skip();
                 Ok((Event::MappingEnd, span))
             }
-            // #[cfg(feature = "comment")]
-            // Token {
-            //     token_type: TokenType::Comment(..),
-            //     ..
-            // } => self.extract_comment(),
             Token { span, .. } => Err(YamlError::new_str(
                 span.start,
                 "while parsing a block mapping, did not find expected key",
@@ -1308,15 +1235,6 @@ impl<'input, T: Source> Parser<'input, T> {
                 // empty scalar
                 Ok((Event::empty_scalar(), span))
             } else {
-                // #[cfg(feature = "comment")]
-                // if let Token {
-                //     token_type: TokenType::Comment(_),
-                //     ..
-                // } = *self.peek_token()?
-                // {
-                //     self.push_comment();
-                // }
-
                 self.push_state(State::BlockMappingKey);
                 self.parse_node(true, true)
             }
@@ -1373,15 +1291,6 @@ impl<'input, T: Source> Parser<'input, T> {
                             self.state = State::FlowMappingValue;
                             return Ok((Event::empty_scalar(), span));
                         }
-                        // #[cfg(feature = "comment")]
-                        // if let Token {
-                        //     token_type: TokenType::Comment(_),
-                        //     ..
-                        // } = *self.peek_token()?
-                        // {
-                        //     self.state = State::FlowMappingFirstKeyCont;
-                        //     self.push_comment();
-                        // }
 
                         self.push_state(State::FlowMappingValue);
                         return self.parse_node(false, false);
@@ -1456,13 +1365,6 @@ impl<'input, T: Source> Parser<'input, T> {
             self.skip();
         }
         match *self.peek_token()? {
-            // #[cfg(feature = "comment")]
-            // Token {
-            //     token_type: TokenType::Comment(..),
-            //     ..
-            // } => {
-            //     self.push_comment();
-            // }
             Token {
                 span,
                 token_type: TokenType::FlowSequenceEnd,
@@ -1550,15 +1452,6 @@ impl<'input, T: Source> Parser<'input, T> {
             self.skip();
         }
         match *self.peek_token()? {
-            // #[cfg(feature = "comment")]
-            // Token {
-            //     token_type: TokenType::Comment(_),
-            //     ..
-            // } => {
-            //     self.push_state(State::BlockSequenceEntry);
-            //     self.state = State::BlockNode;
-            //     self.extract_comment()
-            // }
             Token {
                 span,
                 token_type: TokenType::BlockEnd,
@@ -1572,17 +1465,6 @@ impl<'input, T: Source> Parser<'input, T> {
                 token_type: TokenType::BlockEntry,
             } => {
                 self.skip();
-
-                // #[cfg(feature = "comment")]
-                // if let Token {
-                //     token_type: TokenType::Comment(..),
-                //     ..
-                // } = self.peek_token()?
-                // {
-                //     self.push_state(State::BlockSequenceEntry);
-                //     self.state = State::BlockNode;
-                //     self.push_comment();
-                // }
 
                 if let Token {
                     token_type: TokenType::BlockEntry | TokenType::BlockEnd,
