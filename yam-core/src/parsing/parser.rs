@@ -270,6 +270,7 @@ pub struct Parser<'input, T: Source> {
     /// Current tag for next YAML event.
     current_tag: Option<Cow<'input, Tag>>,
     /// Current comments
+    #[cfg(feature = "comment")]
     current_comments: Vec<(Event<'input>, Span)>,
     /// Anchors that have been encountered in the YAML document.
     anchors: BTreeMap<Cow<'input, str>, usize>,
@@ -420,7 +421,8 @@ impl<'input, T: Source> Parser<'input, T> {
             token: None,
             current: None,
             current_tag: None,
-            current_comments: Vec::with_capacity(10),
+            #[cfg(feature = "comment")]
+            current_comments: Vec::with_capacity(150),
 
             anchors: BTreeMap::new(),
             // valid anchor_id starts from 1
@@ -490,6 +492,11 @@ impl<'input, T: Source> Parser<'input, T> {
             return None;
         }
 
+        #[cfg(feature = "comment")]
+        if let Some(ev) = self.current_comments.pop() {
+            return Some(Ok(ev));
+        }
+
         let tok = self.next_event_impl();
         if matches!(tok, Ok((Event::StreamEnd, _))) {
             self.stream_end_emitted = true;
@@ -548,19 +555,29 @@ impl<'input, T: Source> Parser<'input, T> {
     ///
     /// This function will return an `Err(YamlError)` if scanning the next token encounters any issues.
     ///
+    #[cfg(feature = "comment")]
     fn peek_token(&mut self) -> Result<&Token<'_>, YamlError> {
         loop {
             match self.token {
                 None => {
                     self.token = Some(self.scan_next_token()?);
                 }
-                #[cfg(feature = "comment")]
                 Some(Token { span, token_type: TokenType::Comment(ref cow) }) => {
                     self.current_comments.push((Event::Comment(cow.clone()), span));
                     self.skip();
                 }
                 Some(ref tok) => {return Ok(tok);}
             }
+        }
+    }
+    #[cfg(not(feature = "comment"))]
+    fn peek_token(&mut self) -> Result<&Token<'_>, YamlError> {
+        match self.token {
+            None => {
+                self.token = Some(self.scan_next_token()?);
+                Ok(self.token.as_ref().unwrap())
+            }
+            Some(ref tok) => Ok(tok),
         }
     }
 
