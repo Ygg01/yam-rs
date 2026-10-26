@@ -139,7 +139,8 @@ use yam_test_bench::{assert_eq_event_case_with_opts, FormatOpts, ParsingOptions}
 #[case::block_bf9h(X_BF9H_INPUT, X_BF9H_EVENTS)]
 #[case::block_bs4k(X_BS4K_INPUT, X_BS4K_EVENTS)]
 #[case::block_74h7(X_74H7_INPUT, X_74H7_EVENTS)]
-#[case::block_735y(X1_735Y_INPUT, X1_735Y_EVENTS)]
+#[case::block_735y_x1(X1_735Y_INPUT, X1_735Y_EVENTS)]
+#[case::block_735y_x2(X2_735Y_INPUT, X2_735Y_EVENTS)]
 #[case::block_57h4_x1(X1_57H4_INPUT, X1_57H4_EVENTS)]
 #[case::block_57h4_x2(X2_57H4_INPUT, X2_57H4_EVENTS)]
 #[case::block_57h4_x3(X3_57H4_INPUT, X3_57H4_EVENTS)]
@@ -354,12 +355,3 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     );
 }
 
-#[test]
-fn run_docs() {
-    assert_eq_event_case_with_opts(
-        X1_BEC7_INPUT,
-        X1_BEC7_EVENTS,
-        ParsingOptions::String,
-        &FormatOpts::InlineTestDetailed,
-    );
-}
