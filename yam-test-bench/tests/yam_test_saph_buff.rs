@@ -354,13 +354,3 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     );
 }
 
-// #[test]
-// fn run_docs() {
-//     assert_eq_event_case_with_opts(
-//         X1_R52L_INPUT,
-//         X1_R52L_EVENT,
-//         // ParsingOptions::String,
-//         ParsingOptions::Buffered,
-//         &FormatOpts::InlineTestDetailed,
-//     );
-// }
