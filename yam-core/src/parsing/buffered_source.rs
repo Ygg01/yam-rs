@@ -163,18 +163,14 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     ) -> (u32, Result<SkipTabs, &'static str>) {
         let mut any_tabs = false;
         let mut consumed_bytes = 0u32;
+        let tabs_mul = if skip_tab { 1 } else { 0 };
 
         // Skip whole buffers of whitespace at once. Anything else (comments, errors, the tail of
         // the input) is left to `shared_skip_ws_to_eol`.
         while let Some(x) = self.get_max_buf() {
             let fake_simd = U8X32::from_array(x);
             let spaces = fake_simd.comp_to_bitmask(b' ');
-            let tabs = if skip_tab {
-                fake_simd.comp_to_bitmask(b'\t')
-            } else {
-                0
-            };
-
+            let tabs = fake_simd.comp_to_bitmask(b'\t') * tabs_mul;
             let n = (spaces | tabs).trailing_ones();
             let prefix = if n == 32 { u32::MAX } else { (1 << n) - 1 };
             has_yaml_ws |= spaces & prefix != 0;
