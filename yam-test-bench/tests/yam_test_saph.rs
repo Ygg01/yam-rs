@@ -14,6 +14,8 @@ use yam_test_bench::{assert_eq_event_case_with_opts, FormatOpts, ParsingOptions}
 #[case::block_lit_plain2(LITERAL2_INPUT, SIMPLE_FOLDED_EVENTS)]
 #[case::block_lit_plain3(LITERAL3_INPUT, LITERAL3_EVENTS)]
 #[case::block_lit_fold_block(BLOCK_FOLD_INPUT, BLOCK_FOLD_EVENTS)]
+#[case::block_lit_text1(BLOCK_NO_EOL_INPUT, BLOCK_NO_EOL_EVENTS)]
+#[case::block_lit_text2(BLOCK_DEEP_INDENT_EOF_INPUT, BLOCK_DEEP_INDENT_EOF_EVENTS)]
 #[case::block_lit_fold_simple1(SIMPLE_FOLD1_INPUT, SIMPLE_FOLD_EVENTS)]
 #[case::block_lit_fold_simple2(SIMPLE_FOLD2_INPUT, SIMPLE_FOLD_EVENTS)]
 #[case::block_lit_fold1(FOLD_STR1_INPUT, FOLD_STR1_EVENTS)]
@@ -354,4 +356,3 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
         &FormatOpts::InlineTest,
     );
 }
-

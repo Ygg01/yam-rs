@@ -273,6 +273,31 @@ pub const LIT_STR2_EVENTS: &str = r"
 =VAL |text\n
 -MAP
 -DOC";
+pub const BLOCK_NO_EOL_INPUT: &str = r"
+lit: |
+  first
+  a last line that is longer than the 32 byte buffer
+fold: >
+  first
+  a last line that is longer than the 32 byte buffer";
+pub const BLOCK_NO_EOL_EVENTS: &str = r"
++DOC
++MAP
+=VAL :lit
+=VAL |first\na last line that is longer than the 32 byte buffer\n
+=VAL :fold
+=VAL >first a last line that is longer than the 32 byte buffer\n
+-MAP
+-DOC";
+pub const BLOCK_DEEP_INDENT_EOF_INPUT: &str = "- |
+                                        x
+          ";
+pub const BLOCK_DEEP_INDENT_EOF_EVENTS: &str = r"
++DOC
++SEQ
+=VAL |x\n
+-SEQ
+-DOC";
 pub const MULTILINE_PLAIN_INPUT: &str = r"
 generic: !!str |
  test
