@@ -5,6 +5,7 @@ use crate::parsing::char_utils::{
 };
 use crate::parsing::scanner::SkipTabs;
 use alloc::vec::Vec;
+use core::cmp::min;
 
 ///
 /// A trait that defines a source of input data, with methods for peeking, skipping,
@@ -334,9 +335,9 @@ unsafe impl Source for StrSource<'_> {
     }
 
     fn peek_char(&self) -> char {
-        // TODO make it ACTUALLY safe
+        let end_position = min(self.pos + 4, self.input.len());
         let mut bytes = unsafe {
-            str::from_utf8_unchecked(self.input.get_unchecked(self.pos..self.pos + 4)).chars()
+            str::from_utf8_unchecked(self.input.get_unchecked(self.pos..end_position)).chars()
         };
         bytes.next().unwrap_or('\u{FFFD}')
     }
