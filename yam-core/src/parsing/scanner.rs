@@ -245,6 +245,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         Ok(())
     }
 
+    #[inline]
     fn process_start(&mut self) -> Option<ScanResult> {
         if self.next_char_is(b'%') {
             Some(self.fetch_directive())
@@ -904,7 +905,8 @@ impl<'input, S: Source> Scanner<'input, S> {
                         ));
                     }
                 }
-                b'\t' | b' ' => self.skip_blank(),
+                b' ' => self.skip_spaces(usize::MAX),
+                b'\t' => self.skip_blank(),
                 b'\n' | b'\r' => {
                     // ? self.src.lookahead(2);
                     self.skip_linebreak();
@@ -1028,29 +1030,12 @@ impl<'input, S: Source> Scanner<'input, S> {
                     self.buf_whitespaces.clear();
                 }
 
-                // We can unroll the first iteration of the loop.
-                string.push(self.src.peek_checked(0).unwrap_or(b' '));
-                self.skip_non_blank();
-                string.reserve(self.src.buf_max_len());
-
-                // Add content non-blank characters to the scalar.
-                let mut end = false;
-                while !end {
-                    // Fill the buffer once and process all characters in the buffer until the next
-                    // fetch. Note that `next_can_be_plain_scalar` needs 2 lookahead characters,
-                    // hence the `for` loop looping `self.input.bufmaxlen() - 1` times.
-                    // ? self.src.lookahead(self.src.bufmaxlen());
-                    for _ in 0..self.src.buf_max_len() - 1 {
-                        if is_blank_or_breakz(self.src.peekz(0))
-                            || !self.src.next_can_be_plain_scalar(self.flow_level > 0)
-                        {
-                            end = true;
-                            break;
-                        }
-                        string.push(self.src.peek_checked(0).unwrap_or(b' '));
-                        self.skip_non_blank();
-                    }
-                }
+                // Add content non-blank characters to the scalar. The check above guarantees
+                // that at least one byte is consumed.
+                let n_chars = self.src.push_plain_run(self.flow_level > 0, &mut string);
+                self.mark.pos += n_chars;
+                self.mark.col += n_chars as u32;
+                self.leading_whitespace = false;
                 end_mark = self.mark;
             }
 
@@ -1079,6 +1064,8 @@ impl<'input, S: Source> Scanner<'input, S> {
                                 "while scanning a plain scalar, found a tab",
                             ));
                         }
+                    } else if self.src.peekz(0) == b' ' {
+                        self.skip_spaces(usize::MAX);
                     } else {
                         self.skip_blank();
                     }
@@ -1411,7 +1398,6 @@ impl<'input, S: Source> Scanner<'input, S> {
             ));
         }
 
-        let mut line_buffer = Vec::with_capacity(100);
         let start_mark = self.mark;
         while self.mark.col == indent && self.src.peek_checked(0).is_some() {
             if indent == 1 {
@@ -1438,7 +1424,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
             leading_blank = is_blank(self.src.peekz(0));
 
-            self.scan_block_scalar_content_line(&mut string, &mut line_buffer);
+            self.scan_block_scalar_content_line(&mut string);
 
             // break on EOF
 
@@ -1478,39 +1464,18 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>, line_buffer: &mut Vec<u8>) {
-        // Start by evaluating characters in the buffer.
-        while !self.src.buf_is_empty() && !is_break(self.src.peekz(0)) {
-            string.push(self.src.peek_checked(0).unwrap_or(b' '));
-            // We may technically skip non-blank characters. However, the only distinction is
-            // to determine what is leading whitespace and what is not. Here, we read the
-            // contents of the line until either eof or a linebreak. We know we will not read
-            // `self.leading_whitespace` until the end of the line, where it will be reset.
-            // This allows us to call a slightly less expensive function.
-            self.skip_blank();
-        }
+    fn scan_block_scalar_content_line(&mut self, string: &mut Vec<u8>) {
+        // Read the contents of the line until either eof or a linebreak. We may technically skip
+        // non-blank characters, but the only distinction is to determine what is leading
+        // whitespace, and `self.leading_whitespace` isn't read until the end of the line, where
+        // it will be reset.
+        let start_len = string.len();
+        self.src.push_non_breakz_chr(string);
 
-        // All characters that were in the buffer were consumed. We need to check if more
-        // follow.
-        if self.src.buf_is_empty() {
-            // We will read all consecutive non-breakz characters. We push them into a
-            // temporary buffer. The main difference with going through `self.buffer` is that
-            // characters are appended here as their real size (1B for ascii, or up to 4 bytes for
-            // UTF-8). We can then use the internal `line_buffer` `Vec` to push data into `string`
-            // (using `String::push_str`).
-            self.src.push_non_breakz_chr(line_buffer);
-
-            // We need to manually update our position; we haven't called a `skip` function.
-            let n_chars = line_buffer.len();
-            self.mark.col += n_chars as u32;
-            self.mark.pos += n_chars;
-
-            // We can now append our bytes to our `string`.
-            string.reserve(line_buffer.len());
-            string.extend_from_slice(line_buffer);
-            // This clears the _contents_ without touching the _capacity_.
-            line_buffer.clear();
-        }
+        // We need to manually update our position; we haven't called a `skip` function.
+        let n_chars = string.len() - start_len;
+        self.mark.col += n_chars as u32;
+        self.mark.pos += n_chars;
     }
 
     fn scan_anchor(&mut self, alias: bool) -> Result<Token<'input>, YamlError> {
@@ -1689,9 +1654,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut max_indent = 0;
         loop {
             // Consume all spaces. Tabs cannot be used as indentation.
-            while self.src.peekz(0) == b' ' {
-                self.skip_blank();
-            }
+            self.skip_spaces(usize::MAX);
 
             if self.mark.col > max_indent {
                 max_indent = self.mark.col;
