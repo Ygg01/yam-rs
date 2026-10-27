@@ -1,6 +1,7 @@
 use crate::parsing::buffered_source::MAX_LEN;
 use crate::parsing::char_utils::{
-    eq_byte_mask, is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow, len_until,
+    LO_BYTES, eq_byte_mask, is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
+    len_until,
 };
 use crate::parsing::scanner::SkipTabs;
 use alloc::vec::Vec;
@@ -142,6 +143,8 @@ pub unsafe trait Source {
         n_chars
     }
 
+    fn skip(&mut self, n: usize);
+
     /// Skips up to `max` consecutive `b' '` bytes and returns how many were skipped.
     fn skip_spaces(&mut self, max: usize) -> usize {
         let mut n_chars = 0;
@@ -151,8 +154,6 @@ pub unsafe trait Source {
         }
         n_chars
     }
-
-    fn skip(&mut self, n: usize);
 
     fn skip_while_blank(&mut self) -> usize {
         let mut n_chars = 0;
@@ -326,7 +327,7 @@ unsafe impl Source for StrSource<'_> {
     }
 
     fn peek_checked(&self, n: usize) -> Option<u8> {
-        if n >= self.buf_max_len() || n > self.input.len() {
+        if n >= self.buf_max_len() {
             return None;
         }
         self.input.get(self.pos + n).copied()
@@ -380,6 +381,15 @@ unsafe impl Source for StrSource<'_> {
 
     fn skip(&mut self, n: usize) {
         self.pos += n;
+    }
+
+    fn skip_spaces(&mut self, max: usize) -> usize {
+        let rest = self.rest();
+        let rest = &rest[..max.min(rest.len())];
+        // Every byte that isn't a space keeps some bits after the XOR.
+        let len = len_until(rest, |x| x ^ (LO_BYTES * u64::from(b' ')), |c| c != b' ');
+        self.skip(len);
+        len
     }
 
     fn skip_ws_to_eol(

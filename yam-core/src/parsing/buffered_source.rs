@@ -152,7 +152,8 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let buf = self.get_buf();
 
         // we get the value from while loop above, or we search remaining buf
-        let found_pos = pos.unwrap_or(buf.iter().position(|&c| is_break(c)).unwrap_or(0));
+        let found_pos =
+            pos.unwrap_or_else(|| buf.iter().position(|&c| is_break(c)).unwrap_or(buf.len()));
         vec.extend_from_slice(&buf[..found_pos]);
         self.skip(found_pos);
     }
@@ -182,75 +183,34 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         skip_tab: bool,
         mut has_yaml_ws: bool,
     ) -> (u32, Result<SkipTabs, &'static str>) {
-        let any_tabs = false;
+        let mut any_tabs = false;
         let mut consumed_bytes = 0u32;
-        let mut consume = 0u32;
-        let mut skip_tabs_res = SkipTabs::No;
 
-        let low_nib_mask = U8X16::splat(0xF);
-        let high_nib_mask = U8X16::splat(0x7F);
-        let ws_flag = 0x04 + u8::from(skip_tab);
-
+        // Skip whole buffers of whitespace at once. Anything else (comments, errors, the tail of
+        // the input) is left to `shared_skip_ws_to_eol`.
         while let Some(x) = self.get_max_buf() {
-            consume = 0;
-            let (v0, v1) = U8X32::from_array(x).split();
+            let fake_simd = U8X32::from_array(x);
+            let spaces = fake_simd.comp_to_bitmask(b' ');
+            let tabs = if skip_tab {
+                fake_simd.comp_to_bitmask(b'\t')
+            } else {
+                0
+            };
 
-            let v_v0 = LOW_NIBBLE_WS.swizzle(v0 & low_nib_mask)
-                & HIGH_NIBBLE_WS.swizzle((v0 >> 4) & high_nib_mask);
-            let v_v1 = LOW_NIBBLE_WS.swizzle(v1 & low_nib_mask)
-                & HIGH_NIBBLE_WS.swizzle((v1 >> 4) & high_nib_mask);
+            let n = (spaces | tabs).trailing_ones();
+            let prefix = if n == 32 { u32::MAX } else { (1 << n) - 1 };
+            has_yaml_ws |= spaces & prefix != 0;
+            any_tabs |= tabs & prefix != 0;
 
-            let sp = !U8X32::merge(v_v0 & ws_flag, v_v1 & ws_flag)
-                .comp(0)
-                .to_bitmask();
-            let nl = !U8X32::merge(v_v0 & 0x02, v_v1 & 0x02).comp(0).to_bitmask();
-            let hash = !U8X32::merge(v_v0 & 0x08, v_v1 & 0x08).comp(0).to_bitmask();
-
-            // Valid comments start with `# `
-            // So we need hash symbols followed by a space
-            // TODO what if `#\n` is found?
-            let comment_start = hash & (sp << 1);
-
-            // Once we have `comment_start` we need can get comment end by substracting
-            // next newlines from them.
-            // We must exclude newlines from the result because function stops at (CR)LF.
-            let in_comment = (compute_quote_mask(comment_start | nl)) & !nl;
-            let space_with_fixed_nl = sp & !nl;
-
-            let continual_sp = space_with_fixed_nl | in_comment;
-
-            has_yaml_ws |= sp != 0;
-
-            if !continual_sp != 0 {
-                consume = continual_sp.trailing_ones();
-                consumed_bytes += consume;
-                skip_tabs_res = SkipTabs::Result {
-                    any_tabs,
-                    has_yaml_ws,
-                };
+            self.skip(n as usize);
+            consumed_bytes += n;
+            if n < 32 {
                 break;
             }
-
-            self.skip(self.buf_max_len());
-            consumed_bytes += self.buf_max_len() as u32;
-        }
-        self.skip(consume as usize);
-
-        if matches!(skip_tabs_res, SkipTabs::Result { .. } | SkipTabs::Yes) {
-            return (consumed_bytes, Ok(skip_tabs_res));
         }
 
         shared_skip_ws_to_eol(self, skip_tab, consumed_bytes, any_tabs, has_yaml_ws)
     }
-}
-
-fn compute_quote_mask(quote_bits: u32) -> u32 {
-    let mut quote_mask = quote_bits ^ (quote_bits << 1);
-    quote_mask = quote_mask ^ (quote_mask << 2);
-    quote_mask = quote_mask ^ (quote_mask << 4);
-    quote_mask = quote_mask ^ (quote_mask << 8);
-    quote_mask = quote_mask ^ (quote_mask << 16);
-    quote_mask
 }
 
 #[cfg(test)]
@@ -437,7 +397,7 @@ mod tests {
             res1.1,
             Ok(SkipTabs::Result {
                 any_tabs: false,
-                has_yaml_ws: true
+                has_yaml_ws: false
             })
         );
         assert_eq!(source.peekz(0), b'\n');
