@@ -51,7 +51,7 @@ pub unsafe trait Source {
     /// Returns the `n`-th byte from the internal buffer without consuming it.
     ///
     /// This function attempts to retrieve the byte at the specified index `n` in the buffer.
-    /// If the index `n` is out of bounds or greater than MAX_BUFFER_SIZE, it returns `0`.
+    /// If the index `n` is out of bounds or greater than `MAX_BUFFER_SIZE`, it returns `0`.
     ///
     /// # Arguments
     ///

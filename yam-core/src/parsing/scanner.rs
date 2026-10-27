@@ -973,7 +973,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::cast_possible_truncation)]
     fn scan_plain_scalar(&mut self) -> Result<Token<'input>, YamlError> {
         self.unroll_non_block_indents();
         let indent = self.indent + 1;

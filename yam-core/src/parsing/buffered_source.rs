@@ -2,7 +2,7 @@ use crate::parsing::Source;
 use crate::parsing::char_utils::is_break;
 use crate::parsing::scanner::SkipTabs;
 use crate::parsing::source::shared_skip_ws_to_eol;
-use crate::util::{BitOps, U8X16, U8X32};
+use crate::util::{BitOps, U8X32};
 use alloc::vec::Vec;
 use core::iter::Copied;
 use core::mem::{MaybeUninit, transmute};
@@ -10,39 +10,6 @@ use core::slice;
 use core::slice::Iter;
 
 pub(crate) const MAX_LEN: usize = 32;
-
-//
-// Split interesting chars into sets:
-//
-// | Code points    | Characters | Desired values |
-// |----------------|------------|----------------|
-// | `0x09`,        | `\t`       | 1              |
-// | `0x0A`, `0x0D` | `\n`, `\r` | 2              |
-// | `0x20`         | ` `        | 4              |
-// | `0x23`         | `#`        | 8              |
-// | Anything else  |            | 0              |
-// //
-// These are nibbles used to find WS and tabs
-//
-// |            | 0 | 1 | 2 | 3 | ... | 8 | 9 | A | B | C | D | E | F | high nibble |
-// |------------|---|---|---|---|-----|---|---|---|---|---|---|---|---|-------------|
-// | 0          |   |   |   |   |     |   | 1 | 2 |   |   | 2 |   |   | 3           |
-// | 1          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
-// | 2          | 4 |   |   | 8 |     |   |   |   |   |   |   |   |   | 12          |
-// | 3          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
-// | 4          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
-// | 5          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
-// | 6          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
-// | 7          |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
-// | ...        |   |   |   |   |     |   |   |   |   |   |   |   |   |             |
-// | low nibble | 4 |   |   | 8 | ... |   | 1 | 2 |   |   | 2 |   |   |             |
-
-#[doc(hidden)]
-pub(crate) const LOW_NIBBLE_WS: U8X16 =
-    U8X16::from_array([4, 0, 0, 8, 0, 0, 0, 0, 0, 1, 2, 0, 0, 2, 0, 0]);
-#[doc(hidden)]
-pub(crate) const HIGH_NIBBLE_WS: U8X16 =
-    U8X16::from_array([3, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
 #[allow(dead_code)]
 pub struct BufferedBytesSource<T> {
@@ -88,6 +55,7 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
 
 #[allow(dead_code)]
 impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
+    #[must_use]
     pub fn new_from_bytes(input: &'a [u8]) -> Self {
         let mut x = Self {
             input: input.iter().copied(),
@@ -98,6 +66,7 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
         x
     }
 
+    #[must_use]
     pub fn new_from_str(input: &'a str) -> Self {
         Self::new_from_bytes(input.as_bytes())
     }

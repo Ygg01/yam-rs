@@ -1,5 +1,5 @@
 use crate::util::BitOps;
-use crate::util::macros::{bitmask, gen_u8_cmp, gen_u8_cmp_all, swizzle};
+use crate::util::macros::gen_u8_cmp;
 use core::ops::{Add, BitAnd, Index, Shr};
 
 #[derive(Debug, Copy, Clone)]
@@ -14,10 +14,6 @@ impl Index<usize> for U8X16 {
 }
 
 impl U8X16 {
-    pub(crate) const fn splat(input: u8) -> Self {
-        Self([input; 16])
-    }
-
     pub(crate) const fn from_array(input: [u8; 16]) -> Self {
         Self(input)
     }
@@ -45,98 +41,62 @@ impl BitOps for U8X16 {
             | gen_u8_cmp!(self, 15 => cmp)
     }
 
-    #[doc(hidden)]
-    /// Compares each element of the `U8X16` with a given `u8` value.
-    /// If an element is equal to the given value, the corresponding element
-    /// in the resulting `U8X16` is set to `0xFF`; otherwise, it is set to `0x00`.
-    ///
-    /// # Arguments
-    ///
-    /// * `cmp` - A `u8` value that each element of the `U8X16` will be compared against.
-    ///
-    /// # Returns
-    ///
-    /// A `U8X16` instance where each element is either `0xFF` if the corresponding
-    /// element in the original `U8X16` is equal to the `cmp` value, or `0x00` if it is not.
-    ///
-    /// # Examples
-    ///
-    fn comp(self, cmp: u8) -> Self {
-        Self([
-            gen_u8_cmp_all!(self, 0 => cmp),
-            gen_u8_cmp_all!(self, 1 => cmp),
-            gen_u8_cmp_all!(self, 2 => cmp),
-            gen_u8_cmp_all!(self, 3 => cmp),
-            gen_u8_cmp_all!(self, 4 => cmp),
-            gen_u8_cmp_all!(self, 5 => cmp),
-            gen_u8_cmp_all!(self, 6 => cmp),
-            gen_u8_cmp_all!(self, 7 => cmp),
-            gen_u8_cmp_all!(self, 8 => cmp),
-            gen_u8_cmp_all!(self, 9 => cmp),
-            gen_u8_cmp_all!(self, 10 => cmp),
-            gen_u8_cmp_all!(self, 11 => cmp),
-            gen_u8_cmp_all!(self, 12 => cmp),
-            gen_u8_cmp_all!(self, 13 => cmp),
-            gen_u8_cmp_all!(self, 14 => cmp),
-            gen_u8_cmp_all!(self, 15 => cmp),
-        ])
-    }
-
-    fn to_bitmask(&self) -> Self::ByteOut {
-        bitmask!(self, 0 => u32)
-            | bitmask!(self, 1 => u32)
-            | bitmask!(self, 2 => u32)
-            | bitmask!(self, 3 => u32)
-            | bitmask!(self, 4 => u32)
-            | bitmask!(self, 5 => u32)
-            | bitmask!(self, 6 => u32)
-            | bitmask!(self, 7 => u32)
-            | bitmask!(self, 8 => u32)
-            | bitmask!(self, 9 => u32)
-            | bitmask!(self, 10 => u32)
-            | bitmask!(self, 11 => u32)
-            | bitmask!(self, 12 => u32)
-            | bitmask!(self, 13 => u32)
-            | bitmask!(self, 14 => u32)
-            | bitmask!(self, 15 => u32)
-            | bitmask!(self, 16 => u32)
-            | bitmask!(self, 17 => u32)
-            | bitmask!(self, 18 => u32)
-            | bitmask!(self, 19 => u32)
-            | bitmask!(self, 20 => u32)
-            | bitmask!(self, 21 => u32)
-            | bitmask!(self, 22 => u32)
-            | bitmask!(self, 23 => u32)
-            | bitmask!(self, 24 => u32)
-            | bitmask!(self, 25 => u32)
-            | bitmask!(self, 26 => u32)
-            | bitmask!(self, 27 => u32)
-            | bitmask!(self, 28 => u32)
-            | bitmask!(self, 29 => u32)
-            | bitmask!(self, 30 => u32)
-            | bitmask!(self, 31 => u32)
-    }
-
-    fn swizzle(self, other: Self) -> Self {
-        Self([
-            swizzle!(self, 0 => other),
-            swizzle!(self, 1 => other),
-            swizzle!(self, 2 => other),
-            swizzle!(self, 3 => other),
-            swizzle!(self, 4 => other),
-            swizzle!(self, 5 => other),
-            swizzle!(self, 6 => other),
-            swizzle!(self, 7 => other),
-            swizzle!(self, 8 => other),
-            swizzle!(self, 9 => other),
-            swizzle!(self, 10 => other),
-            swizzle!(self, 11 => other),
-            swizzle!(self, 12 => other),
-            swizzle!(self, 13 => other),
-            swizzle!(self, 14 => other),
-            swizzle!(self, 15 => other),
-        ])
-    }
+    // TODO see if we need swizzle
+    // fn to_bitmask(&self) -> Self::ByteOut {
+    //     bitmask!(self, 0 => u32)
+    //         | bitmask!(self, 1 => u32)
+    //         | bitmask!(self, 2 => u32)
+    //         | bitmask!(self, 3 => u32)
+    //         | bitmask!(self, 4 => u32)
+    //         | bitmask!(self, 5 => u32)
+    //         | bitmask!(self, 6 => u32)
+    //         | bitmask!(self, 7 => u32)
+    //         | bitmask!(self, 8 => u32)
+    //         | bitmask!(self, 9 => u32)
+    //         | bitmask!(self, 10 => u32)
+    //         | bitmask!(self, 11 => u32)
+    //         | bitmask!(self, 12 => u32)
+    //         | bitmask!(self, 13 => u32)
+    //         | bitmask!(self, 14 => u32)
+    //         | bitmask!(self, 15 => u32)
+    //         | bitmask!(self, 16 => u32)
+    //         | bitmask!(self, 17 => u32)
+    //         | bitmask!(self, 18 => u32)
+    //         | bitmask!(self, 19 => u32)
+    //         | bitmask!(self, 20 => u32)
+    //         | bitmask!(self, 21 => u32)
+    //         | bitmask!(self, 22 => u32)
+    //         | bitmask!(self, 23 => u32)
+    //         | bitmask!(self, 24 => u32)
+    //         | bitmask!(self, 25 => u32)
+    //         | bitmask!(self, 26 => u32)
+    //         | bitmask!(self, 27 => u32)
+    //         | bitmask!(self, 28 => u32)
+    //         | bitmask!(self, 29 => u32)
+    //         | bitmask!(self, 30 => u32)
+    //         | bitmask!(self, 31 => u32)
+    // }
+    //
+    // fn swizzle(self, other: Self) -> Self {
+    //     Self([
+    //         swizzle!(self, 0 => other),
+    //         swizzle!(self, 1 => other),
+    //         swizzle!(self, 2 => other),
+    //         swizzle!(self, 3 => other),
+    //         swizzle!(self, 4 => other),
+    //         swizzle!(self, 5 => other),
+    //         swizzle!(self, 6 => other),
+    //         swizzle!(self, 7 => other),
+    //         swizzle!(self, 8 => other),
+    //         swizzle!(self, 9 => other),
+    //         swizzle!(self, 10 => other),
+    //         swizzle!(self, 11 => other),
+    //         swizzle!(self, 12 => other),
+    //         swizzle!(self, 13 => other),
+    //         swizzle!(self, 14 => other),
+    //         swizzle!(self, 15 => other),
+    //     ])
+    // }
 
     fn and(self, other: Self) -> Self {
         Self([

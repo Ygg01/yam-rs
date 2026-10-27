@@ -3281,13 +3281,13 @@ pub const X1_RTP8_EVENTS: &str = r"
 =VAL :Document
 -DOC";
 
-pub const X1_R52L_INPUT: &str = r#"
+pub const X1_R52L_INPUT: &str = r"
 { top1: [item1, {key2: value2}, item3] }
                                            
                                            
-                                           "#;
+                                           ";
 
-pub const X1_R52L_EVENT: &str = r#"
+pub const X1_R52L_EVENT: &str = r"
 +DOC
 +MAP
 =VAL :top1
@@ -3300,4 +3300,4 @@ pub const X1_R52L_EVENT: &str = r#"
 =VAL :item3
 -SEQ
 -MAP
--DOC"#;
+-DOC";

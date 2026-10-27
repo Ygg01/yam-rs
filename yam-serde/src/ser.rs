@@ -843,7 +843,7 @@ where
             YamlStyle::Block | YamlStyle::Explicit => {}
             YamlStyle::Flow => {
                 self.ser.writer.write_ascii("{")?;
-                self.ser.writer.write_n_spaces(1)?
+                self.ser.writer.write_n_spaces(1)?;
             }
         }
         Ok(())

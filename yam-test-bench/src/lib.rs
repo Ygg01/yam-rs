@@ -32,7 +32,7 @@ pub fn assert_eq_event_case_with_opts(
             let mut parser = Parser::new(BufferedBytesSource::new_from_bytes(input.as_bytes()));
             write_str_from_event(&mut line, &mut parser, emit_opt);
         }
-    };
+    }
 
     let expected_err = events.ends_with("ERR");
     let actual_err = events.ends_with("ERR");

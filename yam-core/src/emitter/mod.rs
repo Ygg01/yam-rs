@@ -51,6 +51,17 @@ impl<W> YamlWriter<W> {
 
 impl<W: Write> YamlWriter<W> {
     #[inline]
+    /// Writes a document start to the underlying input.
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_doc_start(&mut self) -> EmitResult {
         writeln!(self.input, "---")?;
         self.indent_pos += 3;
@@ -62,23 +73,60 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
+    /// Writes an indent of `level` indentation
+    ///
+    /// # Parameters
+    /// - `level` (usize): A boolean value indicating whether multiline strings
+    ///   should be enabled (`true`) or disabled (`false`).
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_indent(&mut self, level: usize) -> EmitResult {
         let best_indent = self.indentor_len * level.saturating_sub(1);
-        write!(self.input, "{}", &" ".repeat(best_indent))?;
+        write!(self.input, "{}", " ".repeat(best_indent))?;
         self.indent_pos += best_indent;
         Ok(())
     }
 
     #[inline]
+    /// Writes a newline and then an indent of `level` indentation
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_newline_indent(&mut self, level: usize) -> EmitResult {
         self.input.write_char('\n')?;
         let best_indent = self.indentor_len * level.saturating_sub(1);
-        write!(self.input, "{}", &" ".repeat(best_indent))?;
+        write!(self.input, "{}", " ".repeat(best_indent))?;
         self.indent_pos = best_indent;
         Ok(())
     }
 
     #[inline]
+    /// Writes a newline to the underlying input.
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_char` method on the writer.
     pub fn writeln(&mut self) -> EmitResult {
         self.input.write_char('\n')?;
         self.indent_pos = 0;
@@ -97,7 +145,7 @@ impl<W: Write> YamlWriter<W> {
     /// - Returns `Err(Error)` if there is an error during the write operation.
     ///
     /// # Side Effects
-    /// - Increments the `position` field by the length of the string that was written.
+    /// - Increments the `indent_pos` field by the length of the string that was written.
     ///
     /// # Errors
     /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
@@ -108,6 +156,21 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
+    /// Writes a string to the underlying writer. It shouldn't contain any newline characters.
+    ///
+    /// # Parameters
+    /// - `s` (str): A text value being written to the underlying writer.
+    ///   It shouldn't contain any newline characters.
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_str(&mut self, s: &str) -> EmitResult {
         self.input.write_str(s)?;
         self.indent_pos += s.len();
@@ -115,6 +178,20 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
+    /// Writes a `bool` to the underlying writer.
+    ///
+    /// # Parameters
+    /// - `v` (bool): A boolean value indicating whether strings are `true` or `false`.
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_bool(&mut self, v: bool) -> EmitResult {
         let (str, len) = if v { ("true", 4) } else { ("false", 5) };
         self.input.write_str(str)?;
@@ -123,6 +200,22 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
+    /// Writes an escaped string to the underlying writer.
+    ///
+    /// # Parameters
+    /// - `escaped_string` (str): An escaped string value being written to the underlying writer.
+    /// - `fence` (str): A string value that will surround the escaped string. E.g. `'` (single quote)
+    ///   or `"` (double quote).
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_inline(&mut self, escaped_string: &str, fence: &str) -> EmitResult {
         self.input.write_str(fence)?;
         self.input.write_str(escaped_string)?;
@@ -132,6 +225,20 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
+    /// Writes a block start.
+    ///
+    /// # Parameters
+    /// - `chr` (str): Sequence start character.
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_block_seq_start(&mut self, chr: char) -> Result<(), Error> {
         let mut string = String::with_capacity(self.indentor_len);
 
@@ -145,6 +252,20 @@ impl<W: Write> YamlWriter<W> {
     }
 
     #[inline]
+    /// Writes n spaces to the underlying writer.
+    ///
+    /// # Parameters
+    /// - `n` (usize): How many ` ` (space) to write.
+    ///
+    /// # Returns
+    /// - Returns `Ok(())` if the string is successfully written.
+    /// - Returns `Err(Error)` if there is an error during the write operation.
+    ///
+    /// # Side Effects
+    /// - Increments the `indent_pos` field by the length of the string that was written.
+    ///
+    /// # Errors
+    /// - This function propagates any errors that occur when invoking the `write_str` method on the writer.
     pub fn write_n_spaces(&mut self, n: usize) -> Result<(), Error> {
         self.write_str(&" ".repeat(n))?;
 

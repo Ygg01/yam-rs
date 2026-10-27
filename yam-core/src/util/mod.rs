@@ -10,15 +10,6 @@ pub trait BitOps {
     fn comp_to_bitmask(self, cmp: u8) -> Self::ByteOut;
 
     #[must_use]
-    fn comp(self, cmp: u8) -> Self;
-
-    #[must_use]
-    fn to_bitmask(&self) -> Self::ByteOut;
-
-    #[must_use]
-    fn swizzle(self, other: Self) -> Self;
-
-    #[must_use]
     fn and(self, other: Self) -> Self;
 
     #[must_use]
@@ -39,30 +30,28 @@ mod macros {
         };
     }
 
-    macro_rules! gen_u8_cmp_all {
-        ($left:expr , $n:literal => $cmp:expr) => {
-            if $left[$n] == $cmp { 0xFF } else { 0x00 }
-        };
-    }
+    // TODO see if these are necessary
+    // macro_rules! gen_u8_cmp_all {
+    //     ($left:expr , $n:literal => $cmp:expr) => {
+    //         if $left[$n] == $cmp { 0xFF } else { 0x00 }
+    //     };
+    // }
 
-    macro_rules! swizzle {
-        ($mask:expr, $n:literal => $right:expr) => {
-            if $right[$n] > 0x0f {
-                0
-            } else {
-                $mask[($right[$n] & 0x0f) as usize]
-            }
-        };
-    }
+    // macro_rules! swizzle {
+    //     ($mask:expr, $n:literal => $right:expr) => {
+    //         if $right[$n] > 0x0f {
+    //             0
+    //         } else {
+    //             $mask[($right[$n] & 0x0f) as usize]
+    //         }
+    //     };
+    // }
+    //
+    // macro_rules! bitmask {
+    //     ($mask:expr, $n:literal => $out:ident) => {
+    //         ($out::from($mask[$n] & 0b1000_0000 != 0)) << $n
+    //     };
+    // }
 
-    macro_rules! bitmask {
-        ($mask:expr, $n:literal => $out:ident) => {
-            ($out::from($mask[$n] & 0b1000_0000 != 0)) << $n
-        };
-    }
-
-    pub(crate) use bitmask;
     pub(crate) use gen_u8_cmp;
-    pub(crate) use gen_u8_cmp_all;
-    pub(crate) use swizzle;
 }

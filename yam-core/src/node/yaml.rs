@@ -363,7 +363,7 @@ where
         match typ {
             NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,
             NodeType::Sequence => self.sequence().index(index),
-            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+            _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
 }
@@ -386,7 +386,7 @@ where
                     .key
             }
             NodeType::Sequence => self.sequence_mut().index_mut(index),
-            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+            _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
 }
@@ -403,7 +403,7 @@ where
         let ind = Yaml::key_from_str(index);
         match typ {
             NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,
-            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+            _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
 }
@@ -425,7 +425,7 @@ where
                     .unwrap()
                     .value
             }
-            _ => panic!("Expected Mapping and Sequence got {0:?} instead", typ),
+            _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
 }
