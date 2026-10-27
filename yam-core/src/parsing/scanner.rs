@@ -169,30 +169,53 @@ impl<'input, S: Source> Scanner<'input, S> {
             self.fetch_more_tokens()?;
         }
 
-        let tok = match self.tokens.pop_front() {
-            Some(tok) => {
-                if tok.token_type == TokenType::StreamEnd {
-                    self.stream_end_reached = true;
-                }
-                Ok(tok)
-            }
-            None => return Err(YamlError::UnexpectedEof),
+        let Some(tok) = self.tokens.pop_front() else {
+            return Err(YamlError::UnexpectedEof);
         };
+        self.token_popped(&tok);
 
+        Ok(tok)
+    }
+
+    /// Moves the next token into `slot`.
+    ///
+    /// This works like [`Iterator::next`], but on failure it returns the error that stopped the
+    /// scanner (or `unexpected eof` after the stream end), and it writes the token straight into
+    /// `slot`. Passing the large token through several return values is noticeably slower.
+    pub(crate) fn next_token_into(&mut self, slot: &mut Option<Token<'input>>) -> YamlResult<()> {
+        if self.error.is_none() && !self.stream_end_reached {
+            let fetched = if self.tokens_available {
+                Ok(())
+            } else {
+                self.fetch_more_tokens()
+            };
+            match fetched {
+                Ok(()) => {
+                    *slot = self.tokens.pop_front();
+                    if let Some(tok) = slot {
+                        self.token_popped(tok);
+                        return Ok(());
+                    }
+                    self.error = Some(YamlError::UnexpectedEof);
+                }
+                Err(e) => self.error = Some(e),
+            }
+        }
+        Err(match &self.error {
+            Some(e) => e.clone(),
+            None => YamlError::new_str(self.mark, "unexpected eof"),
+        })
+    }
+
+    #[inline]
+    fn token_popped(&mut self, tok: &Token<'input>) {
         self.tokens_available = false;
         self.tokens_parsed += 1;
 
-        if matches!(
-            tok,
-            Ok(Token {
-                token_type: TokenType::StreamEnd,
-                ..
-            })
-        ) {
+        if matches!(tok.token_type, TokenType::StreamEnd) {
+            self.stream_end_reached = true;
             self.stream_end_produced = true;
         }
-
-        tok
     }
 
     fn fetch_more_tokens(&mut self) -> ScanResult {

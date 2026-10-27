@@ -555,56 +555,68 @@ impl<'input, T: Source> Parser<'input, T> {
     ///
     /// This function will return an `Err(YamlError)` if scanning the next token encounters any issues.
     ///
-    #[cfg(feature = "comment")]
+    #[inline]
     fn peek_token(&mut self) -> Result<&Token<'_>, YamlError> {
+        // The token is usually already cached, so keep that path small. Scanning inlines most of
+        // the scanner, and doing it in this function would make every peek pay for its large
+        // stack frame.
+        #[cfg(feature = "comment")]
+        let has_token = matches!(
+            self.token,
+            Some(Token { ref token_type, .. }) if !matches!(token_type, TokenType::Comment(_))
+        );
+        #[cfg(not(feature = "comment"))]
+        let has_token = self.token.is_some();
+
+        if !has_token {
+            self.fill_token()?;
+        }
+        Ok(self
+            .token
+            .as_ref()
+            .expect("fill_token always caches a token"))
+    }
+
+    /// Scans tokens until a non-comment token is cached in `self.token`.
+    #[cfg(feature = "comment")]
+    #[inline(never)]
+    fn fill_token(&mut self) -> Result<(), YamlError> {
         loop {
             match self.token {
-                None => {
-                    self.token = Some(self.scan_next_token()?);
-                }
-                Some(Token { span, token_type: TokenType::Comment(ref cow) }) => {
-                    self.current_comments.push((Event::Comment(cow.clone()), span));
+                None => self.scan_next_token()?,
+                Some(Token {
+                    span,
+                    token_type: TokenType::Comment(ref cow),
+                }) => {
+                    self.current_comments
+                        .push((Event::Comment(cow.clone()), span));
                     self.skip();
                 }
-                Some(ref tok) => {return Ok(tok);}
+                Some(_) => return Ok(()),
             }
-        }
-    }
-    #[cfg(not(feature = "comment"))]
-    fn peek_token(&mut self) -> Result<&Token<'_>, YamlError> {
-        match self.token {
-            None => {
-                self.token = Some(self.scan_next_token()?);
-                Ok(self.token.as_ref().unwrap())
-            }
-            Some(ref tok) => Ok(tok),
         }
     }
 
-    /// Scans and retrieves the next token from the YAML input stream.
+    /// Scans the next token into `self.token`.
+    #[cfg(not(feature = "comment"))]
+    #[inline(never)]
+    fn fill_token(&mut self) -> Result<(), YamlError> {
+        self.scan_next_token()
+    }
+
+    /// Scans the next token from the YAML input stream into `self.token`.
     ///
     /// This method attempts to fetch the next token using the underlying scanner. If no token is
     /// available, it checks for an error in the scanner. If the scanner encountered an error
     /// previously, that error is returned. If the scanner has no error but has reached the end of
     /// the input, an `unexpected eof` (`end of file`) error is returned.
     ///
-    /// # Returns
-    /// - `Ok(Token<'input>)`: The next token successfully scanned.
-    /// - `Err(YamlError)`: An error encountered during scanning, including EOF or a previous scanner error.
-    ///
     /// # Errors
     /// - Returns `YamlError` if:
     ///   - The scanner has reached the end of the input with no more tokens.
     ///   - A scanner error has occurred during tokenization.
-    fn scan_next_token(&mut self) -> Result<Token<'input>, YamlError> {
-        let token = self.scanner.next();
-        match token {
-            None => match self.scanner.error.clone() {
-                None => Err(YamlError::new_str(self.scanner.mark, "unexpected eof")),
-                Some(e) => Err(e),
-            },
-            Some(tok) => Ok(tok),
-        }
+    fn scan_next_token(&mut self) -> Result<(), YamlError> {
+        self.scanner.next_token_into(&mut self.token)
     }
 
     fn fetch_token<'a>(&mut self) -> Token<'a>
@@ -636,8 +648,7 @@ impl<'input, T: Source> Parser<'input, T> {
         if self.state == State::End {
             return Ok((Event::StreamEnd, Span::empty(self.scanner.mark)));
         }
-        let (ev, mark) = self.state_machine()?;
-        Ok((ev, mark))
+        self.state_machine()
     }
 
     /// Load the YAML from the stream in `self`, pushing events into `recv`.
@@ -882,7 +893,6 @@ impl<'input, T: Source> Parser<'input, T> {
         }
     }
 
-
     fn parser_process_directives(&mut self) -> Result<(), YamlError> {
         let mut version_directive_received = false;
         loop {
@@ -930,7 +940,7 @@ impl<'input, T: Source> Parser<'input, T> {
         'input: 'a,
     {
         self.parser_process_directives()?;
-    
+
         match *self.peek_token()? {
             Token {
                 span,
@@ -1029,7 +1039,6 @@ impl<'input, T: Source> Parser<'input, T> {
         let mut anchor_id = 0;
 
         match *self.peek_token()? {
-
             Token {
                 token_type: TokenType::Alias(_),
                 ..
