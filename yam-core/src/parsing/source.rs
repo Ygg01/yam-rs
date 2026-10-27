@@ -1,6 +1,6 @@
 use crate::parsing::buffered_source::MAX_LEN;
 use crate::parsing::char_utils::{
-    is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
+    eq_byte_mask, is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow, len_until,
 };
 use crate::parsing::scanner::SkipTabs;
 use alloc::vec::Vec;
@@ -128,6 +128,29 @@ pub unsafe trait Source {
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
+
+    /// Appends and skips bytes for as long as they can continue a plain scalar, that is while
+    /// the next byte isn't blank, a break or EOF and [`Source::next_can_be_plain_scalar`] holds.
+    /// Returns the number of bytes consumed.
+    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
+        let mut n_chars = 0;
+        while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
+            n_chars += 1;
+            out.push(self.peekz(0));
+            self.skip(1);
+        }
+        n_chars
+    }
+
+    /// Skips up to `max` consecutive `b' '` bytes and returns how many were skipped.
+    fn skip_spaces(&mut self, max: usize) -> usize {
+        let mut n_chars = 0;
+        while n_chars < max && self.peekz(0) == b' ' {
+            n_chars += 1;
+            self.skip(1);
+        }
+        n_chars
+    }
 
     fn skip(&mut self, n: usize);
 
@@ -261,7 +284,13 @@ pub struct StrSource<'input> {
     pos: usize,
 }
 
-impl StrSource<'_> {
+impl<'input> StrSource<'input> {
+    /// Returns the not yet consumed part of the input.
+    #[inline]
+    fn rest(&self) -> &'input [u8] {
+        self.input.get(self.pos..).unwrap_or_default()
+    }
+
     ///
     /// Creates a new instance of `StrSource` from a given string slice.
     ///
@@ -283,7 +312,7 @@ impl StrSource<'_> {
     /// assert_eq!(source.peek_char(),'e');
     /// ```
     #[must_use]
-    pub fn new(input: &str) -> StrSource<'_> {
+    pub fn new(input: &'input str) -> StrSource<'input> {
         StrSource {
             input: input.as_bytes(),
             pos: 0,
@@ -316,13 +345,37 @@ unsafe impl Source for StrSource<'_> {
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
-        let len = self.input[self.pos..]
-            .iter()
-            .position(|&c| is_break(c))
-            .unwrap_or(0);
-        let slice = &self.input[self.pos..self.pos + len];
+        let rest = self.rest();
+        let len = len_until(
+            rest,
+            |x| eq_byte_mask(x, b'\r') | eq_byte_mask(x, b'\n'),
+            is_break,
+        );
+        vec.extend_from_slice(&rest[..len]);
         self.skip(len);
-        vec.extend_from_slice(slice);
+    }
+
+    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
+        let rest = self.rest();
+        let mut len = 0;
+        while let Some(&c) = rest.get(len) {
+            match c {
+                b' ' | b'\t' | b'\r' | b'\n' | b'\0' => break,
+                // indicators can end a plain scalar, see 7.3.3. Plain Style
+                b':' => {
+                    let nc = rest.get(len + 1).copied().unwrap_or(0);
+                    if is_blank_or_breakz(nc) || (in_flow && is_flow(nc)) {
+                        break;
+                    }
+                }
+                b',' | b'[' | b']' | b'{' | b'}' if in_flow => break,
+                _ => {}
+            }
+            len += 1;
+        }
+        out.extend_from_slice(&rest[..len]);
+        self.skip(len);
+        len
     }
 
     fn skip(&mut self, n: usize) {

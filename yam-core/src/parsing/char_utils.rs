@@ -65,3 +65,36 @@ pub(crate) fn is_tag_char(chr: u8) -> bool {
 pub fn is_alpha(c: u8) -> bool {
     matches!(c, b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_' | b'-')
 }
+
+pub(crate) static LO_BYTES: u64 = u64::from_ne_bytes([0x01; 8]);
+static HI_BYTES: u64 = u64::from_ne_bytes([0x80; 8]);
+/// Returns a word whose lowest set bit is in the first byte of `word` that equals `byte`, or `0`
+/// if there is no such byte. Bits above that byte may be set spuriously.
+#[inline]
+pub(crate) fn eq_byte_mask(word: u64, byte: u8) -> u64 {
+    let x = word ^ (LO_BYTES * u64::from(byte));
+    x.wrapping_sub(LO_BYTES) & !x & HI_BYTES
+}
+
+/// Returns the length of the longest prefix of `input` without a byte for which `is_stop` holds.
+///
+/// Eight bytes at a time are checked with `stop_mask`, which gets them as a little-endian `u64`.
+/// Its result must have its lowest set bit in the first byte for which `is_stop` holds, or be
+/// `0` if there is none.
+#[inline]
+pub(crate) fn len_until(
+    input: &[u8],
+    stop_mask: impl Fn(u64) -> u64,
+    is_stop: impl Fn(u8) -> bool,
+) -> usize {
+    let (chunks, tail) = input.as_chunks::<8>();
+    for (i, chunk) in chunks.iter().enumerate() {
+        let mask = stop_mask(u64::from_le_bytes(*chunk));
+        if mask != 0 {
+            return i * 8 + (mask.trailing_zeros() / 8) as usize;
+        }
+    }
+    let len = input.len() - tail.len();
+    let tail_pos = tail.iter().position(|&c| is_stop(c)).unwrap_or(tail.len());
+    len + tail_pos
+}
