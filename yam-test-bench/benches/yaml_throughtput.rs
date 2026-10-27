@@ -6,6 +6,7 @@ use yam_test_bench::{write_str_from_event, FormatOpts};
 
 const NESTED_YAML: &str = include_str!("nested.yaml");
 const BIG_TEXT: &str = include_str!("big_text.yaml");
+const BIG_QUOTE_TEXT_YAML: &str = include_str!("big_quote_text.yaml");
 const SMALL_OBJECTS_YAML: &str = include_str!("small_objects.yaml");
 
 fn bench_noop(c: &mut Criterion) {
@@ -120,12 +121,47 @@ fn bench_small_object(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_quoted(c: &mut Criterion) {
+    let mut group = c.benchmark_group("big-text-quoted");
+    // Configure Criterion.rs to detect smaller differences and increase sample size to improve
+    // precision and counteract the resulting noise.
+    let mut buff = String::with_capacity(BIG_QUOTE_TEXT_YAML.len());
+    group
+        .sample_size(SAMPLE_SIZE)
+        .throughput(Throughput::Bytes(BIG_QUOTE_TEXT_YAML.len() as u64));
+    group.bench_function("saphyr", |b| {
+        b.iter(|| {
+            buff.clear();
+            let mut parser = Parser::new_from_str(BIG_QUOTE_TEXT_YAML);
+            write_str_from_event(&mut buff, &mut parser, &FormatOpts::YamlFormat);
+            assert!(!buff.is_empty());
+        })
+    });
+    group.bench_function("parse-only", |b| {
+        b.iter(|| {
+            for ev in Parser::new_from_str(BIG_QUOTE_TEXT_YAML) {
+                black_box(ev.expect("bench input must parse"));
+            }
+        })
+    });
+    group.bench_function("buffered-parse-only", |b| {
+        b.iter(|| {
+            for ev in Parser::new(BufferedBytesSource::new_from_str(BIG_QUOTE_TEXT_YAML)) {
+                black_box(ev.expect("bench input must parse"));
+            }
+        })
+    });
+
+    group.finish();
+}
+
 fn noop() {}
 
 criterion_group!(
     benches,
     bench_noop,
     bench_big_text,
+    bench_quoted,
     bench_nested,
     bench_small_object
 );
