@@ -146,6 +146,15 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.fill_buf_to_max();
     }
 
+    fn skip_spaces(&mut self, max: usize) -> usize {
+        let mut n_chars = 0;
+        while n_chars < max && self.peekz(0) == b' ' {
+            n_chars += 1;
+            self.skip(1);
+        }
+        n_chars
+    }
+
     #[allow(clippy::cast_possible_truncation)]
     fn skip_ws_to_eol(
         &mut self,

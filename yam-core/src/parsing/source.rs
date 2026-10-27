@@ -144,17 +144,20 @@ pub unsafe trait Source {
         n_chars
     }
 
+    /// Advances the iterator by skipping over a specified number of bytes.
+    ///
+    /// # Parameters
+    /// - `n`: The number of bytes to skip in the iterator.
+    ///
+    /// # Panics
+    /// This function does not panic under normal circumstances.
     fn skip(&mut self, n: usize);
 
-    /// Skips up to `max` consecutive `b' '` bytes and returns how many were skipped.
-    fn skip_spaces(&mut self, max: usize) -> usize {
-        let mut n_chars = 0;
-        while n_chars < max && self.peekz(0) == b' ' {
-            n_chars += 1;
-            self.skip(1);
-        }
-        n_chars
-    }
+    /// Skip spaces (` `) up to `max` consecutive bytes and returns how many were skipped.
+    ///
+    /// # Parameters
+    /// - `max`: The maximum number of consecutive spaces to skip.
+    fn skip_spaces(&mut self, max: usize) -> usize;
 
     fn skip_while_blank(&mut self) -> usize {
         let mut n_chars = 0;
