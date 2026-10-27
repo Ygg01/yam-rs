@@ -1698,33 +1698,19 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
+    fn skip_spaces(&mut self, max: usize) {
+        let n_chars = self.src.skip_spaces(max);
+
+        self.mark.pos += n_chars;
+        self.mark.col += n_chars as u32;
+    }
+
     /// Skip the block scalar indentation and empty lines.
     fn skip_block_scalar_indent(&mut self, indent: u32, breaks: &mut Vec<u8>) {
         loop {
-            // Consume all spaces. Tabs cannot be used as indentation.
-            if (indent as usize) < self.src.buf_max_len() - 2 {
-                // ? self.src.lookahead(self.input.bufmaxlen());
-                while self.mark.col < indent && self.src.peekz(0) == b' ' {
-                    self.skip_blank();
-                }
-            } else {
-                loop {
-                    while !self.src.buf_is_empty()
-                        && self.mark.col < indent
-                        && self.src.peekz(0) == b' '
-                    {
-                        self.skip_blank();
-                    }
-                    // If we reached our indent, we can break. We must also break if we have
-                    // reached content or EOF; that is, the buffer is not empty and the next
-                    // character is not a space.
-                    if self.mark.col == indent
-                        || (!self.src.buf_is_empty() && self.src.peekz(0) != b' ')
-                    {
-                        break;
-                    }
-                }
-            }
+            // Consume spaces up to our indent. Tabs cannot be used as indentation.
+            self.skip_spaces(indent.saturating_sub(self.mark.col) as usize);
 
             // If our current line is empty, skip over the break and continue looping.
             if is_break(self.src.peekz(0)) {
