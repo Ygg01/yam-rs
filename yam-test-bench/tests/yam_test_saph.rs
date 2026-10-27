@@ -356,3 +356,13 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
         &FormatOpts::InlineTest,
     );
 }
+
+#[test]
+fn run_deep_test() {
+    assert_eq_event_case_with_opts(
+        BLOCK_DEEP_INDENT_EOF_INPUT,
+        BLOCK_DEEP_INDENT_EOF_EVENTS,
+        ParsingOptions::String,
+        &FormatOpts::InlineTest,
+    );
+}
