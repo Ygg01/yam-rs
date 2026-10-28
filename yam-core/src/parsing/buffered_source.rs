@@ -13,8 +13,11 @@ pub(crate) const MAX_LEN: usize = 32;
 
 #[allow(dead_code)]
 pub struct BufferedBytesSource<T> {
+    /// The input source. Usually a byte iterator
     input: T,
+    /// The buffer of `MaybeUninit` bytes
     buf: [MaybeUninit<u8>; MAX_LEN],
+    /// Position of head in the buffer
     len: usize,
 }
 
@@ -148,10 +151,27 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
 
     fn skip_spaces(&mut self, max: usize) -> usize {
         let mut n_chars = 0;
-        while n_chars < max && self.peekz(0) == b' ' {
-            n_chars += 1;
-            self.skip(1);
+
+        while let Some(x) = self.get_max_buf() {
+            let fake_simd = U8X32::from_array(x);
+            let spaces = fake_simd.comp_to_bitmask(b' ');
+            let n = (spaces.trailing_ones() as usize).min(max);
+
+            self.skip(n);
+            n_chars += n;
+            if n < 32 || n_chars >= max {
+                return n_chars;
+            }
         }
+        let debug = self.get_buf();
+        let slow_path = debug
+            .iter()
+            .position(|&c| c != b' ')
+            .unwrap_or(debug.len())
+            .min(max);
+
+        self.skip(slow_path);
+        n_chars += slow_path;
         n_chars
     }
 
@@ -193,6 +213,17 @@ mod tests {
     use crate::parsing::buffered_source::{BufferedBytesSource, MAX_LEN};
     use crate::parsing::scanner::SkipTabs;
     use alloc::vec::Vec;
+
+    #[test]
+    fn test_skip_ws_minimal() {
+        let mut source = BufferedBytesSource::new("                       ,     a a");
+
+        assert_eq!(source.peekz(0), b' ');
+        assert_eq!(source.skip_spaces(0), 0);
+        assert_eq!(source.peekz(0), b' ');
+        assert_eq!(source.skip_spaces(5), 5);
+        assert_eq!(source.peekz(0), b' ');
+    }
 
     #[test]
     fn test_create() {
