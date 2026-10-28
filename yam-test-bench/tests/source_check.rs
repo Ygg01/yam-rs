@@ -3,7 +3,7 @@ use yam_core::parsing::{BufferedBytesSource, Source, StrSource};
 
 fn peekz(a: &str, n: usize, is_buf: bool) -> u8 {
     if is_buf {
-        let src = BufferedBytesSource::new_from_str(a);
+        let src = BufferedBytesSource::new(a);
         src.peekz(n)
     } else {
         let src = StrSource::new(a);
@@ -71,7 +71,7 @@ proptest! {
 
     #[test]
     fn test_run_ops(a in r"[ \t\r\n\x00:#,\[\]\{\}ab]{0,100}", op in source_op()) {
-        let buffered = apply(BufferedBytesSource::new_from_str(&a), op);
+        let buffered = apply(BufferedBytesSource::new(&a), op);
         let stringed = apply(StrSource::new(&a), op);
         prop_assert_eq!(buffered, stringed);
     }
@@ -81,7 +81,7 @@ proptest! {
         a in r"( {0,70}|[a-z:]{0,70}|[a-z ]{0,70})[\r\n\x00 :,\]]?[a-z ]{0,10}",
         op in source_op(),
     ) {
-        let buffered = apply(BufferedBytesSource::new_from_str(&a), op);
+        let buffered = apply(BufferedBytesSource::new(&a), op);
         let stringed = apply(StrSource::new(&a), op);
         prop_assert_eq!(buffered, stringed);
     }

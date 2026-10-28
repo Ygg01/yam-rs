@@ -67,7 +67,7 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
     }
 
     #[must_use]
-    pub fn new_from_str(input: &'a str) -> Self {
+    pub fn new(input: &'a str) -> Self {
         Self::new_from_bytes(input.as_bytes())
     }
 }
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_tabs() {
-        let mut source = BufferedBytesSource::new_from_str(YAML_WS_TABS);
+        let mut source = BufferedBytesSource::new(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert!(res1.1.is_ok());
@@ -291,7 +291,7 @@ mod tests {
         assert!(skip_tabs.found_tabs());
         assert!(skip_tabs.has_valid_yaml_ws());
 
-        let mut source = BufferedBytesSource::new_from_str(YAML_WS_TABS);
+        let mut source = BufferedBytesSource::new(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
         let res2 = source.skip_ws_to_eol(false, false);
         assert!(res2.1.is_ok());
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn skip_ws_doesnt_skip_non_ws() {
         let folded_ex = "  - folded example where \nyou need to skip only to the `-` character\n not to this part";
-        let mut source = BufferedBytesSource::new_from_str(folded_ex);
+        let mut source = BufferedBytesSource::new(folded_ex);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 2);
@@ -319,7 +319,7 @@ mod tests {
     fn skip_comment() {
         let folded_ex =
             "   # commented out \nyou need to skip only to the `-` character\n not to this part";
-        let mut source = BufferedBytesSource::new_from_str(folded_ex);
+        let mut source = BufferedBytesSource::new(folded_ex);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 19);
@@ -340,7 +340,7 @@ mod tests {
 %YAML 1.3 # Attempt parsing
           # with a warning
 ---"#;
-        let mut source = BufferedBytesSource::new_from_str(multiline_comment);
+        let mut source = BufferedBytesSource::new(multiline_comment);
         assert_eq!(source.peekz(0), b'\n');
         source.skip(10);
         assert_eq!(source.peekz(0), b' ');
@@ -363,7 +363,7 @@ mod tests {
  - test minor            
                                            
 ---"#;
-        let mut source = BufferedBytesSource::new_from_str(multiline_comment);
+        let mut source = BufferedBytesSource::new(multiline_comment);
         assert_eq!(source.peekz(0), b'\n');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 0);
@@ -381,7 +381,7 @@ mod tests {
     fn skip_whitespace() {
         let multiline_comment =
             r#" { }                                                           "#;
-        let mut source = BufferedBytesSource::new_from_str(multiline_comment);
+        let mut source = BufferedBytesSource::new(multiline_comment);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 1);
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_empty() {
         let x = "";
-        let source = BufferedBytesSource::new_from_str(x);
+        let source = BufferedBytesSource::new(x);
         assert_eq!(source.peekz(32), b'\0');
     }
 }
