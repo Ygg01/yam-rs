@@ -16,23 +16,23 @@ pub struct BufferedBytesSource<T> {
     /// The input source. Usually a byte iterator
     input: T,
     /// The buffer of `MaybeUninit` bytes
-    buf: [MaybeUninit<u8>; MAX_LEN],
-    /// Position of head in the buffer
-    len: usize,
+    chunk_buf: [MaybeUninit<u8>; MAX_LEN],
+    /// How much of buffer has been filled
+    filled: usize,
 }
 
 pub type BufferedBytesSourceIter<'a> = BufferedBytesSource<Copied<Iter<'a, u8>>>;
 
 impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
     fn fill_buf_to_max(&mut self) {
-        for x in self.len..self.buf_max_len() {
+        for x in self.filled..self.buf_max_len() {
             match self.input.next() {
                 Some(byt) => {
                     // SAFETY: This will always be in buffer len
                     unsafe {
-                        self.buf.get_unchecked_mut(x).write(byt);
+                        self.chunk_buf.get_unchecked_mut(x).write(byt);
                     }
-                    self.len += 1;
+                    self.filled += 1;
                 }
                 None => break,
             }
@@ -40,10 +40,10 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
     }
 
     pub fn get_max_buf(&self) -> Option<[u8; MAX_LEN]> {
-        if self.len < self.buf_max_len() {
+        if self.filled < self.buf_max_len() {
             return None;
         }
-        let buf = unsafe { transmute::<[MaybeUninit<u8>; MAX_LEN], [u8; MAX_LEN]>(self.buf) };
+        let buf = unsafe { transmute::<[MaybeUninit<u8>; MAX_LEN], [u8; MAX_LEN]>(self.chunk_buf) };
         Some(buf)
     }
 
@@ -51,7 +51,7 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
         unsafe {
             // SAFETY: This is safe because self.len guarantees that the buf is initialized
             // up to self.len position
-            slice::from_raw_parts(self.buf.as_ptr().cast(), self.len)
+            slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), self.filled)
         }
     }
 }
@@ -62,8 +62,8 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
     pub fn new_from_bytes(input: &'a [u8]) -> Self {
         let mut x = Self {
             input: input.iter().copied(),
-            buf: [MaybeUninit::uninit(); MAX_LEN],
-            len: 0,
+            chunk_buf: [MaybeUninit::uninit(); MAX_LEN],
+            filled: 0,
         };
         x.fill_buf_to_max();
         x
@@ -76,11 +76,11 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
 }
 unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     unsafe fn peek_unsafe(&self, n: usize) -> u8 {
-        unsafe { self.buf[n].assume_init() }
+        unsafe { self.chunk_buf[n].assume_init() }
     }
 
     fn peek_checked(&self, n: usize) -> Option<u8> {
-        if n >= self.len || n >= self.buf_max_len() {
+        if n >= self.filled || n >= self.buf_max_len() {
             return None;
         }
         unsafe { Some(self.peek_unsafe(n)) }
@@ -89,7 +89,8 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     fn peek_char(&self) -> char {
         // SAFETY: This takes up to 4 bytes. `4.min(self.len)` guarantees it won't see any
         // uninit values
-        let slice = unsafe { slice::from_raw_parts(self.buf.as_ptr().cast(), 4.min(self.len)) };
+        let slice =
+            unsafe { slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), 4.min(self.filled)) };
         // SAFETY: Converts up to the next 4 bytes (currently UTF-8) maximum
         // to a char using from_utf8_unchecked. It should contain at least one valid char, which is
         // all we care about.
@@ -102,7 +103,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn buf_is_empty(&self) -> bool {
-        self.len == 0
+        self.filled == 0
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
@@ -135,17 +136,17 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             return;
         }
 
-        let consume = n.min(self.len);
+        let consume = n.min(self.filled);
         let skip = n.saturating_sub(self.buf_max_len() + 1);
 
         if skip > 0 {
             self.input.nth(skip);
         }
 
-        self.buf.copy_within(consume..self.len, 0);
+        self.chunk_buf.copy_within(consume..self.filled, 0);
 
-        let new_len = self.len.saturating_sub(consume);
-        self.len = new_len;
+        let new_len = self.filled.saturating_sub(consume);
+        self.filled = new_len;
         self.fill_buf_to_max();
     }
 
@@ -228,7 +229,7 @@ mod tests {
     #[test]
     fn test_create() {
         let source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
-        assert_eq!(source.len, 13);
+        assert_eq!(source.filled, 13);
         assert_eq!(source.peekz(0), b'H');
         assert_eq!(source.peekz(1), b'e');
     }
@@ -236,7 +237,7 @@ mod tests {
     #[test]
     fn test_skip() {
         let mut source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
-        assert_eq!(source.len, 13);
+        assert_eq!(source.filled, 13);
         assert_eq!(source.peekz(0), b'H');
         assert_eq!(source.peekz(1), b'e');
 
@@ -259,7 +260,7 @@ mod tests {
             Ut ornare efficitur nisl, sed ullamcorper risus feugiat at. 
             Aenean ut mi a nulla pellentesque aliquet quis vitae lorem. Vestibulum semper elit"#,
         );
-        assert_eq!(source.len, MAX_LEN);
+        assert_eq!(source.filled, MAX_LEN);
         assert_eq!(source.peekz(0), b'L');
         assert_eq!(source.peekz(1), b'o');
 
@@ -273,7 +274,7 @@ mod tests {
     #[test]
     fn test_create_empty() {
         let mut source = BufferedBytesSource::new_from_bytes(b"");
-        assert_eq!(source.len, 0);
+        assert_eq!(source.filled, 0);
         assert_eq!(source.peekz(0), b'\0');
         assert_eq!(source.peekz(1), b'\0');
 
