@@ -27,6 +27,8 @@ exclude =[
 [lib]
 
 [dependencies]
+fearless_simd = { version = "1.2.0", features = ["libm"] }
+fearless_simd_macros = "0.1"
 
 [features]
 default = []

@@ -2,12 +2,13 @@ use crate::parsing::Source;
 use crate::parsing::char_utils::is_break;
 use crate::parsing::scanner::SkipTabs;
 use crate::parsing::source::shared_skip_ws_to_eol;
-use crate::util::{BitOps, U8X32};
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::iter::Copied;
-use core::mem::{MaybeUninit, transmute};
+use core::mem::MaybeUninit;
 use core::slice;
 use core::slice::Iter;
+use fearless_simd::{Level, Simd, SimdBase, SimdMask, dispatch};
 
 pub(crate) const MAX_LEN: usize = 32;
 
@@ -16,16 +17,23 @@ pub struct BufferedBytesSource<T> {
     /// The input source. Usually a byte iterator
     input: T,
     /// The buffer of `MaybeUninit` bytes
-    chunk_buf: [MaybeUninit<u8>; MAX_LEN],
-    /// How much of buffer has been filled
+    chunk_buf: Box<[MaybeUninit<u8>; MAX_LEN]>,
+    /// How much of the buffer has been filled.
     filled: usize,
+    /// Position of the head in the buffer.
+    pos: usize,
 }
 
 pub type BufferedBytesSourceIter<'a> = BufferedBytesSource<Copied<Iter<'a, u8>>>;
 
 impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
+    /// Replaces entire buffer with new data from iterator.
     fn fill_buf_to_max(&mut self) {
-        for x in self.filled..self.buf_max_len() {
+        self.fill_buf_from(0);
+    }
+
+    fn fill_buf_from(&mut self, pos: usize) {
+        for x in pos..self.buf_max_len() {
             match self.input.next() {
                 Some(byt) => {
                     // SAFETY: This will always be in buffer len
@@ -39,11 +47,22 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
         }
     }
 
-    pub fn get_max_buf(&self) -> Option<[u8; MAX_LEN]> {
+    fn reset_head_to_start(&mut self) {
+        let n = self.filled - self.pos;
+        self.chunk_buf.copy_within(self.pos..self.filled, 0);
+        self.fill_buf_from(n);
+        self.pos = 0;
+    }
+
+    pub fn get_chunk_buf(&self) -> Option<&[u8]> {
         if self.filled < self.buf_max_len() {
             return None;
         }
-        let buf = unsafe { transmute::<[MaybeUninit<u8>; MAX_LEN], [u8; MAX_LEN]>(self.chunk_buf) };
+        let buf = unsafe {
+            // SAFETY: This is safe because self.len guarantees that the buf is initialized
+            // up to self.len position
+            slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), self.filled)
+        };
         Some(buf)
     }
 
@@ -62,7 +81,8 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
     pub fn new_from_bytes(input: &'a [u8]) -> Self {
         let mut x = Self {
             input: input.iter().copied(),
-            chunk_buf: [MaybeUninit::uninit(); MAX_LEN],
+            chunk_buf: Box::new([MaybeUninit::uninit(); MAX_LEN]),
+            pos: 0,
             filled: 0,
         };
         x.fill_buf_to_max();
@@ -74,9 +94,10 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
         Self::new_from_bytes(input.as_bytes())
     }
 }
+
 unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     unsafe fn peek_unsafe(&self, n: usize) -> u8 {
-        unsafe { self.chunk_buf[n].assume_init() }
+        unsafe { self.chunk_buf.get_unchecked(self.pos + n).assume_init() }
     }
 
     fn peek_checked(&self, n: usize) -> Option<u8> {
@@ -107,28 +128,9 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
-        let mut pos = None;
-        while let Some(x) = self.get_max_buf() {
-            // bitmask for \r or \n
-            let fake_simd = U8X32::from_array(x);
-            let break_bitmask = fake_simd.comp_to_bitmask(b'\r') | fake_simd.comp_to_bitmask(b'\n');
-            let first_nl = break_bitmask.trailing_zeros() as usize;
-
-            if break_bitmask != 0 {
-                pos = Some(first_nl);
-                break;
-            }
-
-            vec.extend_from_slice(&x[..]);
-            self.skip(MAX_LEN);
-        }
-        let buf = self.get_buf();
-
-        // we get the value from while loop above, or we search remaining buf
-        let found_pos =
-            pos.unwrap_or_else(|| buf.iter().position(|&c| is_break(c)).unwrap_or(buf.len()));
-        vec.extend_from_slice(&buf[..found_pos]);
-        self.skip(found_pos);
+        let level = Level::new();
+        self.reset_head_to_start();
+        dispatch!(level, simd => push_non_break_simd(simd, self, vec));
     }
 
     fn skip(&mut self, n: usize) {
@@ -136,44 +138,21 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             return;
         }
 
-        let consume = n.min(self.filled);
-        let skip = n.saturating_sub(self.buf_max_len() + 1);
-
-        if skip > 0 {
-            self.input.nth(skip);
+        if n + self.pos < self.filled {
+            self.pos += n;
+            return;
         }
 
-        self.chunk_buf.copy_within(consume..self.filled, 0);
+        self.pos += n;
+        self.pos -= MAX_LEN;
 
-        let new_len = self.filled.saturating_sub(consume);
-        self.filled = new_len;
         self.fill_buf_to_max();
     }
 
     fn skip_spaces(&mut self, max: usize) -> usize {
-        let mut n_chars = 0;
-
-        while let Some(x) = self.get_max_buf() {
-            let fake_simd = U8X32::from_array(x);
-            let spaces = fake_simd.comp_to_bitmask(b' ');
-            let n = (spaces.trailing_ones() as usize).min(max);
-
-            self.skip(n);
-            n_chars += n;
-            if n < 32 || n_chars >= max {
-                return n_chars;
-            }
-        }
-        let debug = self.get_buf();
-        let slow_path = debug
-            .iter()
-            .position(|&c| c != b' ')
-            .unwrap_or(debug.len())
-            .min(max);
-
-        self.skip(slow_path);
-        n_chars += slow_path;
-        n_chars
+        let level = Level::new();
+        self.reset_head_to_start();
+        dispatch!(level, simd => skip_spaces_simd(simd, self, max))
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -182,30 +161,133 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         skip_tab: bool,
         mut has_yaml_ws: bool,
     ) -> (u32, Result<SkipTabs, &'static str>) {
-        let mut any_tabs = false;
-        let mut consumed_bytes = 0u32;
-        let tabs_mul = if skip_tab { 1 } else { 0 };
-
-        // Skip whole buffers of whitespace at once. Anything else (comments, errors, the tail of
-        // the input) is left to `shared_skip_ws_to_eol`.
-        while let Some(x) = self.get_max_buf() {
-            let fake_simd = U8X32::from_array(x);
-            let spaces = fake_simd.comp_to_bitmask(b' ');
-            let tabs = fake_simd.comp_to_bitmask(b'\t') * tabs_mul;
-            let n = (spaces | tabs).trailing_ones();
-            let prefix = if n == 32 { u32::MAX } else { (1 << n) - 1 };
-            has_yaml_ws |= spaces & prefix != 0;
-            any_tabs |= tabs & prefix != 0;
-
-            self.skip(n as usize);
-            consumed_bytes += n;
-            if n < 32 {
-                break;
-            }
-        }
-
-        shared_skip_ws_to_eol(self, skip_tab, consumed_bytes, any_tabs, has_yaml_ws)
+        let level = Level::new();
+        self.reset_head_to_start();
+        dispatch!(level, simd => skip_ws_to_eol_simd(simd, self, skip_tab, &mut has_yaml_ws))
     }
+}
+
+fn push_non_break_simd<'a, T, S>(simd: S, src: &mut BufferedBytesSource<T>, vec: &mut Vec<u8>)
+where
+    T: Iterator<Item = u8>,
+    S: Simd,
+{
+    simd.vectorize(
+        #[inline(always)]
+        || {
+            let mut pos = None;
+            while let Some(x) = src.get_chunk_buf() {
+                let mut chunks = x.chunks_exact(S::u8s::LEN);
+                for chunk in &mut chunks {
+                    let value = S::u8s::from_slice(simd, chunk);
+                    let break_bitmask =
+                        value.simd_eq(b'\r').to_bitmask() | value.simd_eq(b'\n').to_bitmask();
+                    let first_nl = break_bitmask.trailing_zeros() as usize;
+                    if break_bitmask != 0 {
+                        pos = Some(first_nl);
+                        break;
+                    }
+                }
+
+                vec.extend_from_slice(&x[..]);
+                src.fill_buf_to_max();
+            }
+            let buf = src.get_buf();
+
+            // we get the value from while loop above, or we search remaining buf
+            let found_pos =
+                pos.unwrap_or_else(|| buf.iter().position(|&c| is_break(c)).unwrap_or(buf.len()));
+            vec.extend_from_slice(&buf[..found_pos]);
+            src.skip(found_pos);
+        },
+    );
+}
+
+fn skip_spaces_simd<'a, T, S>(simd: S, src: &mut BufferedBytesSource<T>, max: usize) -> usize
+where
+    T: Iterator<Item = u8>,
+    S: Simd,
+    S: Simd,
+{
+    simd.vectorize(
+        #[inline(always)]
+        || {
+            let mut n_chars = 0;
+
+            while let Some(x) = src.get_chunk_buf() {
+                let mut chunks = x.chunks_exact(S::u8s::LEN);
+                for chunk in &mut chunks {
+                    let value = S::u8s::from_slice(simd, chunk);
+                    let ws_mask = value.simd_eq(b' ').to_bitmask();
+                    let n = (ws_mask.trailing_zeros() as usize).min(max);
+                    if n < S::u8s::LEN || n_chars >= max {
+                        return n_chars;
+                    }
+                }
+                src.fill_buf_to_max();
+            }
+
+            let debug = src.get_buf();
+            let slow_path = debug
+                .iter()
+                .position(|&c| c != b' ')
+                .unwrap_or(debug.len())
+                .min(max);
+
+            src.skip(slow_path);
+            n_chars += slow_path;
+            n_chars
+        },
+    )
+}
+
+fn skip_ws_to_eol_simd<'a, T, S: Simd>(
+    simd: S,
+    src: &mut BufferedBytesSource<T>,
+    skip_tab: bool,
+    has_yaml_ws: &mut bool,
+) -> (u32, Result<SkipTabs, &'static str>)
+where
+    T: Iterator<Item = u8>,
+    S: Simd,
+{
+    simd.vectorize(
+        #[inline(always)]
+        || {
+            let mut any_tabs = false;
+            let mut consumed_bytes = 0u32;
+
+            'break_finalize: while let Some(x) = src.get_chunk_buf() {
+                let mut chunks = x.chunks_exact(S::u8s::LEN);
+                for chunk in &mut chunks {
+                    let value = S::u8s::from_slice(simd, chunk);
+
+                    let spaces = value.simd_eq(b' ').to_bitmask();
+                    let tabs = if skip_tab {
+                        value.simd_eq(b' ').to_bitmask()
+                    } else {
+                        0
+                    };
+
+                    let n = (spaces | tabs).trailing_ones() as usize;
+                    let prefix = if n == 64 { u64::MAX } else { (1 << n) - 1 };
+
+                    *has_yaml_ws |= (spaces & prefix) != 0;
+                    any_tabs |= (tabs & prefix) != 0;
+
+                    // src.filled += n;
+                    consumed_bytes += n as u32;
+                    if n < S::u8s::LEN {
+                        src.pos += n;
+                        break 'break_finalize;
+                    }
+                }
+                src.fill_buf_to_max();
+            }
+
+            shared_skip_ws_to_eol(src, skip_tab, consumed_bytes, any_tabs, *has_yaml_ws)
+        },
+    )
 }
 
 #[cfg(test)]
