@@ -10,7 +10,7 @@ use core::slice;
 use core::slice::Iter;
 use fearless_simd::{Level, Simd, SimdBase, SimdMask, dispatch};
 
-pub(crate) const BUF_MAX_LEN: usize = 32;
+pub(crate) const BUF_MAX_LEN: usize = 128;
 
 #[allow(dead_code)]
 pub struct BufferedBytesSource<T> {
@@ -203,7 +203,7 @@ where
     S: Simd,
 {
     simd.vectorize(
-        #[inline(always)]
+        // TODO RE-ENABLE #[inline(always)]
         || {
             
             while let Some(x) = src.get_chunk_buf() {
@@ -241,7 +241,7 @@ where
     S: Simd,
 {
     simd.vectorize(
-        // #[inline(always)]
+        // TODO RE-ENABLE #[inline(always)]
         || {
             let mut n_chars = 0;
 
@@ -277,7 +277,7 @@ where
 fn skip_ws_to_eol_simd<T, S>(
     simd: S,
     src: &mut BufferedBytesSource<T>,
-    skip_tab: bool,
+    skip_tabs: bool,
     has_yaml_ws: &mut bool,
 ) -> (u32, Result<SkipTabs, &'static str>)
 where
@@ -285,10 +285,10 @@ where
     S: Simd,
 {
     simd.vectorize(
-        #[inline(always)]
+        // TODO RE-ENABLE #[inline(always)]
         || {
             let mut any_tabs = false;
-            let mut consumed_bytes = 0u32;
+            let mut bytes_consumed = 0u32;
 
             'break_finalize: while let Some(x) = src.get_chunk_buf() {
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
@@ -296,7 +296,7 @@ where
                     let value = S::u8s::from_slice(simd, chunk);
 
                     let spaces = value.simd_eq(b' ').to_bitmask();
-                    let tabs = if skip_tab {
+                    let tabs = if skip_tabs {
                         value.simd_eq(b'\t').to_bitmask()
                     } else {
                         0
@@ -309,7 +309,7 @@ where
                     any_tabs |= (tabs & prefix) != 0;
 
                     // src.filled += n;
-                    consumed_bytes += n as u32;
+                    bytes_consumed += n as u32;
                     if n < S::u8s::LEN {
                         src.pos += n;
                         break 'break_finalize;
@@ -318,7 +318,7 @@ where
                 src.fill_buf_to_max();
             }
 
-            shared_skip_ws_to_eol(src, skip_tab, consumed_bytes, any_tabs, *has_yaml_ws)
+            shared_skip_ws_to_eol(src, skip_tabs, bytes_consumed, any_tabs, *has_yaml_ws)
         },
     )
 }
@@ -334,8 +334,6 @@ mod tests {
     # comment
     word2
 ";
-
-
 
     #[test]
     fn test_skip_ws_minimal() {

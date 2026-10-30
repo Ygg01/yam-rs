@@ -359,7 +359,6 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
 
 
 
-
 // TODO REMOVE 
 #[test]
 fn test_bec7() {
