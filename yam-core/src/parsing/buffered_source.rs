@@ -1,4 +1,4 @@
-use crate::parsing::Source;
+use crate::parsing::{Source, char_utils::is_blank_or_breakz};
 use crate::parsing::char_utils::is_break;
 use crate::parsing::scanner::SkipTabs;
 use crate::parsing::source::shared_skip_ws_to_eol;
@@ -56,7 +56,7 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
         if self.pos == 0 {
             return;
         }
-        let n = self.pos;
+        let n = self.filled.saturating_sub(self.pos);
         self.chunk_buf.copy_within(self.pos..self.filled, 0);
         self.fill_buf_from(n);
         self.pos = 0;
@@ -142,18 +142,24 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn skip(&mut self, n: usize) {
+        // No skip, so no-op necessary
         if n == 0 {
             return;
         }
 
-        if n + self.pos < self.filled {
+        // Within buffer so just update head pos
+        if n + self.pos <= self.filled {
             self.pos += n;
             return;
         }
 
-        self.pos += n;
-        self.pos -= BUF_MAX_LEN;
-
+        // Stuff is outside of buffer. Move head to 0 and repopulate the buffer 
+        let skip = (n + self.pos).saturating_sub(self.buf_max_len() + 1);
+        if skip > 0 {
+            self.input.nth(skip);
+        }    
+        
+        self.pos = 0;
         self.fill_buf_to_max();
     }
 
@@ -173,6 +179,22 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.reset_head_to_start();
         dispatch!(level, simd => skip_ws_to_eol_simd(simd, self, skip_tab, &mut has_yaml_ws))
     }
+    
+    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
+        let mut n_chars = 0;
+        while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
+            n_chars += 1;
+            out.push(self.peekz(0));
+
+            self.skip(1);
+            // Ensures that we are close to end we reset the head to start
+            if self.pos == BUF_MAX_LEN - 1 {
+                self.reset_head_to_start();
+            } 
+        }
+        n_chars
+    
+    }
 }
 
 fn push_non_break_simd<T, S>(simd: S, src: &mut BufferedBytesSource<T>, vec: &mut Vec<u8>)
@@ -183,17 +205,19 @@ where
     simd.vectorize(
         #[inline(always)]
         || {
-            let mut pos = None;
+            
             while let Some(x) = src.get_chunk_buf() {
+                let mut pos = 0;
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
                 for chunk in &mut chunks {
                     let value = S::u8s::from_slice(simd, chunk);
                     let break_bitmask =
                         value.simd_eq(b'\r').to_bitmask() | value.simd_eq(b'\n').to_bitmask();
-                    let first_nl = break_bitmask.trailing_zeros() as usize;
+                    pos += break_bitmask.trailing_zeros() as usize;
                     if break_bitmask != 0 {
-                        pos = Some(first_nl);
-                        break;
+                        vec.extend_from_slice(&x[0..pos]);
+                        src.pos = pos;
+                        return;
                     }
                 }
 
@@ -203,8 +227,7 @@ where
             let buf = src.get_buf();
 
             // we get the value from while loop above, or we search remaining buf
-            let found_pos =
-                pos.unwrap_or_else(|| buf.iter().position(|&c| is_break(c)).unwrap_or(buf.len()));
+            let found_pos = buf.iter().position(|&c| is_break(c)).unwrap_or(buf.len());
             vec.extend_from_slice(&buf[..found_pos]);
             src.skip(found_pos);
         },
@@ -218,7 +241,7 @@ where
     S: Simd,
 {
     simd.vectorize(
-        // #[inline(always)]
+        #[inline(always)]
         || {
             let mut n_chars = 0;
 
@@ -273,7 +296,7 @@ where
 
                     let spaces = value.simd_eq(b' ').to_bitmask();
                     let tabs = if skip_tab {
-                        value.simd_eq(b' ').to_bitmask()
+                        value.simd_eq(b'\t').to_bitmask()
                     } else {
                         0
                     };
@@ -301,7 +324,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::parsing::Source;
+    use crate::parsing::{Source};
     use crate::parsing::buffered_source::{BUF_MAX_LEN, BufferedBytesSource};
     use crate::parsing::scanner::SkipTabs;
     use alloc::vec::Vec;
@@ -315,6 +338,18 @@ mod tests {
         assert_eq!(source.peekz(0), b' ');
         assert_eq!(source.skip_spaces(5), 5);
         assert_eq!(source.peekz(0), b' ');
+    }
+
+    #[test]
+    fn test_prop_push() {
+        let src = "a:a:aa:::::a:::::a::aaaaa:a:a:a::";
+        let mut source = BufferedBytesSource::new(src);
+        let mut out = Vec::with_capacity(32);
+
+        assert_eq!(source.peekz(0), b'a');
+        source.push_plain_run(false, &mut out);
+        assert_eq!(source.peekz(0), b':');
+        assert_eq!(out, src.as_bytes()[0..src.len()-1])
     }
 
     #[test]

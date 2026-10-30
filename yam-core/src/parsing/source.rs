@@ -134,15 +134,7 @@ pub unsafe trait Source {
     /// Appends and skips bytes for as long as they can continue a plain scalar, that is while
     /// the next byte isn't blank, a break or EOF and [`Source::next_can_be_plain_scalar`] holds.
     /// Returns the number of bytes consumed.
-    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
-        let mut n_chars = 0;
-        while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
-            n_chars += 1;
-            out.push(self.peekz(0));
-            self.skip(1);
-        }
-        n_chars
-    }
+    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize;
 
     /// Advances the iterator by skipping over a specified number of bytes.
     ///
