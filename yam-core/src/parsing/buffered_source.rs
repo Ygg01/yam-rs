@@ -253,8 +253,7 @@ where
                     let n = (ws_mask.trailing_ones() as usize).min(max);
                     n_chars += n;
                     if n < S::u8s::LEN || n_chars >= max {
-                        // TODO reenable after unit test
-                        // src.pos += n;
+                        src.pos += n;
                         return n_chars;
                     }
                 }
@@ -372,7 +371,7 @@ mod tests {
         assert_eq!(source.peekz(0), b'w');
     }
 
-    #[test]
+    #[test] 
     fn test_create() {
         let source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
         assert_eq!(source.filled, 13);
