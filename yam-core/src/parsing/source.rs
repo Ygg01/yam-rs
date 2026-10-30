@@ -1,4 +1,4 @@
-use crate::parsing::buffered_source::MAX_LEN;
+use crate::parsing::buffered_source::BUF_MAX_LEN;
 use crate::parsing::char_utils::{
     LO_BYTES, eq_byte_mask, is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
     len_until,
@@ -114,7 +114,7 @@ pub unsafe trait Source {
 
     #[must_use]
     fn buf_max_len(&self) -> usize {
-        MAX_LEN
+        BUF_MAX_LEN
     }
 
     fn buf_is_empty(&self) -> bool;

@@ -10,14 +10,14 @@ use core::slice;
 use core::slice::Iter;
 use fearless_simd::{Level, Simd, SimdBase, SimdMask, dispatch};
 
-pub(crate) const MAX_LEN: usize = 32;
+pub(crate) const BUF_MAX_LEN: usize = 32;
 
 #[allow(dead_code)]
 pub struct BufferedBytesSource<T> {
     /// The input source. Usually a byte iterator
     input: T,
     /// The buffer of `MaybeUninit` bytes
-    chunk_buf: Box<[MaybeUninit<u8>; MAX_LEN]>,
+    chunk_buf: Box<[MaybeUninit<u8>; BUF_MAX_LEN]>,
     /// How much of the buffer has been filled.
     filled: usize,
     /// Position of the head in the buffer.
@@ -27,12 +27,17 @@ pub struct BufferedBytesSource<T> {
 pub type BufferedBytesSourceIter<'a> = BufferedBytesSource<Copied<Iter<'a, u8>>>;
 
 impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
+    #[inline]
     /// Replaces entire buffer with new data from iterator.
     fn fill_buf_to_max(&mut self) {
         self.fill_buf_from(0);
     }
 
     fn fill_buf_from(&mut self, pos: usize) {
+        // SAFETY: pos can't be over BUF_MAX_LEN
+        assert!(pos <= BUF_MAX_LEN);
+        // SAFETY: filled starts from pos and overwrites until BUF_MAX_LEN
+        self.filled = pos;
         for x in pos..self.buf_max_len() {
             match self.input.next() {
                 Some(byt) => {
@@ -48,7 +53,10 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
     }
 
     fn reset_head_to_start(&mut self) {
-        let n = self.filled - self.pos;
+        if self.pos == 0 {
+            return;
+        }
+        let n = self.pos;
         self.chunk_buf.copy_within(self.pos..self.filled, 0);
         self.fill_buf_from(n);
         self.pos = 0;
@@ -81,7 +89,7 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
     pub fn new_from_bytes(input: &'a [u8]) -> Self {
         let mut x = Self {
             input: input.iter().copied(),
-            chunk_buf: Box::new([MaybeUninit::uninit(); MAX_LEN]),
+            chunk_buf: Box::new([MaybeUninit::uninit(); BUF_MAX_LEN]),
             pos: 0,
             filled: 0,
         };
@@ -101,7 +109,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn peek_checked(&self, n: usize) -> Option<u8> {
-        if n >= self.filled || n >= self.buf_max_len() {
+        if (self.pos + n) >= self.filled {
             return None;
         }
         unsafe { Some(self.peek_unsafe(n)) }
@@ -120,7 +128,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn buf_max_len(&self) -> usize {
-        MAX_LEN
+        BUF_MAX_LEN
     }
 
     fn buf_is_empty(&self) -> bool {
@@ -144,7 +152,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         }
 
         self.pos += n;
-        self.pos -= MAX_LEN;
+        self.pos -= BUF_MAX_LEN;
 
         self.fill_buf_to_max();
     }
@@ -167,7 +175,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 }
 
-fn push_non_break_simd<'a, T, S>(simd: S, src: &mut BufferedBytesSource<T>, vec: &mut Vec<u8>)
+fn push_non_break_simd<T, S>(simd: S, src: &mut BufferedBytesSource<T>, vec: &mut Vec<u8>)
 where
     T: Iterator<Item = u8>,
     S: Simd,
@@ -189,7 +197,7 @@ where
                     }
                 }
 
-                vec.extend_from_slice(&x[..]);
+                vec.extend_from_slice(x);
                 src.fill_buf_to_max();
             }
             let buf = src.get_buf();
@@ -203,14 +211,14 @@ where
     );
 }
 
-fn skip_spaces_simd<'a, T, S>(simd: S, src: &mut BufferedBytesSource<T>, max: usize) -> usize
+fn skip_spaces_simd<T, S>(simd: S, src: &mut BufferedBytesSource<T>, max: usize) -> usize
 where
     T: Iterator<Item = u8>,
     S: Simd,
     S: Simd,
 {
     simd.vectorize(
-        #[inline(always)]
+        // #[inline(always)]
         || {
             let mut n_chars = 0;
 
@@ -219,7 +227,8 @@ where
                 for chunk in &mut chunks {
                     let value = S::u8s::from_slice(simd, chunk);
                     let ws_mask = value.simd_eq(b' ').to_bitmask();
-                    let n = (ws_mask.trailing_zeros() as usize).min(max);
+                    let n = (ws_mask.trailing_ones() as usize).min(max);
+                    n_chars += n;
                     if n < S::u8s::LEN || n_chars >= max {
                         return n_chars;
                     }
@@ -241,7 +250,7 @@ where
     )
 }
 
-fn skip_ws_to_eol_simd<'a, T, S: Simd>(
+fn skip_ws_to_eol_simd<T, S>(
     simd: S,
     src: &mut BufferedBytesSource<T>,
     skip_tab: bool,
@@ -293,7 +302,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::parsing::Source;
-    use crate::parsing::buffered_source::{BufferedBytesSource, MAX_LEN};
+    use crate::parsing::buffered_source::{BUF_MAX_LEN, BufferedBytesSource};
     use crate::parsing::scanner::SkipTabs;
     use alloc::vec::Vec;
 
@@ -342,7 +351,7 @@ mod tests {
             Ut ornare efficitur nisl, sed ullamcorper risus feugiat at. 
             Aenean ut mi a nulla pellentesque aliquet quis vitae lorem. Vestibulum semper elit"#,
         );
-        assert_eq!(source.filled, MAX_LEN);
+        assert_eq!(source.filled, BUF_MAX_LEN);
         assert_eq!(source.peekz(0), b'L');
         assert_eq!(source.peekz(1), b'o');
 
