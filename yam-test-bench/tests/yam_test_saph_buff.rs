@@ -355,3 +355,13 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
         &FormatOpts::InlineTest,
     );
 }
+
+// TODO REMOVE 
+#[test]
+fn test_timeout() {
+    assert_eq_event_case_with_opts(
+        BLOCK_MULTI_INPUT, BLOCK_MULTI_EVENTS,
+        ParsingOptions::Buffered,
+        &FormatOpts::InlineTest,
+    )
+}

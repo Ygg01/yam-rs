@@ -241,7 +241,7 @@ where
     S: Simd,
 {
     simd.vectorize(
-        #[inline(always)]
+        // #[inline(always)]
         || {
             let mut n_chars = 0;
 
@@ -253,6 +253,8 @@ where
                     let n = (ws_mask.trailing_ones() as usize).min(max);
                     n_chars += n;
                     if n < S::u8s::LEN || n_chars >= max {
+                        // TODO reenable after unit test
+                        // src.pos += n;
                         return n_chars;
                     }
                 }
@@ -329,6 +331,13 @@ mod tests {
     use crate::parsing::scanner::SkipTabs;
     use alloc::vec::Vec;
 
+    pub const BLOCK_MULTI_INPUT: &str = r"    word1
+    # comment
+    word2
+";
+
+
+
     #[test]
     fn test_skip_ws_minimal() {
         let mut source = BufferedBytesSource::new("                       ,     a a");
@@ -350,6 +359,17 @@ mod tests {
         source.push_plain_run(false, &mut out);
         assert_eq!(source.peekz(0), b':');
         assert_eq!(out, src.as_bytes()[0..src.len()-1])
+    }
+
+    #[test]
+    fn test_skip_spaces() {
+        let src = BLOCK_MULTI_INPUT;
+        let mut source = BufferedBytesSource::new(src);
+
+        assert_eq!(source.peekz(0), b' ');
+        let skip = source.skip_spaces(usize::MAX);
+        assert_eq!(skip, 4);
+        assert_eq!(source.peekz(0), b'w');
     }
 
     #[test]
