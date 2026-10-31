@@ -365,6 +365,7 @@ fn test_bec7() {
     assert_eq_event_case_with_opts(
         X2_BEC7_INPUT, X2_BEC7_EVENTS,
         ParsingOptions::Buffered,
+        // ParsingOptions::String,
         &FormatOpts::InlineTest,
     )
 }

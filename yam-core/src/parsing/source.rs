@@ -209,21 +209,21 @@ pub unsafe trait Source {
 
 #[inline]
 pub(crate) fn shared_skip_ws_to_eol<T: Source>(
-    x: &mut T,
+    source: &mut T,
     skip_tabs: bool,
     mut bytes_consumed: u32,
     mut any_tabs: bool,
     mut has_yaml_ws: bool,
 ) -> (u32, Result<SkipTabs, &'static str>) {
     loop {
-        match x.peekz(0) {
+        match source.peekz(0) {
             b' ' => {
                 has_yaml_ws = true;
-                x.skip(1);
+                source.skip(1);
             }
             b'\t' if skip_tabs => {
                 any_tabs = true;
-                x.skip(1);
+                source.skip(1);
             }
             // YAML comments must be preceded by whitespace.
             b'#' if !any_tabs && !has_yaml_ws => {
@@ -237,9 +237,9 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
             #[cfg(not(feature = "comment"))]
             b'#' => {
                 // Skip `#`
-                x.skip(1);
-                while !is_breakz(x.peekz(0)) {
-                    x.skip(1);
+                source.skip(1);
+                while !is_breakz(source.peekz(0)) {
+                    source.skip(1);
                     bytes_consumed += 1;
                 }
             }

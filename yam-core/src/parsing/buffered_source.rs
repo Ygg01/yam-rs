@@ -132,7 +132,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn buf_is_empty(&self) -> bool {
-        self.filled == 0
+        self.filled < BUF_MAX_LEN && self.pos >= self.filled
     }
 
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>) {
