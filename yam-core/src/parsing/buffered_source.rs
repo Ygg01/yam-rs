@@ -27,12 +27,6 @@ pub struct BufferedBytesSource<T> {
 pub type BufferedBytesSourceIter<'a> = BufferedBytesSource<Copied<Iter<'a, u8>>>;
 
 impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
-    #[inline]
-    /// Replaces entire buffer with new data from iterator.
-    fn fill_buf_to_max(&mut self) {
-        self.fill_buf_from(0);
-    }
-
     fn fill_buf_from(&mut self, pos: usize) {
         // SAFETY: pos can't be over BUF_MAX_LEN
         assert!(pos < BUF_MAX_LEN);
@@ -173,6 +167,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             self.pos = self.filled.min(new_pos);
         }
 
+        // Ensure we have at least 4 bytes in the buffer
         self.ensure_lookahead(4);
     }
 
@@ -205,19 +200,38 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let buf = unsafe {
             // SAFETY: This is safe because self.len guarantees that the buf is initialized
             // up to self.len position
+            // TODO should it start from 0?
             slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), self.filled)
         };
         Some(buf)
     }
 
     fn get_remaining(&self) -> &[u8] {
-        todo!()
+        unsafe {
+            // SAFETY: This is safe because self.len guarantees that the buf is initialized
+            // up to self.len position
+            slice::from_raw_parts(
+                self.chunk_buf.as_ptr().add(self.pos).cast(),
+                self.remaining_in_buf(),
+            )
+        }
+    }
+
+    #[inline]
+    fn fill_buf_to_max(&mut self) {
+        self.fill_buf_from(0);
+    }
+
+    #[inline]
+    fn update_pos(&mut self, pos: usize) {
+        debug_assert!(pos <= self.filled);
+        self.pos = pos;
     }
 }
 
-fn push_non_break_simd<T, S>(simd: S, src: &mut BufferedBytesSource<T>, vec: &mut Vec<u8>)
+fn push_non_break_simd<S, SRC>(simd: S, src: &mut SRC, vec: &mut Vec<u8>)
 where
-    T: Iterator<Item = u8>,
+    SRC: Source,
     S: Simd,
 {
     simd.vectorize(
@@ -234,7 +248,7 @@ where
                     if break_bitmask != 0 {
                         pos += break_bitmask.trailing_zeros() as usize;
                         vec.extend_from_slice(&x[0..pos]);
-                        src.pos = pos;
+                        src.update_pos(pos);
                         return;
                     }
                     pos += S::u8s::LEN;
@@ -243,7 +257,7 @@ where
                 vec.extend_from_slice(x);
                 src.fill_buf_to_max();
             }
-            let buf = src.get_buf();
+            let buf = src.get_remaining();
 
             // we get the value from while loop above, or we search remaining buf
             let found_pos = buf.iter().position(|&c| is_break(c)).unwrap_or(buf.len());
@@ -253,10 +267,9 @@ where
     );
 }
 
-fn skip_spaces_simd<T, S>(simd: S, src: &mut BufferedBytesSource<T>, max: usize) -> usize
+fn skip_spaces_simd<S, SRC>(simd: S, src: &mut SRC, max: usize) -> usize
 where
-    T: Iterator<Item = u8>,
-    S: Simd,
+    SRC: Source,
     S: Simd,
 {
     simd.vectorize(
@@ -273,7 +286,7 @@ where
                     let n = (ws_mask.trailing_ones() as usize).min(max - n_chars);
                     n_chars += n;
                     if n < S::u8s::LEN {
-                        src.pos = offset + n;
+                        src.update_pos(offset + n);
                         return n_chars;
                     }
                     offset += S::u8s::LEN;
@@ -281,7 +294,7 @@ where
                 src.fill_buf_to_max();
             }
 
-            let debug = src.get_buf();
+            let debug = src.get_remaining();
             let slow_path = debug
                 .iter()
                 .position(|&c| c != b' ')
@@ -296,14 +309,14 @@ where
 }
 
 #[allow(clippy::cast_possible_truncation)]
-fn skip_ws_to_eol_simd<T, S>(
+fn skip_ws_to_eol_simd<S, SRC>(
     simd: S,
-    src: &mut BufferedBytesSource<T>,
+    src: &mut SRC,
     skip_tabs: bool,
     has_yaml_ws: &mut bool,
 ) -> (u32, Result<SkipTabs, &'static str>)
 where
-    T: Iterator<Item = u8>,
+    SRC: Source,
     S: Simd,
 {
     simd.vectorize(
@@ -333,7 +346,7 @@ where
 
                     bytes_consumed += n as u32;
                     if n < S::u8s::LEN {
-                        src.pos = offset + n;
+                        src.update_pos(offset + n);
                         break 'break_finalize;
                     }
                     offset += S::u8s::LEN;

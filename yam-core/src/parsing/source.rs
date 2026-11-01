@@ -302,13 +302,22 @@ pub unsafe trait Source {
 
     /// Resets the head of the source to the start of the buffer.
     ///
-    /// # Side effects:
+    /// # Side effects
     ///   - In [`BufferedSource`], this method resets the head of the buffer to zero and refills the buffer.
     ///   - In [`StrSource`], this method does not have any side effects.
     ///
     /// # Default implementation
     /// Is a no-op.
     fn reset_head_to_start(&mut self) {}
+
+    /// Fills the buffer to its maximum capacity.
+    ///
+    /// # Side effects
+    /// This possibly changes the output of [`get_chunked`], depending on implementation.
+    fn fill_buf_to_max(&mut self);
+
+    /// Sets the position of the head to `pos`.
+    fn update_pos(&mut self, pos: usize);
 }
 
 #[inline]
@@ -510,6 +519,14 @@ unsafe impl Source for StrSource<'_> {
 
     fn get_remaining(&self) -> &[u8] {
         &self.input[self.pos..]
+    }
+
+    fn fill_buf_to_max(&mut self) {
+        todo!()
+    }
+
+    fn update_pos(&mut self, pos: usize) {
+        self.pos = pos;
     }
 }
 
