@@ -842,6 +842,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     #[inline]
     fn skip_linebreak(&mut self) {
+        self.src.ensure_lookahead(2);
         let c = self.src.peekz(0);
         let nc = self.src.peekz(1);
         match [c, nc] {
@@ -852,7 +853,8 @@ impl<'input, S: Source> Scanner<'input, S> {
                 self.leading_whitespace = true;
                 self.src.skip(2);
             }
-            [b'\n', _] => {
+            // A lone `\r` is also a line break (`b-break ::= CR LF | CR | LF`)
+            [b'\n' | b'\r', _] => {
                 self.mark.pos += 1;
                 self.mark.col = 1;
                 self.mark.line += 1;
@@ -1117,7 +1119,6 @@ impl<'input, S: Source> Scanner<'input, S> {
     #[allow(clippy::too_many_lines)]
     fn scan_flow_scalar(&mut self, single: bool) -> Result<Token<'input>, YamlError> {
         let start_mark = self.mark;
-        
 
         let mut string = Vec::new();
         let mut leading_break = Vec::new();
