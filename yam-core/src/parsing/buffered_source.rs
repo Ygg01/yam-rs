@@ -583,5 +583,70 @@ mod tests {
         let x = "";
         let source = BufferedBytesSource::new(x);
         assert_eq!(source.peekz(32), b'\0');
+        assert_eq!(source.peek_char(), '\u{FFFD}');
+    }
+
+    #[test]
+    fn test_crlf_across_buffer_end() {
+        let src = "a".repeat(BUF_MAX_LEN - 1) + "\r\nb";
+        let mut source = BufferedBytesSource::new(&src);
+        source.skip(BUF_MAX_LEN - 1);
+        assert_eq!(source.peekz(0), b'\r');
+        assert_eq!(source.peekz(1), b'\n');
+        assert_eq!(source.peekz(2), b'b');
+    }
+
+    #[test]
+    fn test_skip_to_buffer_end() {
+        let src = "a".repeat(BUF_MAX_LEN) + "bc";
+        let mut source = BufferedBytesSource::new(&src);
+        source.skip(BUF_MAX_LEN);
+        assert!(!source.buf_is_empty());
+        assert_eq!(source.peek_checked(0), Some(b'b'));
+        assert_eq!(source.peekz(1), b'c');
+    }
+
+    #[test]
+    fn test_skip_one_past_buffer_end() {
+        let src = "a".repeat(BUF_MAX_LEN) + "bcd";
+        let mut source = BufferedBytesSource::new(&src);
+        source.skip(BUF_MAX_LEN - 1);
+        source.skip(2);
+        assert_eq!(source.peekz(0), b'c');
+        assert_eq!(source.peekz(1), b'd');
+        assert_eq!(source.peekz(2), b'\0');
+    }
+
+    #[test]
+    fn test_skip_spaces_multiple_chunks() {
+        for len in [40, 64, 200] {
+            let src = " ".repeat(len) + "x";
+            let mut source = BufferedBytesSource::new(&src);
+            assert_eq!(source.skip_spaces(usize::MAX), len);
+            assert_eq!(source.peekz(0), b'x');
+
+            let mut source = BufferedBytesSource::new(&src);
+            assert_eq!(source.skip_spaces(len - 3), len - 3);
+            assert_eq!(source.skip_spaces(usize::MAX), 3);
+            assert_eq!(source.peekz(0), b'x');
+        }
+    }
+
+    #[test]
+    fn test_skip_ws_to_eol_multiple_chunks() {
+        let src = " ".repeat(150) + "\nx";
+        let mut source = BufferedBytesSource::new(&src);
+        let (n, res) = source.skip_ws_to_eol(true, false);
+        assert_eq!(n, 150);
+        assert!(res.is_ok());
+        assert_eq!(source.peekz(0), b'\n');
+        assert_eq!(source.peekz(1), b'x');
+    }
+
+    #[test]
+    fn test_peek_char_after_skip() {
+        let mut source = BufferedBytesSource::new("ab€c");
+        source.skip(2);
+        assert_eq!(source.peek_char(), '€');
     }
 }
