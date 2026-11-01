@@ -163,15 +163,15 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             self.pos = new_pos;
         } else if self.filled < BUF_MAX_LEN {
             // Input is exhausted, so we can't skip past the end
-            self.pos = self.filled;
+            self.pos = self.filled.min(new_pos);
         } else {
             // Stuff is outside of buffer. Discard the overflow, move head to 0 and repopulate
             self.input.nth(new_pos - self.filled - 1);
-            self.pos = 0;
-            self.fill_buf_to_max();
+            // self.pos = 0;
+            // self.fill_buf_to_max();
         }
 
-        self.ensure_lookahead(4);
+        self.reset_head_to_start();
     }
 
     fn skip_spaces(&mut self, max: usize) -> usize {

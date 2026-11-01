@@ -357,7 +357,7 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     );
 }
 
-const X1_565N_INPUT : &str = r#"
+const X1_565N_INPUT: &str = r#"
 generic: !!binary |
  R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5
  OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+
@@ -368,7 +368,7 @@ description:
 
 "#;
 
-const X1_565N_EVENT : &str = r#"
+const X1_565N_EVENT: &str = r#"
 +DOC
 +MAP
 =VAL :generic
@@ -378,12 +378,12 @@ const X1_565N_EVENT : &str = r#"
 -MAP
 -DOC"#;
 
-
-// TODO REMOVE 
+// TODO REMOVE
 #[test]
 fn test_565n() {
     assert_eq_event_case_with_opts(
-        X1_565N_INPUT, X1_565N_EVENT,
+        X1_565N_INPUT,
+        X1_565N_EVENT,
         ParsingOptions::Buffered,
         // ParsingOptions::String,
         &FormatOpts::InlineTestDetailed,

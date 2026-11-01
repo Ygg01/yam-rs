@@ -146,7 +146,7 @@ proptest! {
         prop_assert_eq!(stringed_vec, buffered_vec);
     }
 
-        #[test]
+    #[test]
     fn test_prop_skip_ws_to_eol(
         a in r"( {0,70}|[a-z:]{0,70}|[a-z ]{0,70})[\r\n\x00 :,\]]?[a-z ]{0,10}",
         skip_tabs in any::<bool>(),

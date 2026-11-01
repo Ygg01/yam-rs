@@ -3165,12 +3165,12 @@ pub const X1_BEC7_EVENTS: &str = r#"
 =VAL "foo
 -DOC"#;
 
-pub const X2_BEC7_INPUT : &str = "%YAML 1.3 # Attempt parsing\r\n          # with a warning\r\n---\r\n\"foo\"\r\n";
+pub const X2_BEC7_INPUT: &str =
+    "%YAML 1.3 # Attempt parsing\r\n          # with a warning\r\n---\r\n\"foo\"\r\n";
 pub const X2_BEC7_EVENTS: &str = r#"
 +DOC
 =VAL "foo
 -DOC"#;
-
 
 pub const X1_K3WX_INPUT: &str = r#"
 ---
