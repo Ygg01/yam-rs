@@ -356,6 +356,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn fetch_main_loop(&mut self) -> ScanResult {
+        self.src.ensure_lookahead(2);
         let c = self.src.peekz(0);
         let nc = self.src.peekz(1);
         match [c, nc] {
@@ -603,7 +604,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     need_whitespace = false;
                 }
                 b'\n' | b'\r' => {
-                    // ? self.src.lookahead(2);
+                    self.src.ensure_lookahead(2);
                     self.skip_linebreak();
                     if self.flow_level == 0 {
                         self.simple_key_allowed = true;
@@ -1972,7 +1973,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut width = 0usize;
         let mut code = 0u32;
         loop {
-            // self.src.lookahead(3);
+            self.src.ensure_lookahead(3);
 
             let c = self.src.peekz(1);
             let nc = self.src.peekz(2);

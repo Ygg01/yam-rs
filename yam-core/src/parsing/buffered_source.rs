@@ -127,6 +127,12 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         bytes.next().unwrap()
     }
 
+    fn ensure_lookahead(&mut self, n: usize) {
+        if (self.pos + n) >= BUF_MAX_LEN {
+            self.reset_head_to_start();
+        }
+    }
+
     fn buf_max_len(&self) -> usize {
         BUF_MAX_LEN
     }

@@ -357,13 +357,27 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     );
 }
 
+const X1_565N_INPUT : &str = r#"canonical: !!binary "\
+ R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5\
+ OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+\
+ +f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLC\
+ AgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs="
+generic: !!binary |
+ R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5
+ OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+
+ +f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLC
+ AgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs=
+description:
+ The binary value above is a tiny arrow encoded as a gif image.
+
+"#;
 
 
 // TODO REMOVE 
 #[test]
 fn test_bec7() {
     assert_eq_event_case_with_opts(
-        X2_BEC7_INPUT, X2_BEC7_EVENTS,
+        X1_565N_INPUT, X2_BEC7_EVENTS,
         ParsingOptions::Buffered,
         // ParsingOptions::String,
         &FormatOpts::InlineTest,

@@ -117,6 +117,8 @@ pub unsafe trait Source {
         BUF_MAX_LEN
     }
 
+    fn ensure_lookahead(&mut self, _n: usize) {}
+
     fn buf_is_empty(&self) -> bool;
 
     fn fetch_while_is_alpha(&mut self, out: &mut Vec<u8>) -> usize {
@@ -181,6 +183,7 @@ pub unsafe trait Source {
         {
             accumulator.push(x);
             self.skip(1);
+            self.ensure_lookahead(1);
         }
     }
 
