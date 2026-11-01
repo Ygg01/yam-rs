@@ -148,7 +148,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let level = Level::new();
         self.reset_head_to_start();
         dispatch!(level, simd => push_non_break_simd(simd, self, vec));
-        self.ensure_lookahead(4);
+        self.reset_head_to_start();
     }
 
     fn skip(&mut self, n: usize) {
@@ -178,7 +178,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let level = Level::new();
         self.reset_head_to_start();
         let n_chars = dispatch!(level, simd => skip_spaces_simd(simd, self, max));
-        self.ensure_lookahead(4);
+        self.reset_head_to_start();
         n_chars
     }
 
@@ -192,8 +192,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.reset_head_to_start();
         let res =
             dispatch!(level, simd => skip_ws_to_eol_simd(simd, self, skip_tab, &mut has_yaml_ws));
-        self.ensure_lookahead(4);
-
+        self.reset_head_to_start();
         res
     }
 
