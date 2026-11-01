@@ -1117,6 +1117,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     #[allow(clippy::too_many_lines)]
     fn scan_flow_scalar(&mut self, single: bool) -> Result<Token<'input>, YamlError> {
         let start_mark = self.mark;
+        
 
         let mut string = Vec::new();
         let mut leading_break = Vec::new();
@@ -1129,7 +1130,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         loop {
             /* Check for a document indicator. */
-            // ? self.src.lookahead(4);
+            self.src.ensure_lookahead(4);
 
             if self.mark.col == 1 && self.src.next_is_document_indicator() {
                 return Err(YamlError::new_str(
