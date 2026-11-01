@@ -418,15 +418,15 @@ mod tests {
 
     #[test]
     fn test_skip_big() {
-        let mut source = BufferedBytesSource::new_from_bytes(
-            br#"Lorem ipsum dolor sit amet, 
+        let input = br#"Lorem ipsum dolor sit amet, 
             consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet, 
             ornare vitae erat. Aenean bibendum arcu et risus auctor, 
             nec finibus arcu finibus. Integer ut congue metus, non hendrerit nunc. 
             Ut ornare efficitur nisl, sed ullamcorper risus feugiat at. 
-            Aenean ut mi a nulla pellentesque aliquet quis vitae lorem. Vestibulum semper elit"#,
-        );
-        assert_eq!(source.filled, BUF_MAX_LEN);
+            Aenean ut mi a nulla pellentesque aliquet quis vitae lorem. Vestibulum semper elit"#;
+        let mut source = BufferedBytesSource::new_from_bytes(input);
+        let guaranteed_filled = input.len().min(BUF_MAX_LEN);
+        assert_eq!(source.filled, guaranteed_filled);
         assert_eq!(source.peekz(0), b'L');
         assert_eq!(source.peekz(1), b'o');
 
