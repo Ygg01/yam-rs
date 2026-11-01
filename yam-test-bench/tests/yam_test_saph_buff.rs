@@ -357,11 +357,7 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     );
 }
 
-const X1_565N_INPUT : &str = r#"canonical: !!binary "\
- R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5\
- OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+\
- +f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLC\
- AgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs="
+const X1_565N_INPUT : &str = r#"
 generic: !!binary |
  R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5
  OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+
@@ -372,14 +368,24 @@ description:
 
 "#;
 
+const X1_565N_EVENT : &str = r#"
++DOC
++MAP
+=VAL :generic
+=VAL <tag:yaml.org,2002:binary> |R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5\nOTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+\n+f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLC\nAgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs=\n
+=VAL :description
+=VAL :The binary value above is a tiny arrow encoded as a gif image.
+-MAP
+-DOC"#;
+
 
 // TODO REMOVE 
 #[test]
-fn test_bec7() {
+fn test_565n() {
     assert_eq_event_case_with_opts(
-        X1_565N_INPUT, X2_BEC7_EVENTS,
+        X1_565N_INPUT, X1_565N_EVENT,
         ParsingOptions::Buffered,
         // ParsingOptions::String,
-        &FormatOpts::InlineTest,
+        &FormatOpts::InlineTestDetailed,
     )
 }

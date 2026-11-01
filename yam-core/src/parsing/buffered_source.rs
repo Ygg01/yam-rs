@@ -209,7 +209,7 @@ where
     S: Simd,
 {
     simd.vectorize(
-        // TODO RE-ENABLE #[inline(always)]
+        #[inline(always)]
         || {
             
             while let Some(x) = src.get_chunk_buf() {
@@ -219,12 +219,15 @@ where
                     let value = S::u8s::from_slice(simd, chunk);
                     let break_bitmask =
                         value.simd_eq(b'\r').to_bitmask() | value.simd_eq(b'\n').to_bitmask();
-                    pos += break_bitmask.trailing_zeros() as usize;
+                    
                     if break_bitmask != 0 {
+                        pos += break_bitmask.trailing_zeros() as usize;
                         vec.extend_from_slice(&x[0..pos]);
                         src.pos = pos;
                         return;
                     }
+                    pos += S::u8s::LEN;
+                    
                 }
 
                 vec.extend_from_slice(x);
@@ -247,7 +250,7 @@ where
     S: Simd,
 {
     simd.vectorize(
-        // TODO RE-ENABLE #[inline(always)]
+        #[inline(always)]
         || {
             let mut n_chars = 0;
 
@@ -291,7 +294,7 @@ where
     S: Simd,
 {
     simd.vectorize(
-        // TODO RE-ENABLE #[inline(always)]
+        #[inline(always)]
         || {
             let mut any_tabs = false;
             let mut bytes_consumed = 0u32;

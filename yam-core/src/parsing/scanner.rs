@@ -1338,7 +1338,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if is_break(self.src.peekz(0)) {
-            // self.src.lookahead(2);
+            self.src.ensure_lookahead(2);
             self.read_break(&mut chomping_break);
         }
 
@@ -1664,7 +1664,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
             if is_break(self.src.peekz(0)) {
                 // If our current line is empty, skip over the break and continue looping.
-                // self.src.lookahead(2);
+                self.src.ensure_lookahead(2);
                 self.read_break(breaks);
             } else {
                 // Otherwise, we have a content line. Return control.
