@@ -130,14 +130,14 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         bytes.next().unwrap_or('\u{FFFD}')
     }
 
+    fn buf_max_len(&self) -> usize {
+        BUF_MAX_LEN
+    }
+
     fn ensure_lookahead(&mut self, n: usize) {
         if (self.pos + n) >= BUF_MAX_LEN {
             self.reset_head_to_start();
         }
-    }
-
-    fn buf_max_len(&self) -> usize {
-        BUF_MAX_LEN
     }
 
     fn buf_is_empty(&self) -> bool {
@@ -149,6 +149,16 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.reset_head_to_start();
         dispatch!(level, simd => push_non_break_simd(simd, self, vec));
         self.reset_head_to_start();
+    }
+
+    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
+        let mut n_chars = 0;
+        while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
+            n_chars += 1;
+            out.push(self.peekz(0));
+            self.skip(1);
+        }
+        n_chars
     }
 
     fn skip(&mut self, n: usize) {
@@ -198,16 +208,6 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             dispatch!(level, simd => skip_ws_to_eol_simd(simd, self, skip_tab, &mut has_yaml_ws));
         self.reset_head_to_start();
         res
-    }
-
-    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
-        let mut n_chars = 0;
-        while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
-            n_chars += 1;
-            out.push(self.peekz(0));
-            self.skip(1);
-        }
-        n_chars
     }
 }
 
@@ -291,6 +291,7 @@ where
     )
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn skip_ws_to_eol_simd<T, S>(
     simd: S,
     src: &mut BufferedBytesSource<T>,

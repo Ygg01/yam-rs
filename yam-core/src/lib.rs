@@ -39,4 +39,3 @@ mod lazy_expander;
 pub mod node;
 pub mod parsing;
 pub mod prelude;
-mod util;
