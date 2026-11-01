@@ -1,0 +1,17 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc e7a3769bdf5ef617eefbb42db25580b4dc8a322a08c528ee79f6f452e5ae875d # shrinks to a = "                                           ", op = SkipSpaces(0)
+cc 1bfea8f8005d0f261ae10d94109265ce1cde9d2261a4d9827ba1990dc4c48125 # shrinks to a = ":aa::a::a:a:a::a:a:aa:::::a::::::", in_flow = false
+cc 08bdedeb20c6d9f09191a04f3c764637dd65dff7bd82db1859379cd1d35889e7 # shrinks to a = " ", b = 1
+cc dcc8879ce85afec6ab00b696b52fb4d909eeb03fe205771e43ada10d3145f117 # shrinks to a = "                                                              \0  "
+cc 5a9269142a75ac20687a912cd19667c136b111df6bf7539f59c7581ef769e272 # shrinks to a = ":a:aa:::::a:a::aa::aa\naa   a aa "
+cc 04ab48b6c9f5b72ff891fec2aff68dc934be9f04a75e2dafbc4e62a3036260c5 # shrinks to a = "a aa aaaaaa  aa  aa     aa   aa aa aa   a a a aa aaa aa aaaaaaaaa aaaaaaa  a a aa   aa   aa     aa   aaaaaaaa aaaa      a  aaaaa ", skip = 125, max = 0
+cc 509c499e69853f1c200d202f1845e9ab7b9dfdc289d04fa4f7bd18907bdaae53 # shrinks to a = "a  aaa aa aaaaaa a a a aaa  aa a   a a  aaaaa   aa a  a  aaaa  a   aaa a    aa aa   a aaa a   aaaaaa                    :aa  aaa ", skip = 127, in_flow = false
+cc fe869a4193c4b0ea927a992fb99302453381ae7e50d7072b35a05fcada5691dd # shrinks to a = "a    aa a     a aaaaaa aaa  a a aa aa  aa  a aaa  aaaaaaa   aa  a a  aa  a  a   aaaa   aaaa aaa aaa                      a  aaaaa", skip = 129, skip_tabs = false, prev_ws = false
+cc 53f661c970a411072661d598ec776dd1452197c0ce483f6bb28c5496ea4c1f2b # shrinks to a = "     a aa  a    a aaaaa       a aaa  a aaaaa aaaaaa  a aaa a aa a a aaaa aa  aaaaaaaaa a a aa a aaaa                    \0a a  aa ", skip = 128, skip_tabs = false, prev_ws = false
+cc 5a902cb91a6ba7bb378aafab6f81a2b14dafccaf950ce8ae8261fb1d46908295 # shrinks to a = "a a a a aaaa aaa a    aaaa  a  a aa  a aaaaaa aaaaa  aaa aaaa aa aaa aaa   a   a   aaa aa aa  a aaaa aaaaaa aaaaa  a   aa a  aa  aa aaaaaa  aa a aaaaaa   a a aa a a a  aa    a a   a a  a  aa aaaaaa aaaaa aaaaa  a\n a ", skip = 85
+cc f0c6ba181b3a389947912390f0af450092124057f9ec7c67235638b526678dd3 # shrinks to a = "aaa aaaaaaaaa a  a aa aa aaa aa       aaa aa    a a aa   aaaa aa  a    aaa aa a a a a  a   aaaaaa  aa aa   aaaaaa   aaaa aaa  aa aaa a a  aaa  aaa a    aa aa aa                                                                                                                             \raa  a aa", skip = 160, max = 33

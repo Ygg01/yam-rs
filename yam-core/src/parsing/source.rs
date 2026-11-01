@@ -1,4 +1,4 @@
-use crate::parsing::buffered_source::MAX_LEN;
+use crate::parsing::buffered_source::BUF_MAX_LEN;
 use crate::parsing::char_utils::{
     LO_BYTES, eq_byte_mask, is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
     len_until,
@@ -114,8 +114,10 @@ pub unsafe trait Source {
 
     #[must_use]
     fn buf_max_len(&self) -> usize {
-        MAX_LEN
+        BUF_MAX_LEN
     }
+
+    fn ensure_lookahead(&mut self, _n: usize) {}
 
     fn buf_is_empty(&self) -> bool;
 
@@ -134,15 +136,7 @@ pub unsafe trait Source {
     /// Appends and skips bytes for as long as they can continue a plain scalar, that is while
     /// the next byte isn't blank, a break or EOF and [`Source::next_can_be_plain_scalar`] holds.
     /// Returns the number of bytes consumed.
-    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
-        let mut n_chars = 0;
-        while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
-            n_chars += 1;
-            out.push(self.peekz(0));
-            self.skip(1);
-        }
-        n_chars
-    }
+    fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize;
 
     /// Advances the iterator by skipping over a specified number of bytes.
     ///
@@ -189,6 +183,7 @@ pub unsafe trait Source {
         {
             accumulator.push(x);
             self.skip(1);
+            self.ensure_lookahead(1);
         }
     }
 
@@ -217,21 +212,21 @@ pub unsafe trait Source {
 
 #[inline]
 pub(crate) fn shared_skip_ws_to_eol<T: Source>(
-    x: &mut T,
+    source: &mut T,
     skip_tabs: bool,
     mut bytes_consumed: u32,
     mut any_tabs: bool,
     mut has_yaml_ws: bool,
 ) -> (u32, Result<SkipTabs, &'static str>) {
     loop {
-        match x.peekz(0) {
+        match source.peekz(0) {
             b' ' => {
                 has_yaml_ws = true;
-                x.skip(1);
+                source.skip(1);
             }
             b'\t' if skip_tabs => {
                 any_tabs = true;
-                x.skip(1);
+                source.skip(1);
             }
             // YAML comments must be preceded by whitespace.
             b'#' if !any_tabs && !has_yaml_ws => {
@@ -245,9 +240,9 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
             #[cfg(not(feature = "comment"))]
             b'#' => {
                 // Skip `#`
-                x.skip(1);
-                while !is_breakz(x.peekz(0)) {
-                    x.skip(1);
+                source.skip(1);
+                while !is_breakz(source.peekz(0)) {
+                    source.skip(1);
                     bytes_consumed += 1;
                 }
             }

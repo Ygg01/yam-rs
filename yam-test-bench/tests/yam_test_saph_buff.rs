@@ -328,6 +328,7 @@ fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
 #[case::docs_footer(FOOTER_INPUT, FOOTER_EVENTS)]
 #[case::docs_6zkb(X1_6ZKB_INPUT, X1_6ZKB_EVENTS)]
 #[case::docs_bec7(X1_BEC7_INPUT, X1_BEC7_EVENTS)]
+#[case::docs_bec72(X2_BEC7_INPUT, X2_BEC7_EVENTS)]
 fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,

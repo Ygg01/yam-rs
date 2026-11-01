@@ -356,6 +356,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn fetch_main_loop(&mut self) -> ScanResult {
+        self.src.ensure_lookahead(2);
         let c = self.src.peekz(0);
         let nc = self.src.peekz(1);
         match [c, nc] {
@@ -603,7 +604,7 @@ impl<'input, S: Source> Scanner<'input, S> {
                     need_whitespace = false;
                 }
                 b'\n' | b'\r' => {
-                    // ? self.src.lookahead(2);
+                    self.src.ensure_lookahead(2);
                     self.skip_linebreak();
                     if self.flow_level == 0 {
                         self.simple_key_allowed = true;
@@ -841,6 +842,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     #[inline]
     fn skip_linebreak(&mut self) {
+        self.src.ensure_lookahead(2);
         let c = self.src.peekz(0);
         let nc = self.src.peekz(1);
         match [c, nc] {
@@ -851,7 +853,8 @@ impl<'input, S: Source> Scanner<'input, S> {
                 self.leading_whitespace = true;
                 self.src.skip(2);
             }
-            [b'\n', _] => {
+            // A lone `\r` is also a line break (`b-break ::= CR LF | CR | LF`)
+            [b'\n' | b'\r', _] => {
                 self.mark.pos += 1;
                 self.mark.col = 1;
                 self.mark.line += 1;
@@ -1128,7 +1131,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         loop {
             /* Check for a document indicator. */
-            // ? self.src.lookahead(4);
+            self.src.ensure_lookahead(4);
 
             if self.mark.col == 1 && self.src.next_is_document_indicator() {
                 return Err(YamlError::new_str(
@@ -1336,7 +1339,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         }
 
         if is_break(self.src.peekz(0)) {
-            // self.src.lookahead(2);
+            self.src.ensure_lookahead(2);
             self.read_break(&mut chomping_break);
         }
 
@@ -1662,7 +1665,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
             if is_break(self.src.peekz(0)) {
                 // If our current line is empty, skip over the break and continue looping.
-                // self.src.lookahead(2);
+                self.src.ensure_lookahead(2);
                 self.read_break(breaks);
             } else {
                 // Otherwise, we have a content line. Return control.
@@ -1972,7 +1975,7 @@ impl<'input, S: Source> Scanner<'input, S> {
         let mut width = 0usize;
         let mut code = 0u32;
         loop {
-            // self.src.lookahead(3);
+            self.src.ensure_lookahead(3);
 
             let c = self.src.peekz(1);
             let nc = self.src.peekz(2);
