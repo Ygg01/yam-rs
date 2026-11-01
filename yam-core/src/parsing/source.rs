@@ -54,14 +54,6 @@ pub unsafe trait Source {
     /// This function attempts to retrieve the byte at the specified index `n` in the buffer.
     /// If the index `n` is out of bounds or greater than `MAX_BUFFER_SIZE`, it returns `0`.
     ///
-    /// # Arguments
-    ///
-    /// * `n` - The index of the byte to retrieve from the buffer.
-    ///
-    /// # Returns
-    ///
-    /// * `u8` - The byte at the specified index, or `0` if `n` is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -106,21 +98,50 @@ pub unsafe trait Source {
     #[must_use]
     unsafe fn peek_unsafe(&self, n: usize) -> u8;
 
+    /// Tries to peek a byte at position `n`.
+    ///
+    /// `n` indicates how far the peeked character is ahead of the current position.
+    /// So `n == 0` is the byte at the current position.
+    /// For `n > 0` peeks `n` bytes ahead of the current position.
+    /// If `n >= self.buf_max_len()` method returns `None`.
+    ///
+    /// Returns an `Option<u8>`:
+    ///  - `Some(u8)` if the byte is located at the specified index `n`
+    ///  - `None` if the index is out of bounds or out of buffer.
+    ///
+    /// # Notes
+    ///
+    /// - Before invoking this function with `n > 0`, one must ensure
+    ///   the buffer if exist is properly initialized via [`ensure_lookahead`].
+    /// - Most peeks in [`StrSource`] will return `Some(u8)`, but in [`BufferedSource`]
+    ///   they can fail when encountering buffer bounds.
     #[must_use]
     fn peek_checked(&self, n: usize) -> Option<u8>;
 
+    /// Tries to peek a UTF [`char`].
+    ///
+    /// Next character in the source. If no valid character is found, returns `\u{FFFD}`.
     #[must_use]
     fn peek_char(&self) -> char;
 
+    /// Returns the maximum length of the lookahead buffer.
     #[must_use]
     fn buf_max_len(&self) -> usize {
         BUF_MAX_LEN
     }
 
-    fn ensure_lookahead(&mut self, _n: usize) {}
+    /// Ensures that the lookahead buffer has at least `n` bytes available from the source.
+    ///
+    /// # Note:
+    /// In [`StrSource`], this function is a no-op as the buffer is always pre-filled.
+    fn ensure_lookahead(&mut self, _n: usize);
 
+    /// Returns whether the lookahead buffer is empty.
     fn buf_is_empty(&self) -> bool;
 
+    /// Consumes bytes that are alphanumeric or `-` or `_` characters.
+    ///
+    /// Consumed characters are added to `out` and the number of consumed bytes is returned.
     fn fetch_while_is_alpha(&mut self, out: &mut Vec<u8>) -> usize {
         let mut n_chars = 0;
         while is_alpha(self.peekz(0)) {
@@ -131,11 +152,26 @@ pub unsafe trait Source {
         n_chars
     }
 
+    /// Appends a non-breaking character (`\r` and `\n` or EOF) to the given vector of bytes until
+    /// a breaking character is reached.
+    ///
+    /// This function adds a specific byte (representing a non-breaking character)
+    /// to the provided mutable vector (`vec`). It ensures that only non-breaking characters
+    /// are appended during its execution.
+    ///
+    /// # Notes
+    /// - The implementation assumes that the underlying input is UTF8.
+    /// - This function does not modify any existing elements in the vector.
     fn push_non_breakz_chr(&mut self, vec: &mut Vec<u8>);
 
-    /// Appends and skips bytes for as long as they can continue a plain scalar, that is while
-    /// the next byte isn't blank, a break or EOF and [`Source::next_can_be_plain_scalar`] holds.
-    /// Returns the number of bytes consumed.
+    /// Appends and skips bytes for as long as they can continue a plain scalar holds.
+    ///
+    /// It takes into consideration the current context (i.e., whether the context is within a flow style)
+    /// and outputs the bytes that match the rules into the provided mutable vector (`out`).
+    ///
+    /// # Notes
+    /// - The implementation assumes that the underlying input is UTF8.
+    /// - This function does not modify any existing elements in the vector.
     fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize;
 
     /// Advances the iterator by skipping over a specified number of bytes.
@@ -151,8 +187,13 @@ pub unsafe trait Source {
     ///
     /// # Parameters
     /// - `max`: The maximum number of consecutive spaces to skip.
+    ///
+    /// Returns the number of bytes skipped this way.
     fn skip_spaces(&mut self, max: usize) -> usize;
 
+    /// Skip spaces all (` `) and (`\t`).
+    ///
+    /// Returns the number of bytes skipped this way.
     fn skip_while_blank(&mut self) -> usize {
         let mut n_chars = 0;
         while is_blank(self.peekz(0)) {
@@ -162,12 +203,40 @@ pub unsafe trait Source {
         n_chars
     }
 
+    /// Advances the internal pointer of the object to skip over whitespace
+    /// until the end of the current line, optionally allowing the skipping
+    /// of tabs.
+    ///
+    /// If `skip_tabs` is `true`, tab characters (`\t`) are also skipped.
+    /// While `prev_ws` is a boolean representing whether the function is already called in a context
+    /// where previous characters were already whitespace.
+    ///
+    /// # Returns
+    /// A tuple containing:
+    /// - A `u32` representing the number of whitespace characters skipped.
+    /// - A `Result` where:
+    ///   - `Ok(SkipTabs)` is returned when the operation completes successfully.
+    ///     `SkipTabs` may encode additional state or information about the operation.
+    ///   - `Err(&'static str)` is returned when an error occurs, with
+    ///     `&'static str` providing a description of the error.
+    ///
+    /// # Errors
+    /// This function will return an `Err` if an unexpected parsing condition
+    /// or invalid state occurs that prevents the function from skipping whitespace.
+    ///
+    /// # Notes
+    /// - This function assumes the caller manages and maintains the internal state
+    ///   of the object correctly to avoid misalignment or unexpected results.
+    /// - The behavior may vary depending on the implementation of `SkipTabs`.
     fn skip_ws_to_eol(
         &mut self,
         skip_tabs: bool,
         prev_ws: bool,
     ) -> (u32, Result<SkipTabs, &'static str>);
 
+    /// Skips all non-break and non-EOF characters.
+    ///
+    /// Returns the number of bytes skipped.
     fn skip_while_non_breakz(&mut self) -> usize {
         let mut count = 0;
         while !is_breakz(self.peekz(0)) {
@@ -177,24 +246,30 @@ pub unsafe trait Source {
         count
     }
 
+    /// Skip all non-break characters while accumulating them into the provided accumulator.
+    ///
+    /// # Side Effect
+    /// Pushes bytes into the accumulator and updates the current position using [`skip`](Self::skip).
     fn skip_and_accumulate_to_eol(&mut self, accumulator: &mut Vec<u8>) {
         while let Some(x) = self.peek_checked(0)
             && !is_break(x)
         {
             accumulator.push(x);
             self.skip(1);
-            self.ensure_lookahead(1);
         }
     }
 
+    /// Checks if the byte after the current position is `chr`.
     fn next_next_byte_is(&self, chr: u8) -> bool {
         self.peekz(1) == chr
     }
 
+    /// Returns if the next three bytes are all a single `chr`. Useful for checking document indicators.
     fn next_is_three(&self, chr: u8) -> bool {
         self.peekz(0) == chr && self.peekz(1) == chr && self.peekz(2) == chr
     }
 
+    /// Checks if the next two bytes can be inside a plain scalar.
     fn next_can_be_plain_scalar(&self, in_flow: bool) -> bool {
         let nc = self.peekz(1);
         match self.peekz(0) {
@@ -205,9 +280,35 @@ pub unsafe trait Source {
         }
     }
 
+    /// Returns if the next three bytes are `---` or `...`
     fn next_is_document_indicator(&self) -> bool {
         (self.next_is_three(b'-') || self.next_is_three(b'.')) && is_blank_or_breakz(self.peekz(3))
     }
+
+    // # SIMD Methods
+
+    /// This method returns a chunk of bytes from the source, divisible by 64 chunked for SIMD usage.
+    ///
+    /// Note: While in-memory doesn't need any updating, the [`BufferedSource`]
+    /// requires updates using [`reset_head_to_start`]
+    fn get_chunked(&self) -> Option<&[u8]>;
+
+    /// This method returns the remaining bytes in the source buffer after exhausting all [`get_chunked`] bytes.
+    ///
+    /// # Returns
+    /// A slice of bytes that are not chunked for SIMD usage. In SIMD algorithms this slice should be taken by
+    /// the slow path.
+    fn get_remaining(&self) -> &[u8];
+
+    /// Resets the head of the source to the start of the buffer.
+    ///
+    /// # Side effects:
+    ///   - In [`BufferedSource`], this method resets the head of the buffer to zero and refills the buffer.
+    ///   - In [`StrSource`], this method does not have any side effects.
+    ///
+    /// # Default implementation
+    /// Is a no-op.
+    fn reset_head_to_start(&mut self) {}
 }
 
 #[inline]
@@ -340,6 +441,8 @@ unsafe impl Source for StrSource<'_> {
         bytes.next().unwrap_or('\u{FFFD}')
     }
 
+    fn ensure_lookahead(&mut self, _n: usize) {}
+
     fn buf_is_empty(&self) -> bool {
         self.pos >= self.input.len()
     }
@@ -397,6 +500,16 @@ unsafe impl Source for StrSource<'_> {
         has_yaml_ws: bool,
     ) -> (u32, Result<SkipTabs, &'static str>) {
         shared_skip_ws_to_eol(self, skip_tabs, 0, false, has_yaml_ws)
+    }
+
+    fn get_chunked(&self) -> Option<&[u8]> {
+        let remaining_part = self.input.len() % 64;
+        let chunk_end = self.input.len() - remaining_part;
+        Some(&self.input[..chunk_end])
+    }
+
+    fn get_remaining(&self) -> &[u8] {
+        &self.input[self.pos..]
     }
 }
 

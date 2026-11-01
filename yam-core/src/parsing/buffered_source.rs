@@ -67,18 +67,6 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
         self.filled.saturating_sub(self.pos)
     }
 
-    pub fn get_chunk_buf(&self) -> Option<&[u8]> {
-        if self.filled < self.buf_max_len() {
-            return None;
-        }
-        let buf = unsafe {
-            // SAFETY: This is safe because self.len guarantees that the buf is initialized
-            // up to self.len position
-            slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), self.filled)
-        };
-        Some(buf)
-    }
-
     pub fn get_buf(&self) -> &[u8] {
         unsafe {
             // SAFETY: This is safe because self.len guarantees that the buf is initialized
@@ -209,6 +197,22 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.reset_head_to_start();
         res
     }
+
+    fn get_chunked(&self) -> Option<&[u8]> {
+        if self.filled < self.buf_max_len() {
+            return None;
+        }
+        let buf = unsafe {
+            // SAFETY: This is safe because self.len guarantees that the buf is initialized
+            // up to self.len position
+            slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), self.filled)
+        };
+        Some(buf)
+    }
+
+    fn get_remaining(&self) -> &[u8] {
+        todo!()
+    }
 }
 
 fn push_non_break_simd<T, S>(simd: S, src: &mut BufferedBytesSource<T>, vec: &mut Vec<u8>)
@@ -219,7 +223,7 @@ where
     simd.vectorize(
         #[inline(always)]
         || {
-            while let Some(x) = src.get_chunk_buf() {
+            while let Some(x) = src.get_chunked() {
                 let mut pos = 0;
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
                 for chunk in &mut chunks {
@@ -260,7 +264,7 @@ where
         || {
             let mut n_chars = 0;
 
-            while let Some(x) = src.get_chunk_buf() {
+            while let Some(x) = src.get_chunked() {
                 let mut offset = 0;
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
                 for chunk in &mut chunks {
@@ -308,7 +312,7 @@ where
             let mut any_tabs = false;
             let mut bytes_consumed = 0u32;
 
-            'break_finalize: while let Some(x) = src.get_chunk_buf() {
+            'break_finalize: while let Some(x) = src.get_chunked() {
                 let mut offset = 0;
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
                 for chunk in &mut chunks {
