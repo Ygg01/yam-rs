@@ -3,7 +3,7 @@ use crate::parsing;
 use crate::parsing::Tag;
 use crate::parsing::{Event, ScalarValue, SpannedEventReceiver};
 use crate::prelude::{
-    IsEmpty, Source, Span, StrSource, YamlDocAccess, YamlEntry, YamlError, YamlScalar,
+    InMemSource, IsEmpty, Source, Span, YamlDocAccess, YamlEntry, YamlError, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
@@ -235,7 +235,7 @@ where
     /// ```
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Node>, YamlError> {
         let mut event_listener = YamlLoader::default();
-        let mut parser = parsing::Parser::new(StrSource::new(input.as_ref()));
+        let mut parser = parsing::Parser::new(InMemSource::new(input.as_ref()));
         parser.load(&mut event_listener, true)?;
         Ok(event_listener.docs)
     }
@@ -284,7 +284,7 @@ where
     ///
     pub fn load_single<S: AsRef<str>>(input: S) -> Result<Node, YamlError> {
         let mut event_listener = YamlLoader::default();
-        let mut parser = parsing::Parser::new(StrSource::new(input.as_ref()));
+        let mut parser = parsing::Parser::new(InMemSource::new(input.as_ref()));
         parser.load(&mut event_listener, false)?;
         event_listener
             .docs
@@ -370,9 +370,9 @@ where
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::prelude::{YamlLoader, Yaml, StrSource};
+    /// use yam_core::prelude::{YamlLoader, Yaml, InMemSource};
     ///
-    /// let input = StrSource::new("---\nkey: value\n");
+    /// let input = InMemSource::new("---\nkey: value\n");
     /// match YamlLoader::<Yaml>::load_single_source(input) {
     ///     Ok(node) => println!("Successfully loaded: {:?}", node),
     ///     Err(e) => eprintln!("Failed to load YAML: {:?}", e),

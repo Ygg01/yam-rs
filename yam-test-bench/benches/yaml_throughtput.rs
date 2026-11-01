@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use std::hint::black_box;
 use std::time::Duration;
-use yam_core::parsing::{BufferedBytesSource, Parser};
+use yam_core::parsing::{BufBytesSource, Parser};
 use yam_test_bench::{write_str_from_event, FormatOpts};
 
 const NESTED_YAML: &str = include_str!("nested.yaml");
@@ -44,7 +44,7 @@ fn bench_big_text(c: &mut Criterion) {
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufferedBytesSource::new(BIG_TEXT)) {
+            for ev in Parser::new(BufBytesSource::new(BIG_TEXT)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
@@ -78,7 +78,7 @@ fn bench_nested(c: &mut Criterion) {
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufferedBytesSource::new(NESTED_YAML)) {
+            for ev in Parser::new(BufBytesSource::new(NESTED_YAML)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
@@ -112,7 +112,7 @@ fn bench_small_object(c: &mut Criterion) {
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufferedBytesSource::new(SMALL_OBJECTS_YAML)) {
+            for ev in Parser::new(BufBytesSource::new(SMALL_OBJECTS_YAML)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
@@ -146,7 +146,7 @@ fn bench_quoted(c: &mut Criterion) {
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufferedBytesSource::new(BIG_QUOTE_TEXT_YAML)) {
+            for ev in Parser::new(BufBytesSource::new(BIG_QUOTE_TEXT_YAML)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })

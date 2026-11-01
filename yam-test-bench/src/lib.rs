@@ -2,7 +2,7 @@ pub mod consts;
 
 use std::borrow::Cow;
 use std::fmt::Write;
-use yam_core::parsing::BufferedBytesSource;
+use yam_core::parsing::BufBytesSource;
 use yam_core::parsing::Event;
 use yam_core::parsing::{Parser, ScalarValue, Source};
 use yam_core::prelude::Tag;
@@ -29,7 +29,7 @@ pub fn assert_eq_event_case_with_opts(
             write_str_from_event(&mut line, &mut parser, emit_opt);
         }
         ParsingOptions::Buffered => {
-            let mut parser = Parser::new(BufferedBytesSource::new_from_bytes(input.as_bytes()));
+            let mut parser = Parser::new(BufBytesSource::new_from_bytes(input.as_bytes()));
             write_str_from_event(&mut line, &mut parser, emit_opt);
         }
     }

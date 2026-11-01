@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use yam_core::parsing::{BufferedBytesSource, Source, StrSource};
+use yam_core::parsing::{BufBytesSource, InMemSource, Source};
 
 /// Inputs long enough to cross the internal buffer of `BufferedBytesSource`.
 const LONG_INPUT: &str =
@@ -19,8 +19,8 @@ proptest! {
         skip in 0..200usize,
         max in 0..200usize,
     ) {
-        let mut buffered = BufferedBytesSource::new(&a);
-        let mut stringed = StrSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let skip = skip.min(a.len());
         buffered.skip(skip);
         stringed.skip(skip);
@@ -35,8 +35,8 @@ proptest! {
         skip in 0..200usize,
         in_flow in any::<bool>(),
     ) {
-        let mut buffered = BufferedBytesSource::new(&a);
-        let mut stringed = StrSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let skip = skip.min(a.len());
         buffered.skip(skip);
         stringed.skip(skip);
@@ -55,8 +55,8 @@ proptest! {
         a in LONG_INPUT,
         skip in 0..200usize,
     ) {
-        let mut buffered = BufferedBytesSource::new(&a);
-        let mut stringed = StrSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let skip = skip.min(a.len());
         buffered.skip(skip);
         stringed.skip(skip);
@@ -75,8 +75,8 @@ proptest! {
         skip_tabs in any::<bool>(),
         prev_ws in any::<bool>(),
     ) {
-        let mut buffered = BufferedBytesSource::new(&a);
-        let mut stringed = StrSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let skip = skip.min(a.len());
         buffered.skip(skip);
         stringed.skip(skip);
@@ -93,8 +93,8 @@ proptest! {
         a in r"[#\[\]\{\}\w]*",
         b in 0..32usize,
     ) {
-        let buffered = BufferedBytesSource::new(&a);
-        let stringed = StrSource::new(&a);
+        let buffered = BufBytesSource::new(&a);
+        let stringed = InMemSource::new(&a);
         let peekz_buff = buffered.peekz(b);
         let peekz_strn = stringed.peekz(b);
         prop_assert_eq!(peekz_buff, peekz_strn);
@@ -106,8 +106,8 @@ proptest! {
         a in r"( {0,70}|[a-z:]{0,70}|[a-z ]{0,70})[\r\n\x00 :,\]]?[a-z ]{0,10}",
         b in 0..32usize,
     ) {
-        let mut buffered = BufferedBytesSource::new(&a);
-        let mut stringed = StrSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let skip_buffered = buffered.skip_spaces(b);
         let skip_stringed = stringed.skip_spaces(b);
         prop_assert_eq!(skip_buffered, skip_stringed);
@@ -119,11 +119,11 @@ proptest! {
         a in r"( {0,70}|[a-z:]{0,70}|[a-z ]{0,70})[\r\n\x00 :,\]]?[a-z ]{0,10}",
         in_flow in any::<bool>(),
     ) {
-        let mut stringed = StrSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let mut stringed_vec = Vec::new();
         let skip_stringed = stringed.push_plain_run(in_flow, &mut stringed_vec);
 
-        let mut buffered = BufferedBytesSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
         let mut buffered_vec = Vec::new();
         let skip_buffered = buffered.push_plain_run(in_flow, &mut buffered_vec);
 
@@ -135,11 +135,11 @@ proptest! {
     fn test_prop_push_non_breakz_chr(
         a in r"( {0,70}|[a-z:]{0,70}|[a-z ]{0,70})[\r\n\x00 :,\]]?[a-z ]{0,10}",
     ) {
-        let mut stringed = StrSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let mut stringed_vec = Vec::new();
         stringed.push_non_breakz_chr(&mut stringed_vec);
 
-        let mut buffered = BufferedBytesSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
         let mut buffered_vec = Vec::new();
         buffered.push_non_breakz_chr(&mut buffered_vec);
 
@@ -152,10 +152,10 @@ proptest! {
         skip_tabs in any::<bool>(),
         prev_ws in any::<bool>(),
     ) {
-        let mut stringed = StrSource::new(&a);
+        let mut stringed = InMemSource::new(&a);
         let str_res = stringed.skip_ws_to_eol(skip_tabs, prev_ws);
 
-        let mut buffered = BufferedBytesSource::new(&a);
+        let mut buffered = BufBytesSource::new(&a);
         let buf_res = buffered.skip_ws_to_eol(skip_tabs, prev_ws);
 
         prop_assert_eq!(str_res, buf_res);

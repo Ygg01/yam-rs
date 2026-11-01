@@ -1,5 +1,5 @@
 use rstest::rstest;
-use yam_core::parsing::{BufferedBytesSource, Parser};
+use yam_core::parsing::{BufBytesSource, Parser};
 
 const NESTED_YAML: &str = include_str!("../benches/nested.yaml");
 const BIG_TEXT: &str = include_str!("../benches/big_text.yaml");
@@ -8,7 +8,7 @@ const SMALL_OBJECTS_YAML: &str = include_str!("../benches/small_objects.yaml");
 
 fn assert_same_events(input: &str) {
     let expected: Vec<_> = Parser::new_from_str(input).collect();
-    let actual: Vec<_> = Parser::new(BufferedBytesSource::new(input)).collect();
+    let actual: Vec<_> = Parser::new(BufBytesSource::new(input)).collect();
     assert!(
         expected.iter().all(Result::is_ok),
         "bench input must parse with StrSource"

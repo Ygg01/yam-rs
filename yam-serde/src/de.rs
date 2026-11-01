@@ -7,7 +7,7 @@ use serde_core::de::{
 use serde_core::{de, forward_to_deserialize_any};
 use yam_core::node::YamlScalar;
 use yam_core::parsing::parser_iter::YamEvent;
-use yam_core::parsing::{ParserIter, ScalarValue, Source, StrSource};
+use yam_core::parsing::{InMemSource, ParserIter, ScalarValue, Source};
 use yam_core::prelude::YamlError;
 
 pub(crate) struct YamIterDeserializer<'de, R>
@@ -19,10 +19,10 @@ where
     has_peeked: bool,
 }
 
-impl<'a> YamIterDeserializer<'a, StrSource<'a>> {
+impl<'a> YamIterDeserializer<'a, InMemSource<'a>> {
     pub fn new(source: &'a str) -> Self {
         YamIterDeserializer {
-            yaml_iter: ParserIter::new(StrSource::new(source)),
+            yaml_iter: ParserIter::new(InMemSource::new(source)),
             last_event: YamEvent::DocStart,
             has_peeked: false,
         }

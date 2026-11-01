@@ -13,7 +13,7 @@ use fearless_simd::{Level, Simd, SimdBase, SimdMask, dispatch};
 pub(crate) const BUF_MAX_LEN: usize = 128;
 
 #[allow(dead_code)]
-pub struct BufferedBytesSource<T> {
+pub struct BufBytesSource<T> {
     /// The input source. Usually a byte iterator
     input: T,
     /// The buffer of `MaybeUninit` bytes
@@ -24,9 +24,9 @@ pub struct BufferedBytesSource<T> {
     pos: usize,
 }
 
-pub type BufferedBytesSourceIter<'a> = BufferedBytesSource<Copied<Iter<'a, u8>>>;
+pub type BufferedBytesSourceIter<'a> = BufBytesSource<Copied<Iter<'a, u8>>>;
 
-impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
+impl<T: Iterator<Item = u8>> BufBytesSource<T> {
     fn fill_buf_from(&mut self, pos: usize) {
         // SAFETY: pos can't be over BUF_MAX_LEN
         assert!(pos < BUF_MAX_LEN);
@@ -71,7 +71,7 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
 }
 
 #[allow(dead_code)]
-impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
+impl<'a> BufBytesSource<Copied<Iter<'a, u8>>> {
     #[must_use]
     pub fn new_from_bytes(input: &'a [u8]) -> Self {
         let mut x = Self {
@@ -90,7 +90,7 @@ impl<'a> BufferedBytesSource<Copied<Iter<'a, u8>>> {
     }
 }
 
-unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
+unsafe impl<T: Iterator<Item = u8>> Source for BufBytesSource<T> {
     unsafe fn peek_unsafe(&self, n: usize) -> u8 {
         unsafe { self.chunk_buf.get_unchecked(self.pos + n).assume_init() }
     }
@@ -362,7 +362,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::parsing::Source;
-    use crate::parsing::buffered_source::{BUF_MAX_LEN, BufferedBytesSource};
+    use crate::parsing::buffered_source::{BUF_MAX_LEN, BufBytesSource};
     use crate::parsing::scanner::SkipTabs;
     use alloc::vec::Vec;
 
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_skip_ws_minimal() {
-        let mut source = BufferedBytesSource::new("                       ,     a a");
+        let mut source = BufBytesSource::new("                       ,     a a");
 
         assert_eq!(source.peekz(0), b' ');
         assert_eq!(source.skip_spaces(0), 0);
@@ -385,7 +385,7 @@ mod tests {
     #[test]
     fn test_prop_push() {
         let src = "a:a:aa:::::a:::::a::aaaaa:a:a:a::";
-        let mut source = BufferedBytesSource::new(src);
+        let mut source = BufBytesSource::new(src);
         let mut out = Vec::with_capacity(32);
 
         assert_eq!(source.peekz(0), b'a');
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_skip_spaces() {
         let src = BLOCK_MULTI_INPUT;
-        let mut source = BufferedBytesSource::new(src);
+        let mut source = BufBytesSource::new(src);
 
         assert_eq!(source.peekz(0), b' ');
         let skip = source.skip_spaces(usize::MAX);
@@ -407,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_create() {
-        let source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
+        let source = BufBytesSource::new_from_bytes(b"Hello, world!");
         assert_eq!(source.filled, 13);
         assert_eq!(source.peekz(0), b'H');
         assert_eq!(source.peekz(1), b'e');
@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_skip() {
-        let mut source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
+        let mut source = BufBytesSource::new_from_bytes(b"Hello, world!");
         assert_eq!(source.filled, 13);
         assert_eq!(source.peekz(0), b'H');
         assert_eq!(source.peekz(1), b'e');
@@ -437,7 +437,7 @@ mod tests {
             nec finibus arcu finibus. Integer ut congue metus, non hendrerit nunc. 
             Ut ornare efficitur nisl, sed ullamcorper risus feugiat at. 
             Aenean ut mi a nulla pellentesque aliquet quis vitae lorem. Vestibulum semper elit"#;
-        let mut source = BufferedBytesSource::new_from_bytes(input);
+        let mut source = BufBytesSource::new_from_bytes(input);
         let guaranteed_filled = input.len().min(BUF_MAX_LEN);
         assert_eq!(source.filled, guaranteed_filled);
         assert_eq!(source.peekz(0), b'L');
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_create_empty() {
-        let mut source = BufferedBytesSource::new_from_bytes(b"");
+        let mut source = BufBytesSource::new_from_bytes(b"");
         assert_eq!(source.filled, 0);
         assert_eq!(source.peekz(0), b'\0');
         assert_eq!(source.peekz(1), b'\0');
@@ -464,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_push_breakz() {
-        let mut source = BufferedBytesSource::new_from_bytes(b"Lorem ipsum dolor sit amet,
+        let mut source = BufBytesSource::new_from_bytes(b"Lorem ipsum dolor sit amet,
                                                         consectetur adipiscing elit. Sed dui nulla, consectetur in pretium sit amet,
                                                         ornare vitae erat. Aenean bibendum arcu et risus auctor,");
         let mut dest = Vec::new();
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_tabs() {
-        let mut source = BufferedBytesSource::new(YAML_WS_TABS);
+        let mut source = BufBytesSource::new(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert!(res1.1.is_ok());
@@ -502,7 +502,7 @@ mod tests {
         assert!(skip_tabs.found_tabs());
         assert!(skip_tabs.has_valid_yaml_ws());
 
-        let mut source = BufferedBytesSource::new(YAML_WS_TABS);
+        let mut source = BufBytesSource::new(YAML_WS_TABS);
         assert_eq!(source.peekz(0), b' ');
         let res2 = source.skip_ws_to_eol(false, false);
         assert!(res2.1.is_ok());
@@ -512,7 +512,7 @@ mod tests {
     #[test]
     fn skip_ws_doesnt_skip_non_ws() {
         let folded_ex = "  - folded example where \nyou need to skip only to the `-` character\n not to this part";
-        let mut source = BufferedBytesSource::new(folded_ex);
+        let mut source = BufBytesSource::new(folded_ex);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 2);
@@ -530,7 +530,7 @@ mod tests {
     fn skip_comment() {
         let folded_ex =
             "   # commented out \nyou need to skip only to the `-` character\n not to this part";
-        let mut source = BufferedBytesSource::new(folded_ex);
+        let mut source = BufBytesSource::new(folded_ex);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 19);
@@ -551,7 +551,7 @@ mod tests {
 %YAML 1.3 # Attempt parsing
           # with a warning
 ---"#;
-        let mut source = BufferedBytesSource::new(multiline_comment);
+        let mut source = BufBytesSource::new(multiline_comment);
         assert_eq!(source.peekz(0), b'\n');
         source.skip(10);
         assert_eq!(source.peekz(0), b' ');
@@ -574,7 +574,7 @@ mod tests {
  - test minor            
                                            
 ---"#;
-        let mut source = BufferedBytesSource::new(multiline_comment);
+        let mut source = BufBytesSource::new(multiline_comment);
         assert_eq!(source.peekz(0), b'\n');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 0);
@@ -592,7 +592,7 @@ mod tests {
     fn skip_whitespace() {
         let multiline_comment =
             r#" { }                                                           "#;
-        let mut source = BufferedBytesSource::new(multiline_comment);
+        let mut source = BufBytesSource::new(multiline_comment);
         assert_eq!(source.peekz(0), b' ');
         let res1 = source.skip_ws_to_eol(true, false);
         assert_eq!(res1.0, 1);
@@ -608,7 +608,7 @@ mod tests {
     #[test]
     fn test_empty() {
         let x = "";
-        let source = BufferedBytesSource::new(x);
+        let source = BufBytesSource::new(x);
         assert_eq!(source.peekz(32), b'\0');
         assert_eq!(source.peek_char(), '\u{FFFD}');
     }
@@ -616,7 +616,7 @@ mod tests {
     #[test]
     fn test_crlf_across_buffer_end() {
         let src = "a".repeat(BUF_MAX_LEN - 1) + "\r\nb";
-        let mut source = BufferedBytesSource::new(&src);
+        let mut source = BufBytesSource::new(&src);
         source.skip(BUF_MAX_LEN - 1);
         assert_eq!(source.peekz(0), b'\r');
         assert_eq!(source.peekz(1), b'\n');
@@ -626,7 +626,7 @@ mod tests {
     #[test]
     fn test_skip_to_buffer_end() {
         let src = "a".repeat(BUF_MAX_LEN) + "bc";
-        let mut source = BufferedBytesSource::new(&src);
+        let mut source = BufBytesSource::new(&src);
         source.skip(BUF_MAX_LEN);
         assert!(!source.buf_is_empty());
         assert_eq!(source.peek_checked(0), Some(b'b'));
@@ -636,7 +636,7 @@ mod tests {
     #[test]
     fn test_skip_one_past_buffer_end() {
         let src = "a".repeat(BUF_MAX_LEN) + "bcd";
-        let mut source = BufferedBytesSource::new(&src);
+        let mut source = BufBytesSource::new(&src);
         source.skip(BUF_MAX_LEN - 1);
         source.skip(2);
         assert_eq!(source.peekz(0), b'c');
@@ -648,11 +648,11 @@ mod tests {
     fn test_skip_spaces_multiple_chunks() {
         for len in [40, 64, 200] {
             let src = " ".repeat(len) + "x";
-            let mut source = BufferedBytesSource::new(&src);
+            let mut source = BufBytesSource::new(&src);
             assert_eq!(source.skip_spaces(usize::MAX), len);
             assert_eq!(source.peekz(0), b'x');
 
-            let mut source = BufferedBytesSource::new(&src);
+            let mut source = BufBytesSource::new(&src);
             assert_eq!(source.skip_spaces(len - 3), len - 3);
             assert_eq!(source.skip_spaces(usize::MAX), 3);
             assert_eq!(source.peekz(0), b'x');
@@ -662,7 +662,7 @@ mod tests {
     #[test]
     fn test_skip_ws_to_eol_multiple_chunks() {
         let src = " ".repeat(150) + "\nx";
-        let mut source = BufferedBytesSource::new(&src);
+        let mut source = BufBytesSource::new(&src);
         let (n, res) = source.skip_ws_to_eol(true, false);
         assert_eq!(n, 150);
         assert!(res.is_ok());
@@ -672,7 +672,7 @@ mod tests {
 
     #[test]
     fn test_peek_char_after_skip() {
-        let mut source = BufferedBytesSource::new("ab€c");
+        let mut source = BufBytesSource::new("ab€c");
         source.skip(2);
         assert_eq!(source.peek_char(), '€');
     }

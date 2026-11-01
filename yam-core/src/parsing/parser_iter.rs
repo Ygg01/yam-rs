@@ -1,4 +1,4 @@
-use crate::parsing::{Event, Parser, ScalarValue, Source, StrSource, Tag};
+use crate::parsing::{Event, InMemSource, Parser, ScalarValue, Source, Tag};
 use crate::prelude::YamlError;
 use alloc::borrow::Cow;
 use core::ops::ControlFlow;
@@ -55,9 +55,9 @@ pub struct ParserIter<'de, R: Source> {
     error: Option<YamlError>,
 }
 
-impl<'a> ParserIter<'a, StrSource<'a>> {
+impl<'a> ParserIter<'a, InMemSource<'a>> {
     pub fn from_str_ref<S: AsRef<str>>(input: &'a S) -> Self {
-        Self::new(StrSource::new(input.as_ref()))
+        Self::new(InMemSource::new(input.as_ref()))
     }
 }
 

@@ -6,8 +6,8 @@
 
 use crate::parsing::buffered_source::BufferedBytesSourceIter;
 use crate::parsing::scanner::{Scanner, Token};
-pub(crate) use crate::parsing::source::{Source, StrSource};
-use crate::parsing::{BufferedBytesSource, Tag, TokenType};
+pub(crate) use crate::parsing::source::{InMemSource, Source};
+use crate::parsing::{BufBytesSource, Tag, TokenType};
 use crate::prelude::{Marker, ScalarType, Span, YamlError};
 use alloc::{
     borrow::Cow,
@@ -1653,16 +1653,16 @@ impl<'input, T: Source> Iterator for Parser<'input, T> {
     }
 }
 
-impl<'input> Parser<'input, StrSource<'input>> {
+impl<'input> Parser<'input, InMemSource<'input>> {
     #[must_use]
     pub fn new_from_str(input: &'input str) -> Self {
-        Parser::new(StrSource::new(input))
+        Parser::new(InMemSource::new(input))
     }
 }
 
 impl<'input> Parser<'input, BufferedBytesSourceIter<'input>> {
     #[must_use]
     pub fn new_from_bytes(input: &'input str) -> Self {
-        Parser::new(BufferedBytesSource::new_from_bytes(input.as_bytes()))
+        Parser::new(BufBytesSource::new_from_bytes(input.as_bytes()))
     }
 }

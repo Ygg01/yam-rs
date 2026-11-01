@@ -11,15 +11,15 @@ use crate::prelude::{ScalarType, YamlError};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-pub use buffered_source::BufferedBytesSource;
+pub use buffered_source::BufBytesSource;
 use core::fmt;
 use core::fmt::{Display, Formatter};
 pub use parser::EventReceiver;
 pub use parser::SpannedEventReceiver;
 pub use parser::{Event, Parser, ScalarValue};
 pub use parser_iter::ParserIter;
+pub use source::InMemSource;
 pub use source::Source;
-pub use source::StrSource;
 
 ///
 /// Represents the different types of tokens that can be encountered in the input stream.

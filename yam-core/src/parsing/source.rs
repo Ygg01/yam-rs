@@ -57,10 +57,10 @@ pub unsafe trait Source {
     /// # Examples
     ///
     /// ```
-    /// use yam_core::parsing::StrSource;
+    /// use yam_core::parsing::InMemSource;
     /// use yam_core::parsing::Source;
     ///
-    /// let buffer = StrSource::new("example");
+    /// let buffer = InMemSource::new("example");
     /// assert_eq!(buffer.peekz(2), b'a');
     /// ```
     ///
@@ -113,7 +113,7 @@ pub unsafe trait Source {
     ///
     /// - Before invoking this function with `n > 0`, one must ensure
     ///   the buffer if exist is properly initialized via [`ensure_lookahead`].
-    /// - Most peeks in [`StrSource`] will return `Some(u8)`, but in [`BufferedSource`]
+    /// - Most peeks in [`InMemSource`] will return `Some(u8)`, but in [`BufferedSource`]
     ///   they can fail when encountering buffer bounds.
     #[must_use]
     fn peek_checked(&self, n: usize) -> Option<u8>;
@@ -133,7 +133,7 @@ pub unsafe trait Source {
     /// Ensures that the lookahead buffer has at least `n` bytes available from the source.
     ///
     /// # Note:
-    /// In [`StrSource`], this function is a no-op as the buffer is always pre-filled.
+    /// In [`InMemSource`], this function is a no-op as the buffer is always pre-filled.
     fn ensure_lookahead(&mut self, _n: usize);
 
     /// Returns whether the lookahead buffer is empty.
@@ -304,7 +304,7 @@ pub unsafe trait Source {
     ///
     /// # Side effects
     ///   - In [`BufferedSource`], this method resets the head of the buffer to zero and refills the buffer.
-    ///   - In [`StrSource`], this method does not have any side effects.
+    ///   - In [`InMemSource`], this method does not have any side effects.
     ///
     /// # Default implementation
     /// Is a no-op.
@@ -379,22 +379,22 @@ pub(crate) fn shared_skip_ws_to_eol<T: Source>(
 /// - `'input`: Lifetime of the input data slice.
 /// # Example
 /// ```
-/// use yam_core::prelude::{StrSource, Source};
-/// let source = StrSource::new("Hello, world!");
+/// use yam_core::prelude::{InMemSource, Source};
+/// let source = InMemSource::new("Hello, world!");
 /// assert_eq!(source.peekz(0), b'H');
 /// assert_eq!(source.peekz(1), b'e');
 /// ```
 ///
 /// This struct can be used for parsing, tokenizing, or other scenarios
 /// where keeping track of a position in a byte slice is required.
-pub struct StrSource<'input> {
+pub struct InMemSource<'input> {
     /// A reference to the byte slice (`&[u8]`) that serves as the source data.
     input: &'input [u8],
     /// A zero based index (`usize`) representing the current position within the input.
     pos: usize,
 }
 
-impl<'input> StrSource<'input> {
+impl<'input> InMemSource<'input> {
     /// Returns the not yet consumed part of the input.
     #[inline]
     fn rest(&self) -> &'input [u8] {
@@ -417,20 +417,20 @@ impl<'input> StrSource<'input> {
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::prelude::{StrSource, Source};
-    /// let source = StrSource::new("example");
+    /// use yam_core::prelude::{InMemSource, Source};
+    /// let source = InMemSource::new("example");
     /// assert_eq!(source.peek_char(),'e');
     /// ```
     #[must_use]
-    pub fn new(input: &'input str) -> StrSource<'input> {
-        StrSource {
+    pub fn new(input: &'input str) -> InMemSource<'input> {
+        InMemSource {
             input: input.as_bytes(),
             pos: 0,
         }
     }
 }
 
-unsafe impl Source for StrSource<'_> {
+unsafe impl Source for InMemSource<'_> {
     unsafe fn peek_unsafe(&self, n: usize) -> u8 {
         unsafe { *self.input.get_unchecked(self.pos + n) }
     }
@@ -533,9 +533,9 @@ unsafe impl Source for StrSource<'_> {
 #[cfg(test)]
 mod test {
     use crate::parsing::Source;
-    use crate::parsing::buffered_source::BufferedBytesSource;
+    use crate::parsing::buffered_source::BufBytesSource;
     use crate::parsing::scanner::SkipTabs;
-    use crate::prelude::StrSource;
+    use crate::prelude::InMemSource;
 
     const TEST_STR: &str = "                                      \
                                     \n                     \
@@ -543,7 +543,7 @@ mod test {
 
     #[test]
     fn test_str_source() {
-        let mut x = StrSource::new(TEST_STR);
+        let mut x = InMemSource::new(TEST_STR);
         let (consume, skip) = x.skip_ws_to_eol(true, false);
         assert_eq!(consume, 38);
         assert_eq!(
@@ -554,7 +554,7 @@ mod test {
             })
         );
 
-        let mut x = BufferedBytesSource::new(TEST_STR);
+        let mut x = BufBytesSource::new(TEST_STR);
         let (consume, skip) = x.skip_ws_to_eol(true, false);
         assert_eq!(consume, 38);
         assert_eq!(
