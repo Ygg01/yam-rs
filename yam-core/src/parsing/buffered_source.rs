@@ -35,7 +35,7 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
 
     fn fill_buf_from(&mut self, pos: usize) {
         // SAFETY: pos can't be over BUF_MAX_LEN
-        assert!(pos <= BUF_MAX_LEN);
+        assert!(pos < BUF_MAX_LEN);
         // SAFETY: filled starts from pos and overwrites until BUF_MAX_LEN
         self.filled = pos;
         for x in pos..self.buf_max_len() {
@@ -148,6 +148,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         let level = Level::new();
         self.reset_head_to_start();
         dispatch!(level, simd => push_non_break_simd(simd, self, vec));
+        self.ensure_lookahead(4);
     }
 
     fn skip(&mut self, n: usize) {
@@ -156,26 +157,29 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             return;
         }
 
-        // Within buffer so just update head pos
-        if n + self.pos <= self.filled {
-            self.pos += n;
-            return;
+        let new_pos = self.pos + n;
+        if new_pos <= self.filled {
+            // Within buffer so just update head pos
+            self.pos = new_pos;
+        } else if self.filled < BUF_MAX_LEN {
+            // Input is exhausted, so we can't skip past the end
+            self.pos = self.filled;
+        } else {
+            // Stuff is outside of buffer. Discard the overflow, move head to 0 and repopulate
+            self.input.nth(new_pos - self.filled - 1);
+            self.pos = 0;
+            self.fill_buf_to_max();
         }
 
-        // Stuff is outside of buffer. Move head to 0 and repopulate the buffer
-        let skip = (n + self.pos).saturating_sub(self.buf_max_len() + 1);
-        if skip > 0 {
-            self.input.nth(skip);
-        }
-
-        self.pos = 0;
-        self.fill_buf_to_max();
+        self.ensure_lookahead(4);
     }
 
     fn skip_spaces(&mut self, max: usize) -> usize {
         let level = Level::new();
         self.reset_head_to_start();
-        dispatch!(level, simd => skip_spaces_simd(simd, self, max))
+        let n_chars = dispatch!(level, simd => skip_spaces_simd(simd, self, max));
+        self.ensure_lookahead(4);
+        n_chars
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -186,7 +190,11 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     ) -> (u32, Result<SkipTabs, &'static str>) {
         let level = Level::new();
         self.reset_head_to_start();
-        dispatch!(level, simd => skip_ws_to_eol_simd(simd, self, skip_tab, &mut has_yaml_ws))
+        let res =
+            dispatch!(level, simd => skip_ws_to_eol_simd(simd, self, skip_tab, &mut has_yaml_ws));
+        self.ensure_lookahead(4);
+
+        res
     }
 
     fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
@@ -194,12 +202,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
             n_chars += 1;
             out.push(self.peekz(0));
-
             self.skip(1);
-            // Ensures that we are close to end we reset the head to start
-            if self.pos == BUF_MAX_LEN - 1 {
-                self.reset_head_to_start();
-            }
         }
         n_chars
     }
@@ -255,16 +258,18 @@ where
             let mut n_chars = 0;
 
             while let Some(x) = src.get_chunk_buf() {
+                let mut offset = 0;
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
                 for chunk in &mut chunks {
                     let value = S::u8s::from_slice(simd, chunk);
                     let ws_mask = value.simd_eq(b' ').to_bitmask();
-                    let n = (ws_mask.trailing_ones() as usize).min(max);
+                    let n = (ws_mask.trailing_ones() as usize).min(max - n_chars);
                     n_chars += n;
-                    if n < S::u8s::LEN || n_chars >= max {
-                        src.pos += n;
+                    if n < S::u8s::LEN {
+                        src.pos = offset + n;
                         return n_chars;
                     }
+                    offset += S::u8s::LEN;
                 }
                 src.fill_buf_to_max();
             }
@@ -274,7 +279,7 @@ where
                 .iter()
                 .position(|&c| c != b' ')
                 .unwrap_or(debug.len())
-                .min(max);
+                .min(max - n_chars);
 
             src.skip(slow_path);
             n_chars += slow_path;
@@ -300,6 +305,7 @@ where
             let mut bytes_consumed = 0u32;
 
             'break_finalize: while let Some(x) = src.get_chunk_buf() {
+                let mut offset = 0;
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
                 for chunk in &mut chunks {
                     let value = S::u8s::from_slice(simd, chunk);
@@ -317,12 +323,12 @@ where
                     *has_yaml_ws |= (spaces & prefix) != 0;
                     any_tabs |= (tabs & prefix) != 0;
 
-                    // src.filled += n;
                     bytes_consumed += n as u32;
                     if n < S::u8s::LEN {
-                        src.pos += n;
+                        src.pos = offset + n;
                         break 'break_finalize;
                     }
+                    offset += S::u8s::LEN;
                 }
                 src.fill_buf_to_max();
             }

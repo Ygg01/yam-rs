@@ -32,6 +32,17 @@ fn buffered_matches_str_source(#[case] input: &str) {
     assert_same_events(&crlf);
 }
 
+// TODO REMOVE
+#[test]
+fn timeout_debug() {
+    let input = NESTED_YAML;
+    let lf = input.replace("\r\n", "\n");
+    // let crlf = lf.replace('\n', "\r\n");
+    let actual: Vec<_> = Parser::new(BufferedBytesSource::new(input)).collect();
+
+    assert_eq!(actual, actual);
+}
+
 #[test]
 fn lone_cr_is_line_break() {
     let input = "a: b\rc: d\r";
