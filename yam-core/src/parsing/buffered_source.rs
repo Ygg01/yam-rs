@@ -1,7 +1,7 @@
-use crate::parsing::{Source, char_utils::is_blank_or_breakz};
 use crate::parsing::char_utils::is_break;
 use crate::parsing::scanner::SkipTabs;
 use crate::parsing::source::shared_skip_ws_to_eol;
+use crate::parsing::{Source, char_utils::is_blank_or_breakz};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::iter::Copied;
@@ -56,10 +56,15 @@ impl<T: Iterator<Item = u8>> BufferedBytesSource<T> {
         if self.pos == 0 {
             return;
         }
-        let n = self.filled.saturating_sub(self.pos);
+        let n = self.remaining_in_buf();
         self.chunk_buf.copy_within(self.pos..self.filled, 0);
         self.fill_buf_from(n);
         self.pos = 0;
+    }
+
+    #[inline]
+    fn remaining_in_buf(&self) -> usize {
+        self.filled.saturating_sub(self.pos)
     }
 
     pub fn get_chunk_buf(&self) -> Option<&[u8]> {
@@ -116,15 +121,13 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
     }
 
     fn peek_char(&self) -> char {
-        // SAFETY: This takes up to 4 bytes. `4.min(self.len)` guarantees it won't see any
-        // uninit values
+        let len = 4.min(self.remaining_in_buf());
+        // SAFETY: This takes up to 4 bytes from the head. Capping at `self.filled` guarantees it
+        // won't see any uninit values
         let slice =
-            unsafe { slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), 4.min(self.filled)) };
-        // SAFETY: Converts up to the next 4 bytes (currently UTF-8) maximum
-        // to a char using from_utf8_unchecked. It should contain at least one valid char, which is
-        // all we care about.
+            unsafe { slice::from_raw_parts(self.chunk_buf.as_ptr().add(self.pos).cast(), len) };
         let mut bytes = unsafe { str::from_utf8_unchecked(slice).chars() };
-        bytes.next().unwrap()
+        bytes.next().unwrap_or('\u{FFFD}')
     }
 
     fn ensure_lookahead(&mut self, n: usize) {
@@ -159,12 +162,12 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             return;
         }
 
-        // Stuff is outside of buffer. Move head to 0 and repopulate the buffer 
+        // Stuff is outside of buffer. Move head to 0 and repopulate the buffer
         let skip = (n + self.pos).saturating_sub(self.buf_max_len() + 1);
         if skip > 0 {
             self.input.nth(skip);
-        }    
-        
+        }
+
         self.pos = 0;
         self.fill_buf_to_max();
     }
@@ -185,7 +188,7 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
         self.reset_head_to_start();
         dispatch!(level, simd => skip_ws_to_eol_simd(simd, self, skip_tab, &mut has_yaml_ws))
     }
-    
+
     fn push_plain_run(&mut self, in_flow: bool, out: &mut Vec<u8>) -> usize {
         let mut n_chars = 0;
         while !is_blank_or_breakz(self.peekz(0)) && self.next_can_be_plain_scalar(in_flow) {
@@ -196,10 +199,9 @@ unsafe impl<T: Iterator<Item = u8>> Source for BufferedBytesSource<T> {
             // Ensures that we are close to end we reset the head to start
             if self.pos == BUF_MAX_LEN - 1 {
                 self.reset_head_to_start();
-            } 
+            }
         }
         n_chars
-    
     }
 }
 
@@ -211,7 +213,6 @@ where
     simd.vectorize(
         #[inline(always)]
         || {
-            
             while let Some(x) = src.get_chunk_buf() {
                 let mut pos = 0;
                 let mut chunks = x.chunks_exact(S::u8s::LEN);
@@ -219,7 +220,7 @@ where
                     let value = S::u8s::from_slice(simd, chunk);
                     let break_bitmask =
                         value.simd_eq(b'\r').to_bitmask() | value.simd_eq(b'\n').to_bitmask();
-                    
+
                     if break_bitmask != 0 {
                         pos += break_bitmask.trailing_zeros() as usize;
                         vec.extend_from_slice(&x[0..pos]);
@@ -227,7 +228,6 @@ where
                         return;
                     }
                     pos += S::u8s::LEN;
-                    
                 }
 
                 vec.extend_from_slice(x);
@@ -334,7 +334,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::parsing::{Source};
+    use crate::parsing::Source;
     use crate::parsing::buffered_source::{BUF_MAX_LEN, BufferedBytesSource};
     use crate::parsing::scanner::SkipTabs;
     use alloc::vec::Vec;
@@ -364,7 +364,7 @@ mod tests {
         assert_eq!(source.peekz(0), b'a');
         source.push_plain_run(false, &mut out);
         assert_eq!(source.peekz(0), b':');
-        assert_eq!(out, src.as_bytes()[0..src.len()-1])
+        assert_eq!(out, src.as_bytes()[0..src.len() - 1])
     }
 
     #[test]
@@ -378,7 +378,7 @@ mod tests {
         assert_eq!(source.peekz(0), b'w');
     }
 
-    #[test] 
+    #[test]
     fn test_create() {
         let source = BufferedBytesSource::new_from_bytes(b"Hello, world!");
         assert_eq!(source.filled, 13);
