@@ -514,7 +514,7 @@ unsafe impl Source for InMemSource<'_> {
     fn get_chunked(&self) -> Option<&[u8]> {
         let remaining_part = self.input.len() % 64;
         let chunk_end = self.input.len() - remaining_part;
-        Some(&self.input[..chunk_end])
+        self.input.get(..chunk_end)
     }
 
     fn get_remaining(&self) -> &[u8] {
