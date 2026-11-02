@@ -169,28 +169,28 @@ where
     fn sequence_mut(&mut self) -> &mut Self::SequenceNode {
         match &mut self.0 {
             YamlData::Sequence(s) => s,
-            _ => panic!("YamlData::sequence_mut() called with non-sequence"),
+            _ => core::panic!("YamlData::sequence_mut() called with non-sequence"),
         }
     }
 
     fn sequence(&self) -> &Self::SequenceNode {
         match &self.0 {
             YamlData::Sequence(s) => s,
-            _ => panic!("YamlData::sequence() called with non-sequence"),
+            _ => core::panic!("YamlData::sequence() called with non-sequence"),
         }
     }
 
     fn mapping_mut(&mut self) -> &mut Self::MappingNode {
         match &mut self.0 {
             YamlData::Mapping(m) => m,
-            _ => panic!("YamlData::mapping_mut() called with non-mapping"),
+            _ => core::panic!("YamlData::mapping_mut() called with non-mapping"),
         }
     }
 
     fn mapping(&self) -> &Self::MappingNode {
         match &self.0 {
             YamlData::Mapping(m) => m,
-            _ => panic!("YamlData::mapping() called with non-mapping"),
+            _ => core::panic!("YamlData::mapping() called with non-mapping"),
         }
     }
 

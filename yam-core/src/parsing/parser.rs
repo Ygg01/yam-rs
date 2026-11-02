@@ -571,11 +571,10 @@ impl<'input, T: Source> Parser<'input, T> {
         if !has_token {
             self.fill_token()?;
         }
-
-        self.token.as_ref().ok_or(YamlError::ScannerErr {
-            mark: self.scanner.mark,
-            info: "fill_token always caches a token".to_string(),
-        })
+        Ok(self
+            .token
+            .as_ref()
+            .expect("fill_token always caches a token"))
     }
 
     /// Scans tokens until a non-comment token is cached in `self.token`.
@@ -620,7 +619,6 @@ impl<'input, T: Source> Parser<'input, T> {
         self.scanner.next_token_into(&mut self.token)
     }
 
-    // TODO see how to remove them
     fn fetch_token<'a>(&mut self) -> Token<'a>
     where
         'input: 'a,
