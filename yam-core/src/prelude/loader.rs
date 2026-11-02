@@ -416,20 +416,20 @@ where
             Event::DocumentEnd => {
                 match self.doc_stack.len() {
                     // empty document
-                    0 => self.docs.push(YamlData::BadValue.into()),
+                    0 => self.docs.push(Node::bad_span_value(span)),
                     1 => self.docs.push(self.doc_stack.pop().unwrap().0),
                     _ => unreachable!(),
                 }
             }
             Event::SequenceStart(aid, tag) => {
-                let node: Node = YamlData::Sequence(Vec::new()).into();
+                let node = Node::from(YamlData::Sequence(Vec::new())).with_span(span);
 
                 self.doc_stack.push((node.with_start(mark), aid, tag));
             }
             Event::MappingStart(aid, tag) => {
-                let node: Node = YamlData::Mapping(Vec::new()).into();
+                let node = Node::from(YamlData::Mapping(Vec::new())).with_span(span);
                 self.doc_stack.push((node.with_start(mark), aid, tag));
-                self.key_stack.push(YamlData::BadValue.into());
+                self.key_stack.push(Node::bad_span_value(span));
             }
             Event::MappingEnd | Event::SequenceEnd => {
                 if ev == Event::MappingEnd {
@@ -451,14 +451,19 @@ where
                 anchor_id,
                 tag,
             }) => {
-                let node =
-                    YamlData::value_from_cow_and_metadata(value, scalar_type, tag.as_ref()).into();
+                let node = Node::from(YamlData::value_from_cow_and_metadata(
+                    value,
+                    scalar_type,
+                    tag.as_ref(),
+                ))
+                .with_span(span);
+
                 self.insert_new_node(node, anchor_id, tag);
             }
             Event::Alias(id) => {
                 let n = match self.anchor_map.get(&id) {
                     Some(v) => v.clone(),
-                    None => YamlData::BadValue.into(),
+                    None => Node::bad_span_value(span),
                 };
                 self.insert_new_node(n.with_span(span), 0, None);
             }
