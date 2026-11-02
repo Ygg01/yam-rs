@@ -194,7 +194,7 @@ fn run_block_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::InMem,
         &FormatOpts::InlineTest,
     );
 }
@@ -239,7 +239,7 @@ fn run_quote_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::InMem,
         &FormatOpts::InlineTest,
     );
 }
@@ -316,7 +316,7 @@ fn run_tests_flow(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::InMem,
         &FormatOpts::InlineTest,
     );
 }
@@ -333,7 +333,7 @@ fn run_docs_tests(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::InMem,
         &FormatOpts::InlineTest,
     );
 }
@@ -352,7 +352,7 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     assert_eq_event_case_with_opts(
         input,
         expected_events,
-        ParsingOptions::String,
+        ParsingOptions::InMem,
         &FormatOpts::InlineTest,
     );
 }
@@ -362,7 +362,7 @@ fn run_deep_test() {
     assert_eq_event_case_with_opts(
         LITERAL3_INPUT,
         LITERAL3_EVENTS,
-        ParsingOptions::Buffered,
+        ParsingOptions::Buff,
         // ParsingOptions::String,
         &FormatOpts::InlineTest,
     );

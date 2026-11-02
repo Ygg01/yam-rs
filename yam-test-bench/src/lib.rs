@@ -9,8 +9,8 @@ use yam_core::prelude::Tag;
 
 #[derive(Copy, Clone)]
 pub enum ParsingOptions {
-    String,
-    Buffered,
+    InMem,
+    Buff,
 }
 
 pub const PAD: &str = "                                               ";
@@ -24,11 +24,11 @@ pub fn assert_eq_event_case_with_opts(
 ) {
     let mut line = String::with_capacity(events.len());
     match parsing_options {
-        ParsingOptions::String => {
+        ParsingOptions::InMem => {
             let mut parser = Parser::new_from_str(input);
             write_str_from_event(&mut line, &mut parser, emit_opt);
         }
-        ParsingOptions::Buffered => {
+        ParsingOptions::Buff => {
             let mut parser = Parser::new(BufBytesSource::new_from_bytes(input.as_bytes()));
             write_str_from_event(&mut line, &mut parser, emit_opt);
         }
