@@ -1,5 +1,6 @@
 Yam
 -----
+[![codecov](https://codecov.io/gh/Ygg01/yam-rs/graph/badge.svg?token=DL7THX98KW)](https://codecov.io/gh/Ygg01/yam-rs)
 
 This project provides a [saphyr-rs](https://github.com/saphyr-rs/saphyr) derived/forked YAML parser and serde
 integration. It implements the [YAML 1.2.2](https://yaml.org/spec/1.2.2/) compliant parser. It passes
