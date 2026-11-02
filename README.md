@@ -7,8 +7,11 @@ the [YAML 1.2.2](https://yaml.org/spec/1.2.2/) test suite.
 
 ## Why use it?
 
-If you need a `no_std` zero-copy YAML parser, with few dependencies, spans, and comment support (use `yam-core`). If you
-need to serialize structs to and from YAML (use `yam-serde`). If you need a buffered YAML parser (use `yam-std`).
+- You need a `no_std` zero-copy YAML parser
+- With few dependencies (currently `yam-core` only needs `fearless_simd` and its `libm` dependency)
+- With spans and comment support (see `comments` feature in `yam-core`)
+- If you need to serialize structs to and from YAML (use `yam-serde`) with minimal dependencies (only uses `serde_core` and
+  `unicode-segmentation`)
 
 ## Why not use it?
 
