@@ -33,11 +33,5 @@ fearless_simd = { version = "1.2.0", features = ["libm"] }
 default = []
 comment = []
 
-[lints.clippy]
-unwrap_used = "warn"
-expect_used = "warn"
-indexing_slicing = "warn"
-#arithmetic_side_effects = "warn"
-
 [[example]]
 name = "simple_parse"
