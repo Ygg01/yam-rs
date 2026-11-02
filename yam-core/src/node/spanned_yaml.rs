@@ -264,3 +264,21 @@ where
         }
     }
 }
+
+impl<'a, FP> From<YamlData<'a, Self, FP>> for SpannedYaml<'a, FP> {
+    fn from(value: YamlData<'a, Self, FP>) -> Self {
+        SpannedYaml {
+            yaml: value,
+            span: Span::default(),
+        }
+    }
+}
+
+impl<'a, FP> From<YamlScalar<'a, FP>> for SpannedYaml<'a, FP> {
+    fn from(value: YamlScalar<'a, FP>) -> Self {
+        SpannedYaml {
+            yaml: YamlData::Scalar(value),
+            span: Span::default(),
+        }
+    }
+}
