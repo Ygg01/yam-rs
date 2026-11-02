@@ -7,10 +7,8 @@ fn main() {
 
     if let Ok(yaml) = Yaml::load_single(yaml_str) {
         let b = yaml["a"].as_str().unwrap_or_default();
-        assert_eq!(b, "b");
         let d = yaml["c"].as_str().unwrap_or_default();
+        assert_eq!(b, "b");
         assert_eq!(d, "d");
-
-        println!("Parsed YAML: {:?}", yaml);
     }
 }
