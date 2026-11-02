@@ -1516,7 +1516,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
         // Check if the tag is in the canonical form (verbatim).
 
-        if self.src.next_next_byte_is(b'<') {
+        if self.src.peekz(1) == b'<' {
             suffix = self.scan_verbatim_tag(&start_mark)?;
         } else {
             // The tag has either the '!suffix' or the '!handle!suffix'

@@ -259,11 +259,6 @@ pub unsafe trait Source {
         }
     }
 
-    /// Checks if the byte after the current position is `chr`.
-    fn next_next_byte_is(&self, chr: u8) -> bool {
-        self.peekz(1) == chr
-    }
-
     /// Returns if the next three bytes are all a single `chr`. Useful for checking document indicators.
     fn next_is_three(&self, chr: u8) -> bool {
         self.peekz(0) == chr && self.peekz(1) == chr && self.peekz(2) == chr
