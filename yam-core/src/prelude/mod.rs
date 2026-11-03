@@ -49,6 +49,21 @@ pub struct Span {
     pub end: Marker,
 }
 
+impl Display for Span {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Span [{}..{}] From (row: {}, col {}) To (row: {}, col {})",
+            self.start.pos,
+            self.end.pos,
+            self.start.line,
+            self.start.col,
+            self.end.line,
+            self.end.col,
+        )
+    }
+}
+
 impl Span {
     #[must_use]
     pub fn new(start: Marker, end: Marker) -> Self {

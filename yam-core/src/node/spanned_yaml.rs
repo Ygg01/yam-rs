@@ -1,4 +1,7 @@
-use crate::prelude::{IsEmpty, Marker, NodeType, Span, Tag, ToMut, ToMutStr, YamlAccessError, YamlData, YamlDocAccess, YamlEntry, YamlScalar};
+use crate::prelude::{
+    IsEmpty, Marker, NodeType, Span, Tag, ToMut, ToMutStr, YamlAccessError, YamlData,
+    YamlDocAccess, YamlEntry, YamlScalar,
+};
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
@@ -321,11 +324,14 @@ where
         let typ = self.yaml.get_type();
         let ind = SpannedYaml::key_from_usize(index);
         match typ {
-            NodeType::Mapping => &self
-                .mapping()
-                .iter()
-                .find(|x| x.key.yaml == ind.yaml)
-                .unwrap().value,
+            NodeType::Mapping => {
+                &self
+                    .mapping()
+                    .iter()
+                    .find(|x| x.key.yaml == ind.yaml)
+                    .unwrap()
+                    .value
+            }
             NodeType::Sequence => self.sequence().index(index),
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
@@ -366,11 +372,14 @@ where
         let typ = self.get_type();
         let ind = SpannedYaml::key_from_str(index);
         match typ {
-            NodeType::Mapping => &self
-                .mapping()
-                .iter()
-                .find(|x| x.key.yaml == ind.yaml)
-                .unwrap().value,
+            NodeType::Mapping => {
+                &self
+                    .mapping()
+                    .iter()
+                    .find(|x| x.key.yaml == ind.yaml)
+                    .unwrap()
+                    .value
+            }
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }

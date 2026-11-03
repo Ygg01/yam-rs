@@ -13,17 +13,10 @@ fn test_spanned_seq() {
         let second = &x[1];
         assert_eq!(first.as_str().unwrap_or(""), "a");
         assert_eq!(second.as_str().unwrap_or(""), "b");
-        let span_1 = Span::new(
-            Marker::new(6, 5, 2),
-            Marker::new(7, 6, 2)
-        );
-        let span_2 = Span::new(
-            Marker::new(13, 5, 3),
-            Marker::new(14, 6, 3)
-        ); 
+        let span_1 = Span::new(Marker::new(6, 5, 2), Marker::new(7, 6, 2));
+        let span_2 = Span::new(Marker::new(13, 5, 3), Marker::new(14, 6, 3));
         assert_eq!(first.span, span_1);
         assert_eq!(second.span, span_2);
-        
     } else {
         panic!("Error parsing Yaml");
     }
@@ -41,17 +34,10 @@ b: !!null
         let second = &x["b"];
         assert_eq!(first.as_str().unwrap_or(""), "aaa");
         assert!(second.is_null(), "second element is null");
-        let span_1 = Span::new(
-            Marker::new(4, 4, 2),
-            Marker::new(9, 9, 2)
-        );
-        let span_2 = Span::new(
-            Marker::new(20, 1, 3),
-            Marker::new(20, 1, 3)
-        ); 
+        let span_1 = Span::new(Marker::new(4, 4, 2), Marker::new(9, 9, 2));
+        let span_2 = Span::new(Marker::new(20, 1, 3), Marker::new(20, 1, 3));
         assert_eq!(first.span, span_1);
         assert_eq!(second.span, span_2);
-        
     } else {
         panic!("Error parsing Yaml");
     }
