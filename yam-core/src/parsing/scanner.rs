@@ -301,12 +301,6 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 
     fn fetch_stream_end(&mut self) -> ScanResult {
-        // force new line
-        if self.mark.col != 0 {
-            self.mark.col = 1;
-            self.mark.line += 1;
-        }
-
         // If the stream ended, we won't have more context. We can stall all the simple keys we
         // had. If one was required, however, that was an error and we must propagate it.
         for sk in &mut self.simple_keys {

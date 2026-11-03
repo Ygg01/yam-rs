@@ -884,7 +884,8 @@ impl<'input, T: Source> Parser<'input, T> {
                 self.parser_process_directives()?;
                 self.push_state(State::DocumentEnd);
                 self.state = State::BlockNode;
-                Ok((Event::DocumentStart(false), span))
+                // Span for implict Doc starts should be empty
+                Ok((Event::DocumentStart(false), Span::empty(span.start)))
             }
             _ => {
                 // explicit document
