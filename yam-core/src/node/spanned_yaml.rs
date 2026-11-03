@@ -321,7 +321,11 @@ where
         let typ = self.yaml.get_type();
         let ind = SpannedYaml::key_from_usize(index);
         match typ {
-            NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,
+            NodeType::Mapping => &self
+                .mapping()
+                .iter()
+                .find(|x| x.key.yaml == ind.yaml)
+                .unwrap().value,
             NodeType::Sequence => self.sequence().index(index),
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
@@ -341,11 +345,32 @@ where
                 &mut self
                     .mapping_mut()
                     .iter_mut()
-                    .find(|x| x.key == ind)
+                    .find(|x| x.key.yaml == ind.yaml)
                     .unwrap()
                     .key
             }
             NodeType::Sequence => self.sequence_mut().index_mut(index),
+            _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
+        }
+    }
+}
+
+impl<'k, FP, INT> Index<&'k str> for SpannedYaml<'_, FP, INT>
+where
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+{
+    type Output = Self;
+
+    fn index(&self, index: &'k str) -> &Self::Output {
+        let typ = self.get_type();
+        let ind = SpannedYaml::key_from_str(index);
+        match typ {
+            NodeType::Mapping => &self
+                .mapping()
+                .iter()
+                .find(|x| x.key.yaml == ind.yaml)
+                .unwrap().value,
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
