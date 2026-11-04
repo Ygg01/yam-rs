@@ -60,14 +60,6 @@ impl<T: Iterator<Item = u8>> BufBytesSource<T> {
     fn remaining_in_buf(&self) -> usize {
         self.filled.saturating_sub(self.pos)
     }
-
-    pub fn get_buf(&self) -> &[u8] {
-        unsafe {
-            // SAFETY: This is safe because self.len guarantees that the buf is initialized
-            // up to self.len position
-            slice::from_raw_parts(self.chunk_buf.as_ptr().cast(), self.filled)
-        }
-    }
 }
 
 #[allow(dead_code)]
