@@ -100,11 +100,26 @@ VAL: Span [20..24] From (row: 3, col 11) To (row: 3, col 15)
 -MAP Span [25..25] From (row: 4, col 1) To (row: 4, col 1)
 -DOC Span [25..25] From (row: 4, col 1) To (row: 4, col 1)"#;
 
+pub const NESTED_INPUT: &str = r#"
+a: !!vec [2, 3]"#;
+
+pub const NESTED_EVENTS: &str = r#"
++DOC Span [1..1] From (row: 2, col 1) To (row: 2, col 1)
++MAP Span [1..1] From (row: 2, col 1) To (row: 2, col 1)
+VAL: Span [1..2] From (row: 2, col 1) To (row: 2, col 2)
++SEQ Span [10..11] From (row: 2, col 10) To (row: 2, col 11)
+VAL: Span [11..12] From (row: 2, col 11) To (row: 2, col 12)
+VAL: Span [14..15] From (row: 2, col 14) To (row: 2, col 15)
+-SEQ Span [15..16] From (row: 2, col 15) To (row: 2, col 16)
+-MAP Span [16..16] From (row: 2, col 16) To (row: 2, col 16)
+-DOC Span [16..16] From (row: 2, col 16) To (row: 2, col 16)"#;
+
 #[rstest]
 #[case::span_flow_map(FLOW_MAP_INPUT, FLOW_MAP_EVENTS)]
 #[case::span_block_map(BLOCK_MAP_INPUT, BLOCK_MAP_EVENTS)]
 #[case::span_null_map_1(X1_NULL_MAP_INPUT, X1_NULL_MAP_EVENTS)]
 #[case::span_null_map_2(X2_NULL_MAP_INPUT, X2_NULL_MAP_EVENTS)]
+#[case::span_null_map_2(NESTED_INPUT, NESTED_EVENTS)]
 fn test_span(#[case] input: &str, #[case] expected_event: &str) {
     let mut spanned_buf = SpannedEventStr {
         buf: String::with_capacity(200),
@@ -121,8 +136,8 @@ fn test_span2() {
     let mut spanned_buf = SpannedEventStr {
         buf: String::with_capacity(200),
     };
-    let mut parser = Parser::new_from_str(X2_NULL_MAP_INPUT);
+    let mut parser = Parser::new_from_str(NESTED_INPUT);
     let _ = parser.load(&mut spanned_buf, true);
 
-    assert_eq!(spanned_buf.buf.trim(), X2_NULL_MAP_EVENTS.trim())
+    assert_eq!(spanned_buf.buf.trim(), NESTED_EVENTS.trim())
 }
