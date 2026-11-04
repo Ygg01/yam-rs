@@ -1061,39 +1061,3 @@ where
         self.end_object()
     }
 }
-
-#[doc(hidden)]
-/// Writes a specified level of indentation to a given writer using a specified indentor string.
-///
-/// # Parameters
-/// - `writer`: A mutable reference to an object implementing the `Write` trait,
-///   where the indentation will be written.
-/// - `indent`: The desired number of indentation levels. If this value is 1, no
-///   indentation will be written.
-/// - `indentor`: The string used to represent a single level of indentation,
-///   such as `"    "` or `"\t"`.
-///
-/// # Returns
-/// - `Result<u32, Error>`: Returns the number of bytes written
-///   (adjusted by subtracting 1 from the requested `indent` value) wrapped in `Ok`, or an error
-///   wrapped in `Err` if the write operation fails.
-///
-/// # Errors
-/// - Returns an error if writing to the `writer` fails, encapsulated in the `Error` type.
-///
-/// # Notes
-/// - This function ensures that the computed indentation level (`indent.saturating_sub(1)`) is
-///   non-negative, even if `indent` is 0.
-/// - The function writes the `indentor` string `corrected_indent` times to the given `writer`.
-///
-pub fn push_indent_to_writer<W: Write>(
-    writer: &mut W,
-    indent: u32,
-    indentor: &str,
-) -> Result<u32, Error> {
-    let corrected_indent = indent.saturating_sub(1);
-    for _ in 0..corrected_indent {
-        writer.write_str(indentor)?;
-    }
-    Ok(corrected_indent)
-}
