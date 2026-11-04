@@ -85,23 +85,6 @@ impl<'input> TokenType<'input> {
             }
         }
     }
-
-    ///
-    /// # Safety
-    ///
-    /// The passed `Vec<u8>` must contain only valid UTF-8.
-    #[must_use]
-    pub unsafe fn new_tag_directive_unchecked(
-        handle_raw: Vec<u8>,
-        prefix_raw: Vec<u8>,
-    ) -> TokenType<'input> {
-        unsafe {
-            TokenType::TagDirective {
-                handle: Cow::Owned(String::from_utf8_unchecked(handle_raw)),
-                prefix: Cow::Owned(String::from_utf8_unchecked(prefix_raw)),
-            }
-        }
-    }
 }
 
 /// Chomp indicator of target block scalar
