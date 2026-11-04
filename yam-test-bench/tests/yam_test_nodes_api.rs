@@ -2,7 +2,7 @@ use rstest::rstest;
 use yam_core::node::{SpannedYaml, Yaml};
 use yam_core::prelude::{YamlDocAccess, YamlLoader};
 
-const SIMPLE_SEQ: &str = "[a, 3.0]";
+const SIMPLE_SEQ: &str = "[a, b]";
 const SIMPLE_MAP: &str = "{0: a, 1: b}";
 const SIMPLE_SEQ_BOOL: &str = "[true, false]";
 const SIMPLE_SEQ_TAG: &str = "[!!null null, !!int 3]";
