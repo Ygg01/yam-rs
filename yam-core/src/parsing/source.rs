@@ -516,9 +516,7 @@ unsafe impl Source for InMemSource<'_> {
         &self.input[self.pos..]
     }
 
-    fn fill_buf_to_max(&mut self) {
-        todo!()
-    }
+    fn fill_buf_to_max(&mut self) {}
 
     fn update_pos(&mut self, pos: usize) {
         self.pos = pos;
