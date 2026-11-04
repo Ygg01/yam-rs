@@ -275,7 +275,7 @@ impl<W: Write> YamlWriter<W> {
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub struct YamlEmitter<FP, INT, W> {
+pub struct YamlEmitter<W, FP = f64, INT = i64> {
     writer: YamlWriter<W>,
     compact: bool,
     level: usize,
@@ -356,7 +356,7 @@ fn escape_str<W: fmt::Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
 }
 
 #[allow(dead_code)]
-impl<'a, FP, INT, W> YamlEmitter<FP, INT, W>
+impl<'a, W, FP, INT> YamlEmitter<W, FP, INT>
 where
     FP: Copy + ToMut<f64> + Into<f64>,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
