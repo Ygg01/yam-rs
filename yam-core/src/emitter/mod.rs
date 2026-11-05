@@ -4,7 +4,6 @@ use crate::prelude::{ToMut, YamlData};
 use crate::prelude::{Yaml, YamlEntry};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::fmt;
 use core::fmt::{Error, Write};
 use core::marker::PhantomData;
 
@@ -40,6 +39,7 @@ impl<W> YamlWriter<W> {
         self.indentor_len
     }
 
+    /// Creates a new writer from [`Write`]
     pub fn new(writer: W) -> Self {
         Self {
             input: writer,
@@ -275,7 +275,7 @@ impl<W: Write> YamlWriter<W> {
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub struct YamlEmitter<FP, INT, W> {
+pub struct YamlEmitter<W, FP = f64, INT = i64> {
     writer: YamlWriter<W>,
     compact: bool,
     level: usize,
@@ -287,7 +287,7 @@ pub struct YamlEmitter<FP, INT, W> {
 pub type EmitResult = Result<(), Error>;
 
 // from serialize::json
-fn escape_str<W: fmt::Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
+fn escape_str<W: Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
     wr.write_ascii("\"")?;
 
     let bytes = v.as_bytes();
@@ -296,7 +296,7 @@ fn escape_str<W: fmt::Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
     while start < bytes.len() {
         let Some(i) = bytes[start..]
             .iter()
-            .position(|&b| matches!(b, b'"' | b'\\' | b'\x00'..=b'\x1f' | b'\x7f'))
+            .position(|&b| matches!(b, b'"' | b'\\' | b'\x01'..=b'\x1f' | b'\x7f'))
         else {
             wr.write_ascii(&v[start..])?;
             break;
@@ -311,7 +311,6 @@ fn escape_str<W: fmt::Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
         let escaped = match bytes[i] {
             b'"' => "\\\"",
             b'\\' => "\\\\",
-            b'\x00' => "\\u0000",
             b'\x01' => "\\u0001",
             b'\x02' => "\\u0002",
             b'\x03' => "\\u0003",
@@ -356,7 +355,7 @@ fn escape_str<W: fmt::Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
 }
 
 #[allow(dead_code)]
-impl<'a, FP, INT, W> YamlEmitter<FP, INT, W>
+impl<'a, W, FP, INT> YamlEmitter<W, FP, INT>
 where
     FP: Copy + ToMut<f64> + Into<f64>,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
@@ -371,6 +370,11 @@ where
             multiline_strings: false,
             _marker: PhantomData,
         }
+    }
+
+    /// Deconstructs the writer and outputs the inner [`Write`]
+    pub fn writer(self) -> W {
+        self.writer.input
     }
 
     /// Set 'compact inline notation' on or off, as described for block
@@ -527,8 +531,11 @@ where
         } else {
             self.level += 1;
             for (cnt, entry) in h.entries().iter().enumerate() {
-                let complex_key =
-                    matches!(entry.key.0, YamlData::Mapping(_) | YamlData::Sequence(_));
+                let complex_key = match entry.key.0 {
+                    YamlData::Mapping(_) | YamlData::Sequence(_) => true,
+                    YamlData::Scalar(YamlScalar::String(ref x)) if is_string_block(&x) => true,
+                    _ => false,
+                };
                 if cnt > 0 {
                     self.writer.writeln()?;
                     self.writer.write_indent(self.level)?;
@@ -593,7 +600,19 @@ where
     /// [`multiline_strings`]: Self::multiline_strings.
     #[must_use]
     fn should_emit_string_as_block(&self, s: &str) -> bool {
-        self.multiline_strings && s.contains('\n') && is_valid_literal_block_scalar(s)
+        self.multiline_strings && is_string_block(s)
+    }
+}
+
+#[must_use]
+#[inline]
+fn is_string_block(s: &str) -> bool {
+    s.contains('\n') && is_valid_literal_block_scalar(s)
+}
+
+impl From<String> for YamlEmitter<String, f64, i64> {
+    fn from(value: String) -> Self {
+        YamlEmitter::new(value)
     }
 }
 

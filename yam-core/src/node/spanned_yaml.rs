@@ -385,6 +385,28 @@ where
     }
 }
 
+impl<'k, FP, INT> IndexMut<&'k str> for SpannedYaml<'_, FP, INT>
+where
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+{
+    fn index_mut(&mut self, index: &'k str) -> &mut Self::Output {
+        let typ = self.get_type();
+        let ind = SpannedYaml::key_from_str(index);
+        match typ {
+            NodeType::Mapping => {
+                &mut self
+                    .mapping_mut()
+                    .iter_mut()
+                    .find(|x| x.key.yaml == ind.yaml)
+                    .unwrap()
+                    .value
+            }
+            _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
+        }
+    }
+}
+
 impl<'a> From<&'a str> for SpannedYaml<'a> {
     fn from(value: &'a str) -> Self {
         SpannedYaml {
@@ -394,7 +416,7 @@ impl<'a> From<&'a str> for SpannedYaml<'a> {
     }
 }
 
-impl<FP, INT, STR> From<bool> for SpannedYaml<'_, FP, INT, STR> {
+impl From<bool> for SpannedYaml<'_> {
     fn from(value: bool) -> Self {
         SpannedYaml {
             yaml: YamlData::Scalar(YamlScalar::Bool(value)),
@@ -456,6 +478,16 @@ impl From<i64> for SpannedYaml<'_> {
     fn from(value: i64) -> Self {
         SpannedYaml {
             yaml: YamlData::Scalar(YamlScalar::Integer(value)),
+            span: Span::default(),
+        }
+    }
+}
+
+impl From<Vec<bool>> for SpannedYaml<'_> {
+    fn from(value: Vec<bool>) -> Self {
+        let sequence = value.into_iter().map(SpannedYaml::from).collect();
+        SpannedYaml {
+            yaml: YamlData::Sequence(sequence),
             span: Span::default(),
         }
     }
