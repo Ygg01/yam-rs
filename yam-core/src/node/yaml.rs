@@ -482,6 +482,13 @@ impl From<i64> for Yaml<'_> {
     }
 }
 
+impl From<Vec<bool>> for Yaml<'_> {
+    fn from(value: Vec<bool>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
 impl<'a> From<Vec<Yaml<'a>>> for Yaml<'a> {
     fn from(value: Vec<Yaml<'a>>) -> Self {
         Yaml(YamlData::Sequence(value))

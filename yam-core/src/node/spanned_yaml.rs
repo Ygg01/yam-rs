@@ -394,7 +394,7 @@ impl<'a> From<&'a str> for SpannedYaml<'a> {
     }
 }
 
-impl<FP, INT, STR> From<bool> for SpannedYaml<'_, FP, INT, STR> {
+impl From<bool> for SpannedYaml<'_> {
     fn from(value: bool) -> Self {
         SpannedYaml {
             yaml: YamlData::Scalar(YamlScalar::Bool(value)),
@@ -456,6 +456,16 @@ impl From<i64> for SpannedYaml<'_> {
     fn from(value: i64) -> Self {
         SpannedYaml {
             yaml: YamlData::Scalar(YamlScalar::Integer(value)),
+            span: Span::default(),
+        }
+    }
+}
+
+impl From<Vec<bool>> for SpannedYaml<'_> {
+    fn from(value: Vec<bool>) -> Self {
+        let sequence = value.into_iter().map(SpannedYaml::from).collect();
+        SpannedYaml {
+            yaml: YamlData::Sequence(sequence),
             span: Span::default(),
         }
     }
