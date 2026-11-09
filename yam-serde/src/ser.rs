@@ -433,7 +433,7 @@ where
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        let prefer_single_line = self.formatter.compat_strings;
+        let prefer_single_line = self.formatter.compact_strings;
         match self.preferred_string(v) {
             ScalarType::Plain => {
                 if prefer_single_line {

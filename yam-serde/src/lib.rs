@@ -185,7 +185,7 @@ pub struct PrettyFormatterConfig {
     pub key_preferred_style: ScalarType,
 
     /// Whether to prefer string to fit in a single line
-    pub compat_strings: bool,
+    pub compact_strings: bool,
 
     /// What is the default style for the Root element
     pub root_style: YamlStyle,
@@ -202,7 +202,7 @@ impl Default for PrettyFormatterConfig {
             root_preferred_style: ScalarType::DoubleQuote,
             flow_string_style: FlowStyle::DoubleQuote,
             key_preferred_style: ScalarType::Plain,
-            compat_strings: false,
+            compact_strings: false,
             root_style: YamlStyle::default(),
         }
     }
@@ -220,7 +220,7 @@ impl PrettyFormatterConfig {
             root_preferred_style: ScalarType::DoubleQuote,
             flow_string_style: FlowStyle::DoubleQuote,
             key_preferred_style: ScalarType::Plain,
-            compat_strings: false,
+            compact_strings: false,
             root_style: YamlStyle::default(),
         }
     }

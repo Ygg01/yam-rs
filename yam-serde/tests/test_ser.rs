@@ -336,3 +336,28 @@ fn test_tuple_struct() {
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "[ 0, 2, 4 ]");
 }
+
+#[test]
+fn test_single_line_str() {
+    let string = "AAA";
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::Plain;
+    style.compact_strings = true;
+    let result = to_pretty_string(&string, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "AAA");
+
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::DoubleQuote;
+    style.compact_strings = true;
+    let result = to_pretty_string(&string, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "\"AAA\"");
+
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::SingleQuote;
+    style.compact_strings = true;
+    let result = to_pretty_string(&string, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "'AAA'");
+}
