@@ -214,11 +214,19 @@ where
     #[inline]
     fn write_block_string(&mut self, is_folded: bool, str: &str) -> Result<(), Error> {
         let mut string_writer = String::with_capacity(str.len() * 2);
-        let chr = if is_folded { ">" } else { "|" };
-        string_writer.push_str(str);
+
+        let chr = if str.ends_with('\n') {
+            let len_min_1 = str.len().saturating_sub(1);
+            string_writer.push_str(&str[0..len_min_1]);
+            if is_folded { ">" } else { "|" }
+        } else {
+            string_writer.push_str(str);
+            if is_folded { ">-" } else { "|-" }
+        };
 
         // Write the pipe without updating position
         self.writer.write_ascii(chr)?;
+        self.writer.writeln()?;
         // then indent the string and write the block.
         self.writer.write_indent(self.current_depth())?;
         self.writer.write_str(&string_writer)?;
@@ -296,18 +304,6 @@ where
 
 impl<W> YamSerializer<W> {
     #[inline]
-    pub fn new_simple(writer: W) -> Self {
-        let formatter = PrettyFormatterConfig::default();
-        YamSerializer {
-            writer: YamlWriter::new(writer),
-            formatter,
-            is_scalar: false,
-            serializer_states: Vec::new(),
-            key_val_sep: Option::default(),
-        }
-    }
-
-    #[inline]
     pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
         YamSerializer {
             writer: YamlWriter::new(writer),
@@ -339,11 +335,6 @@ impl<W> YamSerializer<W> {
     #[inline]
     pub(crate) fn current_depth(&self) -> usize {
         self.serializer_states.len()
-    }
-
-    #[inline]
-    pub(crate) fn current_indent(&self) -> usize {
-        self.serializer_states.len().saturating_sub(1)
     }
 }
 
@@ -451,7 +442,8 @@ where
                     self.write_multi_line_string("", v, "")
                 }
             }
-            ScalarType::Folded | ScalarType::Literal => self.write_block_string(true, v),
+            ScalarType::Folded => self.write_block_string(true, v),
+            ScalarType::Literal => self.write_block_string(false, v),
             ScalarType::SingleQuote => {
                 let mut var = String::with_capacity(v.len() * 2);
                 escape_single_quotes(&mut var, v)?;
@@ -591,7 +583,10 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        self.serialize_seq(Some(len))
+        // Tuple struct (2, 4) is serialized as a `[2, 4]`
+        let mut struct_serializer = Compound::flow(self, Some(len));
+        struct_serializer.begin_seq()?;
+        Ok(struct_serializer)
     }
 
     fn serialize_tuple_variant(
@@ -966,7 +961,7 @@ where
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        self.end_object()
+        self.end_seq()
     }
 }
 

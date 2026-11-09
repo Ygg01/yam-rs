@@ -1,6 +1,8 @@
 use core::fmt::Error;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
+use yam_core::prelude::ScalarType;
+use yam_serde::ser::FlowStyle;
 use yam_serde::to_pretty_string;
 use yam_serde::{NullFormat, PrettyFormatterConfig};
 
@@ -135,7 +137,7 @@ const NESTED_LIST_EXPECTED: &str = r#"- - 1
 
 #[test]
 fn test_nested_list() {
-    let example = vec![vec![1, 2], vec![3, 4]];
+    let example = vec![vec![1u64, 2], vec![3, 4]];
 
     let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(NESTED_LIST_EXPECTED.to_string()));
@@ -147,8 +149,8 @@ const COMPLEX_KEY_EXPECTED: &str = r#"? - 1
 
 #[test]
 fn test_serialize_complex_key() {
-    let key = vec![1, 2];
-    let value = 34;
+    let key = vec![1i64, 2];
+    let value = 34u32;
     let map = BTreeMap::from([(key, value)]);
 
     let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
@@ -163,16 +165,16 @@ const COMPLEX_STRUCT_EXPECTED: &str = r#"m:
 fn test_serialize_complex_value() {
     #[derive(Serialize)]
     struct Measurement {
-        m: HashMap<Inner, i64>,
+        m: HashMap<Inner, f64>,
     }
 
     #[derive(Serialize, Eq, Hash, PartialEq)]
     struct Inner {
-        val: i16,
+        val: i64,
     }
 
     let cmplx = Measurement {
-        m: HashMap::from([(Inner { val: 1 }, 3)]),
+        m: HashMap::from([(Inner { val: 1 }, 3.0)]),
     };
     let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
@@ -182,14 +184,14 @@ const NESTED_STRUCT_EXPECTED: &str = r#"v:
   - - 0
 m:
   ? val: 1
-  : 3"#;
+  : 5"#;
 
 #[test]
 fn test_serialize_nested_value() {
     #[derive(Serialize)]
     struct Measurement {
-        v: Vec<Vec<u8>>,
-        m: HashMap<Inner, i64>,
+        v: Vec<Vec<i8>>,
+        m: HashMap<Inner, f32>,
     }
 
     #[derive(Serialize, Eq, Hash, PartialEq)]
@@ -199,7 +201,7 @@ fn test_serialize_nested_value() {
 
     let cmplx = Measurement {
         v: vec![vec![0]],
-        m: HashMap::from([(Inner { val: 1 }, 3)]),
+        m: HashMap::from([(Inner { val: 1 }, 5.0)]),
     };
     let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(NESTED_STRUCT_EXPECTED.to_string()));
@@ -217,7 +219,7 @@ fn test_various_enum() {
         Unit,
         Tuple(u8, u16),
         Struct { name: String },
-        Outer(Vec<u8>),
+        Outer(Vec<i8>),
     }
 
     let enum_unit = Example::Unit;
@@ -237,4 +239,100 @@ fn test_various_enum() {
     let enum_outer = Example::Outer(vec![2, 4, 16]);
     let result = to_pretty_string(&enum_outer, PrettyFormatterConfig::pretty());
     assert_eq!(result, Ok(ENUM_OUTER_EXPECTED.to_string()));
+}
+
+#[test]
+fn test_cant_be_plain() {
+    let str = "@cant_be_plain";
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::Plain;
+    style.flow_string_style = FlowStyle::DoubleQuote;
+
+    let result = to_pretty_string(&str, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "\"@cant_be_plain\"");
+
+    let str = "@cant_be_plain";
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::Plain;
+    style.flow_string_style = FlowStyle::SingleQuote;
+
+    let result = to_pretty_string(&str, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "'@cant_be_plain'");
+}
+
+const FOLD_EXPECTED_1: &str = r#">-
+block of text !!!"#;
+
+const FOLD_EXPECTED_2: &str = r#">
+block of text !!!"#;
+
+const LIT_EXPECTED_1: &str = r#"|-
+block of text !!!"#;
+
+const LIT_EXPECTED_2: &str = r#"|
+block of text !!!"#;
+
+#[test]
+fn test_blocks_text() {
+    let str = "block of text !!!";
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::Folded;
+
+    let result = to_pretty_string(&str, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), FOLD_EXPECTED_1);
+
+    let str = "block of text !!!\n";
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::Folded;
+
+    let result = to_pretty_string(&str, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), FOLD_EXPECTED_2);
+
+    let str = "block of text !!!";
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::Literal;
+
+    let result = to_pretty_string(&str, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), LIT_EXPECTED_1);
+
+    let str = "block of text !!!\n";
+    let mut style = PrettyFormatterConfig::pretty();
+    style.root_preferred_style = ScalarType::Literal;
+
+    let result = to_pretty_string(&str, style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), LIT_EXPECTED_2);
+}
+
+#[test]
+fn test_bool_char() {
+    #[derive(Serialize)]
+    enum Example {
+        Bool((bool, bool)),
+        Char(char),
+    }
+
+    let style = PrettyFormatterConfig::default();
+    let result = to_pretty_string(&Example::Bool((true, false)), style);
+    assert_eq!(result.unwrap(), "{ Bool: [ true, false ] }");
+
+    let style = PrettyFormatterConfig::default();
+    let result = to_pretty_string(&Example::Char('b'), style);
+    assert_eq!(result.unwrap(), "{ Char: 'b' }");
+}
+
+#[derive(Serialize)]
+struct Rgb(u8, u8, u8);
+
+#[test]
+fn test_tuple_struct() {
+    let style = PrettyFormatterConfig::pretty();
+    let result = to_pretty_string(&Rgb(0, 2, 4), style);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "[ 0, 2, 4 ]");
 }
