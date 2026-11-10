@@ -3,8 +3,11 @@ use alloc::string::{String, ToString};
 use core::fmt::{Display, Formatter};
 use serde_core::de::{
     DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, StdError, VariantAccess,
+    Visitor,
 };
 use serde_core::{de, forward_to_deserialize_any};
+use yam_core::binary;
+use yam_core::binary::DecodeError;
 use yam_core::node::YamlScalar;
 use yam_core::parsing::parser_iter::YamEvent;
 use yam_core::parsing::{InMemSource, ParserIter, ScalarValue, Source};
@@ -219,6 +222,35 @@ where
         }
     }
 
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self.skip_doc() {
+            Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
+                let decoded =
+                    binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
+                visitor.visit_bytes(&decoded)
+            }
+            _ => Err(DeYamlError::ExpectedBytes),
+        }
+    }
+
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let ev = self.skip_doc();
+        match ev {
+            Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
+                let decoded =
+                    binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
+                visitor.visit_byte_buf(decoded)
+            }
+            _ => Err(DeYamlError::ExpectedBytes),
+        }
+    }
+
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -231,6 +263,12 @@ where
         }
     }
 
+    forward_to_deserialize_any! {
+        bool i128 u128 f32 f64 char str string
+        unit_struct newtype_struct tuple
+        tuple_struct struct ignored_any
+    }
+
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -241,12 +279,6 @@ where
         } else {
             Err(DeYamlError::ExpectedNull)
         }
-    }
-
-    forward_to_deserialize_any! {
-        bool i128 u128 f32 f64 char str string
-        bytes byte_buf unit_struct newtype_struct tuple
-        tuple_struct struct ignored_any
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -357,6 +389,8 @@ pub enum DeYamlError {
     Custom(String),
     ExpectedStringInNewType,
     ExpectedNull,
+    ExpectedBytes,
+    Base64DecodeError(DecodeError),
 }
 
 impl StdError for DeYamlError {}
@@ -368,6 +402,8 @@ impl Display for DeYamlError {
             DeYamlError::Custom(msg) => write!(f, "Custom: {msg}")?,
             DeYamlError::ExpectedStringInNewType => write!(f, "Expected String:")?,
             DeYamlError::ExpectedNull => write!(f, "Expected Null")?,
+            DeYamlError::ExpectedBytes => write!(f, "Expected to find bytes")?,
+            DeYamlError::Base64DecodeError(msg) => write!(f, "Base 64 Decoder error {msg}")?,
         }
         Ok(())
     }

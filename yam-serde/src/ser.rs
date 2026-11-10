@@ -1,5 +1,5 @@
+use crate::PrettyFormatterConfig;
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
-use crate::{PrettyFormatterConfig, binary};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -10,6 +10,7 @@ use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
+use yam_core::binary;
 use yam_core::emitter::YamlWriter;
 use yam_core::prelude::ScalarType;
 
@@ -212,7 +213,12 @@ where
     }
 
     #[inline]
-    fn write_block_string(&mut self, is_folded: bool, str: &str) -> Result<(), Error> {
+    fn write_block_string(
+        &mut self,
+        is_folded: bool,
+        str: &str,
+        at_indent: usize,
+    ) -> Result<(), Error> {
         let mut string_writer = String::with_capacity(str.len() * 2);
 
         let chr = if str.ends_with('\n') {
@@ -228,8 +234,8 @@ where
         self.writer.write_ascii(chr)?;
         self.writer.writeln()?;
         // then indent the string and write the block.
-        self.writer.write_indent(self.current_depth())?;
-        self.writer.write_str(&string_writer)?;
+        self.writer.write_indent(at_indent)?;
+        self.write_multi_line_string("", &string_writer, "")?;
 
         Ok(())
     }
@@ -442,8 +448,8 @@ where
                     self.write_multi_line_string("", v, "")
                 }
             }
-            ScalarType::Folded => self.write_block_string(true, v),
-            ScalarType::Literal => self.write_block_string(false, v),
+            ScalarType::Folded => self.write_block_string(true, v, self.current_depth()),
+            ScalarType::Literal => self.write_block_string(false, v, self.current_depth()),
             ScalarType::SingleQuote => {
                 let mut var = String::with_capacity(v.len() * 2);
                 escape_single_quotes(&mut var, v)?;
@@ -470,8 +476,8 @@ where
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        self.writer.write_ascii("!!binary")?;
-        let mut encoded_bytes = binary::encode_as_base64(v);
+        self.writer.write_ascii("!!binary ")?;
+        let encoded_bytes = binary::encode_as_base64(v);
         if matches!(
             self.serializer_state(),
             SerializerState::FlowValue | SerializerState::Flow | SerializerState::FlowKey
@@ -480,16 +486,7 @@ where
             self.writer.write_ascii(&encoded_bytes)?;
             self.writer.write_ascii("\"")?;
         } else {
-            self.writer.write_ascii("|\n")?;
-
-            while !encoded_bytes.is_empty() {
-                self.writer.write_indent(self.current_depth())?;
-                let remaining_byte = (self.formatter.pref_string_length as usize)
-                    .saturating_sub(self.writer.indent_pos());
-                let write = encoded_bytes.split_off(remaining_byte);
-                self.writer.write_ascii(&write)?;
-            }
-            self.writer.write_ascii(&encoded_bytes)?;
+            self.write_block_string(false, &encoded_bytes, self.current_depth() + 1)?;
         }
         Ok(())
     }

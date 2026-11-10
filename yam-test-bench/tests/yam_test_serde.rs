@@ -65,16 +65,25 @@ fn test_round_trip_opt(#[case] input: OneEnumToHoldThemAll) {
     assert_eq!(actual.unwrap(), input);
 }
 
+#[derive(Serialize, Deserialize)]
+struct BinaryConvert {
+    #[serde(with = "serde_bytes")]
+    bytes: Vec<u8>,
+}
+
 #[test]
-fn test_round_trip_i16() {
-    let initial = OneEnumToHoldThemAll::StructVariant { uid: 3 };
+fn test_round_trip_bytes() {
+    let initial = BinaryConvert {
+        bytes: br"Test this binary stuff".to_vec(),
+    };
     let fmt = PrettyFormatterConfig::default();
     let result = to_pretty_string(&initial, fmt);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
 
-    let actual = from_str::<OneEnumToHoldThemAll>(&result.unwrap());
+    let binding = result.unwrap();
+    let actual = from_str::<BinaryConvert>(&binding);
 
     assert!(actual.is_ok(), "Expected Ok result for deserialization");
-    assert_eq!(actual.unwrap(), initial);
+    assert_eq!(&actual.unwrap().bytes, &initial.bytes);
 }
