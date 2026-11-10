@@ -6,7 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 yam-core = { path = "../yam-core", features = ["comment"] }
+yam-serde = { path = "../yam-serde" }
 criterion = "0.8.1"
+serde = { version = "1.0.228", features = ["derive"] }
 
 [dev-dependencies]
 libtest-mimic = "0.6.0"
