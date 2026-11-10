@@ -607,6 +607,9 @@ where
         // Serialize the `: ` part
         struct_serializer.begin_obj_val();
 
+        // Reset the count for the sequence
+        struct_serializer.info.reset_to_first();
+
         // Serialize the ['values', 'in', 'tuple']
         struct_serializer.begin_seq()?;
 
@@ -652,6 +655,9 @@ where
         // Serialize the `: ` part
         collection_serializer.begin_obj_val();
 
+        // Reset to first, for the rest of the serializer
+        collection_serializer.info.reset_to_first();
+
         // Serialize the `{ key: "value"}` part
 
         Ok(collection_serializer)
@@ -684,6 +690,10 @@ pub enum CompoundState {
 impl CompoundInfo {
     fn is_first(self) -> bool {
         matches!(self.state, CompoundState::First)
+    }
+
+    pub(crate) fn reset_to_first(&mut self) {
+        self.state = CompoundState::First;
     }
 }
 
@@ -862,7 +872,12 @@ where
             YamlStyle::Block | YamlStyle::Explicit => {
                 self.ser.ensure_indent()?;
             }
-            YamlStyle::Flow => {}
+            YamlStyle::Flow if !self.info.is_first() => {
+                self.ser.writer.write_ascii(", ")?;
+            }
+            YamlStyle::Flow => {
+                self.info.state = CompoundState::Rest;
+            }
         }
         Ok(())
     }

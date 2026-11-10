@@ -20,12 +20,14 @@ enum OneEnumToHoldThemAll {
     I16(i16),
     I32(i32),
     I64(i64),
+    Char(char),
     Option(Option<bool>),
     UnitVariant,
     TupleVariant(i32, bool),
     StructVariant { uid: u64 },
     NewTypeVariant(Person),
     VariantTuple((i8, i8)),
+    VariantSeq(Vec<String>),
 }
 
 #[rstest]
@@ -39,13 +41,18 @@ enum OneEnumToHoldThemAll {
 #[case::i16(OneEnumToHoldThemAll::I16(-16))]
 #[case::i32(OneEnumToHoldThemAll::I32(-32))]
 #[case::i64(OneEnumToHoldThemAll::I64(-64))]
+#[case::char(OneEnumToHoldThemAll::Char('#'))]
 #[case::opt_none(OneEnumToHoldThemAll::Option(None))]
 #[case::opt_some(OneEnumToHoldThemAll::Option(Some(true)))]
 #[case::unit_variant(OneEnumToHoldThemAll::UnitVariant)]
 #[case::tupl_variant(OneEnumToHoldThemAll::TupleVariant(-32, false))]
 #[case::stct_variant(OneEnumToHoldThemAll::StructVariant{ uid: 2 })]
-// #[case::nwty_variant(OneEnumToHoldThemAll::NewTypeVariant(Person { name: "Mick".to_string(), uid: 3}))]
-#[case::stct_variant(OneEnumToHoldThemAll::VariantTuple((-3, -4)))]
+#[case::nwty_variant(
+    OneEnumToHoldThemAll::NewTypeVariant(Person{ name: "Mick".to_string(), uid: 3})
+)]
+#[case::var_tuple(OneEnumToHoldThemAll::VariantTuple((-3, -4)))]
+#[case::var_seq(OneEnumToHoldThemAll::VariantSeq(vec!["xyz".to_string(), "abc".to_string()]))]
+#[case::var_seq_empty(OneEnumToHoldThemAll::VariantSeq(vec![]))]
 fn test_round_trip_opt(#[case] input: OneEnumToHoldThemAll) {
     let fmt = PrettyFormatterConfig::default();
     let result = to_pretty_string(&input, fmt);
@@ -60,30 +67,13 @@ fn test_round_trip_opt(#[case] input: OneEnumToHoldThemAll) {
 
 #[test]
 fn test_round_trip_i16() {
-    let initial = OneEnumToHoldThemAll::NewTypeVariant(Person {
-        name: "Mick".to_string(),
-        uid: 3,
-    });
+    let initial = OneEnumToHoldThemAll::StructVariant { uid: 3 };
     let fmt = PrettyFormatterConfig::default();
     let result = to_pretty_string(&initial, fmt);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
 
     let actual = from_str::<OneEnumToHoldThemAll>(&result.unwrap());
-
-    assert!(actual.is_ok(), "Expected Ok result for deserialization");
-    assert_eq!(actual.unwrap(), initial);
-}
-
-#[test]
-fn test_round_trip_vec_string() {
-    let initial = vec!["xyz".to_string(), "abc".to_string()];
-    let fmt = PrettyFormatterConfig::default();
-    let result = to_pretty_string(&initial, fmt);
-
-    assert!(result.is_ok(), "Expected Ok result for serialization");
-
-    let actual = from_str::<Vec<String>>(&result.unwrap());
 
     assert!(actual.is_ok(), "Expected Ok result for deserialization");
     assert_eq!(actual.unwrap(), initial);
