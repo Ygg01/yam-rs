@@ -129,15 +129,3 @@ fn test_span(#[case] input: &str, #[case] expected_event: &str) {
 
     assert_eq!(spanned_buf.buf.trim(), expected_event.trim())
 }
-
-/* TODO REMOVE */
-#[test]
-fn test_span2() {
-    let mut spanned_buf = SpannedEventStr {
-        buf: String::with_capacity(200),
-    };
-    let mut parser = Parser::new_from_str(NESTED_INPUT);
-    let _ = parser.load(&mut spanned_buf, true);
-
-    assert_eq!(spanned_buf.buf.trim(), NESTED_EVENTS.trim())
-}
