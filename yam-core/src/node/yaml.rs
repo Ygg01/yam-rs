@@ -295,9 +295,6 @@ impl<'a> Yaml<'a> {
     /// }
     /// ```
     ///
-    /// # Notes
-    /// This function expects only a single YAML document in the input. Any additional
-    /// documents beyond the first will be ignored.
     ///
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Yaml<'a>>, YamlError> {
         YamlLoader::<Yaml<'a>>::load_from(input)
