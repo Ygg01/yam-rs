@@ -13,12 +13,14 @@ pub enum DecodeError {
 
 impl Display for DecodeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        // TODO handle cases
-        Ok(())
+        match self {
+            DecodeError::InvalidByte(x) => write!(f, "Invalid byte '{}' ({})", *x as char, x),
+        }
     }
 }
 
 #[doc(hidden)]
+#[allow(clippy::chunks_exact_to_as_chunks)]
 pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
     // A minimal base64 decoding implementation for example purposes
     let filtered_in: Vec<u8> = input
@@ -177,7 +179,7 @@ mod test {
     use crate::binary::{decode_as_base64, encode_as_base64};
 
     #[test]
-    fn test_encode() {
+    fn test_encode1() {
         let x = b"This is complete shite!!!";
         let out = encode_as_base64(x.as_slice());
         // assert_eq!(out, "VGhpcyBpcyBjb21wbGV0ZSBzaGl0ZSE=");
