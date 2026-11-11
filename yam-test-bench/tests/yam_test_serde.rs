@@ -71,6 +71,8 @@ struct BinaryConvert {
     bytes: Vec<u8>,
 }
 
+const BIN_CONVERT: &str = "bytes: !!binary |-\n  VGVzdCB0aGlzIGJpbmFyeSBzdHVmZg==";
+
 #[test]
 fn test_round_trip_bytes() {
     let initial = BinaryConvert {
@@ -80,8 +82,9 @@ fn test_round_trip_bytes() {
     let result = to_pretty_string(&initial, fmt);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
-
     let binding = result.unwrap();
+    assert_eq!(binding, BIN_CONVERT);
+
     let actual = from_str::<BinaryConvert>(&binding);
 
     assert!(actual.is_ok(), "Expected Ok result for deserialization");

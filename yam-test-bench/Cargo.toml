@@ -17,7 +17,7 @@ rstest = "0.28.0"
 proptest = "1.11.0"
 
 [[test]]
-name = "yaml_test_suite"
+name = "yam_test_suite"
 harness = false
 
 [[bench]]
