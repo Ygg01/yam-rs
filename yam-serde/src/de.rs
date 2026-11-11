@@ -266,7 +266,7 @@ where
     forward_to_deserialize_any! {
         bool i128 u128 f32 f64 char str string
         unit_struct newtype_struct tuple
-        tuple_struct struct ignored_any
+        tuple_struct ignored_any
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -327,6 +327,35 @@ where
         }
         self.skip();
         Ok(val)
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let ev = self.skip_doc();
+        match ev {
+            Some(YamEvent::MapStart(_, _)) => {
+                self.skip();
+                let value = visitor.visit_map(SeqCollection::new_map(self))?;
+
+                if !matches!(self.next_el(), Some(YamEvent::MapEnd)) {
+                    return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
+                        found: self.last_event.as_simple_str(),
+                        expected: "MapEnd",
+                    }));
+                }
+                Ok(value)
+            }
+            _ => Err(DeYamlError::Custom(
+                "Expected struct to start with MapStart".to_string(),
+            )),
+        }
     }
 
     fn deserialize_enum<V>(
@@ -473,7 +502,8 @@ where
     where
         K: DeserializeSeed<'de>,
     {
-        match self.iter.next_el() {
+        let ev = self.iter.next_el();
+        match ev {
             Some(YamEvent::MapEnd) => Ok(None),
             Some(YamEvent::DocEnd | YamEvent::StreamEnd) | None => {
                 Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
@@ -491,6 +521,7 @@ where
     {
         // TODO
         let val = seed.deserialize(&mut *self.iter)?;
+        self.iter.skip();
         Ok(val)
     }
 }

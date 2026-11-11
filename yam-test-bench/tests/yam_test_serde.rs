@@ -87,6 +87,8 @@ fn test_round_trip_bytes() {
 
     let actual = from_str::<BinaryConvert>(&binding);
 
-    assert!(actual.is_ok(), "Expected Ok result for deserialization");
+    if let Err(x) = &actual {
+        assert!(false, "{x}")
+    }
     assert_eq!(&actual.unwrap().bytes, &initial.bytes);
 }
