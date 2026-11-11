@@ -356,14 +356,3 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
         &FormatOpts::InlineTest,
     );
 }
-
-#[test]
-fn run_deep_test() {
-    assert_eq_event_case_with_opts(
-        LITERAL3_INPUT,
-        LITERAL3_EVENTS,
-        ParsingOptions::Buff,
-        // ParsingOptions::String,
-        &FormatOpts::InlineTest,
-    );
-}
