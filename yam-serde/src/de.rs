@@ -59,7 +59,7 @@ where
         }
     }
 
-    fn resolve_scalar<V: de::Visitor<'a>>(
+    fn resolve_scalar<V: Visitor<'a>>(
         scalar_value: ScalarValue,
         visitor: V,
     ) -> Result<V::Value, DeYamlError> {
@@ -95,7 +95,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         match self.skip_doc() {
             Some(YamEvent::MapStart(_, _)) => self.deserialize_map(visitor),
@@ -112,10 +112,10 @@ where
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
-            self.has_peeked = false;
+            self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_i8, i8)
         } else {
             Err(DeYamlError::Custom(
@@ -126,10 +126,10 @@ where
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
-            self.has_peeked = false;
+            self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_i16, i16)
         } else {
             Err(DeYamlError::Custom(
@@ -140,7 +140,7 @@ where
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
             self.skip();
@@ -154,7 +154,7 @@ where
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
             self.skip();
@@ -168,10 +168,10 @@ where
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
-            self.has_peeked = false;
+            self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_u8, u8)
         } else {
             Err(DeYamlError::Custom(
@@ -182,10 +182,10 @@ where
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
-            self.has_peeked = false;
+            self.skip();
             parse_from_cow!(&scalar.value, visitor, visit_u16, u16)
         } else {
             Err(DeYamlError::Custom(
@@ -196,7 +196,7 @@ where
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
             self.skip();
@@ -210,7 +210,7 @@ where
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if let Some(YamEvent::Scalar(scalar)) = self.skip_doc() {
             self.skip();
@@ -222,19 +222,19 @@ where
         }
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.skip_doc() {
-            Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
-                let decoded =
-                    binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
-                visitor.visit_bytes(&decoded)
-            }
-            _ => Err(DeYamlError::ExpectedBytes),
-        }
-    }
+    // fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    // where
+    //     V: Visitor<'de>,
+    // {
+    //     match self.skip_doc() {
+    //         Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
+    //             let decoded =
+    //                 binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
+    //             visitor.visit_bytes(&decoded)
+    //         }
+    //         _ => Err(DeYamlError::ExpectedBytes),
+    //     }
+    // }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -253,7 +253,7 @@ where
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if self.peek_null() {
             self.skip();
@@ -266,12 +266,12 @@ where
     forward_to_deserialize_any! {
         bool i128 u128 f32 f64 char str string
         unit_struct newtype_struct tuple
-        tuple_struct ignored_any
+        tuple_struct ignored_any bytes
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if self.peek_null() {
             self.skip();
@@ -283,7 +283,7 @@ where
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if !matches!(self.skip_doc(), Some(YamEvent::SeqStart(_, _))) {
             return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
@@ -307,7 +307,7 @@ where
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if !matches!(self.skip_doc(), Some(YamEvent::MapStart(_, _))) {
             return Err(DeYamlError::ParserError(YamlError::UnExpectedEvent {
@@ -365,7 +365,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         match self.skip_doc() {
             Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
@@ -390,7 +390,7 @@ where
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         self.deserialize_str(visitor)
     }
@@ -519,7 +519,6 @@ where
     where
         V: DeserializeSeed<'de>,
     {
-        // TODO
         let val = seed.deserialize(&mut *self.iter)?;
         self.iter.skip();
         Ok(val)
@@ -580,7 +579,7 @@ where
 
     fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         de::Deserializer::deserialize_seq(&mut *self.de, visitor)
     }
@@ -591,7 +590,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         de::Deserializer::deserialize_map(&mut *self.de, visitor)
     }

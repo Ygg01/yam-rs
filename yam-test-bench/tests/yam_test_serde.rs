@@ -66,17 +66,30 @@ fn test_round_trip_opt(#[case] input: OneEnumToHoldThemAll) {
 }
 
 #[derive(Serialize, Deserialize)]
-struct BinaryConvert {
+struct BinaryConvert<'a> {
     #[serde(with = "serde_bytes")]
-    bytes: Vec<u8>,
+    byte_buf: Vec<u8>,
+
+    #[serde(with = "serde_bytes")]
+    bytes: &'a [u8],
+
+    #[serde(with = "serde_bytes")]
+    byte_array: [u8; 4],
 }
 
-const BIN_CONVERT: &str = "bytes: !!binary |-\n  VGVzdCB0aGlzIGJpbmFyeSBzdHVmZg==";
+const BIN_CONVERT: &str = r#"byte_buf: !!binary |-
+  VGVzdCB0aGlzIGJpbmFyeSBzdHVmZg==
+bytes: !!binary |-
+  VGVzdCB0aGlzIGJpbmFyeQ==
+byte_array: !!binary |-
+  YWJjZA=="#;
 
 #[test]
 fn test_round_trip_bytes() {
     let initial = BinaryConvert {
-        bytes: br"Test this binary stuff".to_vec(),
+        byte_buf: br"Test this binary stuff".to_vec(),
+        bytes: b"Test this binary",
+        byte_array: *b"abcd",
     };
     let fmt = PrettyFormatterConfig::default();
     let result = to_pretty_string(&initial, fmt);
@@ -88,7 +101,7 @@ fn test_round_trip_bytes() {
     let actual = from_str::<BinaryConvert>(&binding);
 
     if let Err(x) = &actual {
-        assert!(false, "{x}")
+        panic!("{x}")
     }
     assert_eq!(&actual.unwrap().bytes, &initial.bytes);
 }
