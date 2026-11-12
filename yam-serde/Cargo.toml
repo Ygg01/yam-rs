@@ -7,7 +7,6 @@ edition = "2024"
 serde_core = { version = "1.0.228", default-features = false }
 yam-core = { path = "../yam-core" }
 unicode-segmentation = "1.13.3"
-rstest = "0.28.0"
 
 [dev-dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
