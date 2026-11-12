@@ -26,7 +26,7 @@ impl Display for DecodeError {
 #[doc(hidden)]
 #[allow(clippy::chunks_exact_to_as_chunks)]
 pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
-    if input.len() % 4 != 0 {
+    if !input.len().is_multiple_of(4) {
         return Err(DecodeError::InvalidLength(input.len()));
     }
     // A minimal base64 decoding implementation for example purposes

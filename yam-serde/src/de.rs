@@ -222,19 +222,20 @@ where
         }
     }
 
-    // fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    // where
-    //     V: Visitor<'de>,
-    // {
-    //     match self.skip_doc() {
-    //         Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
-    //             let decoded =
-    //                 binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
-    //             visitor.visit_bytes(&decoded)
-    //         }
-    //         _ => Err(DeYamlError::ExpectedBytes),
-    //     }
-    // }
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self.skip_doc() {
+            Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
+                self.skip();
+                let decoded =
+                    binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
+                visitor.visit_bytes(&decoded)
+            }
+            _ => Err(DeYamlError::ExpectedBytes),
+        }
+    }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -243,6 +244,7 @@ where
         let ev = self.skip_doc();
         match ev {
             Some(YamEvent::Scalar(ScalarValue { value, .. })) => {
+                self.skip();
                 let decoded =
                     binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
                 visitor.visit_byte_buf(decoded)
@@ -266,7 +268,7 @@ where
     forward_to_deserialize_any! {
         bool i128 u128 f32 f64 char str string
         unit_struct newtype_struct tuple
-        tuple_struct ignored_any bytes
+        tuple_struct ignored_any
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>

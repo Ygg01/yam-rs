@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use yam_serde::{from_str, to_pretty_string, PrettyFormatterConfig};
@@ -65,13 +67,15 @@ fn test_round_trip_opt(#[case] input: OneEnumToHoldThemAll) {
     assert_eq!(actual.unwrap(), input);
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 struct BinaryConvert<'a> {
     #[serde(with = "serde_bytes")]
     byte_buf: Vec<u8>,
 
-    #[serde(with = "serde_bytes")]
-    bytes: &'a [u8],
+    // `Cow` rather than `&[u8]`: `!!binary` is base64-decoded into fresh bytes,
+    // which can't be borrowed from the input, so a borrowed slice would always fail.
+    #[serde(borrow, with = "serde_bytes")]
+    bytes: Cow<'a, [u8]>,
 
     #[serde(with = "serde_bytes")]
     byte_array: [u8; 4],
@@ -88,7 +92,7 @@ byte_array: !!binary |-
 fn test_round_trip_bytes() {
     let initial = BinaryConvert {
         byte_buf: br"Test this binary stuff".to_vec(),
-        bytes: b"Test this binary",
+        bytes: Cow::Borrowed(b"Test this binary"),
         byte_array: *b"abcd",
     };
     let fmt = PrettyFormatterConfig::default();
@@ -103,5 +107,5 @@ fn test_round_trip_bytes() {
     if let Err(x) = &actual {
         panic!("{x}")
     }
-    assert_eq!(&actual.unwrap().bytes, &initial.bytes);
+    assert_eq!(actual.unwrap(), initial);
 }
