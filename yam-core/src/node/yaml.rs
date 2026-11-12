@@ -295,9 +295,6 @@ impl<'a> Yaml<'a> {
     /// }
     /// ```
     ///
-    /// # Notes
-    /// This function expects only a single YAML document in the input. Any additional
-    /// documents beyond the first will be ignored.
     ///
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Yaml<'a>>, YamlError> {
         YamlLoader::<Yaml<'a>>::load_from(input)
@@ -479,6 +476,13 @@ impl From<i32> for Yaml<'_> {
 impl From<i64> for Yaml<'_> {
     fn from(value: i64) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::Integer(value)))
+    }
+}
+
+impl From<Vec<bool>> for Yaml<'_> {
+    fn from(value: Vec<bool>) -> Self {
+        let sequence = value.into_iter().map(Yaml::from).collect();
+        Yaml(YamlData::Sequence(sequence))
     }
 }
 

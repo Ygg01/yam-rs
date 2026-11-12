@@ -39,3 +39,6 @@ mod lazy_expander;
 pub mod node;
 pub mod parsing;
 pub mod prelude;
+
+#[doc(hidden)]
+pub mod binary;

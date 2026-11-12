@@ -1,5 +1,5 @@
+use crate::PrettyFormatterConfig;
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
-use crate::{PrettyFormatterConfig, binary};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -10,6 +10,7 @@ use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
+use yam_core::binary;
 use yam_core::emitter::YamlWriter;
 use yam_core::prelude::ScalarType;
 
@@ -212,16 +213,29 @@ where
     }
 
     #[inline]
-    fn write_block_string(&mut self, is_folded: bool, str: &str) -> Result<(), Error> {
+    fn write_block_string(
+        &mut self,
+        is_folded: bool,
+        str: &str,
+        at_indent: usize,
+    ) -> Result<(), Error> {
         let mut string_writer = String::with_capacity(str.len() * 2);
-        let chr = if is_folded { ">" } else { "|" };
-        string_writer.push_str(str);
+
+        let chr = if str.ends_with('\n') {
+            let len_min_1 = str.len().saturating_sub(1);
+            string_writer.push_str(&str[0..len_min_1]);
+            if is_folded { ">" } else { "|" }
+        } else {
+            string_writer.push_str(str);
+            if is_folded { ">-" } else { "|-" }
+        };
 
         // Write the pipe without updating position
         self.writer.write_ascii(chr)?;
+        self.writer.writeln()?;
         // then indent the string and write the block.
-        self.writer.write_indent(self.current_depth())?;
-        self.writer.write_str(&string_writer)?;
+        self.writer.write_indent(at_indent)?;
+        self.write_multi_line_string("", &string_writer, "")?;
 
         Ok(())
     }
@@ -296,18 +310,6 @@ where
 
 impl<W> YamSerializer<W> {
     #[inline]
-    pub fn new_simple(writer: W) -> Self {
-        let formatter = PrettyFormatterConfig::default();
-        YamSerializer {
-            writer: YamlWriter::new(writer),
-            formatter,
-            is_scalar: false,
-            serializer_states: Vec::new(),
-            key_val_sep: Option::default(),
-        }
-    }
-
-    #[inline]
     pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
         YamSerializer {
             writer: YamlWriter::new(writer),
@@ -339,11 +341,6 @@ impl<W> YamSerializer<W> {
     #[inline]
     pub(crate) fn current_depth(&self) -> usize {
         self.serializer_states.len()
-    }
-
-    #[inline]
-    pub(crate) fn current_indent(&self) -> usize {
-        self.serializer_states.len().saturating_sub(1)
     }
 }
 
@@ -442,7 +439,7 @@ where
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        let prefer_single_line = self.formatter.compat_strings;
+        let prefer_single_line = self.formatter.compact_strings;
         match self.preferred_string(v) {
             ScalarType::Plain => {
                 if prefer_single_line {
@@ -451,7 +448,8 @@ where
                     self.write_multi_line_string("", v, "")
                 }
             }
-            ScalarType::Folded | ScalarType::Literal => self.write_block_string(true, v),
+            ScalarType::Folded => self.write_block_string(true, v, self.current_depth()),
+            ScalarType::Literal => self.write_block_string(false, v, self.current_depth()),
             ScalarType::SingleQuote => {
                 let mut var = String::with_capacity(v.len() * 2);
                 escape_single_quotes(&mut var, v)?;
@@ -478,8 +476,8 @@ where
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        self.writer.write_ascii("!!binary")?;
-        let mut encoded_bytes = binary::encode_as_base64(v);
+        self.writer.write_ascii("!!binary ")?;
+        let encoded_bytes = binary::encode_as_base64(v);
         if matches!(
             self.serializer_state(),
             SerializerState::FlowValue | SerializerState::Flow | SerializerState::FlowKey
@@ -488,16 +486,7 @@ where
             self.writer.write_ascii(&encoded_bytes)?;
             self.writer.write_ascii("\"")?;
         } else {
-            self.writer.write_ascii("|\n")?;
-
-            while !encoded_bytes.is_empty() {
-                self.writer.write_indent(self.current_depth())?;
-                let remaining_byte = (self.formatter.pref_string_length as usize)
-                    .saturating_sub(self.writer.indent_pos());
-                let write = encoded_bytes.split_off(remaining_byte);
-                self.writer.write_ascii(&write)?;
-            }
-            self.writer.write_ascii(&encoded_bytes)?;
+            self.write_block_string(false, &encoded_bytes, self.current_depth() + 1)?;
         }
         Ok(())
     }
@@ -591,7 +580,10 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        self.serialize_seq(Some(len))
+        // Tuple struct (2, 4) is serialized as a `[2, 4]`
+        let mut struct_serializer = Compound::flow(self, Some(len));
+        struct_serializer.begin_seq()?;
+        Ok(struct_serializer)
     }
 
     fn serialize_tuple_variant(
@@ -611,6 +603,9 @@ where
 
         // Serialize the `: ` part
         struct_serializer.begin_obj_val();
+
+        // Reset the count for the sequence
+        struct_serializer.info.reset_to_first();
 
         // Serialize the ['values', 'in', 'tuple']
         struct_serializer.begin_seq()?;
@@ -657,6 +652,9 @@ where
         // Serialize the `: ` part
         collection_serializer.begin_obj_val();
 
+        // Reset to first, for the rest of the serializer
+        collection_serializer.info.reset_to_first();
+
         // Serialize the `{ key: "value"}` part
 
         Ok(collection_serializer)
@@ -689,6 +687,10 @@ pub enum CompoundState {
 impl CompoundInfo {
     fn is_first(self) -> bool {
         matches!(self.state, CompoundState::First)
+    }
+
+    pub(crate) fn reset_to_first(&mut self) {
+        self.state = CompoundState::First;
     }
 }
 
@@ -867,7 +869,12 @@ where
             YamlStyle::Block | YamlStyle::Explicit => {
                 self.ser.ensure_indent()?;
             }
-            YamlStyle::Flow => {}
+            YamlStyle::Flow if !self.info.is_first() => {
+                self.ser.writer.write_ascii(", ")?;
+            }
+            YamlStyle::Flow => {
+                self.info.state = CompoundState::Rest;
+            }
         }
         Ok(())
     }
@@ -966,7 +973,7 @@ where
     }
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        self.end_object()
+        self.end_seq()
     }
 }
 
