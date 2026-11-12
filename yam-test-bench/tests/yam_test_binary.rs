@@ -30,3 +30,23 @@ fn test_decode(#[case] input: &str, #[case] expected: &[u8]) {
     );
     assert_eq!(decode.unwrap().as_slice(), expected);
 }
+
+const EDGE1_B64: &str = "WHZtA";
+const EDGE2_B64: &str = "WHZtAA=";
+const EDGE3_B64: &str = "WHZtAAA=";
+const EDGE_EXP: &[u8] = b"Xvm";
+
+#[rstest]
+#[case::edge1(EDGE1_B64, EDGE_EXP)]
+#[case::edge2(EDGE2_B64, EDGE_EXP)]
+#[case::edge1(EDGE3_B64, EDGE_EXP)]
+#[should_panic]
+fn test_decode_edge_cases(#[case] input: &str, #[case] expected: &[u8]) {
+    let decode = decode_as_base64(input);
+    assert!(
+        decode.is_ok(),
+        "Expected decode to be successful got {} instead",
+        decode.err().unwrap()
+    );
+    assert_eq!(decode.unwrap().as_slice(), expected);
+}

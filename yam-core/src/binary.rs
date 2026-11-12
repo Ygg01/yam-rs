@@ -9,12 +9,16 @@ const BASE64_CHARSET: &[u8; 64] =
 #[derive(Debug)]
 pub enum DecodeError {
     InvalidByte(u8),
+    InvalidLength(usize),
 }
 
 impl Display for DecodeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            DecodeError::InvalidByte(x) => write!(f, "Invalid byte '{}' ({})", *x as char, x),
+            DecodeError::InvalidByte(chr) => write!(f, "Invalid byte '{}' ({})", *chr as char, chr),
+            DecodeError::InvalidLength(ln) => {
+                write!(f, "Invalid length expected multiple of 4 ({})", ln)
+            }
         }
     }
 }
@@ -22,18 +26,26 @@ impl Display for DecodeError {
 #[doc(hidden)]
 #[allow(clippy::chunks_exact_to_as_chunks)]
 pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
+    if input.len() % 4 != 0 {
+        return Err(DecodeError::InvalidLength(input.len()));
+    }
     // A minimal base64 decoding implementation for example purposes
     let filtered_in: Vec<u8> = input
         .as_bytes()
         .iter()
         .copied()
         .filter(|byte| *byte != b' ' && *byte != b'\n' && *byte != b'\r')
-        .take_while(|byte| *byte != b'=')
         .collect();
+
+    let pos = filtered_in
+        .iter()
+        .position(|x| *x == b'=')
+        .unwrap_or(filtered_in.len());
+    let end_pos = pos - (pos % 4);
 
     let mut output = Vec::with_capacity(input.len() * 2);
 
-    let mut iter = filtered_in.chunks_exact(4);
+    let mut iter = filtered_in[..end_pos].chunks_exact(4);
     for byte in &mut iter {
         // SAFETY: `chunks_exact` guarantees exactly 4 elements.
         let byte0 = unsafe { *byte.get_unchecked(0) };
@@ -67,65 +79,64 @@ pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
         output.push(v2 as u8);
     }
 
-    match iter.remainder() {
+    match filtered_in[end_pos..] {
+        [a, b, c, d] => {
+            finish_tail(a, b, c, d, &mut output)?;
+        }
         [a, b, c] => {
-            let a = BASE64_CHARSET
-                .iter()
-                .position(|i| i == a)
-                .ok_or(DecodeError::InvalidByte(*a))?;
-            let b = BASE64_CHARSET
-                .iter()
-                .position(|i| i == b)
-                .ok_or(DecodeError::InvalidByte(*b))?;
-            let c = BASE64_CHARSET
-                .iter()
-                .position(|i| i == c)
-                .ok_or(DecodeError::InvalidByte(*c))?;
-
-            let v0 = ((a << 2) + (b >> 4)) & 0xFF;
-            let v1 = ((b << 4) & 0xFF) + (c >> 2);
-            let v2 = (c << 6) & 0xFF;
-
-            output.push(v0 as u8);
-            output.push(v1 as u8);
-            if v2 != 0 {
-                output.push(v2 as u8);
-            }
+            finish_tail(a, b, c, b'=', &mut output)?;
         }
         [a, b] => {
-            let a = BASE64_CHARSET
-                .iter()
-                .position(|i| i == a)
-                .ok_or(DecodeError::InvalidByte(*a))?;
-            let b = BASE64_CHARSET
-                .iter()
-                .position(|i| i == b)
-                .ok_or(DecodeError::InvalidByte(*b))?;
-
-            let v0 = ((a << 2) + (b >> 4)) & 0xFF;
-            let v1 = (b << 4) & 0xFF;
-
-            output.push(v0 as u8);
-            if v1 != 0 {
-                output.push(v1 as u8);
-            }
+            finish_tail(a, b, b'=', b'=', &mut output)?;
         }
         [a] => {
-            let a = BASE64_CHARSET
-                .iter()
-                .position(|i| i == a)
-                .ok_or(DecodeError::InvalidByte(*a))?;
-
-            let v0 = (a << 2) & 0xFF;
-
-            if v0 != 0 {
-                output.push(v0 as u8);
-            }
+            finish_tail(a, b'=', b'=', b'=', &mut output)?;
         }
         _ => {}
     };
 
     Ok(output)
+}
+
+fn finish_tail(a: u8, b: u8, c: u8, d: u8, output: &mut Vec<u8>) -> Result<(), DecodeError> {
+    let a_pos = BASE64_CHARSET
+        .iter()
+        .position(|i| *i == a || a == b'=')
+        .ok_or(DecodeError::InvalidByte(a))?;
+
+    let b_pos = BASE64_CHARSET
+        .iter()
+        .position(|i| *i == b || b == b'=')
+        .ok_or(DecodeError::InvalidByte(b))?;
+
+    let c_pos = BASE64_CHARSET
+        .iter()
+        .position(|i| *i == c || c == b'=')
+        .ok_or(DecodeError::InvalidByte(c))?;
+
+    let d_pos = BASE64_CHARSET
+        .iter()
+        .position(|i| *i == d || d == b'=')
+        .ok_or(DecodeError::InvalidByte(d))?;
+
+    let v0 = ((a_pos << 2) + (b_pos >> 4)) & 0xFF;
+    output.push(v0 as u8);
+
+    if c == b'=' {
+        return Ok(());
+    }
+
+    let v1 = ((b_pos << 4) & 0xFF) + (c_pos >> 2);
+    output.push(v1 as u8);
+
+    if d == b'=' {
+        return Ok(());
+    }
+
+    let v2 = ((c_pos << 6) & 0xFF) + d_pos;
+    output.push(v2 as u8);
+
+    Ok(())
 }
 
 #[doc(hidden)]
