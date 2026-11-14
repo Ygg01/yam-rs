@@ -17,14 +17,17 @@ impl Display for DecodeError {
         match self {
             DecodeError::InvalidByte(chr) => write!(f, "Invalid byte '{}' ({})", *chr as char, chr),
             DecodeError::InvalidLength(ln) => {
-                write!(f, "Invalid length expected multiple of 4 ({})", ln)
+                write!(
+                    f,
+                    "Invalid length expected multiple of 4 (got {ln} instead)"
+                )
             }
         }
     }
 }
 
 #[doc(hidden)]
-#[allow(clippy::chunks_exact_to_as_chunks)]
+#[allow(clippy::chunks_exact_to_as_chunks, clippy::cast_possible_truncation)]
 pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
     if !input.len().is_multiple_of(4) {
         return Err(DecodeError::InvalidLength(input.len()));
@@ -70,6 +73,8 @@ pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
             .position(|b| *b == byte3)
             .ok_or(DecodeError::InvalidByte(byte3))?;
 
+        // These three numbers must always be below u8
+        // so `clippy::cast_possible_truncation` is ignored
         let v0 = ((a << 2) + (b >> 4)) & 0xFF;
         let v1 = ((b << 4) & 0xFF) + (c >> 2);
         let v2 = ((c << 6) & 0xFF) + d;
@@ -93,11 +98,12 @@ pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
             finish_tail(a, b'=', b'=', b'=', &mut output)?;
         }
         _ => {}
-    };
+    }
 
     Ok(output)
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn finish_tail(a: u8, b: u8, c: u8, d: u8, output: &mut Vec<u8>) -> Result<(), DecodeError> {
     let a_pos = BASE64_CHARSET
         .iter()
@@ -119,6 +125,8 @@ fn finish_tail(a: u8, b: u8, c: u8, d: u8, output: &mut Vec<u8>) -> Result<(), D
         .position(|i| *i == d || d == b'=')
         .ok_or(DecodeError::InvalidByte(d))?;
 
+    // These v0, v1, v2  numbers must always be below u8
+    // so `clippy::cast_possible_truncation` is ignored
     let v0 = ((a_pos << 2) + (b_pos >> 4)) & 0xFF;
     output.push(v0 as u8);
 
@@ -140,6 +148,7 @@ fn finish_tail(a: u8, b: u8, c: u8, d: u8, output: &mut Vec<u8>) -> Result<(), D
 }
 
 #[doc(hidden)]
+#[must_use]
 #[allow(clippy::chunks_exact_to_as_chunks)]
 pub fn encode_as_base64(input: &[u8]) -> String {
     let mut output = Vec::new();

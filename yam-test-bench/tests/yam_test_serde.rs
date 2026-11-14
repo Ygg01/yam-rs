@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
+use yam_serde::ser::YamlStyle;
 use yam_serde::{from_str, to_pretty_string, PrettyFormatterConfig};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
@@ -44,6 +45,7 @@ enum OneEnumToHoldThemAll {
 #[case::i32(OneEnumToHoldThemAll::I32(-32))]
 #[case::i64(OneEnumToHoldThemAll::I64(-64))]
 #[case::char(OneEnumToHoldThemAll::Char('#'))]
+#[case::char(OneEnumToHoldThemAll::Char('\''))]
 #[case::opt_none(OneEnumToHoldThemAll::Option(None))]
 #[case::opt_some(OneEnumToHoldThemAll::Option(Some(true)))]
 #[case::unit_variant(OneEnumToHoldThemAll::UnitVariant)]
@@ -81,27 +83,41 @@ struct BinaryConvert<'a> {
     byte_array: [u8; 4],
 }
 
-const BIN_CONVERT: &str = r#"byte_buf: !!binary |-
-  VGVzdCB0aGlzIGJpbmFyeSBzdHVmZg==
-bytes: !!binary |-
-  VGVzdCB0aGlzIGJpbmFyeQ==
-byte_array: !!binary |-
-  YWJjZA=="#;
-
 #[test]
-fn test_round_trip_bytes() {
+fn test_round_trip_bytes_block() {
     let initial = BinaryConvert {
         byte_buf: br"Test this binary stuff".to_vec(),
         bytes: Cow::Borrowed(b"Test this binary"),
         byte_array: *b"abcd",
     };
-    let fmt = PrettyFormatterConfig::default();
-    let result = to_pretty_string(&initial, fmt);
+    let fmt_config = PrettyFormatterConfig::default();
+    let result = to_pretty_string(&initial, fmt_config);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
     let binding = result.unwrap();
-    assert_eq!(binding, BIN_CONVERT);
 
+    let actual = from_str::<BinaryConvert>(&binding);
+
+    if let Err(x) = &actual {
+        panic!("{x}")
+    }
+    assert_eq!(actual.unwrap(), initial);
+}
+
+#[test]
+fn test_round_trip_bytes_flow() {
+    let initial = BinaryConvert {
+        byte_buf: br"Test this binary stuff".to_vec(),
+        bytes: Cow::Borrowed(b"Test this binary"),
+        byte_array: *b"abcd",
+    };
+    let mut fmt_config = PrettyFormatterConfig::default();
+    fmt_config.root_style = YamlStyle::Flow;
+
+    let result = to_pretty_string(&initial, fmt_config);
+
+    assert!(result.is_ok(), "Expected Ok result for serialization");
+    let binding = result.unwrap();
     let actual = from_str::<BinaryConvert>(&binding);
 
     if let Err(x) = &actual {

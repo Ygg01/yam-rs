@@ -533,7 +533,7 @@ where
             for (cnt, entry) in h.entries().iter().enumerate() {
                 let complex_key = match entry.key.0 {
                     YamlData::Mapping(_) | YamlData::Sequence(_) => true,
-                    YamlData::Scalar(YamlScalar::String(ref x)) if is_string_block(&x) => true,
+                    YamlData::Scalar(YamlScalar::String(ref x)) if is_string_block(x) => true,
                     _ => false,
                 };
                 if cnt > 0 {

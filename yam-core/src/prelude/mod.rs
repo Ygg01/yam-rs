@@ -1197,6 +1197,8 @@ macro_rules! to_mut_impl {
     };
 }
 
+to_mut_impl!(i8);
+to_mut_impl!(i16);
 to_mut_impl!(i32);
 to_mut_impl!(i64);
 to_mut_impl!(i128);
