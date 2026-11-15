@@ -125,3 +125,18 @@ fn test_round_trip_bytes_flow() {
     }
     assert_eq!(actual.unwrap(), initial);
 }
+
+const RAW_TAB: &str = "	";
+
+#[rstest]
+#[case::decode_tab("\\t", r#""\t""#)]
+#[case::decode_cr("\\r", r#""\r""#)]
+#[case::decode_lf("\\n", r#""\n""#)]
+#[case::decode_tab(RAW_TAB, r#""\t""#)]
+fn test_string_escape(#[case] input: &str, #[case] decoded: &str) {
+    let fmt_config = PrettyFormatterConfig::default();
+    let result = to_pretty_string(&input, fmt_config);
+    let actual = result.expect("Expected Serialization successful");
+
+    assert_eq!(actual, decoded);
+}
