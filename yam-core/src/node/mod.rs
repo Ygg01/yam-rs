@@ -9,4 +9,3 @@ pub(crate) mod scalar;
 pub(crate) mod spanned_yaml;
 pub(crate) mod yaml;
 pub(crate) mod yaml_data;
-pub mod yaml_owned;
