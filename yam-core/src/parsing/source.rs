@@ -1,5 +1,4 @@
 use crate::parsing::buffered_source::BUF_MAX_LEN;
-use crate::parsing::buffered_source::BufBytesSource;
 use crate::parsing::char_utils::{
     LO_BYTES, eq_byte_mask, is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
     len_until,

@@ -6,11 +6,12 @@ use serde_core::de::{
     Visitor,
 };
 use serde_core::{de, forward_to_deserialize_any};
-use yam_core::binary;
-use yam_core::binary::DecodeError;
-use yam_core::node::YamlScalar;
-use yam_core::parsing::parser_iter::YamEvent;
-use yam_core::parsing::{InMemSource, ParserIter, ScalarValue, Source};
+
+use crate::binary;
+use crate::binary::DecodeError;
+use crate::parsing::parser_iter::YamEvent;
+use crate::parsing::{ParserIter, ScalarValue};
+use crate::prelude::{InMemSource, Source, YamlScalar};
 
 pub(crate) struct YamIterDeserializer<'de, R>
 where
@@ -476,8 +477,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::de::{DeYamlError, EXPECTED_NULL};
-    use crate::from_str;
+    use crate::serde::de::{DeYamlError, EXPECTED_NULL};
+    use crate::serde::from_str;
     use alloc::format;
     use alloc::string::ToString;
 

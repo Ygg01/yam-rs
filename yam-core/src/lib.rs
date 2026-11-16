@@ -40,5 +40,11 @@ pub mod node;
 pub mod parsing;
 pub mod prelude;
 
+#[cfg(feature = "serde")]
+pub mod serde;
+
+#[cfg(feature = "serde")]
+pub use serde::{from_str, to_pretty_string};
+
 #[doc(hidden)]
 pub mod binary;

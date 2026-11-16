@@ -1,5 +1,8 @@
-use crate::YamlFormatter;
-use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
+use crate::binary;
+use crate::emitter::YamlWriter;
+use crate::prelude::ScalarType;
+use crate::serde::YamlFormatter;
+use crate::serde::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -10,9 +13,6 @@ use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
 use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
-use yam_core::binary;
-use yam_core::emitter::YamlWriter;
-use yam_core::prelude::ScalarType;
 
 trait YamlWhitespace {
     fn is_splittable_ws(&self) -> bool;

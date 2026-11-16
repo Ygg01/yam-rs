@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::ops::{Index, IndexMut};
 use yam_core::node::{SpannedYaml, Yaml, YamlScalar};
 use yam_core::parsing::Tag;
-use yam_core::prelude::{YamlDocAccess, YamlLoader};
+use yam_core::prelude::{YamLoader, YamlDocAccess};
 
 const SIMPLE_SEQ: &str = "[a, b]";
 const SIMPLE_MAP: &str = "{0: a, 1: b}";
@@ -24,8 +24,8 @@ const ALIAS_SEQ: &str = "[&a 3.0, *a]";
 #[case::span_nested_seq(NESTED_SEQ)]
 #[case::span_alias_seq(ALIAS_SEQ)]
 fn test_span(#[case] input: &str) {
-    let mut spanned_yaml = YamlLoader::<SpannedYaml>::load_single(input).unwrap();
-    let mut borrowed_yaml = YamlLoader::<Yaml>::load_single(input).unwrap();
+    let mut spanned_yaml = YamLoader::<SpannedYaml>::load_single(input).unwrap();
+    let mut borrowed_yaml = YamLoader::<Yaml>::load_single(input).unwrap();
 
     assert_eq!(spanned_yaml[0].get_type(), borrowed_yaml[0].get_type());
     assert_eq!(spanned_yaml[0].get_tag(), borrowed_yaml[0].get_tag());

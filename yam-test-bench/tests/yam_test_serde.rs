@@ -3,8 +3,9 @@ use std::borrow::Cow;
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use yam_core::prelude::ScalarType;
-use yam_serde::ser::YamlStyle;
-use yam_serde::{from_str, to_pretty_string, YamlFormatter};
+use yam_core::serde::ser::YamlStyle;
+use yam_core::serde::YamlFormatter;
+use yam_core::{from_str, to_pretty_string};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 struct Person {

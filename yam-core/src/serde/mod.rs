@@ -1,18 +1,14 @@
-#![no_std]
-
-extern crate alloc;
-
 pub mod de;
 mod escape_str;
 #[allow(dead_code, unused_variables)]
 pub mod ser;
 
-use crate::de::DeYamlError;
-use crate::ser::{FlowStyle, YamlStyle};
+use crate::prelude::ScalarType;
 use alloc::borrow::Cow;
 use alloc::string::String;
 use core::fmt::Error;
-use yam_core::prelude::ScalarType;
+use de::DeYamlError;
+use ser::{FlowStyle, YamlStyle};
 
 /// Attempts to deserialize an instance of type `T` from a YAML input string.
 ///
@@ -69,7 +65,7 @@ pub fn from_str<'a, T>(input: &'a str) -> Result<T, DeYamlError>
 where
     T: serde_core::de::Deserialize<'a>,
 {
-    let mut de = crate::de::YamIterDeserializer::new(input);
+    let mut de = de::YamIterDeserializer::new(input);
     let value = T::deserialize(&mut de)?;
 
     Ok(value)

@@ -3,7 +3,6 @@
 [workspace]
 members = [
     "yam-core",
-    "yam-serde",
     "yam-test-bench"
 ]
 

@@ -2,9 +2,9 @@ use core::fmt::Error;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use yam_core::prelude::ScalarType;
-use yam_serde::ser::FlowStyle;
-use yam_serde::to_pretty_string;
-use yam_serde::{NullFormat, YamlFormatter};
+use yam_core::serde::ser::FlowStyle;
+use yam_core::serde::{NullFormat, YamlFormatter};
+use yam_core::to_pretty_string;
 
 fn assert_eq_strings(result: Result<String, Error>, correct: &str) {
     assert_eq!(result, Ok(correct.to_string()));
@@ -223,7 +223,7 @@ fn test_cant_be_plain() {
     style.root_preferred_style = ScalarType::Plain;
     style.flow_string_style = FlowStyle::SingleQuote;
 
-    let result = to_pretty_string(&str, style);
+    let result = yam_core::to_pretty_string(&str, style);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "'@cant_be_plain'");
 }

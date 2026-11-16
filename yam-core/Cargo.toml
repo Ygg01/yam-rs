@@ -1,8 +1,8 @@
 [package]
 name = "yam-core"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
-
+rust-version = "1.99.0"
 documentation = "https://docs.rs/yam-core"
 repository = "https://github.com/Ygg01/yam-rs"
 homepage = "https://github.com/Ygg01/yam-rs"
@@ -11,7 +11,7 @@ description = "Pure Rust YAML reader and writer (to be added)"
 categories = ["parsing"]
 keywords = ["yaml", "parser"]
 license = "LGPL-3.0-only"
-readme = "README.md"
+readme = "../README.md"
 authors = [
     "Ygg01 <y.laughing.man.y@gmail.com>",
     # Saphyr.rs authors
@@ -28,10 +28,19 @@ exclude =[
 
 [dependencies]
 fearless_simd = { version = "1.2.0", features = ["libm"] }
+serde_core = { version = "1.0.228", default-features = false, optional = true }
+unicode-segmentation = { version = "1.13.3", optional = true }
+
+[dev-dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+
 
 [features]
 default = []
 comment = []
+serde = [
+    "serde_core", "unicode-segmentation"
+]
 
 [[example]]
 name = "simple_parse"
