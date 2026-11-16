@@ -486,7 +486,7 @@ unsafe impl Source for InMemSource<'_> {
     }
 
     fn skip(&mut self, n: usize) {
-        self.pos += n;
+        self.update_pos(self.pos + n)
     }
 
     fn skip_spaces(&mut self, max: usize) -> usize {
@@ -518,8 +518,10 @@ unsafe impl Source for InMemSource<'_> {
 
     fn fill_buf_to_max(&mut self) {}
 
+    #[inline]
     fn update_pos(&mut self, pos: usize) {
-        self.pos = pos;
+        let capped = min(self.input.len(), pos);
+        self.pos = capped;
     }
 }
 
@@ -557,5 +559,21 @@ mod test {
                 any_tabs: false
             })
         );
+    }
+
+    const INPUT: &str = "XYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZX\
+    XYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZXYZX";
+
+    #[test]
+    fn test_overflow() {
+        let mut stringed = InMemSource::new(INPUT);
+        stringed.skip(512);
+        let x = stringed.peek_char();
+        assert_eq!(x, '\u{FFFD}');
+
+        let mut stringed = BufBytesSource::new(INPUT);
+        stringed.skip(512);
+        let x = stringed.peek_char();
+        assert_eq!(x, '\u{FFFD}');
     }
 }

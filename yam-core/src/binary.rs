@@ -6,7 +6,7 @@ const BASE64_CHARSET: &[u8; 64] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /// Error while decoding base64
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DecodeError {
     InvalidByte(u8),
     InvalidLength(usize),
