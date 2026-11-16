@@ -385,3 +385,19 @@ fn test_into_tagged() {
     assert_eq!(yaml.get_tag(), Some(tag.clone()));
     assert_eq!(yaml_span.get_tag(), Some(tag));
 }
+
+#[test]
+fn test_loader() {
+    let input = "a: b";
+    let yaml = Yaml::load_from(input).expect("Parsing success");
+    let span_yaml = SpannedYaml::load_from(input).expect("Parsing success");
+
+    assert_eq!(yaml[0]["a"].as_str().unwrap_or(""), "b");
+    assert_eq!(span_yaml[0]["a"].as_str().unwrap_or(""), "b");
+
+    let yaml = Yaml::load_single(input).expect("Parsing success");
+    let span_yaml = SpannedYaml::load_single(input).expect("Parsing success");
+
+    assert_eq!(yaml["a"].as_str().unwrap_or(""), "b");
+    assert_eq!(span_yaml["a"].as_str().unwrap_or(""), "b");
+}

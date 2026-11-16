@@ -1,6 +1,6 @@
 use crate::prelude::{
     IsEmpty, Marker, NodeType, Span, Tag, ToMut, ToMutStr, YamlAccessError, YamlData,
-    YamlDocAccess, YamlEntry, YamlScalar,
+    YamlDocAccess, YamlEntry, YamlError, YamlLoader, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -56,6 +56,97 @@ use core::ops::{Index, IndexMut};
 pub struct SpannedYaml<'a, FP = f64, INT = i64, STR = Cow<'a, str>> {
     pub span: Span,
     pub yaml: YamlData<'a, SpannedYaml<'a, FP, INT, STR>, FP, INT, STR>,
+}
+
+impl<'a> SpannedYaml<'a> {
+    ///
+    /// Loads a vector of YAML document from the given input string.
+    ///
+    /// # Type Parameters
+    /// - `S`: A type that can be converted into a string slice (`&str`)
+    ///   using the `AsRef<str>` trait, typically `String` or `&str`.
+    ///
+    /// # Parameters
+    /// - `input`: The YAML input as a string-like object. This is the source from
+    ///   which the function attempts to parse a single YAML document.
+    ///
+    /// # Returns
+    /// - `Ok(Node)`: On success, returns the first YAML document (`Node`) parsed from the input string.
+    /// - `Err(YamlError)`: Returns an error if:
+    ///   - The input is invalid or cannot be parsed due to syntax or structural issues.
+    ///   - No YAML document is found within the input (`YamlError::NoDocument`).
+    ///
+    /// # Errors
+    /// - `YamlError::NoDocument`: Returned if no valid YAML documents are found in the input.
+    /// - Any other error encountered during parsing, as propagated from the parser.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_core::prelude::{SpannedYaml, YamlLoader};
+    ///
+    /// let yaml_input = r#"
+    /// key: value
+    /// array:
+    ///   - item1
+    ///   - item2
+    /// "#;
+    ///
+    /// match SpannedYaml::load_from(&yaml_input) {
+    ///     Ok(node) => println!("Parsed Node: {node:?}"),
+    ///     Err(e) => eprintln!("Error loading YAML: {e}"),
+    /// }
+    /// ```
+    ///
+    ///
+    pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<SpannedYaml<'a>>, YamlError> {
+        YamlLoader::<SpannedYaml<'a>>::load_from(input)
+    }
+
+    ///
+    /// Loads a single YAML document from the given input string.
+    ///
+    /// # Type Parameters
+    /// - `S`: A type that can be converted into a string slice (`&str`)
+    ///   using the `AsRef<str>` trait, typically `String` or `&str`.
+    ///
+    /// # Parameters
+    /// - `input`: The YAML input as a string-like object. This is the source from
+    ///   which the function attempts to parse a single YAML document.
+    ///
+    /// # Returns
+    /// - `Ok(Node)`: On success, returns the first YAML document (`Node`) parsed from the input string.
+    /// - `Err(YamlError)`: Returns an error if:
+    ///   - The input is invalid or cannot be parsed due to syntax or structural issues.
+    ///   - No YAML document is found within the input (`YamlError::NoDocument`).
+    ///
+    /// # Errors
+    /// - `YamlError::NoDocument`: Returned if no valid YAML documents are found in the input.
+    /// - Any other error encountered during parsing, as propagated from the parser.
+    ///
+    /// # Example
+    /// ```
+    /// use yam_core::prelude::{SpannedYaml, YamlLoader};
+    ///
+    /// let yaml_input = r#"
+    /// key: value
+    /// array:
+    ///   - item1
+    ///   - item2
+    /// "#;
+    ///
+    /// match SpannedYaml::load_single(&yaml_input) {
+    ///     Ok(node) => println!("Parsed Node: {:?}", node),
+    ///     Err(e) => eprintln!("Error loading YAML: {}", e),
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    /// This function expects only a single YAML document in the input. Any additional
+    /// documents beyond the first will be ignored.
+    ///
+    pub fn load_single<S: AsRef<str>>(input: S) -> Result<SpannedYaml<'a>, YamlError> {
+        YamlLoader::<SpannedYaml<'a>>::load_single(input)
+    }
 }
 
 impl<FP, INT, STR> Clone for SpannedYaml<'_, FP, INT, STR>
