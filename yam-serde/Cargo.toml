@@ -1,6 +1,6 @@
 [package]
 name = "yam-serde"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2024"
 
 documentation = "https://docs.rs/yam-serde"

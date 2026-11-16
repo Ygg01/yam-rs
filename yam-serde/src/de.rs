@@ -130,7 +130,7 @@ where
                 self.skip();
                 let decoded =
                     binary::decode_as_base64(&value).map_err(DeYamlError::Base64DecodeError)?;
-                visitor.visit_byte_buf(decoded)
+                visitor.visit_bytes(&decoded)
             }
             _ => Err(DeYamlError::ExpectedBytes),
         }
