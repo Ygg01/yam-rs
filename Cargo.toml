@@ -7,8 +7,7 @@ members = [
     "yam-test-bench"
 ]
 
-exclude = ["yam-test-bench"]
-resolver = "2"
+resolver = "3"
 
 [profile.bench]
 codegen-units = 1
