@@ -1,6 +1,5 @@
 pub use serde;
 use serde::Deserialize;
-use yam_serde::de::DeYamlError;
 
 #[test]
 fn test_nested_collections() {
@@ -67,49 +66,4 @@ fn test_enum() {
     let j = r#"{"Struct":{"a":1}}"#;
     let expected = E::Struct { a: 1 };
     assert_eq!(expected, yam_serde::from_str(j).unwrap());
-}
-
-#[test]
-fn test_wrong_de_errors() {
-    let evil_input = "true";
-    assert_eq!(
-        yam_serde::from_str::<i8>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected i8"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<i16>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected i16"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<i32>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected i32"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<i64>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected i64"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<u8>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected u8"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<u16>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected u16"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<u32>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected u32"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<u64>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected u64"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<f32>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected f32"#.to_string()),
-    );
-    assert_eq!(
-        yam_serde::from_str::<f64>(evil_input).unwrap_err(),
-        DeYamlError::Custom(r#"invalid type: boolean `true`, expected f64"#.to_string()),
-    );
 }

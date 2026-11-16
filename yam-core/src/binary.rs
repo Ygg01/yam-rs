@@ -84,27 +84,15 @@ pub fn decode_as_base64(input: &str) -> Result<Vec<u8>, DecodeError> {
         output.push(v2 as u8);
     }
 
-    match filtered_in[end_pos..] {
-        [a, b, c, d] => {
-            finish_tail(a, b, c, d, &mut output)?;
-        }
-        [a, b, c] => {
-            finish_tail(a, b, c, b'=', &mut output)?;
-        }
-        [a, b] => {
-            finish_tail(a, b, b'=', b'=', &mut output)?;
-        }
-        [a] => {
-            finish_tail(a, b'=', b'=', b'=', &mut output)?;
-        }
-        _ => {}
+    if let [a, b, c, b'='] = filtered_in[end_pos..] {
+        finish_tail(a, b, c, &mut output)?;
     }
 
     Ok(output)
 }
 
 #[allow(clippy::cast_possible_truncation)]
-fn finish_tail(a: u8, b: u8, c: u8, d: u8, output: &mut Vec<u8>) -> Result<(), DecodeError> {
+fn finish_tail(a: u8, b: u8, c: u8, output: &mut Vec<u8>) -> Result<(), DecodeError> {
     let a_pos = BASE64_CHARSET
         .iter()
         .position(|i| *i == a || a == b'=')
@@ -120,11 +108,6 @@ fn finish_tail(a: u8, b: u8, c: u8, d: u8, output: &mut Vec<u8>) -> Result<(), D
         .position(|i| *i == c || c == b'=')
         .ok_or(DecodeError::InvalidByte(c))?;
 
-    let d_pos = BASE64_CHARSET
-        .iter()
-        .position(|i| *i == d || d == b'=')
-        .ok_or(DecodeError::InvalidByte(d))?;
-
     // These v0, v1, v2  numbers must always be below u8
     // so `clippy::cast_possible_truncation` is ignored
     let v0 = ((a_pos << 2) + (b_pos >> 4)) & 0xFF;
@@ -136,13 +119,6 @@ fn finish_tail(a: u8, b: u8, c: u8, d: u8, output: &mut Vec<u8>) -> Result<(), D
 
     let v1 = ((b_pos << 4) & 0xFF) + (c_pos >> 2);
     output.push(v1 as u8);
-
-    if d == b'=' {
-        return Ok(());
-    }
-
-    let v2 = ((c_pos << 6) & 0xFF) + d_pos;
-    output.push(v2 as u8);
 
     Ok(())
 }
@@ -200,11 +176,26 @@ mod test {
 
     #[test]
     fn test_encode1() {
-        let x = b"This is complete shite!!!";
+        let x = b"What a load of bytes!!!";
         let out = encode_as_base64(x.as_slice());
         // assert_eq!(out, "VGhpcyBpcyBjb21wbGV0ZSBzaGl0ZSE=");
 
         let decode = decode_as_base64(&out).unwrap();
         assert_eq!(decode, x);
+    }
+
+    #[test]
+    fn test_decode_special_cases() {
+        let x = "V0FSIE5FVkVSIENIQU5HRVM=";
+        let out = decode_as_base64(x);
+        assert!(out.is_ok());
+
+        let x = "V0FSIE5FVkVSIENIQU5HRQ==";
+        let out = decode_as_base64(x);
+        assert!(out.is_ok());
+
+        let x = "V0FSIE5FVkVSIENIQU5H";
+        let out = decode_as_base64(x);
+        assert!(out.is_ok());
     }
 }

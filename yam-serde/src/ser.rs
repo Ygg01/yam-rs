@@ -1,4 +1,4 @@
-use crate::PrettyFormatterConfig;
+use crate::YamlFormatter;
 use crate::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -108,7 +108,7 @@ pub struct YamSerializer<W> {
     /// This string starts empty and JSON is appended as values are serialized.
     pub(crate) writer: YamlWriter<W>,
     /// Pretty configuration option for formatting
-    formatter: PrettyFormatterConfig,
+    formatter: YamlFormatter,
     /// Serialization states
     serializer_states: Vec<SerializerState>,
     is_scalar: bool,
@@ -310,7 +310,7 @@ where
 
 impl<W> YamSerializer<W> {
     #[inline]
-    pub fn new_pretty(writer: W, formatter: PrettyFormatterConfig) -> Self {
+    pub fn new_pretty(writer: W, formatter: YamlFormatter) -> Self {
         YamSerializer {
             writer: YamlWriter::new(writer),
             formatter,

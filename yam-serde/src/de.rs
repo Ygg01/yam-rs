@@ -80,6 +80,14 @@ where
 {
     type Error = DeYamlError;
 
+    forward_to_deserialize_any! {
+        i8 i16 i32 i64 i128
+        u8 u16 u32 u64 u128
+        bool f32 f64  char str string
+        unit_struct newtype_struct tuple
+        tuple_struct ignored_any
+    }
+
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -138,14 +146,6 @@ where
         } else {
             visitor.visit_some(self)
         }
-    }
-
-    forward_to_deserialize_any! {
-        i8 i16 i32 i64 i128
-        u8 u16 u32 u64 u128
-        bool f32 f64  char str string
-        unit_struct newtype_struct tuple
-        tuple_struct ignored_any
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -303,16 +303,19 @@ pub enum DeYamlError {
 
 impl StdError for DeYamlError {}
 
+pub(crate) const PARSER_ERROR: &str = "Invalid Yaml";
+pub(crate) const EXPECTED_NULL: &str = "Expected null";
+
 impl Display for DeYamlError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            DeYamlError::ParserError => write!(f, "Invalid Yaml")?,
-            DeYamlError::Custom(msg) => write!(f, "Custom: {msg}")?,
-            DeYamlError::ExpectedNull => write!(f, "Expected Null")?,
+            DeYamlError::ParserError => write!(f, "{PARSER_ERROR}")?,
+            DeYamlError::Custom(msg) => write!(f, "{msg}")?,
+            DeYamlError::ExpectedNull => write!(f, "{EXPECTED_NULL}")?,
             DeYamlError::ExpectedBytes => write!(f, "Expected to find bytes")?,
             DeYamlError::Base64DecodeError(msg) => write!(f, "Base 64 Decoder error {msg}")?,
             DeYamlError::UnExpectedEvent(actual, expected) => {
-                write!(f, "Expected {expected} instead got {actual} event instead")?;
+                write!(f, "Expected {expected} event instead got {actual} event")?;
             }
         }
         Ok(())
@@ -468,5 +471,71 @@ where
         V: Visitor<'de>,
     {
         de::Deserializer::deserialize_map(&mut *self.de, visitor)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::de::{DeYamlError, EXPECTED_NULL};
+    use crate::from_str;
+    use alloc::format;
+    use alloc::string::ToString;
+
+    #[test]
+    fn test_wrong_de_errors() {
+        let evil_input = "true";
+        assert_eq!(
+            from_str::<i8>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected i8"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<i16>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected i16"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<i32>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected i32"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<i64>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected i64"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<u8>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected u8"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<u16>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected u16"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<u32>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected u32"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<u64>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected u64"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<f32>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected f32"#.to_string()),
+        );
+        assert_eq!(
+            from_str::<f64>(evil_input).unwrap_err(),
+            DeYamlError::Custom(r#"invalid type: boolean `true`, expected f64"#.to_string()),
+        );
+
+        assert_eq!(
+            format!("{}", from_str::<f64>("").unwrap_err()),
+            "Expected a scalar, map or a sequence".to_string(),
+        );
+    }
+
+    #[test]
+    fn test_visit_unit() {
+        assert_eq!(
+            format!("{}", from_str::<()>("zzz").unwrap_err()),
+            EXPECTED_NULL,
+        );
     }
 }

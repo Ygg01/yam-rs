@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 use yam_core::prelude::ScalarType;
 use yam_serde::ser::FlowStyle;
 use yam_serde::to_pretty_string;
-use yam_serde::{NullFormat, PrettyFormatterConfig};
+use yam_serde::{NullFormat, YamlFormatter};
 
 fn assert_eq_strings(result: Result<String, Error>, correct: &str) {
     assert_eq!(result, Ok(correct.to_string()));
@@ -14,7 +14,7 @@ const VEC_EXPECTED: &str = "- xyz\n- abc\n";
 #[test]
 fn test_vec_str() {
     let x = vec!["xyz".to_string(), "abc".to_string()];
-    let fmt = PrettyFormatterConfig::default();
+    let fmt = YamlFormatter::default();
     let result = to_pretty_string(&x, fmt);
 
     assert_eq_strings(result, VEC_EXPECTED);
@@ -23,23 +23,23 @@ fn test_vec_str() {
 #[test]
 fn test_null_fmt() {
     let x: Option<i32> = None;
-    let fmt = PrettyFormatterConfig::default();
+    let fmt = YamlFormatter::default();
     let result = to_pretty_string(&x, fmt);
 
     assert_eq_strings(result, NullFormat::Plain.to_null_string().as_ref());
 
-    let fmt = PrettyFormatterConfig::pretty();
+    let fmt = YamlFormatter::pretty();
     let result = to_pretty_string(&x, fmt);
 
     assert_eq_strings(result, NullFormat::JsonNull.to_null_string().as_ref());
 
-    let mut fmt = PrettyFormatterConfig::default();
+    let mut fmt = YamlFormatter::default();
     fmt.set_null_format(NullFormat::OldYaml);
     let result = to_pretty_string(&x, fmt);
 
     assert_eq_strings(result, NullFormat::OldYaml.to_null_string().as_ref());
 
-    let mut fmt = PrettyFormatterConfig::default();
+    let mut fmt = YamlFormatter::default();
     fmt.set_null_format(NullFormat::TaggedYaml);
     let result = to_pretty_string(&x, fmt);
 
@@ -55,7 +55,7 @@ dog""#;
 #[test]
 fn test_multiline_string() {
     let formatter = {
-        let mut x = PrettyFormatterConfig::pretty();
+        let mut x = YamlFormatter::pretty();
         x.pref_string_length = 10;
         x
     };
@@ -68,7 +68,7 @@ fn test_unit_struct() {
     #[derive(Serialize)]
     struct Example;
 
-    let formatter = PrettyFormatterConfig::pretty();
+    let formatter = YamlFormatter::pretty();
     let result = to_pretty_string(&Example, formatter);
     assert_eq!(result, Ok("{}".to_string()));
 }
@@ -78,7 +78,7 @@ fn test_serialize_newtype_struct() {
     #[derive(Serialize)]
     struct Measurement(u8);
 
-    let formatter = PrettyFormatterConfig::pretty();
+    let formatter = YamlFormatter::pretty();
     let result = to_pretty_string(&Measurement(0), formatter);
     assert_eq!(result, Ok("0".to_string()));
 }
@@ -94,7 +94,7 @@ fn test_serialize_simple_key() {
     map.insert(key, value);
     map.insert("b", 1);
 
-    let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
+    let result = to_pretty_string(&map, YamlFormatter::pretty());
     assert_eq!(result, Ok(SIMPLE_MAP_EXPECTED.to_string()));
 }
 
@@ -113,7 +113,7 @@ fn test_serialize_struct() {
         num: 3,
         string: "test".to_string(),
     };
-    let result = to_pretty_string(&strct, PrettyFormatterConfig::pretty());
+    let result = to_pretty_string(&strct, YamlFormatter::pretty());
     assert_eq!(result, Ok(SIMPLE_STRUCT_EXPECTED.to_string()));
 }
 
@@ -125,7 +125,7 @@ const LIST_EXPECTED: &str = r#"- 2
 #[test]
 fn test_list() {
     let example = vec![2, 3, 4];
-    let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
+    let result = to_pretty_string(&example, YamlFormatter::pretty());
     assert_eq!(result, Ok(LIST_EXPECTED.to_string()));
 }
 
@@ -139,7 +139,7 @@ const NESTED_LIST_EXPECTED: &str = r#"- - 1
 fn test_nested_list() {
     let example = vec![vec![1u64, 2], vec![3, 4]];
 
-    let result = to_pretty_string(&example, PrettyFormatterConfig::pretty());
+    let result = to_pretty_string(&example, YamlFormatter::pretty());
     assert_eq!(result, Ok(NESTED_LIST_EXPECTED.to_string()));
 }
 
@@ -153,7 +153,7 @@ fn test_serialize_complex_key() {
     let value = 34u32;
     let map = BTreeMap::from([(key, value)]);
 
-    let result = to_pretty_string(&map, PrettyFormatterConfig::pretty());
+    let result = to_pretty_string(&map, YamlFormatter::pretty());
     assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
 }
 
@@ -176,7 +176,7 @@ fn test_serialize_complex_value() {
     let cmplx = Measurement {
         m: HashMap::from([(Inner { val: 1 }, 3.0)]),
     };
-    let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
+    let result = to_pretty_string(&cmplx, YamlFormatter::pretty());
     assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
 }
 
@@ -203,14 +203,14 @@ fn test_serialize_nested_value() {
         v: vec![vec![0]],
         m: HashMap::from([(Inner { val: 1 }, 5.0)]),
     };
-    let result = to_pretty_string(&cmplx, PrettyFormatterConfig::pretty());
+    let result = to_pretty_string(&cmplx, YamlFormatter::pretty());
     assert_eq!(result, Ok(NESTED_STRUCT_EXPECTED.to_string()));
 }
 
 #[test]
 fn test_cant_be_plain() {
     let str = "@cant_be_plain";
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::Plain;
     style.flow_string_style = FlowStyle::DoubleQuote;
 
@@ -219,7 +219,7 @@ fn test_cant_be_plain() {
     assert_eq!(result.unwrap(), "\"@cant_be_plain\"");
 
     let str = "@cant_be_plain";
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::Plain;
     style.flow_string_style = FlowStyle::SingleQuote;
 
@@ -243,7 +243,7 @@ block of text !!!"#;
 #[test]
 fn test_blocks_text() {
     let str = "block of text !!!";
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::Folded;
 
     let result = to_pretty_string(&str, style);
@@ -251,7 +251,7 @@ fn test_blocks_text() {
     assert_eq!(result.unwrap(), FOLD_EXPECTED_1);
 
     let str = "block of text !!!\n";
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::Folded;
 
     let result = to_pretty_string(&str, style);
@@ -259,7 +259,7 @@ fn test_blocks_text() {
     assert_eq!(result.unwrap(), FOLD_EXPECTED_2);
 
     let str = "block of text !!!";
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::Literal;
 
     let result = to_pretty_string(&str, style);
@@ -267,7 +267,7 @@ fn test_blocks_text() {
     assert_eq!(result.unwrap(), LIT_EXPECTED_1);
 
     let str = "block of text !!!\n";
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::Literal;
 
     let result = to_pretty_string(&str, style);
@@ -283,11 +283,11 @@ fn test_bool_char() {
         Char(char),
     }
 
-    let style = PrettyFormatterConfig::default();
+    let style = YamlFormatter::default();
     let result = to_pretty_string(&Example::Bool((true, false)), style);
     assert_eq!(result.unwrap(), "{ Bool: [ true, false ] }");
 
-    let style = PrettyFormatterConfig::default();
+    let style = YamlFormatter::default();
     let result = to_pretty_string(&Example::Char('b'), style);
     assert_eq!(result.unwrap(), "{ Char: 'b' }");
 }
@@ -297,7 +297,7 @@ struct Rgb(u8, u8, u8);
 
 #[test]
 fn test_tuple_struct() {
-    let style = PrettyFormatterConfig::pretty();
+    let style = YamlFormatter::pretty();
     let result = to_pretty_string(&Rgb(0, 2, 4), style);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "[ 0, 2, 4 ]");
@@ -306,21 +306,21 @@ fn test_tuple_struct() {
 #[test]
 fn test_single_line_str() {
     let string = "AAA";
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::Plain;
     style.compact_strings = true;
     let result = to_pretty_string(&string, style);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "AAA");
 
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::DoubleQuote;
     style.compact_strings = true;
     let result = to_pretty_string(&string, style);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "\"AAA\"");
 
-    let mut style = PrettyFormatterConfig::pretty();
+    let mut style = YamlFormatter::pretty();
     style.root_preferred_style = ScalarType::SingleQuote;
     style.compact_strings = true;
     let result = to_pretty_string(&string, style);

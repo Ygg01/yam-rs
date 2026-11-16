@@ -4,7 +4,7 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use yam_core::prelude::ScalarType;
 use yam_serde::ser::YamlStyle;
-use yam_serde::{from_str, to_pretty_string, PrettyFormatterConfig};
+use yam_serde::{from_str, to_pretty_string, YamlFormatter};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 struct Person {
@@ -59,7 +59,7 @@ enum OneEnumToHoldThemAll {
 #[case::var_seq(OneEnumToHoldThemAll::VariantSeq(vec!["xyz".to_string(), "abc".to_string()]))]
 #[case::var_seq_empty(OneEnumToHoldThemAll::VariantSeq(vec![]))]
 fn test_round_trip_opt(#[case] input: OneEnumToHoldThemAll) {
-    let fmt = PrettyFormatterConfig::default();
+    let fmt = YamlFormatter::default();
     let result = to_pretty_string(&input, fmt);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
@@ -91,7 +91,7 @@ fn test_round_trip_bytes_block() {
         bytes: Cow::Borrowed(b"Test this binary"),
         byte_array: *b"abcd",
     };
-    let fmt_config = PrettyFormatterConfig::default();
+    let fmt_config = YamlFormatter::default();
     let result = to_pretty_string(&initial, fmt_config);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
@@ -112,7 +112,7 @@ fn test_round_trip_bytes_flow() {
         bytes: Cow::Borrowed(b"Test this binary"),
         byte_array: *b"abcd",
     };
-    let mut fmt_config = PrettyFormatterConfig::default();
+    let mut fmt_config = YamlFormatter::default();
     fmt_config.root_style = YamlStyle::Flow;
 
     let result = to_pretty_string(&initial, fmt_config);
@@ -156,7 +156,7 @@ const RAW_CRLF: &[u8] = b"\r\n";
 #[case::decode_hex_paragraph_separator(br"\u2029", r#""\P""#)]
 #[case::decode_emojis(br"\U0001F600", r#""😀""#)]
 fn test_dquote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
-    let fmt_config = PrettyFormatterConfig::default();
+    let fmt_config = YamlFormatter::default();
     let input_str = String::from_utf8_lossy(input);
     let result = to_pretty_string(&input_str, fmt_config);
     let actual = result.expect("Expected Serialization successful");
@@ -171,7 +171,7 @@ fn test_dquote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
 #[case::decode_raw_crlf(RAW_CRLF, r#"'\n'"#)]
 #[case::decode_raw_lf(b"Dark Soul's", r#"'Dark Soul''s'"#)]
 fn test_squote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
-    let mut fmt_config = PrettyFormatterConfig::default();
+    let mut fmt_config = YamlFormatter::default();
     fmt_config.root_preferred_style = ScalarType::SingleQuote;
     let input_str = String::from_utf8_lossy(input);
     let result = to_pretty_string(&input_str, fmt_config);
