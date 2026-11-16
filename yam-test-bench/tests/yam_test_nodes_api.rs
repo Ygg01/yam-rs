@@ -1,6 +1,8 @@
 use rstest::rstest;
+use std::borrow::Cow;
 use std::ops::{Index, IndexMut};
-use yam_core::node::{SpannedYaml, Yaml};
+use yam_core::node::{SpannedYaml, Yaml, YamlScalar};
+use yam_core::parsing::Tag;
 use yam_core::prelude::{YamlDocAccess, YamlLoader};
 
 const SIMPLE_SEQ: &str = "[a, b]";
@@ -340,7 +342,7 @@ fn test_should_panic(#[case] yaml: YamlType, #[case] test_type: TestType) {
 #[case::seq_full(true, false)]
 #[case::map_empt(false, true)]
 #[case::map_full(false, false)]
-fn test_into(#[case] is_seq: bool, #[case] is_empty: bool) {
+fn test_into_collection(#[case] is_seq: bool, #[case] is_empty: bool) {
     let (yaml, span) = match (is_seq, is_empty) {
         (_, true) => (Yaml::from(3), SpannedYaml::from(3)),
         (true, false) => (Yaml::from(vec![2]), SpannedYaml::from(vec![2])),
@@ -367,4 +369,19 @@ fn test_into(#[case] is_seq: bool, #[case] is_empty: bool) {
             .unwrap_or(0i64);
         assert_eq!(x, y);
     }
+}
+
+#[test]
+fn test_into_tagged() {
+    let scal: YamlScalar<'_> = YamlScalar::null();
+    let tag = Tag::new("tag:yaml.org,2002:", "null");
+
+    let mut yaml_span = SpannedYaml::<'_>::from(scal.clone());
+    yaml_span = yaml_span.into_tagged(Cow::Owned(tag.clone()));
+
+    let mut yaml = Yaml::<'_>::from(scal);
+    yaml = yaml.into_tagged(Cow::Owned(tag.clone()));
+
+    assert_eq!(yaml.get_tag(), Some(tag.clone()));
+    assert_eq!(yaml_span.get_tag(), Some(tag));
 }

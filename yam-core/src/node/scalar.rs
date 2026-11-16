@@ -27,6 +27,13 @@ pub enum YamlScalar<'a, FLOAT = f64, INT = i64, STR = Cow<'a, str>> {
     Integer(INT),
 }
 
+impl<F, S, I> YamlScalar<'_, F, S, I> {
+    #[must_use]
+    pub fn null() -> Self {
+        YamlScalar::Null(PhantomData)
+    }
+}
+
 impl<F, S, I> PartialEq for YamlScalar<'_, F, S, I>
 where
     F: PartialEq,
