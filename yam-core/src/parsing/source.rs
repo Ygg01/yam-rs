@@ -486,7 +486,7 @@ unsafe impl Source for InMemSource<'_> {
     }
 
     fn skip(&mut self, n: usize) {
-        self.update_pos(self.pos + n)
+        self.update_pos(self.pos + n);
     }
 
     fn skip_spaces(&mut self, max: usize) -> usize {
