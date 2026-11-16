@@ -33,7 +33,6 @@ fn test_decode(#[case] input: &str, #[case] expected: &[u8]) {
 
 const EDGE1_B64: &str = "WHZtA";
 const EDGE2_B64: &str = "WHZtAA=";
-const EDGE_EXP: &[u8] = b"Xvm";
 
 #[rstest]
 #[case::edge_len1(EDGE1_B64)]

@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
+use yam_core::prelude::ScalarType;
 use yam_serde::ser::YamlStyle;
 use yam_serde::{from_str, to_pretty_string, PrettyFormatterConfig};
 
@@ -126,16 +127,54 @@ fn test_round_trip_bytes_flow() {
     assert_eq!(actual.unwrap(), initial);
 }
 
-const RAW_TAB: &str = "	";
+const RAW_TAB: &[u8] = b"\t";
+const RAW_CRLF: &[u8] = b"\r\n";
 
 #[rstest]
-#[case::decode_tab("\\t", r#""\t""#)]
-#[case::decode_cr("\\r", r#""\r""#)]
-#[case::decode_lf("\\n", r#""\n""#)]
-#[case::decode_tab(RAW_TAB, r#""\t""#)]
-fn test_string_escape(#[case] input: &str, #[case] decoded: &str) {
+#[case::decode_tab(br"\\t", r#""\\t""#)]
+#[case::decode_cr(br"\\r", r#""\\r""#)]
+#[case::decode_lf(br"\\n", r#""\\n""#)]
+#[case::decode_raw_tab(RAW_TAB, r#""\t""#)]
+#[case::decode_raw_crlf(RAW_CRLF, r#""\n""#)]
+#[case::decode_raw_lf(b"\n", r#""\n""#)]
+#[case::decode_invalid_hex(br"\x0?", r#""�""#)]
+#[case::decode_zero(br"\x00", r#""�""#)]
+#[case::decode_hex_alert(br"\x07", r#""\a""#)]
+#[case::decode_hex_bell(br"\x08", r#""\b""#)]
+#[case::decode_hex_tab(br"\x09", r#""\t""#)]
+#[case::decode_hex_lf(br"\x0A", r#""\n""#)]
+#[case::decode_hex_vertical_tab(br"\x0B", r#""\v""#)]
+#[case::decode_hex_form_feed(br"\x0C", r#""\f""#)]
+#[case::decode_hex_form_carriage(br"\x0D", r#""\r""#)]
+#[case::decode_hex_escape(br"\x1B", r#""\e""#)]
+#[case::decode_hex_dquote(br"\x22", r#""\"""#)]
+#[case::decode_hex_solidus(br"\x2F", r#""\/""#)]
+#[case::decode_hex_rev_solidus(br"\x5c", r#""\\""#)]
+#[case::decode_hex_rev_solidus(br"\x85", r#""\N""#)]
+#[case::decode_hex_nbsp(br"\xA0", r#""\_""#)]
+#[case::decode_hex_line_separator(br"\u2028", r#""\L""#)]
+#[case::decode_hex_paragraph_separator(br"\u2029", r#""\P""#)]
+#[case::decode_emojis(br"\U0001F600", r#""😀""#)]
+fn test_dquote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
     let fmt_config = PrettyFormatterConfig::default();
-    let result = to_pretty_string(&input, fmt_config);
+    let input_str = String::from_utf8_lossy(input);
+    let result = to_pretty_string(&input_str, fmt_config);
+    let actual = result.expect("Expected Serialization successful");
+
+    assert_eq!(actual, decoded);
+}
+
+#[rstest]
+#[case::decode_tab(br"test", r#"'test'"#)]
+#[case::decode_lf(b"\n", r#"'\n'"#)]
+#[case::decode_raw_tab(RAW_TAB, r#"'\t'"#)]
+#[case::decode_raw_crlf(RAW_CRLF, r#"'\n'"#)]
+#[case::decode_raw_lf(b"Dark Soul's", r#"'Dark Soul''s'"#)]
+fn test_squote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
+    let mut fmt_config = PrettyFormatterConfig::default();
+    fmt_config.root_preferred_style = ScalarType::SingleQuote;
+    let input_str = String::from_utf8_lossy(input);
+    let result = to_pretty_string(&input_str, fmt_config);
     let actual = result.expect("Expected Serialization successful");
 
     assert_eq!(actual, decoded);

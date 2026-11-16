@@ -175,7 +175,7 @@ where
             parse_from_cow!(&scalar.value, visitor, visit_u8, u8)
         } else {
             Err(DeYamlError::Custom(
-                "Expected scalar event for i8 deserialization".to_string(),
+                "Expected scalar event for u8 deserialization".to_string(),
             ))
         }
     }
