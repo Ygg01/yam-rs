@@ -52,10 +52,11 @@ where
     }
 }
 
-impl<'a, FP, INT> YamlDocAccess<'a> for Yaml<'a, FP, INT>
+impl<'a, FP, INT, STR> YamlDocAccess<'a> for Yaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64>,
     INT: Copy + From<i64> + ToMut<i64>,
+    STR: Clone + ToMutStr,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -69,9 +70,7 @@ where
     }
 
     fn key_from_str(index: &str) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::String(Cow::Owned(
-            index.to_string(),
-        ))))
+        Yaml(YamlData::Scalar(YamlScalar::String(STR::from_str(index))))
     }
 
     fn is_non_empty_collection(&self) -> bool {
@@ -154,7 +153,7 @@ where
 
     fn as_str(&self) -> Option<&str> {
         match &self.0 {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_ref()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.str()),
             _ => None,
         }
     }
@@ -207,7 +206,7 @@ where
 
     fn into_string(self) -> Option<String> {
         match self.0 {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.into()),
+            YamlData::Scalar(YamlScalar::String(mut s)) => Some(s.mut_str().to_string()),
             _ => None,
         }
     }
@@ -347,10 +346,11 @@ impl<'a> Yaml<'a> {
     }
 }
 
-impl<FP, INT> Index<usize> for Yaml<'_, FP, INT>
+impl<FP, INT, STR> Index<usize> for Yaml<'_, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr + PartialEq,
 {
     type Output = Self;
 
@@ -365,10 +365,11 @@ where
     }
 }
 
-impl<FP, INT> IndexMut<usize> for Yaml<'_, FP, INT>
+impl<FP, INT, STR> IndexMut<usize> for Yaml<'_, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr + PartialEq,
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let typ = self.get_type();
@@ -388,10 +389,11 @@ where
     }
 }
 
-impl<'k, FP, INT> Index<&'k str> for Yaml<'_, FP, INT>
+impl<'k, FP, INT, STR> Index<&'k str> for Yaml<'_, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr + PartialEq,
 {
     type Output = Self;
 
@@ -405,10 +407,11 @@ where
     }
 }
 
-impl<'k, FP, INT> IndexMut<&'k str> for Yaml<'_, FP, INT>
+impl<'k, FP, INT, STR> IndexMut<&'k str> for Yaml<'_, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr + PartialEq,
 {
     fn index_mut(&mut self, index: &'k str) -> &mut Self::Output {
         let typ = self.get_type();

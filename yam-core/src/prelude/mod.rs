@@ -4,7 +4,6 @@ pub use crate::node::YamlScalar;
 pub use crate::node::spanned_yaml::SpannedYaml;
 pub use crate::node::yaml::Yaml;
 pub use crate::node::yaml_data::YamlData;
-pub use crate::node::yaml_owned::YamlOwned;
 pub use crate::parsing::BufBytesSource;
 pub use crate::parsing::InMemSource;
 pub use crate::parsing::Source;
@@ -1109,19 +1108,39 @@ pub trait IsEmpty: Clone {
     fn is_collection_empty(&self) -> bool;
 }
 
-pub(crate) trait ToMutStr {
+pub trait ToMutStr {
     fn mut_str(&mut self) -> &mut str;
+
+    fn str(&self) -> &str;
+
+    fn from_str(input: &str) -> Self;
 }
 
 impl ToMutStr for Cow<'_, str> {
     fn mut_str(&mut self) -> &mut str {
         self.to_mut()
     }
+
+    fn str(&self) -> &str {
+        self.as_ref()
+    }
+
+    fn from_str(input: &str) -> Self {
+        Cow::Owned(input.to_string())
+    }
 }
 
-impl ToMutStr for str {
+impl ToMutStr for String {
     fn mut_str(&mut self) -> &mut str {
         self
+    }
+
+    fn str(&self) -> &str {
+        self
+    }
+
+    fn from_str(input: &str) -> Self {
+        String::from(input)
     }
 }
 

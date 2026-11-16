@@ -1,7 +1,8 @@
 use crate::parsing::is_valid_literal_block_scalar;
-use crate::prelude::{IsEmpty, MappingLike, SequenceLike, YamlDocAccess, YamlScalar};
+use crate::prelude::{IsEmpty, MappingLike, SequenceLike, ToMutStr, YamlDocAccess, YamlScalar};
 use crate::prelude::{ToMut, YamlData};
 use crate::prelude::{Yaml, YamlEntry};
+use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::{Error, Write};
@@ -275,12 +276,12 @@ impl<W: Write> YamlWriter<W> {
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub struct YamlEmitter<W, FP = f64, INT = i64> {
+pub struct YamlEmitter<'a, W, FP = f64, INT = i64, STR = Cow<'a, str>> {
     writer: YamlWriter<W>,
     compact: bool,
     level: usize,
     multiline_strings: bool,
-    _marker: PhantomData<(FP, INT)>,
+    _marker: PhantomData<&'a (FP, INT, STR)>,
 }
 
 /// A convenience alias for emitter functions that may fail without returning a value.
@@ -355,10 +356,11 @@ fn escape_str<W: Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
 }
 
 #[allow(dead_code)]
-impl<'a, W, FP, INT> YamlEmitter<W, FP, INT>
+impl<'a, W, FP, INT, STR> YamlEmitter<'a, W, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + Into<f64>,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr,
     W: Write,
 {
     /// Create a new emitter serializing into `writer`.
@@ -422,24 +424,24 @@ where
     /// Dump Yaml to an output stream.
     /// # Errors
     /// Returns `EmitError` when an error occurs.
-    pub fn dump(&mut self, doc: &Yaml<'a, FP, INT>) -> EmitResult {
+    pub fn dump(&mut self, doc: &Yaml<'a, FP, INT, STR>) -> EmitResult {
         // write DocumentStart
         self.writer.write_doc_start()?;
         self.level = 0;
         self.emit_node(doc)
     }
 
-    fn emit_node(&mut self, node: &Yaml<'a, FP, INT>) -> EmitResult {
+    fn emit_node(&mut self, node: &Yaml<'a, FP, INT, STR>) -> EmitResult {
         match &node.0 {
             YamlData::Sequence(v) => self.emit_sequence(v),
             YamlData::Mapping(h) => self.emit_mapping(h),
             YamlData::Scalar(YamlScalar::String(v)) => {
-                if self.should_emit_string_as_block(v.as_ref()) {
-                    self.emit_literal_block(v.as_ref())?;
-                } else if need_quotes(v.as_ref()) {
-                    escape_str(&mut self.writer, v.as_ref())?;
+                if self.should_emit_string_as_block(v.str()) {
+                    self.emit_literal_block(v.str())?;
+                } else if need_quotes(v.str()) {
+                    escape_str(&mut self.writer, v.str())?;
                 } else {
-                    self.writer.write_str(v.as_ref())?;
+                    self.writer.write_str(v.str())?;
                 }
                 Ok(())
             }
@@ -507,7 +509,7 @@ where
         Ok(())
     }
 
-    fn emit_sequence(&mut self, v: &Vec<Yaml<'a, FP, INT>>) -> EmitResult {
+    fn emit_sequence(&mut self, v: &Vec<Yaml<'a, FP, INT, STR>>) -> EmitResult {
         if v.is_collection_empty() {
             self.writer.write_ascii("[]")?;
         } else {
@@ -525,7 +527,7 @@ where
         Ok(())
     }
 
-    fn emit_mapping(&mut self, h: &Vec<YamlEntry<'a, Yaml<'a, FP, INT>>>) -> EmitResult {
+    fn emit_mapping(&mut self, h: &Vec<YamlEntry<'a, Yaml<'a, FP, INT, STR>>>) -> EmitResult {
         if h.is_collection_empty() {
             self.writer.write_ascii("{}")?;
         } else {
@@ -533,7 +535,7 @@ where
             for (cnt, entry) in h.entries().iter().enumerate() {
                 let complex_key = match entry.key.0 {
                     YamlData::Mapping(_) | YamlData::Sequence(_) => true,
-                    YamlData::Scalar(YamlScalar::String(ref x)) if is_string_block(x) => true,
+                    YamlData::Scalar(YamlScalar::String(ref x)) if is_string_block(x.str()) => true,
                     _ => false,
                 };
                 if cnt > 0 {
@@ -562,7 +564,7 @@ where
     /// following a ":" or "-", either after a space or on a new line.
     /// If `inline` is true, then the preceding characters are distinct
     /// and short enough to respect the compact flag.
-    fn emit_val(&mut self, inline: bool, val: &Yaml<'a, FP, INT>) -> EmitResult {
+    fn emit_val(&mut self, inline: bool, val: &Yaml<'a, FP, INT, STR>) -> EmitResult {
         macro_rules! write_collection {
             ($v:expr ) => {
                 if (inline && self.compact) || $v.is_collection_empty() {
@@ -610,7 +612,7 @@ fn is_string_block(s: &str) -> bool {
     s.contains('\n') && is_valid_literal_block_scalar(s)
 }
 
-impl From<String> for YamlEmitter<String, f64, i64> {
+impl From<String> for YamlEmitter<'_, String, f64, i64> {
     fn from(value: String) -> Self {
         YamlEmitter::new(value)
     }
