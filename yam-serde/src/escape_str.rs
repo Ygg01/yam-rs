@@ -99,8 +99,8 @@ pub(crate) fn escape_double_quotes<W: Write>(writer: &mut W, value: &str) -> Res
             (b'\\', b'U') => {
                 let prev_str = unsafe { core::str::from_utf8_unchecked(&bytes[old_pos..pos]) };
                 writer.write_str(prev_str)?;
-                decode_hex(writer, &bytes[pos + 2..pos + 8])?;
-                pos += 8;
+                decode_hex(writer, &bytes[pos + 2..pos + 10])?;
+                pos += 10;
                 old_pos = pos;
             }
             _ => {

@@ -161,4 +161,20 @@ proptest! {
         prop_assert_eq!(str_res, buf_res);
     }
 
+    #[test]
+    fn test_peek_char(
+        a in r"[a-z:]{0,70}",
+        skip in 0..80usize,
+    ) {
+        let mut stringed = InMemSource::new(&a);
+        stringed.skip(skip);
+        let str_res = stringed.peek_char();
+
+        let mut buffered = BufBytesSource::new(&a);
+        buffered.skip(skip);
+        let buf_res = buffered.peek_char();
+
+        prop_assert_eq!(str_res, buf_res);
+    }
+
 }

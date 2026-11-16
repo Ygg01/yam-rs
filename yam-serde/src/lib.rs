@@ -1,7 +1,7 @@
 #![no_std]
 
 extern crate alloc;
-pub mod binary;
+
 pub mod de;
 mod escape_str;
 #[allow(dead_code, unused_variables)]
@@ -82,7 +82,7 @@ where
 ///
 /// # Parameters
 /// - `value`: A reference to the value to serialize.
-/// - `formatter`: A `PrettyFormatterConfig` instance that specifies the YAML formatting options.
+/// - `formatter`: A [`YamlFormatter`] instance that specifies the YAML formatting options.
 ///
 /// # Returns
 /// - On success, returns `Ok(String)` containing the serialized and formatted YAML string.
@@ -95,7 +95,7 @@ where
 ///
 /// # Example
 /// ```
-/// use yam_serde::{to_pretty_string, PrettyFormatterConfig};
+/// use yam_serde::{to_pretty_string, YamlFormatter};
 /// use serde::Serialize;
 ///
 /// #[derive(Serialize)]
@@ -109,11 +109,11 @@ where
 ///     age: 30,
 /// };
 ///
-/// let formatter = PrettyFormatterConfig::default();
+/// let formatter = YamlFormatter::default();
 /// let yaml_string = to_pretty_string(&person, formatter).unwrap();
 /// println!("{}", yaml_string);
 /// ```
-pub fn to_pretty_string<T>(value: &T, formatter: PrettyFormatterConfig) -> Result<String, Error>
+pub fn to_pretty_string<T>(value: &T, formatter: YamlFormatter) -> Result<String, Error>
 where
     T: serde_core::ser::Serialize,
 {
@@ -160,7 +160,7 @@ impl NullFormat {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PrettyFormatterConfig {
+pub struct YamlFormatter {
     /// Limit depth
     pub block_depth_limit: u32,
 
@@ -185,13 +185,13 @@ pub struct PrettyFormatterConfig {
     pub key_preferred_style: ScalarType,
 
     /// Whether to prefer string to fit in a single line
-    pub compat_strings: bool,
+    pub compact_strings: bool,
 
     /// What is the default style for the Root element
     pub root_style: YamlStyle,
 }
 
-impl Default for PrettyFormatterConfig {
+impl Default for YamlFormatter {
     fn default() -> Self {
         Self {
             block_depth_limit: 0,
@@ -202,13 +202,13 @@ impl Default for PrettyFormatterConfig {
             root_preferred_style: ScalarType::DoubleQuote,
             flow_string_style: FlowStyle::DoubleQuote,
             key_preferred_style: ScalarType::Plain,
-            compat_strings: false,
+            compact_strings: false,
             root_style: YamlStyle::default(),
         }
     }
 }
 
-impl PrettyFormatterConfig {
+impl YamlFormatter {
     #[must_use]
     pub fn pretty() -> Self {
         Self {
@@ -220,7 +220,7 @@ impl PrettyFormatterConfig {
             root_preferred_style: ScalarType::DoubleQuote,
             flow_string_style: FlowStyle::DoubleQuote,
             key_preferred_style: ScalarType::Plain,
-            compat_strings: false,
+            compact_strings: false,
             root_style: YamlStyle::default(),
         }
     }

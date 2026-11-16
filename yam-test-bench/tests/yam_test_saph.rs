@@ -357,13 +357,24 @@ fn run_comment_test(#[case] input: &str, #[case] expected_events: &str) {
     );
 }
 
+const UNKNOWN_TAG_INPUT: &str = r#"%HUH weird tag
+---
+a: b"#;
+
+const UNKNOWN_TAG_EVENTS: &str = r#"
++DOC
++MAP
+=VAL :a
+=VAL :b
+-MAP
+-DOC"#;
+
 #[test]
-fn run_deep_test() {
+fn test_wrong_tag() {
     assert_eq_event_case_with_opts(
-        LITERAL3_INPUT,
-        LITERAL3_EVENTS,
-        ParsingOptions::Buff,
-        // ParsingOptions::String,
+        UNKNOWN_TAG_INPUT,
+        UNKNOWN_TAG_EVENTS,
+        ParsingOptions::InMem,
         &FormatOpts::InlineTest,
     );
 }
