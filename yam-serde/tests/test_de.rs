@@ -1,5 +1,6 @@
 pub use serde;
 use serde::Deserialize;
+use yam_core::prelude::{Yaml, YamlDocAccess};
 
 #[test]
 fn test_nested_collections() {
@@ -66,4 +67,43 @@ fn test_enum() {
     let j = r#"{"Struct":{"a":1}}"#;
     let expected = E::Struct { a: 1 };
     assert_eq!(expected, yam_serde::from_str(j).unwrap());
+}
+
+#[test]
+fn test_doc_example1() {
+    #[derive(Deserialize, PartialEq, Debug)]
+    pub struct Person {
+        name: String,
+        address: Option<String>,
+        phones: Vec<String>,
+    }
+
+    let data = r#"
+    name: John Smith
+    phones:
+        - "+44 1234567"
+        - "+32 2345678"
+    address:
+    "#;
+
+    let person: Person = yam_serde::from_str(data).expect("Yaml to be parsed!");
+    assert_eq!(person.name, "John Smith");
+    assert_eq!(person.address, None);
+    assert_eq!(person.phones, vec!["+44 1234567", "+32 2345678"]);
+}
+
+#[test]
+fn test_doc_example2() {
+    let data = r#"
+    name: John Smith
+    phones:
+        - "+44 1234567"
+        - "+32 2345678"
+    address:
+    "#;
+
+    let person = Yaml::load_single(data).expect("Yaml to be parsed!");
+    assert_eq!(person["name"].as_str(), Some("John Smith"));
+    assert_eq!(person["address"].as_str(), Some(""));
+    assert_eq!(person["phones"][1].as_str(), Some("+32 2345678"));
 }

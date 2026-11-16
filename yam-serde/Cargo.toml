@@ -3,9 +3,21 @@ name = "yam-serde"
 version = "0.1.0"
 edition = "2024"
 
+documentation = "https://docs.rs/yam-serde"
+repository = "https://github.com/Ygg01/yam-rs"
+homepage = "https://github.com/Ygg01/yam-rs"
+
+description = "Pure Rust YAML reader and writer (to be added)"
+categories = ["encoding", "no-std"]
+keywords = ["yaml", "serde", "serialization"]
+license = "LGPL-3.0-only"
+authors = [
+    "Ygg01 <y.laughing.man.y@gmail.com>"
+]
+
 [dependencies]
 serde_core = { version = "1.0.228", default-features = false }
-yam-core = { version = "0.1.0" }
+yam-core = { version = "0.1.1" }
 unicode-segmentation = "1.13.3"
 
 [dev-dependencies]
