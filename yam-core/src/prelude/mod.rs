@@ -5,6 +5,7 @@ pub use crate::node::spanned_yaml::SpannedYaml;
 pub use crate::node::yaml::Yaml;
 pub use crate::node::yaml_data::YamlData;
 pub use crate::node::yaml_owned::YamlOwned;
+pub use crate::parsing::BufBytesSource;
 pub use crate::parsing::InMemSource;
 pub use crate::parsing::Source;
 pub use crate::parsing::Tag;
@@ -18,7 +19,7 @@ use core::marker::PhantomData;
 use core::str::Utf8Error;
 pub use loader::MappingLike;
 pub use loader::SequenceLike;
-pub use loader::YamlLoader;
+pub use loader::YamLoader;
 
 mod loader;
 

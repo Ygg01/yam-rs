@@ -1,5 +1,5 @@
 use yam_core::node::SpannedYaml;
-use yam_core::prelude::{Marker, Span, YamlDocAccess, YamlLoader};
+use yam_core::prelude::{Marker, Span, YamLoader, YamlDocAccess};
 
 #[test]
 fn test_spanned_seq() {
@@ -8,7 +8,7 @@ fn test_spanned_seq() {
     b
 ]"#;
 
-    if let Ok(yaml) = YamlLoader::<SpannedYaml>::load_single(input) {
+    if let Ok(yaml) = YamLoader::<SpannedYaml>::load_single(input) {
         let first = &yaml[0];
         let second = &yaml[1];
         assert_eq!(first.as_str().unwrap_or(""), "a");
@@ -29,7 +29,7 @@ a: 'aaa'
 b: !!null
 "#;
 
-    if let Ok(yaml) = YamlLoader::<SpannedYaml>::load_single(input) {
+    if let Ok(yaml) = YamLoader::<SpannedYaml>::load_single(input) {
         let first = &yaml["a"];
         let second = &yaml["b"];
         assert!(first.is_string(), "First value should be a string");
@@ -50,7 +50,7 @@ fn test_nested_map() {
 a: !!vec [2, 3]
 "#;
 
-    if let Ok(yaml) = YamlLoader::<SpannedYaml>::load_single(input) {
+    if let Ok(yaml) = YamLoader::<SpannedYaml>::load_single(input) {
         let vec = &yaml["a"];
         assert!(vec.is_non_empty_collection(), "Vec should be populated");
         let first = &vec[0];

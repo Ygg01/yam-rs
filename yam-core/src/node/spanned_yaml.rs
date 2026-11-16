@@ -1,6 +1,6 @@
 use crate::prelude::{
-    IsEmpty, Marker, NodeType, Span, Tag, ToMut, ToMutStr, YamlAccessError, YamlData,
-    YamlDocAccess, YamlEntry, YamlError, YamlLoader, YamlScalar,
+    IsEmpty, Marker, NodeType, Span, Tag, ToMut, ToMutStr, YamLoader, YamlAccessError, YamlData,
+    YamlDocAccess, YamlEntry, YamlError, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -82,7 +82,7 @@ impl<'a> SpannedYaml<'a> {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{SpannedYaml, YamlLoader};
+    /// use yam_core::prelude::{SpannedYaml, YamLoader};
     ///
     /// let yaml_input = r#"
     /// key: value
@@ -99,7 +99,7 @@ impl<'a> SpannedYaml<'a> {
     ///
     ///
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<SpannedYaml<'a>>, YamlError> {
-        YamlLoader::<SpannedYaml<'a>>::load_from(input)
+        YamLoader::<SpannedYaml<'a>>::load_from(input)
     }
 
     ///
@@ -125,7 +125,7 @@ impl<'a> SpannedYaml<'a> {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{SpannedYaml, YamlLoader};
+    /// use yam_core::prelude::{SpannedYaml, YamLoader};
     ///
     /// let yaml_input = r#"
     /// key: value
@@ -145,7 +145,7 @@ impl<'a> SpannedYaml<'a> {
     /// documents beyond the first will be ignored.
     ///
     pub fn load_single<S: AsRef<str>>(input: S) -> Result<SpannedYaml<'a>, YamlError> {
-        YamlLoader::<SpannedYaml<'a>>::load_single(input)
+        YamLoader::<SpannedYaml<'a>>::load_single(input)
     }
 }
 

@@ -14,7 +14,7 @@
 //!
 //! # Minimal examples
 //! ```rust
-//! use yam_core::prelude::{Yaml, YamlLoader};
+//! use yam_core::prelude::{Yaml, YamLoader};
 //!
 //! let docs = Yaml::load_single("[1, 2]").expect("Valid YAML document");
 //! let val = &docs[0];

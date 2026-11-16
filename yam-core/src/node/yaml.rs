@@ -1,7 +1,7 @@
 use crate::prelude::YamlScalar::Null;
 use crate::prelude::{
-    IsEmpty, NodeType, Span, Tag, ToMut, ToMutStr, YamlAccessError, YamlData, YamlDocAccess,
-    YamlEntry, YamlError, YamlLoader, YamlScalar,
+    IsEmpty, NodeType, Span, Tag, ToMut, ToMutStr, YamLoader, YamlAccessError, YamlData,
+    YamlDocAccess, YamlEntry, YamlError, YamlScalar,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -280,7 +280,7 @@ impl<'a> Yaml<'a> {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{Yaml, YamlLoader};
+    /// use yam_core::prelude::{Yaml, YamLoader};
     ///
     /// let yaml_input = r#"
     /// key: value
@@ -297,7 +297,7 @@ impl<'a> Yaml<'a> {
     ///
     ///
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Yaml<'a>>, YamlError> {
-        YamlLoader::<Yaml<'a>>::load_from(input)
+        YamLoader::<Yaml<'a>>::load_from(input)
     }
 
     ///
@@ -323,7 +323,7 @@ impl<'a> Yaml<'a> {
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{Yaml, YamlLoader};
+    /// use yam_core::prelude::{Yaml, YamLoader};
     ///
     /// let yaml_input = r#"
     /// key: value
@@ -343,7 +343,7 @@ impl<'a> Yaml<'a> {
     /// documents beyond the first will be ignored.
     ///
     pub fn load_single<S: AsRef<str>>(input: S) -> Result<Yaml<'a>, YamlError> {
-        YamlLoader::<Yaml<'a>>::load_single(input)
+        YamLoader::<Yaml<'a>>::load_single(input)
     }
 }
 

@@ -25,13 +25,13 @@ use core::marker::PhantomData;
 ///
 /// # Example
 /// ```rust
-/// use yam_core::prelude::{Yaml, YamlLoader, YamlDocAccess};
+/// use yam_core::prelude::{Yaml, YamLoader, YamlDocAccess};
 ///
 /// let yaml_str = "{a : b, c: d}";
-/// let doc = YamlLoader::<Yaml>::load_from(yaml_str);
+/// let doc = YamLoader::<Yaml>::load_from(yaml_str);
 ///
 /// ```
-pub struct YamlLoader<'input, Node>
+pub struct YamLoader<'input, Node>
 where
     Node: YamlDocAccess<'input>,
 {
@@ -41,7 +41,7 @@ where
     anchor_map: BTreeMap<usize, Node>,
 }
 
-impl<'i, Node> Default for YamlLoader<'i, Node>
+impl<'i, Node> Default for YamLoader<'i, Node>
 where
     Node: YamlDocAccess<'i>,
 {
@@ -106,7 +106,7 @@ impl<T> MappingLike<T> for Vec<YamlEntry<'_, T>> {
     }
 }
 
-impl<'input, Node, SEQ, MAP> YamlLoader<'input, Node>
+impl<'input, Node, SEQ, MAP> YamLoader<'input, Node>
 where
     Node: YamlDocAccess<'input, OutNode = Node, SequenceNode = SEQ, MappingNode = MAP>
         + From<YamlData<'input, Node>>
@@ -169,12 +169,12 @@ where
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::prelude::{Yaml, YamlLoader};
+    /// use yam_core::prelude::{Yaml, YamLoader};
     /// use yam_core::parsing::{Parser};
     ///
     /// let mut parser = Parser::new_from_str("a: b");
     ///
-    /// match YamlLoader::<Yaml>::load_from_parser(&mut parser) {
+    /// match YamLoader::<Yaml>::load_from_parser(&mut parser) {
     ///     Ok(documents) => {
     ///         for node in documents {
     ///             println!("{:?}", node);
@@ -188,7 +188,7 @@ where
     pub fn load_from_parser<I: Source>(
         parser: &mut parsing::Parser<'input, I>,
     ) -> Result<Vec<Node>, YamlError> {
-        let mut loader = YamlLoader::default();
+        let mut loader = YamLoader::default();
         parser.load(&mut loader, true)?;
         Ok(loader.into_documents())
     }
@@ -214,7 +214,7 @@ where
     /// # Example
     /// ```rust
     /// use yam_core::parsing::{Parser};
-    /// use yam_core::prelude::{Yaml, YamlLoader, YamlDocAccess};
+    /// use yam_core::prelude::{Yaml, YamLoader, YamlDocAccess};
     ///
     /// let yaml_input = r#"
     /// - name: John
@@ -234,7 +234,7 @@ where
     /// }
     /// ```
     pub fn load_from<S: AsRef<str>>(input: S) -> Result<Vec<Node>, YamlError> {
-        let mut event_listener = YamlLoader::default();
+        let mut event_listener = YamLoader::default();
         let mut parser = parsing::Parser::new(InMemSource::new(input.as_ref()));
         parser.load(&mut event_listener, true)?;
         Ok(event_listener.docs)
@@ -263,7 +263,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use yam_core::prelude::{Yaml, YamlLoader};
+    /// use yam_core::prelude::{Yaml, YamLoader};
     ///
     /// let yaml_input = r#"
     /// key: value
@@ -272,7 +272,7 @@ where
     ///   - item2
     /// "#;
     ///
-    /// match YamlLoader::<Yaml>::load_single(&yaml_input) {
+    /// match YamLoader::<Yaml>::load_single(&yaml_input) {
     ///     Ok(node) => println!("Parsed Node: {:?}", node),
     ///     Err(e) => eprintln!("Error loading YAML: {}", e),
     /// }
@@ -283,7 +283,7 @@ where
     /// documents beyond the first will be ignored.
     ///
     pub fn load_single<S: AsRef<str>>(input: S) -> Result<Node, YamlError> {
-        let mut event_listener = YamlLoader::default();
+        let mut event_listener = YamLoader::default();
         let mut parser = parsing::Parser::new(InMemSource::new(input.as_ref()));
         parser.load(&mut event_listener, false)?;
         event_listener
@@ -322,7 +322,7 @@ where
     ///   - item2
     /// "#;
     /// let mut parser = Parser::new_from_str(&yaml_input);
-    /// match YamlLoader::<Yaml>::load_single_from_parser(&mut parser) {
+    /// match YamLoader::<Yaml>::load_single_from_parser(&mut parser) {
     ///     Ok(node) => println!("Parsed Node: {:?}", node),
     ///     Err(e) => eprintln!("Error loading YAML: {}", e),
     /// }
@@ -334,7 +334,7 @@ where
     pub fn load_single_from_parser<I: Source>(
         parser: &mut parsing::Parser<'input, I>,
     ) -> Result<Node, YamlError> {
-        let mut event_listener = YamlLoader::default();
+        let mut event_listener = YamLoader::default();
         parser.load(&mut event_listener, false)?;
         event_listener
             .docs
@@ -370,10 +370,10 @@ where
     ///
     /// # Example
     /// ```rust
-    /// use yam_core::prelude::{YamlLoader, Yaml, InMemSource};
+    /// use yam_core::prelude::{YamLoader, Yaml, InMemSource};
     ///
     /// let input = InMemSource::new("---\nkey: value\n");
-    /// match YamlLoader::<Yaml>::load_single_source(input) {
+    /// match YamLoader::<Yaml>::load_single_source(input) {
     ///     Ok(node) => println!("Successfully loaded: {:?}", node),
     ///     Err(e) => eprintln!("Failed to load YAML: {:?}", e),
     /// }
@@ -384,7 +384,7 @@ where
     /// If you need to handle multiple documents, consider using appropriate methods.
     ///
     pub fn load_single_source<I: Source>(input: I) -> Result<Node, YamlError> {
-        let mut event_listener = YamlLoader::default();
+        let mut event_listener = YamLoader::default();
         let mut parser = parsing::Parser::new(input);
         parser.load(&mut event_listener, false)?;
         event_listener
@@ -395,7 +395,7 @@ where
     }
 }
 
-impl<'input, Node, SEQ, MAP> SpannedEventReceiver<'input> for YamlLoader<'input, Node>
+impl<'input, Node, SEQ, MAP> SpannedEventReceiver<'input> for YamLoader<'input, Node>
 where
     Node: YamlDocAccess<'input, OutNode = Node, MappingNode = MAP, SequenceNode = SEQ>
         + From<YamlData<'input, Node>>

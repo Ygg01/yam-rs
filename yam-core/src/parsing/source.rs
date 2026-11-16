@@ -112,7 +112,7 @@ pub unsafe trait Source {
     /// # Notes
     ///
     /// - Before invoking this function with `n > 0`, one must ensure
-    ///   the buffer if exist is properly initialized via [`ensure_lookahead`].
+    ///   the buffer if exist is properly initialized via [`Source::ensure_lookahead`].
     /// - Most peeks in [`InMemSource`] will return `Some(u8)`, but in [`BufferedSource`]
     ///   they can fail when encountering buffer bounds.
     #[must_use]
@@ -284,11 +284,11 @@ pub unsafe trait Source {
 
     /// This method returns a chunk of bytes from the source, divisible by 64 chunked for SIMD usage.
     ///
-    /// Note: While in-memory doesn't need any updating, the [`BufferedSource`]
-    /// requires updates using [`reset_head_to_start`]
+    /// Note: While in-memory doesn't need any updating, the [`crate::prelude::BufBytesSource`]
+    /// requires updates using [`Source::reset_head_to_start`]
     fn get_chunked(&self) -> Option<&[u8]>;
 
-    /// This method returns the remaining bytes in the source buffer after exhausting all [`get_chunked`] bytes.
+    /// This method returns the remaining bytes in the source buffer after exhausting all [`Source::get_chunked`] bytes.
     ///
     /// # Returns
     /// A slice of bytes that are not chunked for SIMD usage. In SIMD algorithms this slice should be taken by
@@ -298,7 +298,7 @@ pub unsafe trait Source {
     /// Resets the head of the source to the start of the buffer.
     ///
     /// # Side effects
-    ///   - In [`BufferedSource`], this method resets the head of the buffer to zero and refills the buffer.
+    ///   - In [`BufBytesSource`], this method resets the head of the buffer to zero and refills the buffer.
     ///   - In [`InMemSource`], this method does not have any side effects.
     ///
     /// # Default implementation
@@ -308,7 +308,7 @@ pub unsafe trait Source {
     /// Fills the buffer to its maximum capacity.
     ///
     /// # Side effects
-    /// This possibly changes the output of [`get_chunked`], depending on implementation.
+    /// This possibly changes the output of [`Source::get_chunked`], depending on implementation.
     fn fill_buf_to_max(&mut self);
 
     /// Sets the position of the head to `pos`.
