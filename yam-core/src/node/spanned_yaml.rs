@@ -274,7 +274,7 @@ where
 
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match &mut self.yaml {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.mut_str()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_mut_str()),
             _ => None,
         }
     }

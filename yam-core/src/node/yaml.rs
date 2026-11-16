@@ -153,14 +153,14 @@ where
 
     fn as_str(&self) -> Option<&str> {
         match &self.0 {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.str()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_str()),
             _ => None,
         }
     }
 
     fn as_str_mut(&mut self) -> Option<&mut str> {
         match &mut self.0 {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.mut_str()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_mut_str()),
             _ => None,
         }
     }
@@ -206,7 +206,7 @@ where
 
     fn into_string(self) -> Option<String> {
         match self.0 {
-            YamlData::Scalar(YamlScalar::String(mut s)) => Some(s.mut_str().to_string()),
+            YamlData::Scalar(YamlScalar::String(mut s)) => Some(s.as_mut_str().to_string()),
             _ => None,
         }
     }

@@ -436,12 +436,12 @@ where
             YamlData::Sequence(v) => self.emit_sequence(v),
             YamlData::Mapping(h) => self.emit_mapping(h),
             YamlData::Scalar(YamlScalar::String(v)) => {
-                if self.should_emit_string_as_block(v.str()) {
-                    self.emit_literal_block(v.str())?;
-                } else if need_quotes(v.str()) {
-                    escape_str(&mut self.writer, v.str())?;
+                if self.should_emit_string_as_block(v.as_str()) {
+                    self.emit_literal_block(v.as_str())?;
+                } else if need_quotes(v.as_str()) {
+                    escape_str(&mut self.writer, v.as_str())?;
                 } else {
-                    self.writer.write_str(v.str())?;
+                    self.writer.write_str(v.as_str())?;
                 }
                 Ok(())
             }
@@ -535,7 +535,9 @@ where
             for (cnt, entry) in h.entries().iter().enumerate() {
                 let complex_key = match entry.key.0 {
                     YamlData::Mapping(_) | YamlData::Sequence(_) => true,
-                    YamlData::Scalar(YamlScalar::String(ref x)) if is_string_block(x.str()) => true,
+                    YamlData::Scalar(YamlScalar::String(ref x)) if is_string_block(x.as_str()) => {
+                        true
+                    }
                     _ => false,
                 };
                 if cnt > 0 {

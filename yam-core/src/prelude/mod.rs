@@ -1109,19 +1109,19 @@ pub trait IsEmpty: Clone {
 }
 
 pub trait ToMutStr {
-    fn mut_str(&mut self) -> &mut str;
+    fn as_mut_str(&mut self) -> &mut str;
 
-    fn str(&self) -> &str;
+    fn as_str(&self) -> &str;
 
     fn from_str(input: &str) -> Self;
 }
 
 impl ToMutStr for Cow<'_, str> {
-    fn mut_str(&mut self) -> &mut str {
+    fn as_mut_str(&mut self) -> &mut str {
         self.to_mut()
     }
 
-    fn str(&self) -> &str {
+    fn as_str(&self) -> &str {
         self.as_ref()
     }
 
@@ -1131,11 +1131,11 @@ impl ToMutStr for Cow<'_, str> {
 }
 
 impl ToMutStr for String {
-    fn mut_str(&mut self) -> &mut str {
+    fn as_mut_str(&mut self) -> &mut str {
         self
     }
 
-    fn str(&self) -> &str {
+    fn as_str(&self) -> &str {
         self
     }
 
