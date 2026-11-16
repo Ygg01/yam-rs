@@ -1,4 +1,5 @@
 use crate::parsing::buffered_source::BUF_MAX_LEN;
+use crate::parsing::buffered_source::BufBytesSource;
 use crate::parsing::char_utils::{
     LO_BYTES, eq_byte_mask, is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_flow,
     len_until,
@@ -284,7 +285,7 @@ pub unsafe trait Source {
 
     /// This method returns a chunk of bytes from the source, divisible by 64 chunked for SIMD usage.
     ///
-    /// Note: While in-memory doesn't need any updating, the [`crate::prelude::BufBytesSource`]
+    /// Note: While in-memory doesn't need any updating, the [`BufBytesSource`]
     /// requires updates using [`Source::reset_head_to_start`]
     fn get_chunked(&self) -> Option<&[u8]>;
 

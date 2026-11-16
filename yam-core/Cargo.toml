@@ -1,6 +1,6 @@
 [package]
 name = "yam-core"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 
 documentation = "https://docs.rs/yam-core"
@@ -10,7 +10,7 @@ homepage = "https://github.com/Ygg01/yam-rs"
 description = "Pure Rust YAML reader and writer (to be added)"
 categories = ["parsing"]
 keywords = ["yaml", "parser"]
-license = "MIT OR LGPL-3.0-only"
+license = "LGPL-3.0-only"
 readme = "README.md"
 authors = [
     "Ygg01 <y.laughing.man.y@gmail.com>",
@@ -35,3 +35,9 @@ comment = []
 
 [[example]]
 name = "simple_parse"
+
+[[example]]
+name = "simple_emitter"
+
+[[example]]
+name = "simple_sink"

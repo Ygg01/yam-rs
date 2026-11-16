@@ -12,7 +12,9 @@ use fearless_simd::{Level, Simd, SimdBase, SimdMask, dispatch};
 
 pub(crate) const BUF_MAX_LEN: usize = 128;
 
-#[allow(dead_code)]
+/// Buffered reader for a given input source
+///
+/// Works as no-std alternative to [`BufRead`](https://doc.rust-lang.org/std/io/trait.BufRead.html) but optimized for YAML parsing.
 pub struct BufBytesSource<T> {
     /// The input source. Usually a byte iterator
     input: T,
