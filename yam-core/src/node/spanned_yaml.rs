@@ -384,6 +384,13 @@ where
         }
     }
 
+    fn from_string(input: impl Into<String>) -> Self {
+        SpannedYaml {
+            yaml: YamlData::Scalar(YamlScalar::String(STR::from_string(input))),
+            span: Span::default(),
+        }
+    }
+
     fn with_start(self, marker: Marker) -> Self {
         let mut span = self.span;
         span.start = marker;

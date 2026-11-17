@@ -949,10 +949,24 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     /// use yam_core::prelude::{Yaml, YamlDocAccess};
     ///
-    /// let value : Yaml = Yaml::from_char('b');
+    /// let value : Yaml = Yaml::from_integer(32);
+    /// assert!(value.is_integer())
+    /// ```
+    fn from_integer(input: impl Into<i64>) -> Self;
+
+    #[must_use]
+    /// Creates a new instance of the type from a char value.
+    ///
+    /// This function is typically used to initialize the type to string scalar.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_string("32");
     /// assert!(value.is_string())
     /// ```
-    fn from_integer(int: impl Into<i64>) -> Self;
+    fn from_string(input: impl Into<String>) -> Self;
 
     ///
     /// Consumes the current value, leaving the object in an uninitialized or default state,

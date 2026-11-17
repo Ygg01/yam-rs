@@ -256,6 +256,12 @@ where
             int.into(),
         ))))
     }
+
+    fn from_string(input: impl Into<String>) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(
+            input,
+        ))))
+    }
 }
 
 impl<'a, FP> From<YamlData<'a, Self, FP>> for Yaml<'a, FP> {
