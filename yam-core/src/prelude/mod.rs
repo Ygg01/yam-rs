@@ -912,6 +912,48 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```
     fn null() -> Self;
 
+    #[must_use]
+    /// Creates a new instance of the type from a bool value.
+    ///
+    /// This function is typically used to initialize the type to bool scalar.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_bool();
+    /// assert!(value.is_bool())
+    /// ```
+    fn from_bool(b: bool) -> Self;
+
+    #[must_use]
+    /// Creates a new instance of the type from a char value.
+    ///
+    /// This function is typically used to initialize the type to string scalar.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_char('b');
+    /// assert!(value.is_string())
+    /// ```
+    fn from_char(chr: char) -> Self;
+
+    #[must_use]
+    /// Creates a new instance of the type from a char value.
+    ///
+    /// This function is typically used to initialize the type to string scalar.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_char('b');
+    /// assert!(value.is_string())
+    /// ```
+    fn from_integer(int: impl Into<i64>) -> Self;
+
     ///
     /// Consumes the current value, leaving the object in an uninitialized or default state,
     /// and returns an instance of `Self` that represents the previous state of the object.
@@ -1110,10 +1152,9 @@ pub trait IsEmpty: Clone {
 
 pub trait ToMutStr {
     fn as_mut_str(&mut self) -> &mut str;
-
     fn as_str(&self) -> &str;
-
-    fn from_str(input: &str) -> Self;
+    fn from_string(input: impl Into<String>) -> Self;
+    fn into_string(self) -> String;
 }
 
 impl ToMutStr for Cow<'_, str> {
@@ -1125,8 +1166,12 @@ impl ToMutStr for Cow<'_, str> {
         self.as_ref()
     }
 
-    fn from_str(input: &str) -> Self {
-        Cow::Owned(input.to_string())
+    fn from_string(input: impl Into<String>) -> Self {
+        Cow::Owned(input.into())
+    }
+
+    fn into_string(self) -> String {
+        Cow::into_owned(self)
     }
 }
 
@@ -1139,8 +1184,12 @@ impl ToMutStr for String {
         self
     }
 
-    fn from_str(input: &str) -> Self {
-        String::from(input)
+    fn from_string(input: impl Into<String>) -> Self {
+        input.into()
+    }
+
+    fn into_string(self) -> String {
+        self
     }
 }
 
@@ -1178,6 +1227,8 @@ where
 {
     fn as_mut_val(&mut self) -> &mut T;
     fn as_owned(&self) -> T;
+
+    fn into_owned(input: T) -> Self;
 }
 
 /// This macro, `to_mut_impl`, generates an implementation of the `ToMut` trait for a specific type.
@@ -1213,13 +1264,15 @@ macro_rules! to_mut_impl {
             fn as_owned(&self) -> $x {
                 *self
             }
+
+            #[inline]
+            fn into_owned(input: $x) -> Self {
+                input
+            }
         }
     };
 }
 
-to_mut_impl!(i8);
-to_mut_impl!(i16);
-to_mut_impl!(i32);
 to_mut_impl!(i64);
 to_mut_impl!(i128);
 to_mut_impl!(f32);

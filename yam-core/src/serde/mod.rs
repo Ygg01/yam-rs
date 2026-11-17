@@ -2,6 +2,7 @@ pub mod de;
 mod escape_str;
 #[allow(dead_code, unused_variables)]
 pub mod ser;
+mod yaml_serde;
 
 use crate::prelude::ScalarType;
 use alloc::borrow::Cow;

@@ -4,7 +4,7 @@ use crate::prelude::{
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
@@ -163,10 +163,11 @@ where
     }
 }
 
-impl<'a, FP, INT> YamlDocAccess<'a> for SpannedYaml<'a, FP, INT>
+impl<'a, FP, INT, STR> YamlDocAccess<'a> for SpannedYaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64>,
-    INT: Copy + From<i64> + ToMut<i64>,
+    INT: Copy + ToMut<i64>,
+    STR: Clone + ToMutStr,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -176,14 +177,16 @@ where
     fn key_from_usize(index: usize) -> Self {
         SpannedYaml {
             span: Span::default(),
-            yaml: YamlData::Scalar(YamlScalar::Integer(INT::from(index.cast_signed() as i64))),
+            yaml: YamlData::Scalar(YamlScalar::Integer(INT::into_owned(
+                index.cast_signed() as i64
+            ))),
         }
     }
 
     fn key_from_str(index: &str) -> Self {
         SpannedYaml {
             span: Span::default(),
-            yaml: YamlData::Scalar(YamlScalar::String(Cow::Owned(index.to_string()))),
+            yaml: YamlData::Scalar(YamlScalar::String(STR::from_string(index))),
         }
     }
 
@@ -267,7 +270,7 @@ where
 
     fn as_str(&self) -> Option<&str> {
         match &self.yaml {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_ref()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.as_str()),
             _ => None,
         }
     }
@@ -320,7 +323,7 @@ where
 
     fn into_string(self) -> Option<String> {
         match self.yaml {
-            YamlData::Scalar(YamlScalar::String(s)) => Some(s.into()),
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.into_string()),
             _ => None,
         }
     }
@@ -356,6 +359,27 @@ where
     fn null() -> Self {
         SpannedYaml {
             yaml: YamlData::Scalar(YamlScalar::Null(PhantomData)),
+            span: Span::default(),
+        }
+    }
+
+    fn from_bool(b: bool) -> Self {
+        SpannedYaml {
+            yaml: YamlData::Scalar(YamlScalar::Bool(b)),
+            span: Span::default(),
+        }
+    }
+
+    fn from_char(chr: char) -> Self {
+        SpannedYaml {
+            yaml: YamlData::Scalar(YamlScalar::String(STR::from_string(chr))),
+            span: Span::default(),
+        }
+    }
+
+    fn from_integer(int: impl Into<i64>) -> Self {
+        SpannedYaml {
+            yaml: YamlData::Scalar(YamlScalar::Integer(INT::into_owned(int.into()))),
             span: Span::default(),
         }
     }

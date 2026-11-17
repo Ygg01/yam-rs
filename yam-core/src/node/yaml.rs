@@ -1,4 +1,3 @@
-use crate::prelude::YamlScalar::Null;
 use crate::prelude::{
     IsEmpty, NodeType, Span, Tag, ToMut, ToMutStr, YamLoader, YamlAccessError, YamlData,
     YamlDocAccess, YamlEntry, YamlError, YamlScalar,
@@ -55,7 +54,7 @@ where
 impl<'a, FP, INT, STR> YamlDocAccess<'a> for Yaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64>,
-    INT: Copy + From<i64> + ToMut<i64>,
+    INT: Copy + ToMut<i64>,
     STR: Clone + ToMutStr,
 {
     type OutNode = Self;
@@ -64,13 +63,15 @@ where
 
     #[allow(clippy::cast_lossless)]
     fn key_from_usize(index: usize) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(
-            (index.cast_signed() as i64).into(),
-        )))
+        Yaml(YamlData::Scalar(YamlScalar::Integer(INT::into_owned(
+            index.cast_signed() as i64,
+        ))))
     }
 
     fn key_from_str(index: &str) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::String(STR::from_str(index))))
+        Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(
+            index,
+        ))))
     }
 
     fn is_non_empty_collection(&self) -> bool {
@@ -239,7 +240,21 @@ where
 
     #[inline]
     fn null() -> Self {
-        Yaml(YamlData::Scalar(Null(PhantomData)))
+        Yaml(YamlData::Scalar(YamlScalar::Null(PhantomData)))
+    }
+
+    fn from_bool(b: bool) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Bool(b)))
+    }
+
+    fn from_char(chr: char) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(chr))))
+    }
+
+    fn from_integer(int: impl Into<i64>) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Integer(INT::into_owned(
+            int.into(),
+        ))))
     }
 }
 
