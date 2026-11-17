@@ -1,5 +1,5 @@
 use crate::node::{Yaml, YamlData};
-use crate::prelude::{ToMut, ToMutStr, YamlDocAccess};
+use crate::prelude::{ToMut, ToMutStr, YamlDocAccess, YamlEntry};
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::Formatter;
@@ -152,6 +152,21 @@ where
                 }
 
                 Ok(Yaml(YamlData::Sequence(vec)))
+            }
+
+            fn visit_map<A>(self, mut map_visitor: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut vec = Vec::new();
+
+                while let Some(key) = map_visitor.next_key()? {
+                    let val = map_visitor.next_value()?;
+                    let entry = YamlEntry::new(key, val);
+                    vec.push(entry);
+                }
+
+                Ok(Yaml(YamlData::Mapping(vec)))
             }
         }
 
