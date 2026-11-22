@@ -167,7 +167,7 @@ impl<'a, FP, INT, STR> YamlDocAccess<'a> for SpannedYaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64>,
     INT: Copy + ToMut<i64>,
-    STR: Clone + ToMutStr,
+    STR: Clone + ToMutStr<'a>,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -384,9 +384,16 @@ where
         }
     }
 
-    fn from_string(input: impl Into<String>) -> Self {
+    fn from_string(input: String) -> Self {
         SpannedYaml {
             yaml: YamlData::Scalar(YamlScalar::String(STR::from_string(input))),
+            span: Span::default(),
+        }
+    }
+
+    fn from_str(input: &'a str) -> Self {
+        SpannedYaml {
+            yaml: YamlData::Scalar(YamlScalar::String(STR::from_str(input))),
             span: Span::default(),
         }
     }

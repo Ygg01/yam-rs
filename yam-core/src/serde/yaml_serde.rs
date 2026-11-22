@@ -1,6 +1,6 @@
 use crate::node::{Yaml, YamlData};
 use crate::prelude::{ToMut, ToMutStr, YamlDocAccess, YamlEntry};
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::Formatter;
 use core::marker::PhantomData;
@@ -11,7 +11,7 @@ impl<'de, INT, FLOAT, STR> Deserialize<'de> for Yaml<'de, FLOAT, INT, STR>
 where
     FLOAT: Copy + ToMut<f64>,
     INT: Copy + From<i64> + ToMut<i64>,
-    STR: Clone + ToMutStr,
+    STR: Clone + ToMutStr<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -28,7 +28,7 @@ where
         where
             F: Copy + ToMut<f64>,
             I: Copy + From<i64> + ToMut<i64>,
-            S: Clone + ToMutStr,
+            S: Clone + ToMutStr<'de>,
         {
             type Value = Yaml<'de, F, I, S>;
 
@@ -114,7 +114,15 @@ where
             where
                 E: Error,
             {
-                Ok(Yaml::from_string(v))
+                Ok(Yaml::from_string(v.to_string()))
+            }
+
+            #[inline]
+            fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(Yaml::from_str(v))
             }
 
             #[inline]

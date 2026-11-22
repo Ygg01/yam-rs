@@ -963,10 +963,24 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     /// use yam_core::prelude::{Yaml, YamlDocAccess};
     ///
-    /// let value : Yaml = Yaml::from_string("32");
+    /// let value : Yaml = Yaml::from_string("32".into_string());
     /// assert!(value.is_string())
     /// ```
-    fn from_string(input: impl Into<String>) -> Self;
+    fn from_string(input: String) -> Self;
+
+    #[must_use]
+    /// Creates a new instance of the type from a char value.
+    ///
+    /// This function is typically used to initialize the type to string scalar.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_str("32");
+    /// assert!(value.is_string())
+    /// ```
+    fn from_str(input: &'input str) -> Self;
 
     ///
     /// Consumes the current value, leaving the object in an uninitialized or default state,
@@ -1164,14 +1178,15 @@ pub trait IsEmpty: Clone {
     fn is_collection_empty(&self) -> bool;
 }
 
-pub trait ToMutStr {
+pub trait ToMutStr<'a> {
     fn as_mut_str(&mut self) -> &mut str;
     fn as_str(&self) -> &str;
     fn from_string(input: impl Into<String>) -> Self;
+    fn from_str(input: &'a str) -> Self;
     fn into_string(self) -> String;
 }
 
-impl ToMutStr for Cow<'_, str> {
+impl<'a> ToMutStr<'a> for Cow<'a, str> {
     fn as_mut_str(&mut self) -> &mut str {
         self.to_mut()
     }
@@ -1184,12 +1199,16 @@ impl ToMutStr for Cow<'_, str> {
         Cow::Owned(input.into())
     }
 
+    fn from_str(input: &'a str) -> Self {
+        Cow::Borrowed(input)
+    }
+
     fn into_string(self) -> String {
         Cow::into_owned(self)
     }
 }
 
-impl ToMutStr for String {
+impl ToMutStr<'static> for String {
     fn as_mut_str(&mut self) -> &mut str {
         self
     }
@@ -1200,6 +1219,10 @@ impl ToMutStr for String {
 
     fn from_string(input: impl Into<String>) -> Self {
         input.into()
+    }
+
+    fn from_str(input: &'static str) -> Self {
+        String::from(input)
     }
 
     fn into_string(self) -> String {

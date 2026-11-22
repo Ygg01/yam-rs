@@ -360,7 +360,7 @@ impl<'a, W, FP, INT, STR> YamlEmitter<'a, W, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + Into<f64>,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
-    STR: Clone + ToMutStr,
+    STR: Clone + ToMutStr<'a>,
     W: Write,
 {
     /// Create a new emitter serializing into `writer`.

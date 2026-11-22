@@ -55,7 +55,7 @@ impl<'a, FP, INT, STR> YamlDocAccess<'a> for Yaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64>,
     INT: Copy + ToMut<i64>,
-    STR: Clone + ToMutStr,
+    STR: Clone + ToMutStr<'a>,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -257,10 +257,14 @@ where
         ))))
     }
 
-    fn from_string(input: impl Into<String>) -> Self {
+    fn from_string(input: String) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(
             input,
         ))))
+    }
+
+    fn from_str(input: &'a str) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::String(STR::from_str(input))))
     }
 }
 
@@ -367,11 +371,11 @@ impl<'a> Yaml<'a> {
     }
 }
 
-impl<FP, INT, STR> Index<usize> for Yaml<'_, FP, INT, STR>
+impl<'a, FP, INT, STR> Index<usize> for Yaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
-    STR: Clone + ToMutStr + PartialEq,
+    STR: Clone + ToMutStr<'a> + PartialEq,
 {
     type Output = Self;
 
@@ -386,11 +390,11 @@ where
     }
 }
 
-impl<FP, INT, STR> IndexMut<usize> for Yaml<'_, FP, INT, STR>
+impl<'a, FP, INT, STR> IndexMut<usize> for Yaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
-    STR: Clone + ToMutStr + PartialEq,
+    STR: Clone + ToMutStr<'a> + PartialEq,
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let typ = self.get_type();
@@ -410,11 +414,11 @@ where
     }
 }
 
-impl<'k, FP, INT, STR> Index<&'k str> for Yaml<'_, FP, INT, STR>
+impl<'a, 'k, FP, INT, STR> Index<&'k str> for Yaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
-    STR: Clone + ToMutStr + PartialEq,
+    STR: Clone + ToMutStr<'a> + PartialEq,
 {
     type Output = Self;
 
@@ -428,11 +432,11 @@ where
     }
 }
 
-impl<'k, FP, INT, STR> IndexMut<&'k str> for Yaml<'_, FP, INT, STR>
+impl<'a, 'k, FP, INT, STR> IndexMut<&'k str> for Yaml<'a, FP, INT, STR>
 where
     FP: Copy + ToMut<f64> + PartialEq,
     INT: Copy + From<i64> + ToMut<i64> + PartialEq,
-    STR: Clone + ToMutStr + PartialEq,
+    STR: Clone + ToMutStr<'a> + PartialEq,
 {
     fn index_mut(&mut self, index: &'k str) -> &mut Self::Output {
         let typ = self.get_type();
