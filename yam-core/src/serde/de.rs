@@ -33,11 +33,11 @@ impl<'a> YamIterDeserializer<'a, InMemSource<'a>> {
     }
 }
 
-impl<'a, R> YamIterDeserializer<'a, R>
+impl<'de, R> YamIterDeserializer<'de, R>
 where
     R: Source,
 {
-    fn next_el(&mut self) -> Option<YamEvent<'a>> {
+    fn next_el(&mut self) -> Option<YamEvent<'de>> {
         if self.has_peeked {
             self.has_peeked = false;
             return Some(self.last_event.clone());
@@ -60,8 +60,8 @@ where
         }
     }
 
-    fn resolve_scalar<V: Visitor<'a>>(
-        scalar_value: ScalarValue<'a>,
+    fn resolve_scalar<V: Visitor<'de>>(
+        scalar_value: ScalarValue<'de>,
         visitor: V,
     ) -> Result<V::Value, DeYamlError> {
         let scalar = YamlScalar::parse_from_scalar(scalar_value);
