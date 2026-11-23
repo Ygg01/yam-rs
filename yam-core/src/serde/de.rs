@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use alloc::format;
 use alloc::string::{String, ToString};
 use core::fmt::{Display, Formatter};
@@ -60,15 +61,18 @@ where
     }
 
     fn resolve_scalar<V: Visitor<'a>>(
-        scalar_value: ScalarValue,
+        scalar_value: ScalarValue<'a>,
         visitor: V,
     ) -> Result<V::Value, DeYamlError> {
         let scalar = YamlScalar::parse_from_scalar(scalar_value);
         match scalar {
-            Some(YamlScalar::Integer(x)) => visitor.visit_i64(x),
-            Some(YamlScalar::FloatingPoint(x)) => visitor.visit_f64(x),
-            Some(YamlScalar::Bool(x)) => visitor.visit_bool(x),
-            Some(YamlScalar::String(x)) => visitor.visit_str(&x),
+            Some(YamlScalar::Integer(int)) => visitor.visit_i64(int),
+            Some(YamlScalar::FloatingPoint(float)) => visitor.visit_f64(float),
+            Some(YamlScalar::Bool(boolean)) => visitor.visit_bool(boolean),
+            Some(YamlScalar::String(cow_str)) => match cow_str {
+                Cow::Borrowed(input) => visitor.visit_borrowed_str(input),
+                Cow::Owned(input) => visitor.visit_str(&input),
+            },
             Some(YamlScalar::Null(_)) => visitor.visit_unit(),
             None => Err(DeYamlError::Custom("Failed to parse scalar".to_string())),
         }
