@@ -4,8 +4,6 @@ pub use crate::node::YamlScalar;
 pub use crate::node::span_yam::SpanYam;
 pub use crate::node::yaml::Yaml;
 pub use crate::node::yaml_data::YamlData;
-pub use crate::parsing::BufBytesSource;
-pub use crate::parsing::InMemSource;
 pub use crate::parsing::Source;
 pub use crate::parsing::Tag;
 use alloc::borrow::Cow;
@@ -921,7 +919,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     /// use yam_core::prelude::{Yaml, YamlDocAccess};
     ///
-    /// let value : Yaml = Yaml::from_bool();
+    /// let value : Yaml = Yaml::from_bool(true);
     /// assert!(value.is_bool())
     /// ```
     fn from_bool(b: bool) -> Self;
@@ -963,7 +961,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```rust
     /// use yam_core::prelude::{Yaml, YamlDocAccess};
     ///
-    /// let value : Yaml = Yaml::from_string("32".into_string());
+    /// let value : Yaml = Yaml::from_string("32".to_string());
     /// assert!(value.is_string())
     /// ```
     fn from_string(input: String) -> Self;

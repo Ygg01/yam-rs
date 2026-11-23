@@ -1,4 +1,5 @@
-use crate::parsing::{Event, InMemSource, ScalarValue, Source, Tag, YamParser};
+use crate::parsing::source::in_mem::InMemSource;
+use crate::parsing::{Event, ScalarValue, Source, Tag, YamParser};
 use crate::prelude::YamlError;
 use alloc::borrow::Cow;
 use core::ops::ControlFlow;

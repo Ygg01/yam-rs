@@ -11,8 +11,8 @@ use serde_core::{de, forward_to_deserialize_any};
 use crate::binary;
 use crate::binary::DecodeError;
 use crate::parsing::parser_iter::YamEvent;
-use crate::parsing::{ScalarValue, YamParserIter};
-use crate::prelude::{InMemSource, Source, YamlScalar};
+use crate::parsing::{InMemSource, ScalarValue, YamParserIter};
+use crate::prelude::{Source, YamlScalar};
 
 pub(crate) struct YamIterDeserializer<'de, R>
 where

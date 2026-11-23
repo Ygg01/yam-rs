@@ -4,9 +4,10 @@
 //! compliance, and emits a stream of YAML events. This stream can for instance be used to create
 //! YAML objects.
 
-use crate::parsing::buffered_source::BufferedBytesSourceIter;
 use crate::parsing::scanner::{Token, YamScanner};
-pub(crate) use crate::parsing::source::{InMemSource, Source};
+pub(crate) use crate::parsing::source::Source;
+use crate::parsing::source::byte_buf::BufferedBytesSourceIter;
+use crate::parsing::source::in_mem::InMemSource;
 use crate::parsing::{BufBytesSource, Tag, TokenType};
 use crate::prelude::{Marker, ScalarType, Span, YamlError};
 use alloc::{
@@ -1612,7 +1613,7 @@ impl<'input, T: Source> YamParser<'input, T> {
             } else {
                 // Otherwise, it may be a local handle. With a local handle, the handle is set to
                 // "!" and the suffix to whatever follows it ("!foo" -> ("!", "foo")).
-                // If the handle is of the form "!foo!", this cannot be a local handle and we need
+                // If the handle is of the form "!foo!", this cannot be a local handle, and we need
                 // to error.
                 if handle.len() >= 2 && handle.starts_with('!') && handle.ends_with('!') {
                     return Err(YamlError::new_str(span.start, "the handle wasn't declared"));

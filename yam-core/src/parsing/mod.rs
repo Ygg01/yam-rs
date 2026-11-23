@@ -1,6 +1,5 @@
 //! Module dealing with parsing YAML documents into a series of events.
 //!
-mod buffered_source;
 mod char_utils;
 mod parser;
 pub mod parser_iter;
@@ -11,15 +10,15 @@ use crate::prelude::{ScalarType, YamlError};
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-pub use buffered_source::BufBytesSource;
 use core::fmt;
 use core::fmt::{Display, Formatter};
 pub use parser::EventReceiver;
 pub use parser::SpanEventReceiver;
 pub use parser::{Event, ScalarValue, YamParser};
 pub use parser_iter::YamParserIter;
-pub use source::InMemSource;
 pub use source::Source;
+pub use source::byte_buf::BufBytesSource;
+pub use source::in_mem::InMemSource;
 
 ///
 /// Represents the different types of tokens that can be encountered in the input stream.

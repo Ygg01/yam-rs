@@ -36,9 +36,8 @@ use ser::{FlowStyle, YamlStyle};
 ///
 /// # Examples
 ///
-/// ```
-/// use yam_serde::de::DeYamlError;
-/// use yam_serde::from_str;
+/// ```rust
+/// use yam_core::{from_str};
 /// use serde::Deserialize;
 ///
 /// #[derive(Deserialize, Debug)]
@@ -92,7 +91,7 @@ where
 ///
 /// # Example
 /// ```
-/// use yam_serde::{to_pretty_string, YamlFormatter};
+/// use yam_core::prelude::*;
 /// use serde::Serialize;
 ///
 /// #[derive(Serialize)]

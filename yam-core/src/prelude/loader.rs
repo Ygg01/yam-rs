@@ -1,10 +1,8 @@
 use crate::node::yaml_data::YamlData;
 use crate::parsing;
-use crate::parsing::Tag;
 use crate::parsing::{Event, ScalarValue, SpanEventReceiver};
-use crate::prelude::{
-    InMemSource, IsEmpty, Source, Span, YamlDocAccess, YamlEntry, YamlError, YamlScalar,
-};
+use crate::parsing::{InMemSource, Tag};
+use crate::prelude::{IsEmpty, Source, Span, YamlDocAccess, YamlEntry, YamlError, YamlScalar};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;

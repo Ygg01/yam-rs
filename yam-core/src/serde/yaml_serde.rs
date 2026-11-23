@@ -13,6 +13,7 @@ where
     INT: Copy + From<i64> + ToMut<i64>,
     STR: Clone + ToMutStr<'de>,
 {
+    #[allow(clippy::too_many_lines)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
