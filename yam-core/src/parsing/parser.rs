@@ -5,7 +5,7 @@
 //! YAML objects.
 
 use crate::parsing::buffered_source::BufferedBytesSourceIter;
-use crate::parsing::scanner::{Scanner, Token};
+use crate::parsing::scanner::{Token, YamScanner};
 pub(crate) use crate::parsing::source::{InMemSource, Source};
 use crate::parsing::{BufBytesSource, Tag, TokenType};
 use crate::prelude::{Marker, ScalarType, Span, YamlError};
@@ -253,10 +253,10 @@ impl<'input> Event<'input> {
     }
 }
 
-/// A YAML parser.
-pub struct Parser<'input, T: Source> {
+/// A YAML parser. Named Yam for puns.
+pub struct YamParser<'input, T: Source> {
     /// The underlying scanner from which we pull tokens.
-    scanner: Scanner<'input, T>,
+    scanner: YamScanner<'input, T>,
     /// The stack of _previous_ states we were in.
     ///
     /// States are pushed in the context of subobjects to this stack. The top-most element is the
@@ -381,11 +381,11 @@ pub trait EventReceiver<'input> {
 /// # Example
 ///
 /// ```rust
-/// use yam_core::parsing::{Event, SpannedEventReceiver};
+/// use yam_core::parsing::{Event, SpanEventReceiver};
 /// use yam_core::prelude::Span;
-/// struct MySpannedEventReceiver;
+/// struct MySpanEventReceiver;
 ///
-/// impl<'input> SpannedEventReceiver<'input> for MySpannedEventReceiver {
+/// impl<'input> SpanEventReceiver<'input> for MySpanEventReceiver {
 ///     fn on_event(&mut self, ev: Event<'input>, _span: Span) {
 ///         match ev {
 ///             Event::Scalar(value) => println!("Scalar value: {}", value),
@@ -397,12 +397,12 @@ pub trait EventReceiver<'input> {
 /// }
 /// ```
 ///
-pub trait SpannedEventReceiver<'input> {
+pub trait SpanEventReceiver<'input> {
     /// Handler called for each event that occurs.
     fn on_event(&mut self, ev: Event<'input>, span: Span);
 }
 
-impl<'input, R: EventReceiver<'input>> SpannedEventReceiver<'input> for R {
+impl<'input, R: EventReceiver<'input>> SpanEventReceiver<'input> for R {
     fn on_event(&mut self, ev: Event<'input>, _span: Span) {
         self.on_event(ev);
     }
@@ -411,11 +411,11 @@ impl<'input, R: EventReceiver<'input>> SpannedEventReceiver<'input> for R {
 /// A convenience alias for a `Result` of a parser event.
 pub type ParseResult<'input> = Result<(Event<'input>, Span), YamlError>;
 
-impl<'input, T: Source> Parser<'input, T> {
+impl<'input, T: Source> YamParser<'input, T> {
     /// Create a new instance of a parser from the given input of characters.
     pub fn new(src: T) -> Self {
-        Parser {
-            scanner: Scanner::new(src),
+        YamParser {
+            scanner: YamScanner::new(src),
             states: Vec::with_capacity(20),
             state: State::StreamStart,
             token: None,
@@ -463,8 +463,8 @@ impl<'input, T: Source> Parser<'input, T> {
 
     /// Try to load the next event and return it, but do not consuming it from `self`.
     ///
-    /// Any subsequent call to [`Parser::peek`] will return the same value, until a call to
-    /// [`Iterator::next`] or [`Parser::load`].
+    /// Any subsequent call to [`YamParser::peek`] will return the same value, until a call to
+    /// [`Iterator::next`] or [`YamParser::load`].
     ///
     /// # Errors
     /// Returns `YamlResult` when loading the next event fails.
@@ -659,13 +659,13 @@ impl<'input, T: Source> Parser<'input, T> {
     /// If `multi` is set to `true`, the parser will allow parsing of multiple YAML documents
     /// inside the stream.
     ///
-    /// Note that any [`EventReceiver`] is also a [`SpannedEventReceiver`], so implementing the
+    /// Note that any [`EventReceiver`] is also a [`SpanEventReceiver`], so implementing the
     /// former is enough to call this function.
     /// # Errors
     /// Returns `YamlResult` when loading fails.
     pub fn load<R>(&mut self, recv: &mut R, multi: bool) -> Result<(), YamlError>
     where
-        R: SpannedEventReceiver<'input>,
+        R: SpanEventReceiver<'input>,
     {
         if !self.scanner.stream_start_produced {
             let (ev, span) = self.next_event_impl()?;
@@ -699,7 +699,7 @@ impl<'input, T: Source> Parser<'input, T> {
         Ok(())
     }
 
-    fn load_document<R: SpannedEventReceiver<'input>>(
+    fn load_document<R: SpanEventReceiver<'input>>(
         &mut self,
         first_ev: Event<'input>,
         span: Span,
@@ -724,7 +724,7 @@ impl<'input, T: Source> Parser<'input, T> {
         Ok(())
     }
 
-    fn load_node<R: SpannedEventReceiver<'input>>(
+    fn load_node<R: SpanEventReceiver<'input>>(
         &mut self,
         first_ev: Event<'input>,
         span: Span,
@@ -749,7 +749,7 @@ impl<'input, T: Source> Parser<'input, T> {
         }
     }
 
-    fn load_mapping<R: SpannedEventReceiver<'input>>(
+    fn load_mapping<R: SpanEventReceiver<'input>>(
         &mut self,
         recv: &mut R,
     ) -> Result<(), YamlError> {
@@ -771,7 +771,7 @@ impl<'input, T: Source> Parser<'input, T> {
         Ok(())
     }
 
-    fn load_sequence<R: SpannedEventReceiver<'input>>(
+    fn load_sequence<R: SpanEventReceiver<'input>>(
         &mut self,
         recv: &mut R,
     ) -> Result<(), YamlError> {
@@ -1646,7 +1646,7 @@ impl KeyFlow {
     }
 }
 
-impl<'input, T: Source> Iterator for Parser<'input, T> {
+impl<'input, T: Source> Iterator for YamParser<'input, T> {
     type Item = Result<(Event<'input>, Span), YamlError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1654,16 +1654,16 @@ impl<'input, T: Source> Iterator for Parser<'input, T> {
     }
 }
 
-impl<'input> Parser<'input, InMemSource<'input>> {
+impl<'input> YamParser<'input, InMemSource<'input>> {
     #[must_use]
     pub fn new_from_str(input: &'input str) -> Self {
-        Parser::new(InMemSource::new(input))
+        YamParser::new(InMemSource::new(input))
     }
 }
 
-impl<'input> Parser<'input, BufferedBytesSourceIter<'input>> {
+impl<'input> YamParser<'input, BufferedBytesSourceIter<'input>> {
     #[must_use]
     pub fn new_from_bytes(input: &'input str) -> Self {
-        Parser::new(BufBytesSource::new_from_bytes(input.as_bytes()))
+        YamParser::new(BufBytesSource::new_from_bytes(input.as_bytes()))
     }
 }

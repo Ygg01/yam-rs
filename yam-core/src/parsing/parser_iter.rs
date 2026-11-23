@@ -1,4 +1,4 @@
-use crate::parsing::{Event, InMemSource, Parser, ScalarValue, Source, Tag};
+use crate::parsing::{Event, InMemSource, ScalarValue, Source, Tag, YamParser};
 use crate::prelude::YamlError;
 use alloc::borrow::Cow;
 use core::ops::ControlFlow;
@@ -49,32 +49,32 @@ impl YamEvent<'_> {
     }
 }
 
-pub struct ParserIter<'de, R: Source> {
-    parser: Parser<'de, R>,
+pub struct YamParserIter<'de, R: Source> {
+    parser: YamParser<'de, R>,
     state: State,
     error: Option<YamlError>,
 }
 
-impl<'a> ParserIter<'a, InMemSource<'a>> {
+impl<'a> YamParserIter<'a, InMemSource<'a>> {
     pub fn from_str_ref<S: AsRef<str>>(input: &'a S) -> Self {
         Self::new(InMemSource::new(input.as_ref()))
     }
 }
 
-impl<R> ParserIter<'_, R>
+impl<R> YamParserIter<'_, R>
 where
     R: Source,
 {
     pub fn new(input: R) -> Self {
         Self {
-            parser: Parser::new(input),
+            parser: YamParser::new(input),
             state: State::StreamStart,
             error: None,
         }
     }
 }
 
-impl<'de, R> Iterator for ParserIter<'de, R>
+impl<'de, R> Iterator for YamParserIter<'de, R>
 where
     R: Source,
 {
@@ -101,7 +101,7 @@ where
         }
     }
 }
-impl<'de, R: Source> ParserIter<'de, R> {
+impl<'de, R: Source> YamParserIter<'de, R> {
     pub(crate) fn process_start(&mut self) -> Result<YamEvent<'de>, YamlError> {
         // Expect a <stream-start>
         let ev = self.parser.next_event_impl()?.0;

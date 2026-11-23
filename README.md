@@ -130,15 +130,16 @@ fn main() {
 Line `struct EventSink<'input>` is a struct that stores events it encountered. We went with borrowed events, although we could have
 extracted the events.
 
-Once we have an events sink we need to impleement an `EventReceiver` trait. We could also have used `SpannedEventReceiver` but we didn't
+Once we have an events sink we need to impleement an `EventReceiver` trait. We could also have used `SpanEventReceiver` but we didn't
 need span information.
 
 Much like in previous examples we take a Yaml string `{a: b, c: d}` and process it in `Parser::new_from_str(yaml_str)`.
 
-To get our events into the `EventSink` we have to call it via `parser.load(&mut sink, true)`. It returns a `Result` so for brevity sake, if
+To get our events into the `EventSink` we have to call it via `parser.load(&mut sink, true)`. It returns a `Result` so for brevity’s sake,
+if
 it's `Err` we just return. In a more robust application we could try to recover or do something else.
 
-Last but not least, in
+Finally in:
 
 ```rust
 for x in sink.events {

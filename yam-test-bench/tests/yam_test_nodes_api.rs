@@ -1,7 +1,7 @@
 use rstest::rstest;
 use std::borrow::Cow;
 use std::ops::{Index, IndexMut};
-use yam_core::node::{SpannedYaml, Yaml, YamlScalar};
+use yam_core::node::{SpanYam, Yaml, YamlScalar};
 use yam_core::parsing::Tag;
 use yam_core::prelude::{YamLoader, YamlDocAccess};
 
@@ -24,120 +24,111 @@ const ALIAS_SEQ: &str = "[&a 3.0, *a]";
 #[case::span_nested_seq(NESTED_SEQ)]
 #[case::span_alias_seq(ALIAS_SEQ)]
 fn test_span(#[case] input: &str) {
-    let mut spanned_yaml = YamLoader::<SpannedYaml>::load_single(input).unwrap();
+    let mut span_yaml = YamLoader::<SpanYam>::load_single(input).unwrap();
     let mut borrowed_yaml = YamLoader::<Yaml>::load_single(input).unwrap();
 
-    assert_eq!(spanned_yaml[0].get_type(), borrowed_yaml[0].get_type());
-    assert_eq!(spanned_yaml[0].get_tag(), borrowed_yaml[0].get_tag());
-    assert_eq!(spanned_yaml[0].is_alias(), borrowed_yaml[0].is_alias());
+    assert_eq!(span_yaml[0].get_type(), borrowed_yaml[0].get_type());
+    assert_eq!(span_yaml[0].get_tag(), borrowed_yaml[0].get_tag());
+    assert_eq!(span_yaml[0].is_alias(), borrowed_yaml[0].is_alias());
+    assert_eq!(span_yaml[0].is_bad_value(), borrowed_yaml[0].is_bad_value());
+    assert_eq!(span_yaml[0].is_bool(), borrowed_yaml[0].is_bool());
     assert_eq!(
-        spanned_yaml[0].is_bad_value(),
-        borrowed_yaml[0].is_bad_value()
-    );
-    assert_eq!(spanned_yaml[0].is_bool(), borrowed_yaml[0].is_bool());
-    assert_eq!(
-        spanned_yaml[0].is_collection(),
+        span_yaml[0].is_collection(),
         borrowed_yaml[0].is_collection()
     );
     assert_eq!(
-        spanned_yaml[0].is_floating_point(),
+        span_yaml[0].is_floating_point(),
         borrowed_yaml[0].is_floating_point()
     );
-    assert_eq!(spanned_yaml[0].is_integer(), borrowed_yaml[0].is_integer());
-    assert_eq!(spanned_yaml[0].is_mapping(), borrowed_yaml[0].is_mapping());
+    assert_eq!(span_yaml[0].is_integer(), borrowed_yaml[0].is_integer());
+    assert_eq!(span_yaml[0].is_mapping(), borrowed_yaml[0].is_mapping());
     assert_eq!(
-        spanned_yaml[0].is_non_empty_collection(),
+        span_yaml[0].is_non_empty_collection(),
         borrowed_yaml[0].is_non_empty_collection()
     );
-    assert_eq!(spanned_yaml[0].is_null(), borrowed_yaml[0].is_null());
-    assert_eq!(
-        spanned_yaml[0].is_sequence(),
-        borrowed_yaml[0].is_sequence()
-    );
-    assert_eq!(spanned_yaml[0].is_string(), borrowed_yaml[0].is_string());
+    assert_eq!(span_yaml[0].is_null(), borrowed_yaml[0].is_null());
+    assert_eq!(span_yaml[0].is_sequence(), borrowed_yaml[0].is_sequence());
+    assert_eq!(span_yaml[0].is_string(), borrowed_yaml[0].is_string());
 
-    assert_eq!(spanned_yaml[1].get_tag(), borrowed_yaml[1].get_tag());
-    assert_eq!(spanned_yaml[1].get_type(), borrowed_yaml[1].get_type());
-    assert_eq!(spanned_yaml[1].as_bool(), borrowed_yaml[1].as_bool());
+    assert_eq!(span_yaml[1].get_tag(), borrowed_yaml[1].get_tag());
+    assert_eq!(span_yaml[1].get_type(), borrowed_yaml[1].get_type());
+    assert_eq!(span_yaml[1].as_bool(), borrowed_yaml[1].as_bool());
     assert_eq!(
-        spanned_yaml[1].as_sequence().is_ok(),
+        span_yaml[1].as_sequence().is_ok(),
         borrowed_yaml[1].as_sequence().is_ok()
     );
     assert_eq!(
-        spanned_yaml[1].as_sequence_mut().is_ok(),
+        span_yaml[1].as_sequence_mut().is_ok(),
         borrowed_yaml[1].as_sequence_mut().is_ok()
     );
     assert_eq!(
-        spanned_yaml[1].as_mapping().is_ok(),
+        span_yaml[1].as_mapping().is_ok(),
         borrowed_yaml[1].as_mapping().is_ok()
     );
     assert_eq!(
-        spanned_yaml[1].as_mapping_mut().is_ok(),
+        span_yaml[1].as_mapping_mut().is_ok(),
         borrowed_yaml[1].as_mapping_mut().is_ok()
     );
-    assert_eq!(
-        spanned_yaml[1].as_bool_mut(),
-        borrowed_yaml[1].as_bool_mut()
-    );
-    assert_eq!(spanned_yaml[1].as_i64(), borrowed_yaml[1].as_i64());
-    assert_eq!(spanned_yaml[1].as_i64_mut(), borrowed_yaml[1].as_i64_mut());
-    assert_eq!(spanned_yaml[1].as_f64(), borrowed_yaml[1].as_f64());
-    assert_eq!(spanned_yaml[1].as_f64_mut(), borrowed_yaml[1].as_f64_mut());
-    assert_eq!(spanned_yaml[1].as_str(), borrowed_yaml[1].as_str());
-    assert_eq!(spanned_yaml[1].as_str_mut(), borrowed_yaml[1].as_str_mut());
+    assert_eq!(span_yaml[1].as_bool_mut(), borrowed_yaml[1].as_bool_mut());
+    assert_eq!(span_yaml[1].as_i64(), borrowed_yaml[1].as_i64());
+    assert_eq!(span_yaml[1].as_i64_mut(), borrowed_yaml[1].as_i64_mut());
+    assert_eq!(span_yaml[1].as_f64(), borrowed_yaml[1].as_f64());
+    assert_eq!(span_yaml[1].as_f64_mut(), borrowed_yaml[1].as_f64_mut());
+    assert_eq!(span_yaml[1].as_str(), borrowed_yaml[1].as_str());
+    assert_eq!(span_yaml[1].as_str_mut(), borrowed_yaml[1].as_str_mut());
 }
 
 #[test]
 fn test_from_methods_scalar() {
     let input = 3.0;
     let yaml = Yaml::from(input);
-    let spanned_yaml = SpannedYaml::from(input);
-    assert_eq!(yaml.as_f64(), spanned_yaml.as_f64());
+    let span_yaml = SpanYam::from(input);
+    assert_eq!(yaml.as_f64(), span_yaml.as_f64());
 
     let input = 3.0f32;
     let yaml = Yaml::from(input);
-    let spanned_yaml = SpannedYaml::from(input);
-    assert_eq!(yaml.as_f64(), spanned_yaml.as_f64());
+    let span_yaml = SpanYam::from(input);
+    assert_eq!(yaml.as_f64(), span_yaml.as_f64());
 
     let input = 1i8;
     let yaml = Yaml::from(input);
-    let spanned_yaml = SpannedYaml::from(input);
-    assert_eq!(yaml.as_i64(), spanned_yaml.as_i64());
+    let span_yaml = SpanYam::from(input);
+    assert_eq!(yaml.as_i64(), span_yaml.as_i64());
 
     let input = 2i16;
     let yaml = Yaml::from(input);
-    let spanned_yaml = SpannedYaml::from(input);
-    assert_eq!(yaml.as_i64(), spanned_yaml.as_i64());
+    let span_yaml = SpanYam::from(input);
+    assert_eq!(yaml.as_i64(), span_yaml.as_i64());
 
     let input = 3i32;
     let yaml = Yaml::from(input);
-    let spanned_yaml = SpannedYaml::from(input);
-    assert_eq!(yaml.as_i64(), spanned_yaml.as_i64());
+    let span_yaml = SpanYam::from(input);
+    assert_eq!(yaml.as_i64(), span_yaml.as_i64());
 
     let input = 4i64;
     let yaml = Yaml::from(input);
-    let spanned_yaml = SpannedYaml::from(input);
-    assert_eq!(yaml.as_i64(), spanned_yaml.as_i64());
+    let span_yaml = SpanYam::from(input);
+    assert_eq!(yaml.as_i64(), span_yaml.as_i64());
 
     let input = "1";
     let yaml = Yaml::from(input);
-    let spanned_yaml = SpannedYaml::from(input);
-    assert_eq!(yaml.as_str(), spanned_yaml.as_str());
+    let span_yaml = SpanYam::from(input);
+    assert_eq!(yaml.as_str(), span_yaml.as_str());
 
     let input = true;
     let mut yaml = Yaml::from(input);
-    let mut spanned_yaml = SpannedYaml::from(input);
+    let mut span_yaml = SpanYam::from(input);
     assert_eq!(
         yaml.as_bool_mut().unwrap_or(&mut false),
-        spanned_yaml.as_bool_mut().unwrap_or(&mut false)
+        span_yaml.as_bool_mut().unwrap_or(&mut false)
     );
 
     let a: Yaml = Yaml::null();
-    let b: SpannedYaml = SpannedYaml::null();
+    let b: SpanYam = SpanYam::null();
     assert_eq!(a.is_null(), b.is_null());
 
     let a: Yaml = Yaml::from("aa");
-    let b: SpannedYaml = SpannedYaml::from("aa");
+    let b: SpanYam = SpanYam::from("aa");
     assert_eq!(a.into_string(), b.into_string())
 }
 
@@ -145,15 +136,15 @@ fn test_from_methods_scalar() {
 fn test_from_sequence() {
     let input = vec![true, false];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    for (yaml_el, span_el) in yaml.sequence().iter().zip(spanned_yaml.sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    for (yaml_el, span_el) in yaml.sequence().iter().zip(span_yaml.sequence()) {
         assert_eq!(yaml_el.as_bool(), span_el.as_bool());
     }
 
     let input = vec!["zip", "zoom"];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), spanned_yaml.as_sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), span_yaml.as_sequence()) {
         for (y_el, s_el) in x.iter().zip(y) {
             assert_eq!(y_el.as_str(), s_el.as_str());
         }
@@ -161,8 +152,8 @@ fn test_from_sequence() {
 
     let input = vec![2i8, 1i8];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), spanned_yaml.as_sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), span_yaml.as_sequence()) {
         for (y_el, s_el) in x.iter().zip(y) {
             assert_eq!(y_el.as_i64(), s_el.as_i64());
         }
@@ -170,8 +161,8 @@ fn test_from_sequence() {
 
     let input = vec![2i16, 1i16];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), spanned_yaml.as_sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), span_yaml.as_sequence()) {
         for (y_el, s_el) in x.iter().zip(y) {
             assert_eq!(y_el.as_i64(), s_el.as_i64());
         }
@@ -179,8 +170,8 @@ fn test_from_sequence() {
 
     let input = vec![2i32, 1i32];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), spanned_yaml.as_sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), span_yaml.as_sequence()) {
         for (y_el, s_el) in x.iter().zip(y) {
             assert_eq!(y_el.as_i64(), s_el.as_i64());
         }
@@ -188,8 +179,8 @@ fn test_from_sequence() {
 
     let input = vec![2i64, 1i64];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), spanned_yaml.as_sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), span_yaml.as_sequence()) {
         for (y_el, s_el) in x.iter().zip(y) {
             assert_eq!(y_el.as_i64(), s_el.as_i64());
         }
@@ -197,8 +188,8 @@ fn test_from_sequence() {
 
     let input = vec![2f32, 1f32];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), spanned_yaml.as_sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), span_yaml.as_sequence()) {
         for (y_el, s_el) in x.iter().zip(y) {
             assert_eq!(y_el.as_f64(), s_el.as_f64());
         }
@@ -206,15 +197,15 @@ fn test_from_sequence() {
 
     let input = vec![2f64, 1f64];
     let yaml = Yaml::from(input.clone());
-    let spanned_yaml = SpannedYaml::from(input.clone());
-    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), spanned_yaml.as_sequence()) {
+    let span_yaml = SpanYam::from(input.clone());
+    if let (Ok(x), Ok(y)) = (yaml.as_sequence(), span_yaml.as_sequence()) {
         for (y_el, s_el) in x.iter().zip(y) {
             assert_eq!(y_el.as_f64(), s_el.as_f64());
         }
     }
 
     let yaml_map = Yaml::from(vec![(Yaml::from("3"), Yaml::null())]);
-    let span_map = SpannedYaml::from(vec![(SpannedYaml::from("3"), SpannedYaml::null())]);
+    let span_map = SpanYam::from(vec![(SpanYam::from("3"), SpanYam::null())]);
     assert_eq!(
         yaml_map.is_non_empty_collection(),
         span_map.is_non_empty_collection()
@@ -226,7 +217,7 @@ fn test_from_sequence() {
     assert_eq!(&yaml_map["3"].is_null(), &span_map["3"].is_null());
 
     let mut yaml_seq = Yaml::from(vec![Yaml::from(3), Yaml::from("aaa")]);
-    let mut span_seq = SpannedYaml::from(vec![SpannedYaml::from(3), SpannedYaml::from("aaa")]);
+    let mut span_seq = SpanYam::from(vec![SpanYam::from(3), SpanYam::from("aaa")]);
 
     if let Ok(x) = yaml_seq.as_sequence_mut() {
         x.clear();
@@ -239,9 +230,9 @@ fn test_from_sequence() {
     assert!(!span_seq.is_non_empty_collection());
 
     let mut yaml_map = Yaml::from(vec![(Yaml::from("3"), Yaml::from(true))]);
-    let mut span_map = SpannedYaml::from(vec![(SpannedYaml::from("3"), SpannedYaml::from(true))]);
+    let mut span_map = SpanYam::from(vec![(SpanYam::from("3"), SpanYam::from(true))]);
     yaml_map["3"] = Yaml::from(false);
-    span_map["3"] = SpannedYaml::from(false);
+    span_map["3"] = SpanYam::from(false);
 
     assert_eq!(yaml_map["3"].as_bool(), Some(false));
     assert_eq!(span_map["3"].as_bool(), Some(false));
@@ -311,28 +302,28 @@ fn test_should_panic(#[case] yaml: YamlType, #[case] test_type: TestType) {
             Yaml::from(3).index_mut("0");
         }
         (YamlType::Span, TestType::Seq) => {
-            SpannedYaml::from(3).sequence();
+            SpanYam::from(3).sequence();
         }
         (YamlType::Span, TestType::SeqMut) => {
-            SpannedYaml::from(3).sequence_mut();
+            SpanYam::from(3).sequence_mut();
         }
         (YamlType::Span, TestType::Map) => {
-            SpannedYaml::from(3).mapping();
+            SpanYam::from(3).mapping();
         }
         (YamlType::Span, TestType::MapMut) => {
-            SpannedYaml::from(3).mapping_mut();
+            SpanYam::from(3).mapping_mut();
         }
         (YamlType::Span, TestType::Ind) => {
-            SpannedYaml::from(3).index(0);
+            SpanYam::from(3).index(0);
         }
         (YamlType::Span, TestType::IndMut) => {
-            SpannedYaml::from(3).index_mut(0);
+            SpanYam::from(3).index_mut(0);
         }
         (YamlType::Span, TestType::IndStr) => {
-            SpannedYaml::from(3).index("0");
+            SpanYam::from(3).index("0");
         }
         (YamlType::Span, TestType::IndStrMut) => {
-            SpannedYaml::from(3).index_mut("0");
+            SpanYam::from(3).index_mut("0");
         }
     };
 }
@@ -344,9 +335,9 @@ fn test_should_panic(#[case] yaml: YamlType, #[case] test_type: TestType) {
 #[case::map_full(false, false)]
 fn test_into_collection(#[case] is_seq: bool, #[case] is_empty: bool) {
     let (yaml, span) = match (is_seq, is_empty) {
-        (_, true) => (Yaml::from(3), SpannedYaml::from(3)),
-        (true, false) => (Yaml::from(vec![2]), SpannedYaml::from(vec![2])),
-        (false, false) => (Yaml::from(vec![(2, 3)]), SpannedYaml::from(vec![(2, 3)])),
+        (_, true) => (Yaml::from(3), SpanYam::from(3)),
+        (true, false) => (Yaml::from(vec![2]), SpanYam::from(vec![2])),
+        (false, false) => (Yaml::from(vec![(2, 3)]), SpanYam::from(vec![(2, 3)])),
     };
     if is_seq {
         let x = yaml
@@ -373,13 +364,13 @@ fn test_into_collection(#[case] is_seq: bool, #[case] is_empty: bool) {
 
 #[test]
 fn test_into_tagged() {
-    let scal: YamlScalar<'_> = YamlScalar::null();
+    let scalar: YamlScalar<'_> = YamlScalar::null();
     let tag = Tag::new("tag:yaml.org,2002:", "null");
 
-    let mut yaml_span = SpannedYaml::<'_>::from(scal.clone());
+    let mut yaml_span = SpanYam::<'_>::from(scalar.clone());
     yaml_span = yaml_span.into_tagged(Cow::Owned(tag.clone()));
 
-    let mut yaml = Yaml::<'_>::from(scal);
+    let mut yaml = Yaml::<'_>::from(scalar);
     yaml = yaml.into_tagged(Cow::Owned(tag.clone()));
 
     assert_eq!(yaml.get_tag(), Some(tag.clone()));
@@ -390,14 +381,14 @@ fn test_into_tagged() {
 fn test_loader() {
     let input = "a: b";
     let yaml = Yaml::load_from(input).expect("Parsing success");
-    let span_yaml = SpannedYaml::load_from(input).expect("Parsing success");
+    let yaml_span = SpanYam::load_from(input).expect("Parsing success");
 
     assert_eq!(yaml[0]["a"].as_str().unwrap_or(""), "b");
-    assert_eq!(span_yaml[0]["a"].as_str().unwrap_or(""), "b");
+    assert_eq!(yaml_span[0]["a"].as_str().unwrap_or(""), "b");
 
     let yaml = Yaml::load_single(input).expect("Parsing success");
-    let span_yaml = SpannedYaml::load_single(input).expect("Parsing success");
+    let yaml_span = SpanYam::load_single(input).expect("Parsing success");
 
     assert_eq!(yaml["a"].as_str().unwrap_or(""), "b");
-    assert_eq!(span_yaml["a"].as_str().unwrap_or(""), "b");
+    assert_eq!(yaml_span["a"].as_str().unwrap_or(""), "b");
 }

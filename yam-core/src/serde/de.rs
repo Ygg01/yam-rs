@@ -11,14 +11,14 @@ use serde_core::{de, forward_to_deserialize_any};
 use crate::binary;
 use crate::binary::DecodeError;
 use crate::parsing::parser_iter::YamEvent;
-use crate::parsing::{ParserIter, ScalarValue};
+use crate::parsing::{ScalarValue, YamParserIter};
 use crate::prelude::{InMemSource, Source, YamlScalar};
 
 pub(crate) struct YamIterDeserializer<'de, R>
 where
     R: Source,
 {
-    yaml_iter: ParserIter<'de, R>,
+    yaml_iter: YamParserIter<'de, R>,
     last_event: YamEvent<'de>,
     has_peeked: bool,
 }
@@ -26,7 +26,7 @@ where
 impl<'a> YamIterDeserializer<'a, InMemSource<'a>> {
     pub fn new(source: &'a str) -> Self {
         YamIterDeserializer {
-            yaml_iter: ParserIter::new(InMemSource::new(source)),
+            yaml_iter: YamParserIter::new(InMemSource::new(source)),
             last_event: YamEvent::DocStart,
             has_peeked: false,
         }

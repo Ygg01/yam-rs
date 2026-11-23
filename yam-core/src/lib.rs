@@ -26,7 +26,7 @@
 //! This crate comes with multiple types of YAML representations:
 //! - [`Yaml`](prelude::Yaml): The default YAML object which borrows from the input.
 //! - [`YamlOwned`](prelude::YamlOwned): The version of [`Yaml`](prelude::Yaml) which owns its data.
-//! - [`SpannedYaml`](prelude::SpannedYaml): The version of [`Yaml`](prelude::Yaml) which borrows its data and includes [`Span`](prelude::Span) information.
+//! - [`SpanYam`](prelude::SpanYam): The version of [`Yaml`](prelude::Yaml) which borrows its data and includes [`Span`](prelude::Span) information.
 #![no_std]
 extern crate alloc;
 extern crate core;

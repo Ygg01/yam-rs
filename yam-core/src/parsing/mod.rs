@@ -15,9 +15,9 @@ pub use buffered_source::BufBytesSource;
 use core::fmt;
 use core::fmt::{Display, Formatter};
 pub use parser::EventReceiver;
-pub use parser::SpannedEventReceiver;
-pub use parser::{Event, Parser, ScalarValue};
-pub use parser_iter::ParserIter;
+pub use parser::SpanEventReceiver;
+pub use parser::{Event, ScalarValue, YamParser};
+pub use parser_iter::YamParserIter;
 pub use source::InMemSource;
 pub use source::Source;
 

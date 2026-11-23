@@ -1,6 +1,6 @@
 extern crate yam_core;
 
-use yam_core::parsing::{Event, EventReceiver, Parser};
+use yam_core::parsing::{Event, EventReceiver, YamParser};
 
 struct EventSink<'input> {
     events: Vec<Event<'input>>,
@@ -17,7 +17,7 @@ fn main() {
     let mut sink = EventSink {
         events: Vec::with_capacity(10),
     };
-    let mut parser = Parser::new_from_str(yaml_str);
+    let mut parser = YamParser::new_from_str(yaml_str);
 
     if parser.load(&mut sink, true).is_err() {
         return;
