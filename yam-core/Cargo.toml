@@ -5,7 +5,6 @@ edition = "2024"
 rust-version = "1.99.0"
 documentation = "https://docs.rs/yam-core"
 repository = "https://github.com/Ygg01/yam-rs"
-homepage = "https://github.com/Ygg01/yam-rs"
 
 description = "Pure Rust YAML reader and writer (to be added)"
 categories = ["parsing"]

@@ -1,13 +1,13 @@
 use crate::node::{Yaml, YamlData};
 use crate::prelude::{ToMut, ToMutStr, YamlDocAccess, YamlEntry};
-use alloc::string::{String, ToString};
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::fmt::Formatter;
 use core::marker::PhantomData;
 use serde_core::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde_core::{Deserialize, Deserializer};
 
-impl<'de, INT, FLOAT, STR> Deserialize<'de> for Yaml<'de, FLOAT, INT, STR>
+impl<'de, FLOAT, INT, STR> Deserialize<'de> for Yaml<'de, FLOAT, INT, STR>
 where
     FLOAT: Copy + ToMut<f64>,
     INT: Copy + From<i64> + ToMut<i64>,
@@ -124,14 +124,6 @@ where
                 E: Error,
             {
                 Ok(Yaml::from_str(v))
-            }
-
-            #[inline]
-            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                Ok(Yaml::from_string(v))
             }
 
             #[inline]
