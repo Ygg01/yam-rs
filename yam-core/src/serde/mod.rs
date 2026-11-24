@@ -11,7 +11,6 @@ use alloc::string::String;
 use core::fmt::Error;
 use de::DeYamlError;
 use ser::{FlowStyle, YamlStyle};
-use serde_core::Serialize;
 
 /// Attempts to deserialize an instance of type `T` from a YAML input string.
 ///
