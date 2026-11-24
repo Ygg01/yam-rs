@@ -137,8 +137,10 @@ fn test_from_sequence() {
     let input = vec![true, false];
     let yaml = Yaml::from(input.clone());
     let span_yaml = SpanYam::from(input.clone());
-    for (yaml_el, span_el) in yaml.sequence().iter().zip(span_yaml.sequence()) {
-        assert_eq!(yaml_el.as_bool(), span_el.as_bool());
+    unsafe {
+        for (yaml_el, span_el) in yaml.sequence().iter().zip(span_yaml.sequence()) {
+            assert_eq!(yaml_el.as_bool(), span_el.as_bool());
+        }
     }
 
     let input = vec!["zip", "zoom"];
@@ -210,10 +212,13 @@ fn test_from_sequence() {
         yaml_map.is_non_empty_collection(),
         span_map.is_non_empty_collection()
     );
-    for (yam_entry, span_entry) in yaml_map.mapping().iter().zip(span_map.mapping()) {
-        assert_eq!(yam_entry.key.as_i64(), span_entry.key.as_i64());
-        assert_eq!(yam_entry.value.is_null(), span_entry.value.is_null());
+    unsafe {
+        for (yam_entry, span_entry) in yaml_map.mapping().iter().zip(span_map.mapping()) {
+            assert_eq!(yam_entry.key.as_i64(), span_entry.key.as_i64());
+            assert_eq!(yam_entry.value.is_null(), span_entry.value.is_null());
+        }
     }
+
     assert_eq!(&yaml_map["3"].is_null(), &span_map["3"].is_null());
 
     let mut yaml_seq = Yaml::from(vec![Yaml::from(3), Yaml::from("aaa")]);
@@ -278,16 +283,16 @@ enum YamlType {
 fn test_should_panic(#[case] yaml: YamlType, #[case] test_type: TestType) {
     match (yaml, test_type) {
         (YamlType::Yaml, TestType::Seq) => {
-            Yaml::from(3).sequence();
+            Yaml::from(3).as_sequence().unwrap();
         }
         (YamlType::Yaml, TestType::SeqMut) => {
-            Yaml::from(3).sequence_mut();
+            Yaml::from(3).as_sequence_mut().unwrap();
         }
         (YamlType::Yaml, TestType::Map) => {
-            Yaml::from(3).mapping();
+            Yaml::from(3).as_mapping().unwrap();
         }
         (YamlType::Yaml, TestType::MapMut) => {
-            Yaml::from(3).mapping_mut();
+            Yaml::from(3).as_mapping_mut().unwrap();
         }
         (YamlType::Yaml, TestType::Ind) => {
             Yaml::from(3).index(0);
@@ -302,16 +307,16 @@ fn test_should_panic(#[case] yaml: YamlType, #[case] test_type: TestType) {
             Yaml::from(3).index_mut("0");
         }
         (YamlType::Span, TestType::Seq) => {
-            SpanYam::from(3).sequence();
+            SpanYam::from(3).as_sequence().unwrap();
         }
         (YamlType::Span, TestType::SeqMut) => {
-            SpanYam::from(3).sequence_mut();
+            SpanYam::from(3).as_sequence_mut().unwrap();
         }
         (YamlType::Span, TestType::Map) => {
-            SpanYam::from(3).mapping();
+            SpanYam::from(3).as_mapping().unwrap();
         }
         (YamlType::Span, TestType::MapMut) => {
-            SpanYam::from(3).mapping_mut();
+            SpanYam::from(3).as_mapping_mut().unwrap();
         }
         (YamlType::Span, TestType::Ind) => {
             SpanYam::from(3).index(0);

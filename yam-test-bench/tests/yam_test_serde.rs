@@ -1,7 +1,7 @@
-use std::borrow::Cow;
-
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::collections::HashMap;
 use yam_core::prelude::ScalarType;
 use yam_core::serde::ser::YamlStyle;
 use yam_core::serde::YamlFormatter;
@@ -179,4 +179,54 @@ fn test_squote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
     let actual = result.expect("Expected Serialization successful");
 
     assert_eq!(actual, decoded);
+}
+
+#[test]
+fn test_serialize_complex_value() {
+    const COMPLEX_STRUCT_EXPECTED: &str = r#"m:
+  ? val: 1
+  : 3"#;
+
+    #[derive(Serialize)]
+    struct Measurement {
+        m: HashMap<Inner, f64>,
+    }
+
+    #[derive(Serialize, Eq, Hash, PartialEq)]
+    struct Inner {
+        val: i64,
+    }
+
+    let cmplx = Measurement {
+        m: HashMap::from([(Inner { val: 1 }, 3.0)]),
+    };
+    let result = to_pretty_string(&cmplx, YamlFormatter::pretty());
+    assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
+}
+
+const NESTED_STRUCT_EXPECTED: &str = r#"v:
+  - - 0
+m:
+  ? val: 1
+  : 5"#;
+
+#[test]
+fn test_serialize_nested_value() {
+    #[derive(Serialize)]
+    struct Measurement {
+        v: Vec<Vec<i8>>,
+        m: HashMap<Inner, f32>,
+    }
+
+    #[derive(Serialize, Eq, Hash, PartialEq)]
+    struct Inner {
+        val: i16,
+    }
+
+    let cmplx = Measurement {
+        v: vec![vec![0]],
+        m: HashMap::from([(Inner { val: 1 }, 5.0)]),
+    };
+    let result = to_pretty_string(&cmplx, YamlFormatter::pretty());
+    assert_eq!(result, Ok(NESTED_STRUCT_EXPECTED.to_string()));
 }
