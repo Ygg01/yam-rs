@@ -508,22 +508,30 @@ pub trait YamlDocAccess<'input>: Clone {
     /// Returns a mutable reference `Option` containing an underlying string slice (`&str`).
     fn as_str_mut(&mut self) -> Option<&mut str>;
 
-    /// Provides mutable access to the sequence within the implementing type. Calling this on a non-sequence
-    /// node is undefined-behavior.
+    /// Provides mutable access to the sequence within the implementing type.
+    ///
+    /// # Safety
+    /// Calling this on a non-sequence node is undefined-behavior.
     unsafe fn sequence_mut(&mut self) -> &mut Self::SequenceNode;
 
     #[doc(hidden)]
-    /// Provides unsafe access to the sequence without checking the node. Calling this on a non-sequence
-    /// node is undefined-behavior.
+    /// Provides unsafe access to the sequence without checking the node.
+    ///
+    /// # Safety
+    /// Calling this on a non-sequence node is undefined-behavior.
     unsafe fn sequence(&self) -> &Self::SequenceNode;
 
     #[doc(hidden)]
     /// Provides unsafe mutable access to the mapping without checking the node.
+    ///
+    /// # Safety
     /// Calling this on a non-mapping node is undefined-behavior.
     unsafe fn mapping_mut(&mut self) -> &mut Self::MappingNode;
 
     #[doc(hidden)]
     /// Provides unsafe access to the mapping without checking the node.
+    ///
+    /// # Safety
     /// Calling this on a non-mapping node is undefined-behavior.
     unsafe fn mapping(&self) -> &Self::MappingNode;
 
@@ -1049,34 +1057,11 @@ where
     fn into_owned(input: T) -> Self;
 }
 
-/// This macro, `to_mut_impl`, generates an implementation of the `ToMut` trait for a specific type.
-///
-/// # Parameters
-/// - `$x:ty`: The type for which the `ToMut` trait should be implemented.
-///
-/// # Trait: `ToMut`
-/// The `ToMut` trait is expected to have the following methods:
-/// - `as_mut_val(&mut self) -> &mut $x`: Returns a mutable reference to the type.
-/// - `as_owned(&self) -> $x`: Returns an owned value of the type.
-///
-/// # Generated Implementation
-/// For the type `$x`, this macro generates:
-/// - `impl ToMut<$x> for $x`: Implements the `ToMut` trait directly for the type `$x`.
-/// - `fn as_mut_val(&mut self) -> &mut $x`: Simply returns a mutable reference to itself (`self`).
-/// - `fn as_owned(&self) -> $x`: Returns an owned copy of the value by dereferencing `self`.
-///
-///
-/// # Notes
-/// - This macro assumes that `$x` implements the `Copy` trait because the implementation of
-///   `as_owned` dereferences `self`, which requires `Copy`.
-/// - The macro includes inline attribute hints (`#[inline]`) for performance optimization.
-macro_rules! to_mut_impl {
-    ($x:ty) => {
-        impl ToMut<$x> for $x {
-            #[inline]
-            fn as_mut_val(&mut self) -> &mut $x {
-                self
-            }
+impl ToMut<i64> for i64 {
+    #[inline]
+    fn as_mut_val(&mut self) -> &mut i64 {
+        self
+    }
 
             #[inline]
             fn as_owned(&self) -> $x {
