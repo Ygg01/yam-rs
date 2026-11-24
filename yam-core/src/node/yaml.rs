@@ -471,123 +471,162 @@ where
     }
 }
 
-impl<'a> From<&'a str> for Yaml<'a> {
-    fn from(value: &'a str) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::String(Cow::Borrowed(value))))
-    }
+// Equality comparators
+
+/// Macro for fast implementation generation
+/// Ensures all types have easy to access conversion.
+///
+/// # Params:
+/// - `$ty` - Ident of type being compared
+/// - `$as_ty` - Ident (name) of a method from `YamDocAccess` that provides access to underlying type
+/// - `$from`- Optional. If present the macro will use `$from::from(other)` conversion.
+///   otherwise it doesn't use any conversion.
+macro_rules! simple_impl_eq {
+    // Implements from conversion
+    ($ty: ty, $as_ty: ident, $from: ident) => {
+        impl<'a, F, I, S> PartialEq<$ty> for Yaml<'a, F, I, S>
+        where
+            F: Copy + ToMut<f64>,
+            I: Copy + ToMut<i64>,
+            S: Clone + ToMutStr<'a>,
+        {
+            #[inline]
+            fn eq(&self, other: &$ty) -> bool {
+                self.$as_ty().eq(&Some($from::from(*other)))
+            }
+        }
+    };
+    // Trivial conversion, calling from not needed
+    ($ty: ty, $as_ty: ident) => {
+        impl<'a, F, I, S> PartialEq<$ty> for Yaml<'a, F, I, S>
+        where
+            F: Copy + ToMut<f64>,
+            I: Copy + ToMut<i64>,
+            S: Clone + ToMutStr<'a>,
+        {
+            fn eq(&self, other: &$ty) -> bool {
+                self.$as_ty().eq(&Some(*other))
+            }
+        }
+    };
 }
 
-impl From<bool> for Yaml<'_> {
-    fn from(value: bool) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Bool(value)))
-    }
-}
-
-impl From<f64> for Yaml<'_> {
-    fn from(value: f64) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(value)))
-    }
-}
-
-#[allow(clippy::cast_lossless)]
-impl From<f32> for Yaml<'_> {
-    fn from(value: f32) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(value as f64)))
-    }
-}
-
-#[allow(clippy::cast_lossless)]
-impl From<i8> for Yaml<'_> {
-    fn from(value: i8) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
-    }
-}
-
-#[allow(clippy::cast_lossless)]
-impl From<i16> for Yaml<'_> {
-    fn from(value: i16) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
-    }
-}
-
-#[allow(clippy::cast_lossless)]
-impl From<i32> for Yaml<'_> {
-    fn from(value: i32) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(value as i64)))
-    }
-}
-
-impl From<i64> for Yaml<'_> {
-    fn from(value: i64) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(value)))
-    }
-}
-
-impl From<Vec<bool>> for Yaml<'_> {
-    fn from(value: Vec<bool>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-
-impl<'a> From<Vec<Yaml<'a>>> for Yaml<'a> {
-    fn from(value: Vec<Yaml<'a>>) -> Self {
-        Yaml(YamlData::Sequence(value))
-    }
-}
-
-impl From<Vec<f64>> for Yaml<'_> {
-    fn from(value: Vec<f64>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-
-impl From<Vec<f32>> for Yaml<'_> {
-    fn from(value: Vec<f32>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-
-impl From<Vec<i64>> for Yaml<'_> {
-    fn from(value: Vec<i64>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-
-impl From<Vec<i32>> for Yaml<'_> {
-    fn from(value: Vec<i32>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-
-impl From<Vec<i16>> for Yaml<'_> {
-    fn from(value: Vec<i16>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-impl From<Vec<i8>> for Yaml<'_> {
-    fn from(value: Vec<i8>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-
-impl<'a> From<Vec<&'a str>> for Yaml<'a> {
-    fn from(value: Vec<&'a str>) -> Self {
-        let sequence = value.into_iter().map(Yaml::from).collect();
-        Yaml(YamlData::Sequence(sequence))
-    }
-}
-
-impl<'a, K, V> From<Vec<(K, V)>> for Yaml<'a>
+/// This conversion is fallible, numbers bigger than i64 can't be stored
+/// in `Yaml`
+impl<'a, F, I, S> PartialEq<u64> for Yaml<'a, F, I, S>
 where
-    K: Into<Yaml<'a>>,
-    V: Into<Yaml<'a>>,
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+{
+    fn eq(&self, other: &u64) -> bool {
+        self.as_i64().eq(&i64::try_from(*other).ok())
+    }
+}
+
+/// str conversions are a bit more tricky
+impl<'a, F, I, S> PartialEq<str> for Yaml<'a, F, I, S>
+where
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+{
+    #[inline]
+    fn eq(&self, other: &str) -> bool {
+        self.as_str().eq(&Some(other))
+    }
+}
+
+/// String conversions are a bit more tricky
+impl<'a, F, I, S> PartialEq<String> for Yaml<'a, F, I, S>
+where
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+{
+    fn eq(&self, other: &String) -> bool {
+        self.as_str().eq(&Some(other))
+    }
+}
+
+/// Char conversion is a bit more involved than others.
+impl<'a, F, I, S> PartialEq<char> for Yaml<'a, F, I, S>
+where
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+{
+    fn eq(&self, other: &char) -> bool {
+        self.as_str().eq(&Some(&other.to_string()))
+    }
+}
+
+simple_impl_eq!(i64, as_i64);
+simple_impl_eq!(i32, as_i64, i64);
+simple_impl_eq!(i16, as_i64, i64);
+simple_impl_eq!(i8, as_i64, i64);
+simple_impl_eq!(u32, as_i64, i64);
+simple_impl_eq!(u16, as_i64, i64);
+simple_impl_eq!(u8, as_i64, i64);
+simple_impl_eq!(f64, as_f64, f64);
+simple_impl_eq!(f32, as_f64, f64);
+simple_impl_eq!(bool, as_bool);
+
+// From conversions
+
+macro_rules! simple_from_conv {
+    ($from: ty, $method: ident) => {
+        impl<'a, F, I, S> From<$from> for Yaml<'a, F, I, S>
+        where
+            F: Copy + ToMut<f64>,
+            I: Copy + ToMut<i64>,
+            S: Clone + ToMutStr<'a>,
+        {
+            #[inline]
+            fn from(value: $from) -> Self {
+                Yaml::$method(value)
+            }
+        }
+    };
+}
+
+simple_from_conv!(char, from_char);
+simple_from_conv!(String, from_string);
+simple_from_conv!(&str, from_string);
+simple_from_conv!(bool, from_bool);
+simple_from_conv!(f64, from_float);
+simple_from_conv!(f32, from_float);
+simple_from_conv!(i8, from_float);
+simple_from_conv!(i16, from_float);
+simple_from_conv!(i32, from_float);
+simple_from_conv!(i64, from_integer);
+simple_from_conv!(u32, from_integer);
+simple_from_conv!(u16, from_integer);
+simple_from_conv!(u8, from_integer);
+
+impl<'a, F, I, S, T> From<Vec<T>> for Yaml<'a, F, I, S>
+where
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+    T: Into<Yaml<'a, F, I, S>>,
+{
+    fn from(value: Vec<T>) -> Self {
+        let sequence = value
+            .into_iter()
+            .map(T::into)
+            .collect::<Vec<Yaml<'a, F, I, S>>>();
+        Yaml(YamlData::Sequence(sequence))
+    }
+}
+
+impl<'a, F, I, S, K, V> From<Vec<(K, V)>> for Yaml<'a, F, I, S>
+where
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+    K: Into<Yaml<'a, F, I, S>>,
+    V: Into<Yaml<'a, F, I, S>>,
 {
     fn from(value: Vec<(K, V)>) -> Self {
         let sequence = value
