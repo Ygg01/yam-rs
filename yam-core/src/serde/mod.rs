@@ -4,12 +4,14 @@ mod escape_str;
 pub mod ser;
 pub mod yaml_node;
 
-use crate::prelude::ScalarType;
+use crate::prelude::{ScalarType, ToMut, ToMutStr, Yaml};
+use crate::serde::yaml_node::ser::YamPhantomSerializer;
 use alloc::borrow::Cow;
 use alloc::string::String;
 use core::fmt::Error;
 use de::DeYamlError;
 use ser::{FlowStyle, YamlStyle};
+use serde_core::Serialize;
 
 /// Attempts to deserialize an instance of type `T` from a YAML input string.
 ///
@@ -111,11 +113,21 @@ where
 /// ```
 pub fn to_pretty_string<T>(value: &T, formatter: YamlFormatter) -> Result<String, Error>
 where
-    T: serde_core::ser::Serialize,
+    T: ser::Serialize,
 {
     let mut serializer = ser::YamSerializer::new_pretty(String::new(), formatter);
     value.serialize(&mut serializer)?;
     Ok(serializer.writer.into_inner())
+}
+
+pub fn to_yaml<'de, T, F, I, S>(value: T) -> Result<Yaml<'de, F, I, S>, Error>
+where
+    T: ser::Serialize,
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'de>,
+{
+    value.serialize(YamPhantomSerializer::default())
 }
 
 #[derive(Debug, Copy, Clone, Default)]

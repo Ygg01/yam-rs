@@ -8,7 +8,7 @@ mod source;
 
 use crate::prelude::{ScalarType, YamlError};
 use alloc::borrow::Cow;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
 use core::fmt::{Display, Formatter};
@@ -217,6 +217,15 @@ impl Tag {
     #[must_use]
     pub fn is_yaml_core_schema(&self) -> bool {
         self.handle == "tag:yaml.org,2002:"
+    }
+
+    /// Returns the binary schema tag.
+    #[must_use]
+    pub fn binary_schema() -> Self {
+        Tag {
+            handle: "tag:yaml.org,2002:".to_string(),
+            suffix: "binary".to_string(),
+        }
     }
 }
 

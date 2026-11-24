@@ -135,16 +135,22 @@ where
             }
 
             if parent_node.is_sequence() {
-                parent_node.sequence_mut().push_elem(node);
+                // SAFETY: `sequence_mut` is only safe to use on a sequence
+                unsafe {
+                    parent_node.sequence_mut().push_elem(node);
+                }
             } else if parent_node.is_mapping() {
                 let curr_key = self.key_stack.last_mut().unwrap();
 
                 if curr_key.is_bad_value() {
                     *curr_key = node;
                 } else {
-                    parent_node
-                        .mapping_mut()
-                        .push_mapping(curr_key.take(), node);
+                    // SAFETY: `mapping_mut` is safe because it's used on a mapping
+                    unsafe {
+                        parent_node
+                            .mapping_mut()
+                            .push_mapping(curr_key.take(), node);
+                    }
                 }
             }
         } else {

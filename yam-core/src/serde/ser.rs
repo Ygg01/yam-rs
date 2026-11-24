@@ -11,7 +11,7 @@ use core::fmt::{Debug, Display, Error, Write};
 use core::option::Option;
 use ser::{SerializeSeq, Serializer};
 use serde_core::ser::{SerializeMap, SerializeStructVariant};
-use serde_core::{Serialize, ser};
+pub(crate) use serde_core::{Serialize, ser};
 use unicode_segmentation::UnicodeSegmentation;
 
 trait YamlWhitespace {

@@ -166,31 +166,31 @@ where
         }
     }
 
-    fn sequence_mut(&mut self) -> &mut Self::SequenceNode {
+    unsafe fn sequence_mut(&mut self) -> &mut Self::SequenceNode {
         match &mut self.0 {
             YamlData::Sequence(s) => s,
-            _ => panic!("YamlData::sequence_mut() called with non-sequence"),
+            _ => unreachable!("YamlData::mapping_mut() on a non-sequence node"),
         }
     }
 
-    fn sequence(&self) -> &Self::SequenceNode {
+    unsafe fn sequence(&self) -> &Self::SequenceNode {
         match &self.0 {
             YamlData::Sequence(s) => s,
-            _ => panic!("YamlData::sequence() called with non-sequence"),
+            _ => unreachable!("YamlData::sequence on a non-sequence node"),
         }
     }
 
-    fn mapping_mut(&mut self) -> &mut Self::MappingNode {
+    unsafe fn mapping_mut(&mut self) -> &mut Self::MappingNode {
         match &mut self.0 {
             YamlData::Mapping(m) => m,
-            _ => panic!("YamlData::mapping_mut() called with non-mapping"),
+            _ => unreachable!("YamlData::mapping_mut() called with non-mapping"),
         }
     }
 
-    fn mapping(&self) -> &Self::MappingNode {
+    unsafe fn mapping(&self) -> &Self::MappingNode {
         match &self.0 {
             YamlData::Mapping(m) => m,
-            _ => panic!("YamlData::mapping() called with non-mapping"),
+            _ => unreachable!("YamlData::mapping() called with non-mapping"),
         }
     }
 
@@ -257,7 +257,7 @@ where
         ))))
     }
 
-    fn from_string(input: String) -> Self {
+    fn from_string(input: impl Into<String>) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(
             input,
         ))))
@@ -265,6 +265,12 @@ where
 
     fn from_str(input: &'a str) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::String(STR::from_str(input))))
+    }
+
+    fn from_float(input: impl Into<f64>) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(FP::into_owned(
+            input.into(),
+        ))))
     }
 }
 
@@ -383,8 +389,12 @@ where
         let typ = self.0.get_type();
         let ind = Yaml::key_from_usize(index);
         match typ {
-            NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,
-            NodeType::Sequence => self.sequence().index(index),
+            // SAFETY: can call mapping on a Mapping node.
+            NodeType::Mapping => unsafe {
+                &self.mapping().iter().find(|x| x.key == ind).unwrap().value
+            },
+            // SAFETY: can call sequence on a Sequence node.
+            NodeType::Sequence => unsafe { self.sequence().index(index) },
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
@@ -400,15 +410,17 @@ where
         let typ = self.get_type();
         let ind = Yaml::key_from_usize(index);
         match typ {
-            NodeType::Mapping => {
+            // SAFETY: can call mapping_mut on a Mapping node.
+            NodeType::Mapping => unsafe {
                 &mut self
                     .mapping_mut()
                     .iter_mut()
                     .find(|x| x.key == ind)
                     .unwrap()
                     .key
-            }
-            NodeType::Sequence => self.sequence_mut().index_mut(index),
+            },
+            // SAFETY: Can call sequence_mut on a Sequence node.
+            NodeType::Sequence => unsafe { self.sequence_mut().index_mut(index) },
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
@@ -426,7 +438,10 @@ where
         let typ = self.get_type();
         let ind = Yaml::key_from_str(index);
         match typ {
-            NodeType::Mapping => &self.mapping().iter().find(|x| x.key == ind).unwrap().value,
+            // SAFETY: Can call mapping on a Mapping node.
+            NodeType::Mapping => unsafe {
+                &self.mapping().iter().find(|x| x.key == ind).unwrap().value
+            },
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
@@ -442,14 +457,15 @@ where
         let typ = self.get_type();
         let ind = Yaml::key_from_str(index);
         match typ {
-            NodeType::Mapping => {
+            // SAFETY: Can call mapping_mut on a Mapping node.
+            NodeType::Mapping => unsafe {
                 &mut self
                     .mapping_mut()
                     .iter_mut()
                     .find(|x| x.key == ind)
                     .unwrap()
                     .value
-            }
+            },
             _ => panic!("Expected Mapping and Sequence got {typ:?} instead"),
         }
     }
