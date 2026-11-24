@@ -303,12 +303,6 @@ pub trait YamlDocAccess<'input>: Clone {
         matches!(self.get_type(), NodeType::Bad)
     }
 
-    // TODO REMOVE THIS
-    fn key_from_usize(index: usize) -> Self;
-
-    // TODO REMOVE THIS
-    fn key_from_str(index: &str) -> Self;
-
     /// Determines whether the current node is a null value.
     ///
     /// # Example

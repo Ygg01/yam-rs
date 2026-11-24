@@ -61,19 +61,6 @@ where
     type SequenceNode = Vec<Self>;
     type MappingNode = Vec<YamlEntry<'a, Self>>;
 
-    #[allow(clippy::cast_lossless)]
-    fn key_from_usize(index: usize) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(INT::into_owned(
-            index.cast_signed() as i64,
-        ))))
-    }
-
-    fn key_from_str(index: &str) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(
-            index,
-        ))))
-    }
-
     fn is_non_empty_collection(&self) -> bool {
         match &self.0 {
             YamlData::Sequence(s) => !s.is_collection_empty(),
@@ -387,7 +374,7 @@ where
 
     fn index(&self, index: usize) -> &Self::Output {
         let typ = self.0.get_type();
-        let ind = Yaml::key_from_usize(index);
+        let ind = Yaml::from_integer(i64::try_from(index).expect("Index less than i64::MAX"));
         match typ {
             // SAFETY: can call mapping on a Mapping node.
             NodeType::Mapping => unsafe {
@@ -408,7 +395,7 @@ where
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let typ = self.get_type();
-        let ind = Yaml::key_from_usize(index);
+        let ind = Yaml::from_integer(i64::try_from(index).expect("Index less than i64::MAX"));
         match typ {
             // SAFETY: can call mapping_mut on a Mapping node.
             NodeType::Mapping => unsafe {
@@ -436,7 +423,7 @@ where
 
     fn index(&self, index: &'k str) -> &Self::Output {
         let typ = self.get_type();
-        let ind = Yaml::key_from_str(index);
+        let ind = Yaml::from_string(index);
         match typ {
             // SAFETY: Can call mapping on a Mapping node.
             NodeType::Mapping => unsafe {
@@ -455,7 +442,7 @@ where
 {
     fn index_mut(&mut self, index: &'k str) -> &mut Self::Output {
         let typ = self.get_type();
-        let ind = Yaml::key_from_str(index);
+        let ind = Yaml::from_string(index);
         match typ {
             // SAFETY: Can call mapping_mut on a Mapping node.
             NodeType::Mapping => unsafe {

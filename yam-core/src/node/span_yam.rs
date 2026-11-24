@@ -173,23 +173,6 @@ where
     type SequenceNode = Vec<Self>;
     type MappingNode = Vec<YamlEntry<'a, Self>>;
 
-    #[allow(clippy::cast_lossless)]
-    fn key_from_usize(index: usize) -> Self {
-        SpanYam {
-            span: Span::default(),
-            yaml: YamlData::Scalar(YamlScalar::Integer(INT::into_owned(
-                index.cast_signed() as i64
-            ))),
-        }
-    }
-
-    fn key_from_str(index: &str) -> Self {
-        SpanYam {
-            span: Span::default(),
-            yaml: YamlData::Scalar(YamlScalar::String(STR::from_string(index))),
-        }
-    }
-
     fn is_non_empty_collection(&self) -> bool {
         match &self.yaml {
             YamlData::Sequence(s) => !s.is_collection_empty(),
@@ -458,7 +441,7 @@ where
 
     fn index(&self, index: usize) -> &Self::Output {
         let typ = self.yaml.get_type();
-        let ind = SpanYam::key_from_usize(index);
+        let ind = SpanYam::from_integer(i64::try_from(index).expect("Index lesser than i64::MAX"));
         match typ {
             NodeType::Mapping => unsafe {
                 &self
@@ -481,7 +464,7 @@ where
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let typ = self.get_type();
-        let ind = SpanYam::key_from_usize(index);
+        let ind = SpanYam::from_integer(i64::try_from(index).expect("Index lesser than i64::MAX"));
         match typ {
             NodeType::Mapping => unsafe {
                 &mut self
@@ -506,7 +489,7 @@ where
 
     fn index(&self, index: &'k str) -> &Self::Output {
         let typ = self.get_type();
-        let ind = SpanYam::key_from_str(index);
+        let ind = SpanYam::from_str(index);
         match typ {
             NodeType::Mapping => unsafe {
                 &self
@@ -528,7 +511,7 @@ where
 {
     fn index_mut(&mut self, index: &'k str) -> &mut Self::Output {
         let typ = self.get_type();
-        let ind = SpanYam::key_from_str(index);
+        let ind = SpanYam::from_str(index);
         match typ {
             NodeType::Mapping => unsafe {
                 &mut self
