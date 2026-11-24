@@ -504,6 +504,7 @@ macro_rules! simple_impl_eq {
             I: Copy + ToMut<i64>,
             S: Clone + ToMutStr<'a>,
         {
+            #[inline]
             fn eq(&self, other: &$ty) -> bool {
                 self.$as_ty().eq(&Some(*other))
             }
@@ -525,14 +526,14 @@ where
 }
 
 /// str conversions are a bit more tricky
-impl<'a, F, I, S> PartialEq<str> for Yaml<'a, F, I, S>
+impl<'a, F, I, S> PartialEq<&str> for Yaml<'a, F, I, S>
 where
     F: Copy + ToMut<f64>,
     I: Copy + ToMut<i64>,
     S: Clone + ToMutStr<'a>,
 {
     #[inline]
-    fn eq(&self, other: &str) -> bool {
+    fn eq(&self, other: &&str) -> bool {
         self.as_str().eq(&Some(other))
     }
 }
@@ -544,6 +545,7 @@ where
     I: Copy + ToMut<i64>,
     S: Clone + ToMutStr<'a>,
 {
+    #[inline]
     fn eq(&self, other: &String) -> bool {
         self.as_str().eq(&Some(other))
     }
@@ -556,6 +558,7 @@ where
     I: Copy + ToMut<i64>,
     S: Clone + ToMutStr<'a>,
 {
+    #[inline]
     fn eq(&self, other: &char) -> bool {
         self.as_str().eq(&Some(&other.to_string()))
     }

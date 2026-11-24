@@ -84,36 +84,43 @@ fn test_from_methods_scalar() {
     let yaml = Yaml::from(input);
     let span_yaml = SpanYam::from(input);
     assert_eq!(yaml.as_f64(), span_yaml.as_f64());
+    assert_eq!(yaml, input);
 
     let input = 3.0f32;
     let yaml = Yaml::from(input);
     let span_yaml = SpanYam::from(input);
     assert_eq!(yaml.as_f64(), span_yaml.as_f64());
+    assert_eq!(yaml, input);
 
     let input = 1i8;
     let yaml = Yaml::from(input);
     let span_yaml = SpanYam::from(input);
     assert_eq!(yaml.as_i64(), span_yaml.as_i64());
+    assert_eq!(yaml, input);
 
     let input = 2i16;
     let yaml = Yaml::from(input);
     let span_yaml = SpanYam::from(input);
     assert_eq!(yaml.as_i64(), span_yaml.as_i64());
+    assert_eq!(yaml, input);
 
     let input = 3i32;
     let yaml = Yaml::from(input);
     let span_yaml = SpanYam::from(input);
     assert_eq!(yaml.as_i64(), span_yaml.as_i64());
+    assert_eq!(yaml, input);
 
     let input = 4i64;
     let yaml = Yaml::from(input);
     let span_yaml = SpanYam::from(input);
     assert_eq!(yaml.as_i64(), span_yaml.as_i64());
+    assert_eq!(yaml, input);
 
     let input = "1";
     let yaml = Yaml::from(input);
     let span_yaml = SpanYam::from(input);
     assert_eq!(yaml.as_str(), span_yaml.as_str());
+    assert_eq!(yaml, input);
 
     let input = true;
     let mut yaml = Yaml::from(input);
@@ -122,6 +129,7 @@ fn test_from_methods_scalar() {
         yaml.as_bool_mut().unwrap_or(&mut false),
         span_yaml.as_bool_mut().unwrap_or(&mut false)
     );
+    assert_eq!(yaml, input);
 
     let a: Yaml = Yaml::null();
     let b: SpanYam = SpanYam::null();
@@ -129,7 +137,8 @@ fn test_from_methods_scalar() {
 
     let a: Yaml = Yaml::from("aa");
     let b: SpanYam = SpanYam::from("aa");
-    assert_eq!(a.into_string(), b.into_string())
+    assert_eq!(a, "aa");
+    assert_eq!(a.into_string(), b.into_string());
 }
 
 #[test]
