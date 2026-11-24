@@ -4,8 +4,8 @@ pub use crate::node::YamlScalar;
 pub use crate::node::span_yam::SpanYam;
 pub use crate::node::yaml::Yaml;
 pub use crate::node::yaml_data::YamlData;
-pub use crate::parsing::Source;
-pub use crate::parsing::Tag;
+pub use crate::parsing::{InMemSource, Source, Tag};
+
 use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, LinkedList};
 use alloc::string::{String, ToString};
