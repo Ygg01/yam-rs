@@ -399,7 +399,10 @@ where
     }
 
     fn from_float(input: impl Into<f64>) -> Self {
-        todo!()
+        SpanYam {
+            yaml: YamlData::Scalar(YamlScalar::FloatingPoint(FP::into_owned(input.into()))),
+            span: Span::default(),
+        }
     }
 
     fn with_start(self, marker: Marker) -> Self {
