@@ -576,12 +576,7 @@ simple_impl_eq!(bool, as_bool);
 
 macro_rules! simple_from_conv {
     ($from: ty, $method: ident) => {
-        impl<'a, F, I, S> From<$from> for Yaml<'a, F, I, S>
-        where
-            F: Copy + ToMut<f64>,
-            I: Copy + ToMut<i64>,
-            S: Clone + ToMutStr<'a>,
-        {
+        impl<'a> From<$from> for Yaml<'a> {
             #[inline]
             fn from(value: $from) -> Self {
                 Yaml::$method(value)
@@ -596,37 +591,28 @@ simple_from_conv!(&str, from_string);
 simple_from_conv!(bool, from_bool);
 simple_from_conv!(f64, from_float);
 simple_from_conv!(f32, from_float);
-simple_from_conv!(i8, from_float);
-simple_from_conv!(i16, from_float);
-simple_from_conv!(i32, from_float);
+simple_from_conv!(i8, from_integer);
+simple_from_conv!(i16, from_integer);
+simple_from_conv!(i32, from_integer);
 simple_from_conv!(i64, from_integer);
 simple_from_conv!(u32, from_integer);
 simple_from_conv!(u16, from_integer);
 simple_from_conv!(u8, from_integer);
 
-impl<'a, F, I, S, T> From<Vec<T>> for Yaml<'a, F, I, S>
+impl<'a, T> From<Vec<T>> for Yaml<'a>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
-    T: Into<Yaml<'a, F, I, S>>,
+    T: Into<Yaml<'a>>,
 {
     fn from(value: Vec<T>) -> Self {
-        let sequence = value
-            .into_iter()
-            .map(T::into)
-            .collect::<Vec<Yaml<'a, F, I, S>>>();
+        let sequence = value.into_iter().map(T::into).collect::<Vec<Yaml<'a>>>();
         Yaml(YamlData::Sequence(sequence))
     }
 }
 
-impl<'a, F, I, S, K, V> From<Vec<(K, V)>> for Yaml<'a, F, I, S>
+impl<'a, K, V> From<Vec<(K, V)>> for Yaml<'a>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
-    K: Into<Yaml<'a, F, I, S>>,
-    V: Into<Yaml<'a, F, I, S>>,
+    K: Into<Yaml<'a>>,
+    V: Into<Yaml<'a>>,
 {
     fn from(value: Vec<(K, V)>) -> Self {
         let sequence = value

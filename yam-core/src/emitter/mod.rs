@@ -358,8 +358,8 @@ fn escape_str<W: Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
 #[allow(dead_code)]
 impl<'a, W, FP, INT, STR> YamlEmitter<'a, W, FP, INT, STR>
 where
-    FP: Copy + ToMut<f64> + Into<f64>,
-    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
+    FP: Copy + ToMut<f64>,
+    INT: Copy + ToMut<i64>,
     STR: Clone + ToMutStr<'a>,
     W: Write,
 {
