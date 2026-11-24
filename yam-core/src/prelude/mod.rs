@@ -1063,20 +1063,30 @@ impl ToMut<i64> for i64 {
         self
     }
 
-            #[inline]
-            fn as_owned(&self) -> $x {
-                *self
-            }
+    #[inline]
+    fn as_owned(&self) -> i64 {
+        *self
+    }
 
-            #[inline]
-            fn into_owned(input: $x) -> Self {
-                input
-            }
-        }
-    };
+    #[inline]
+    fn into_owned(input: i64) -> Self {
+        input
+    }
 }
 
-to_mut_impl!(i64);
-to_mut_impl!(i128);
-to_mut_impl!(f32);
-to_mut_impl!(f64);
+impl ToMut<f64> for f64 {
+    #[inline]
+    fn as_mut_val(&mut self) -> &mut f64 {
+        self
+    }
+
+    #[inline]
+    fn as_owned(&self) -> f64 {
+        *self
+    }
+
+    #[inline]
+    fn into_owned(input: f64) -> Self {
+        input
+    }
+}
