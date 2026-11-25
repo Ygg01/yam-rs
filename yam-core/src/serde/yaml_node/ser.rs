@@ -720,7 +720,7 @@ block of text !!!"#;
 
         let style = YamlFormatter::default();
         let result = to_formatted_string(&Example::Char('b'), style);
-        assert_eq!(result.unwrap(), "{ Char: 'b' }");
+        assert_eq!(result.unwrap(), r#"{ Char: "b" }"#);
     }
 
     #[derive(Serialize)]

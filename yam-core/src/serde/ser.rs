@@ -178,7 +178,10 @@ where
 
         // Plain style is one style that can't serialize a given string
         if preferred_style == ScalarType::Plain && !string.can_be_plain(in_flow_restricted) {
-            preferred_style = self.formatter.flow_string_style.to_scalar_type();
+            preferred_style = match self.formatter.flow_string_style {
+                FlowStyle::SingleQuote => ScalarType::SingleQuote,
+                FlowStyle::Plain | FlowStyle::DoubleQuote => ScalarType::DoubleQuote,
+            }
         }
 
         preferred_style
@@ -212,7 +215,34 @@ where
         self.writer.indent_pos() + buff_len > self.formatter.pref_string_length as usize
     }
 
-    #[inline]
+    fn write_flow_string_inline(&mut self, input: &str) -> Result<(), Error> {
+        let mut string_writer = String::with_capacity(input.len() * 2);
+
+        let style = if input.can_be_plain(true) {
+            self.formatter.flow_string_style
+        } else {
+            FlowStyle::DoubleQuote
+        };
+
+        match style {
+            FlowStyle::Plain => {
+                string_writer.push_str(input);
+            }
+            FlowStyle::DoubleQuote => {
+                string_writer.push('"');
+                escape_double_quotes(&mut string_writer, input)?;
+                string_writer.push('"');
+            }
+            FlowStyle::SingleQuote => {
+                string_writer.push('\'');
+                escape_single_quotes(&mut string_writer, input)?;
+                string_writer.push('\'');
+            }
+        }
+        self.writer.write_str(&string_writer)?;
+        Ok(())
+    }
+
     fn write_block_string(
         &mut self,
         is_folded: bool,
@@ -428,11 +458,8 @@ where
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
         self.is_scalar = true;
         self.flush_block_value()?;
-        let string_chr = if v == '\'' { "\"" } else { "'" };
+        self.write_flow_string_inline(&v.to_string())?;
 
-        self.writer.write_ascii(string_chr)?;
-        self.writer.write_str(&v.to_string())?;
-        self.writer.write_ascii(string_chr)?;
         Ok(())
     }
 
@@ -527,7 +554,7 @@ where
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
         self.writer.write_ascii("{ ")?;
-        self.writer.write_str(variant)?;
+        self.write_flow_string_inline(variant)?;
         self.writer.write_ascii(" }")?;
         Ok(())
     }
@@ -1022,7 +1049,8 @@ where
         Ok(())
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        self.end_object()?;
         Ok(())
     }
 }

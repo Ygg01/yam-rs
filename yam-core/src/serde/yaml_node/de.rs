@@ -4,7 +4,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::fmt::Formatter;
 use core::marker::PhantomData;
-use serde_core::de::{Error, MapAccess, SeqAccess, Visitor};
+use serde_core::de::{EnumAccess, Error, MapAccess, SeqAccess, Visitor};
 use serde_core::{Deserialize, Deserializer};
 
 impl<'de, FLOAT, INT, STR> Deserialize<'de> for Yaml<'de, FLOAT, INT, STR>
@@ -286,7 +286,7 @@ mod test {
 
         let person = Yaml::load_single(data).expect("Yaml to be parsed!");
         assert_eq!(person["name"].as_str(), Some("John Smith"));
-        assert_eq!(person["address"].as_str(), Some(""));
+        assert_eq!(person["address"].as_str(), None);
         assert_eq!(person["phones"][1].as_str(), Some("+32 2345678"));
     }
 }

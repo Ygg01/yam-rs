@@ -156,6 +156,7 @@ where
         }
 
         match bytes.len() {
+            0 => return Self::Null(PhantomData),
             1 if bytes[0] == b'~' => return Self::Null(PhantomData),
             4 => {
                 let f = bytes[0] & 0xDF;
