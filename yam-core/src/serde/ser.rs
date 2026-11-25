@@ -1096,3 +1096,358 @@ where
         self.end_object()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::node::SpanYam;
+    use crate::prelude::{Marker, ScalarType, Span, YamLoader, YamlDocAccess};
+    use crate::serde::ser::FlowStyle;
+    use crate::serde::{NullFormat, YamlFormatter};
+    use crate::to_formatted_string;
+    use alloc::collections::BTreeMap;
+    use alloc::string::{String, ToString};
+    use alloc::vec;
+    use core::fmt::Error;
+    use serde::Serialize;
+
+    fn assert_eq_strings(result: Result<String, Error>, correct: &str) {
+        assert_eq!(result, Ok(correct.to_string()));
+    }
+    const VEC_EXPECTED: &str = "- xyz\n- abc\n";
+
+    #[test]
+    fn test_vec_str() {
+        let x = vec!["xyz".to_string(), "abc".to_string()];
+        let fmt = YamlFormatter::default();
+        let result = to_formatted_string(&x, fmt);
+
+        assert_eq_strings(result, VEC_EXPECTED);
+    }
+
+    #[test]
+    fn test_null_fmt() {
+        let x: Option<i32> = None;
+        let fmt = YamlFormatter::default();
+        let result = to_formatted_string(&x, fmt);
+
+        assert_eq_strings(result, NullFormat::Plain.to_null_string().as_ref());
+
+        let fmt = YamlFormatter::pretty();
+        let result = to_formatted_string(&x, fmt);
+
+        assert_eq_strings(result, NullFormat::JsonNull.to_null_string().as_ref());
+
+        let mut fmt = YamlFormatter::default();
+        fmt.set_null_format(NullFormat::OldYaml);
+        let result = to_formatted_string(&x, fmt);
+
+        assert_eq_strings(result, NullFormat::OldYaml.to_null_string().as_ref());
+
+        let mut fmt = YamlFormatter::default();
+        fmt.set_null_format(NullFormat::TaggedYaml);
+        let result = to_formatted_string(&x, fmt);
+
+        assert_eq_strings(result, NullFormat::TaggedYaml.to_null_string().as_ref());
+    }
+
+    const MULTI_LINE_STRING1_ACTUAL: &str = "One quick brown fox jumps over the lazy dog";
+    const MULTI_LINE_STRING1_EXPECTED: &str = r#""One quick
+brown fox
+jumps over
+the lazy
+dog""#;
+    #[test]
+    fn test_multiline_string() {
+        let formatter = {
+            let mut x = YamlFormatter::pretty();
+            x.pref_string_length = 10;
+            x
+        };
+        let result = to_formatted_string(&MULTI_LINE_STRING1_ACTUAL, formatter);
+        assert_eq!(result, Ok(MULTI_LINE_STRING1_EXPECTED.to_string()));
+    }
+
+    #[test]
+    fn test_unit_struct() {
+        #[derive(Serialize)]
+        struct Example;
+
+        let formatter = YamlFormatter::pretty();
+        let result = to_formatted_string(&Example, formatter);
+        assert_eq!(result, Ok("{}".to_string()));
+    }
+
+    #[test]
+    fn test_serialize_newtype_struct() {
+        #[derive(Serialize)]
+        struct Measurement(u8);
+
+        let formatter = YamlFormatter::pretty();
+        let result = to_formatted_string(&Measurement(0), formatter);
+        assert_eq!(result, Ok("0".to_string()));
+    }
+
+    const SIMPLE_MAP_EXPECTED: &str = r#"a: 34
+b: 1"#;
+
+    #[test]
+    fn test_serialize_simple_key() {
+        let key = "a";
+        let value = 34;
+        let mut map = BTreeMap::new();
+        map.insert(key, value);
+        map.insert("b", 1);
+
+        let result = to_formatted_string(&map, YamlFormatter::pretty());
+        assert_eq!(result, Ok(SIMPLE_MAP_EXPECTED.to_string()));
+    }
+
+    const SIMPLE_STRUCT_EXPECTED: &str = r#"num: 3
+string: test"#;
+
+    #[test]
+    fn test_serialize_struct() {
+        #[derive(Serialize, Eq, Hash, PartialEq)]
+        struct Example {
+            num: i16,
+            string: String,
+        }
+
+        let strct = Example {
+            num: 3,
+            string: "test".to_string(),
+        };
+        let result = to_formatted_string(&strct, YamlFormatter::pretty());
+        assert_eq!(result, Ok(SIMPLE_STRUCT_EXPECTED.to_string()));
+    }
+
+    const LIST_EXPECTED: &str = r#"- 2
+- 3
+- 4
+"#;
+
+    #[test]
+    fn test_list() {
+        let example = vec![2, 3, 4];
+        let result = to_formatted_string(&example, YamlFormatter::pretty());
+        assert_eq!(result, Ok(LIST_EXPECTED.to_string()));
+    }
+
+    const NESTED_LIST_EXPECTED: &str = r#"- - 1
+  - 2
+- - 3
+  - 4
+"#;
+
+    #[test]
+    fn test_nested_list() {
+        let example = vec![vec![1u64, 2], vec![3, 4]];
+
+        let result = to_formatted_string(&example, YamlFormatter::pretty());
+        assert_eq!(result, Ok(NESTED_LIST_EXPECTED.to_string()));
+    }
+
+    const COMPLEX_KEY_EXPECTED: &str = r#"? - 1
+  - 2
+: 34"#;
+
+    #[test]
+    fn test_serialize_complex_key() {
+        let key = vec![1i64, 2];
+        let value = 34u32;
+        let map = BTreeMap::from([(key, value)]);
+
+        let result = to_formatted_string(&map, YamlFormatter::pretty());
+        assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
+    }
+
+    #[test]
+    fn test_cant_be_plain() {
+        let str = "@cant_be_plain";
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::Plain;
+        style.flow_string_style = FlowStyle::DoubleQuote;
+
+        let result = to_formatted_string(&str, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "\"@cant_be_plain\"");
+
+        let str = "@cant_be_plain";
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::Plain;
+        style.flow_string_style = FlowStyle::SingleQuote;
+
+        let result = crate::to_formatted_string(&str, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "'@cant_be_plain'");
+    }
+
+    const FOLD_EXPECTED_1: &str = r#">-
+block of text !!!"#;
+
+    const FOLD_EXPECTED_2: &str = r#">
+block of text !!!"#;
+
+    const LIT_EXPECTED_1: &str = r#"|-
+block of text !!!"#;
+
+    const LIT_EXPECTED_2: &str = r#"|
+block of text !!!"#;
+
+    #[test]
+    fn test_blocks_text() {
+        let str = "block of text !!!";
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::Folded;
+
+        let result = to_formatted_string(&str, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FOLD_EXPECTED_1);
+
+        let str = "block of text !!!\n";
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::Folded;
+
+        let result = to_formatted_string(&str, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FOLD_EXPECTED_2);
+
+        let str = "block of text !!!";
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::Literal;
+
+        let result = to_formatted_string(&str, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), LIT_EXPECTED_1);
+
+        let str = "block of text !!!\n";
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::Literal;
+
+        let result = to_formatted_string(&str, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), LIT_EXPECTED_2);
+    }
+
+    #[test]
+    fn test_bool_char() {
+        #[derive(Serialize)]
+        enum Example {
+            Bool((bool, bool)),
+            Char(char),
+        }
+
+        let style = YamlFormatter::default();
+        let result = to_formatted_string(&Example::Bool((true, false)), style);
+        assert_eq!(result.unwrap(), "{ Bool: [ true, false ] }");
+
+        let style = YamlFormatter::default();
+        let result = to_formatted_string(&Example::Char('b'), style);
+        assert_eq!(result.unwrap(), r#"{ Char: "b" }"#);
+    }
+
+    #[derive(Serialize)]
+    struct Rgb(u8, u8, u8);
+
+    #[test]
+    fn test_tuple_struct() {
+        let style = YamlFormatter::pretty();
+        let result = to_formatted_string(&Rgb(0, 2, 4), style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "[ 0, 2, 4 ]");
+    }
+
+    #[test]
+    fn test_single_line_str() {
+        let string = "AAA";
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::Plain;
+        style.compact_strings = true;
+        let result = to_formatted_string(&string, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "AAA");
+
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::DoubleQuote;
+        style.compact_strings = true;
+        let result = to_formatted_string(&string, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "\"AAA\"");
+
+        let mut style = YamlFormatter::pretty();
+        style.root_preferred_style = ScalarType::SingleQuote;
+        style.compact_strings = true;
+        let result = to_formatted_string(&string, style);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "'AAA'");
+    }
+
+    #[test]
+    fn test_span_seq() {
+        let input = r#"[
+    a,
+    b
+]"#;
+
+        if let Ok(yaml) = YamLoader::<SpanYam>::load_single(input) {
+            let first = &yaml[0];
+            let second = &yaml[1];
+            assert_eq!(first.as_str().unwrap_or(""), "a");
+            assert_eq!(second.as_str().unwrap_or(""), "b");
+            let span_1 = Span::new(Marker::new(6, 5, 2), Marker::new(7, 6, 2));
+            let span_2 = Span::new(Marker::new(13, 5, 3), Marker::new(14, 6, 3));
+            assert_eq!(first.span, span_1);
+            assert_eq!(second.span, span_2);
+        } else {
+            panic!("Error parsing Yaml");
+        }
+    }
+
+    #[test]
+    fn test_span_map() {
+        let input = r#"
+a: 'aaa'
+b: !!null
+"#;
+
+        if let Ok(yaml) = YamLoader::<SpanYam>::load_single(input) {
+            let first = &yaml["a"];
+            let second = &yaml["b"];
+            assert!(first.is_string(), "First value should be a string");
+            assert_eq!(first.as_str().unwrap_or(""), "aaa");
+            assert!(second.is_null(), "second element is null");
+            let span_1 = Span::new(Marker::new(4, 4, 2), Marker::new(9, 9, 2));
+            let span_2 = Span::new(Marker::new(20, 1, 4), Marker::new(20, 1, 4));
+            assert_eq!(first.span, span_1);
+            assert_eq!(second.span, span_2);
+        } else {
+            panic!("Error parsing Yaml");
+        }
+    }
+
+    #[test]
+    fn test_nested_map() {
+        let input = r#"
+a: !!vec [2, 3]
+"#;
+
+        if let Ok(yaml) = YamLoader::<SpanYam>::load_single(input) {
+            let vec = &yaml["a"];
+            assert!(vec.is_non_empty_collection(), "Vec should be populated");
+            let first = &vec[0];
+            assert!(first.is_integer(), "First should be an integer");
+            let second = &vec[1];
+            assert!(second.is_integer(), "First should be an integer");
+            assert_eq!(first.as_i64().unwrap_or(-1), 2);
+            assert_eq!(second.as_i64().unwrap_or(-1), 3);
+            let span_vec = Span::new(Marker::new(10, 10, 2), Marker::new(15, 15, 2));
+            let span_first = Span::new(Marker::new(11, 11, 2), Marker::new(12, 12, 2));
+            let span_second = Span::new(Marker::new(14, 14, 2), Marker::new(15, 15, 2));
+            assert_eq!(vec.span, span_vec);
+            assert_eq!(first.span, span_first);
+            assert_eq!(second.span, span_second);
+        } else {
+            panic!("Error parsing Yaml");
+        }
+    }
+}
