@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use yam_core::prelude::ScalarType;
 use yam_core::serde::ser::YamlStyle;
 use yam_core::serde::YamlFormatter;
-use yam_core::{from_str, to_pretty_string};
+use yam_core::{from_str, to_formatted_string};
 use yam_test_bench::{OneEnumToHoldThemAll, Person};
 
 #[rstest]
@@ -34,7 +34,7 @@ use yam_test_bench::{OneEnumToHoldThemAll, Person};
 #[case::var_seq_empty(OneEnumToHoldThemAll::VariantSeq(vec![]))]
 fn test_round_trip_opt(#[case] input: OneEnumToHoldThemAll) {
     let fmt = YamlFormatter::default();
-    let result = to_pretty_string(&input, fmt);
+    let result = to_formatted_string(&input, fmt);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
 
@@ -66,7 +66,7 @@ fn test_round_trip_bytes_block() {
         byte_array: *b"abcd",
     };
     let fmt_config = YamlFormatter::default();
-    let result = to_pretty_string(&initial, fmt_config);
+    let result = to_formatted_string(&initial, fmt_config);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
     let binding = result.unwrap();
@@ -89,7 +89,7 @@ fn test_round_trip_bytes_flow() {
     let mut fmt_config = YamlFormatter::default();
     fmt_config.root_style = YamlStyle::Flow;
 
-    let result = to_pretty_string(&initial, fmt_config);
+    let result = to_formatted_string(&initial, fmt_config);
 
     assert!(result.is_ok(), "Expected Ok result for serialization");
     let binding = result.unwrap();
@@ -132,7 +132,7 @@ const RAW_CRLF: &[u8] = b"\r\n";
 fn test_dquote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
     let fmt_config = YamlFormatter::default();
     let input_str = String::from_utf8_lossy(input);
-    let result = to_pretty_string(&input_str, fmt_config);
+    let result = to_formatted_string(&input_str, fmt_config);
     let actual = result.expect("Expected Serialization successful");
 
     assert_eq!(actual, decoded);
@@ -148,7 +148,7 @@ fn test_squote_string_escape(#[case] input: &[u8], #[case] decoded: &str) {
     let mut fmt_config = YamlFormatter::default();
     fmt_config.root_preferred_style = ScalarType::SingleQuote;
     let input_str = String::from_utf8_lossy(input);
-    let result = to_pretty_string(&input_str, fmt_config);
+    let result = to_formatted_string(&input_str, fmt_config);
     let actual = result.expect("Expected Serialization successful");
 
     assert_eq!(actual, decoded);
@@ -173,7 +173,7 @@ fn test_serialize_complex_value() {
     let cmplx = Measurement {
         m: HashMap::from([(Inner { val: 1 }, 3.0)]),
     };
-    let result = to_pretty_string(&cmplx, YamlFormatter::pretty());
+    let result = to_formatted_string(&cmplx, YamlFormatter::pretty());
     assert_eq!(result, Ok(COMPLEX_STRUCT_EXPECTED.to_string()));
 }
 
@@ -200,6 +200,6 @@ fn test_serialize_nested_value() {
         v: vec![vec![0]],
         m: HashMap::from([(Inner { val: 1 }, 5.0)]),
     };
-    let result = to_pretty_string(&cmplx, YamlFormatter::pretty());
+    let result = to_formatted_string(&cmplx, YamlFormatter::pretty());
     assert_eq!(result, Ok(NESTED_STRUCT_EXPECTED.to_string()));
 }

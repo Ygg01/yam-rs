@@ -110,11 +110,11 @@ where
 /// let yaml_string = to_pretty_string(&person, formatter).unwrap();
 /// println!("{}", yaml_string);
 /// ```
-pub fn to_pretty_string<T>(value: &T, formatter: YamlFormatter) -> Result<String, Error>
+pub fn to_formatted_string<T>(value: &T, formatter: YamlFormatter) -> Result<String, Error>
 where
     T: ser::Serialize,
 {
-    let mut serializer = ser::YamSerializer::new_pretty(String::new(), formatter);
+    let mut serializer = ser::YamSerializer::with_format(String::new(), formatter);
     value.serialize(&mut serializer)?;
     Ok(serializer.writer.into_inner())
 }

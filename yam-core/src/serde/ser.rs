@@ -310,7 +310,7 @@ where
 
 impl<W> YamSerializer<W> {
     #[inline]
-    pub fn new_pretty(writer: W, formatter: YamlFormatter) -> Self {
+    pub fn with_format(writer: W, formatter: YamlFormatter) -> Self {
         YamSerializer {
             writer: YamlWriter::new(writer),
             formatter,

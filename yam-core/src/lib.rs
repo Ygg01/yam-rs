@@ -43,7 +43,7 @@ pub mod prelude;
 pub mod serde;
 
 #[cfg(feature = "serde")]
-pub use serde::{from_str, to_pretty_string};
+pub use serde::{from_str, to_formatted_string};
 
 #[doc(hidden)]
 pub mod binary;

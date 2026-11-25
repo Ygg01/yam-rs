@@ -480,7 +480,7 @@ mod test {
     use crate::prelude::{Marker, ScalarType, Span, YamLoader, YamlDocAccess};
     use crate::serde::ser::FlowStyle;
     use crate::serde::{NullFormat, YamlFormatter};
-    use crate::to_pretty_string;
+    use crate::to_formatted_string;
     use alloc::collections::BTreeMap;
     use alloc::string::{String, ToString};
     use alloc::vec;
@@ -496,7 +496,7 @@ mod test {
     fn test_vec_str() {
         let x = vec!["xyz".to_string(), "abc".to_string()];
         let fmt = YamlFormatter::default();
-        let result = to_pretty_string(&x, fmt);
+        let result = to_formatted_string(&x, fmt);
 
         assert_eq_strings(result, VEC_EXPECTED);
     }
@@ -505,24 +505,24 @@ mod test {
     fn test_null_fmt() {
         let x: Option<i32> = None;
         let fmt = YamlFormatter::default();
-        let result = to_pretty_string(&x, fmt);
+        let result = to_formatted_string(&x, fmt);
 
         assert_eq_strings(result, NullFormat::Plain.to_null_string().as_ref());
 
         let fmt = YamlFormatter::pretty();
-        let result = to_pretty_string(&x, fmt);
+        let result = to_formatted_string(&x, fmt);
 
         assert_eq_strings(result, NullFormat::JsonNull.to_null_string().as_ref());
 
         let mut fmt = YamlFormatter::default();
         fmt.set_null_format(NullFormat::OldYaml);
-        let result = to_pretty_string(&x, fmt);
+        let result = to_formatted_string(&x, fmt);
 
         assert_eq_strings(result, NullFormat::OldYaml.to_null_string().as_ref());
 
         let mut fmt = YamlFormatter::default();
         fmt.set_null_format(NullFormat::TaggedYaml);
-        let result = to_pretty_string(&x, fmt);
+        let result = to_formatted_string(&x, fmt);
 
         assert_eq_strings(result, NullFormat::TaggedYaml.to_null_string().as_ref());
     }
@@ -540,7 +540,7 @@ dog""#;
             x.pref_string_length = 10;
             x
         };
-        let result = to_pretty_string(&MULTI_LINE_STRING1_ACTUAL, formatter);
+        let result = to_formatted_string(&MULTI_LINE_STRING1_ACTUAL, formatter);
         assert_eq!(result, Ok(MULTI_LINE_STRING1_EXPECTED.to_string()));
     }
 
@@ -550,7 +550,7 @@ dog""#;
         struct Example;
 
         let formatter = YamlFormatter::pretty();
-        let result = to_pretty_string(&Example, formatter);
+        let result = to_formatted_string(&Example, formatter);
         assert_eq!(result, Ok("{}".to_string()));
     }
 
@@ -560,7 +560,7 @@ dog""#;
         struct Measurement(u8);
 
         let formatter = YamlFormatter::pretty();
-        let result = to_pretty_string(&Measurement(0), formatter);
+        let result = to_formatted_string(&Measurement(0), formatter);
         assert_eq!(result, Ok("0".to_string()));
     }
 
@@ -575,7 +575,7 @@ b: 1"#;
         map.insert(key, value);
         map.insert("b", 1);
 
-        let result = to_pretty_string(&map, YamlFormatter::pretty());
+        let result = to_formatted_string(&map, YamlFormatter::pretty());
         assert_eq!(result, Ok(SIMPLE_MAP_EXPECTED.to_string()));
     }
 
@@ -594,7 +594,7 @@ string: test"#;
             num: 3,
             string: "test".to_string(),
         };
-        let result = to_pretty_string(&strct, YamlFormatter::pretty());
+        let result = to_formatted_string(&strct, YamlFormatter::pretty());
         assert_eq!(result, Ok(SIMPLE_STRUCT_EXPECTED.to_string()));
     }
 
@@ -606,7 +606,7 @@ string: test"#;
     #[test]
     fn test_list() {
         let example = vec![2, 3, 4];
-        let result = to_pretty_string(&example, YamlFormatter::pretty());
+        let result = to_formatted_string(&example, YamlFormatter::pretty());
         assert_eq!(result, Ok(LIST_EXPECTED.to_string()));
     }
 
@@ -620,7 +620,7 @@ string: test"#;
     fn test_nested_list() {
         let example = vec![vec![1u64, 2], vec![3, 4]];
 
-        let result = to_pretty_string(&example, YamlFormatter::pretty());
+        let result = to_formatted_string(&example, YamlFormatter::pretty());
         assert_eq!(result, Ok(NESTED_LIST_EXPECTED.to_string()));
     }
 
@@ -634,7 +634,7 @@ string: test"#;
         let value = 34u32;
         let map = BTreeMap::from([(key, value)]);
 
-        let result = to_pretty_string(&map, YamlFormatter::pretty());
+        let result = to_formatted_string(&map, YamlFormatter::pretty());
         assert_eq!(result, Ok(COMPLEX_KEY_EXPECTED.to_string()));
     }
 
@@ -645,7 +645,7 @@ string: test"#;
         style.root_preferred_style = ScalarType::Plain;
         style.flow_string_style = FlowStyle::DoubleQuote;
 
-        let result = to_pretty_string(&str, style);
+        let result = to_formatted_string(&str, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "\"@cant_be_plain\"");
 
@@ -654,7 +654,7 @@ string: test"#;
         style.root_preferred_style = ScalarType::Plain;
         style.flow_string_style = FlowStyle::SingleQuote;
 
-        let result = crate::to_pretty_string(&str, style);
+        let result = crate::to_formatted_string(&str, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "'@cant_be_plain'");
     }
@@ -677,7 +677,7 @@ block of text !!!"#;
         let mut style = YamlFormatter::pretty();
         style.root_preferred_style = ScalarType::Folded;
 
-        let result = to_pretty_string(&str, style);
+        let result = to_formatted_string(&str, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), FOLD_EXPECTED_1);
 
@@ -685,7 +685,7 @@ block of text !!!"#;
         let mut style = YamlFormatter::pretty();
         style.root_preferred_style = ScalarType::Folded;
 
-        let result = to_pretty_string(&str, style);
+        let result = to_formatted_string(&str, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), FOLD_EXPECTED_2);
 
@@ -693,7 +693,7 @@ block of text !!!"#;
         let mut style = YamlFormatter::pretty();
         style.root_preferred_style = ScalarType::Literal;
 
-        let result = to_pretty_string(&str, style);
+        let result = to_formatted_string(&str, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), LIT_EXPECTED_1);
 
@@ -701,7 +701,7 @@ block of text !!!"#;
         let mut style = YamlFormatter::pretty();
         style.root_preferred_style = ScalarType::Literal;
 
-        let result = to_pretty_string(&str, style);
+        let result = to_formatted_string(&str, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), LIT_EXPECTED_2);
     }
@@ -715,11 +715,11 @@ block of text !!!"#;
         }
 
         let style = YamlFormatter::default();
-        let result = to_pretty_string(&Example::Bool((true, false)), style);
+        let result = to_formatted_string(&Example::Bool((true, false)), style);
         assert_eq!(result.unwrap(), "{ Bool: [ true, false ] }");
 
         let style = YamlFormatter::default();
-        let result = to_pretty_string(&Example::Char('b'), style);
+        let result = to_formatted_string(&Example::Char('b'), style);
         assert_eq!(result.unwrap(), "{ Char: 'b' }");
     }
 
@@ -729,7 +729,7 @@ block of text !!!"#;
     #[test]
     fn test_tuple_struct() {
         let style = YamlFormatter::pretty();
-        let result = to_pretty_string(&Rgb(0, 2, 4), style);
+        let result = to_formatted_string(&Rgb(0, 2, 4), style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "[ 0, 2, 4 ]");
     }
@@ -740,21 +740,21 @@ block of text !!!"#;
         let mut style = YamlFormatter::pretty();
         style.root_preferred_style = ScalarType::Plain;
         style.compact_strings = true;
-        let result = to_pretty_string(&string, style);
+        let result = to_formatted_string(&string, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "AAA");
 
         let mut style = YamlFormatter::pretty();
         style.root_preferred_style = ScalarType::DoubleQuote;
         style.compact_strings = true;
-        let result = to_pretty_string(&string, style);
+        let result = to_formatted_string(&string, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "\"AAA\"");
 
         let mut style = YamlFormatter::pretty();
         style.root_preferred_style = ScalarType::SingleQuote;
         style.compact_strings = true;
-        let result = to_pretty_string(&string, style);
+        let result = to_formatted_string(&string, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "'AAA'");
     }
