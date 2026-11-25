@@ -587,8 +587,8 @@ mod test {
             a: Option<f32>,
         }
         let input = r"a: 3";
-        let deserialized: Yaml = crate::from_str(input).unwrap();
-        assert_eq!(deserialized["a"], 3);
+        let deserialized: Ex = crate::from_str(input).unwrap();
+        assert_eq!(deserialized.a, Some(3.0));
     }
 
     #[test]
