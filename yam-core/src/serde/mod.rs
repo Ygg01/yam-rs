@@ -119,6 +119,15 @@ where
     Ok(serializer.writer.into_inner())
 }
 
+pub fn to_string<T>(value: &T) -> Result<String, Error>
+where
+    T: ser::Serialize,
+{
+    let mut serializer = ser::YamSerializer::with_format(String::new(), YamlFormatter::default());
+    value.serialize(&mut serializer)?;
+    Ok(serializer.writer.into_inner())
+}
+
 pub fn to_yaml<'de, T, F, I, S>(value: T) -> Result<Yaml<'de, F, I, S>, Error>
 where
     T: ser::Serialize,
@@ -229,6 +238,22 @@ impl YamlFormatter {
             key_preferred_style: ScalarType::Plain,
             compact_strings: false,
             root_style: YamlStyle::default(),
+        }
+    }
+
+    #[must_use]
+    pub fn json() -> Self {
+        Self {
+            block_depth_limit: 0,
+            pref_string_length: 80,
+            indent_len: 2,
+            null_format: Cow::Borrowed("null"),
+            block_preferred_style: ScalarType::DoubleQuote,
+            root_preferred_style: ScalarType::DoubleQuote,
+            flow_string_style: FlowStyle::DoubleQuote,
+            key_preferred_style: ScalarType::DoubleQuote,
+            compact_strings: true,
+            root_style: YamlStyle::Flow,
         }
     }
 
