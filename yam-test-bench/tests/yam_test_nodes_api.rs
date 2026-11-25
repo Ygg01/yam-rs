@@ -397,12 +397,12 @@ fn test_loader() {
     let yaml = Yaml::load_from(input).expect("Parsing success");
     let yaml_span = SpanYam::load_from(input).expect("Parsing success");
 
-    assert_eq!(yaml[0]["a"].as_str().unwrap_or(""), "b");
+    assert_eq!(&yaml[0]["a"], &"b");
     assert_eq!(yaml_span[0]["a"].as_str().unwrap_or(""), "b");
 
     let yaml = Yaml::load_single(input).expect("Parsing success");
     let yaml_span = SpanYam::load_single(input).expect("Parsing success");
 
-    assert_eq!(yaml["a"].as_str().unwrap_or(""), "b");
+    assert_eq!(yaml["a"], "b");
     assert_eq!(yaml_span["a"].as_str().unwrap_or(""), "b");
 }
