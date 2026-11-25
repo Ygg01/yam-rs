@@ -1,5 +1,6 @@
 pub mod consts;
 
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::Write;
 use yam_core::parsing::BufBytesSource;
@@ -14,6 +15,34 @@ pub enum ParsingOptions {
 }
 
 pub const PAD: &str = "                                               ";
+
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub struct Person {
+    pub name: String,
+    pub uid: u64,
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub enum OneEnumToHoldThemAll {
+    F32(f32),
+    F64(f64),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    Char(char),
+    Option(Option<bool>),
+    UnitVariant,
+    TupleVariant(i32, bool),
+    StructVariant { uid: u64 },
+    NewTypeVariant(Person),
+    VariantTuple((i8, i8)),
+    VariantSeq(Vec<String>),
+}
 
 #[doc(hidden)]
 pub fn assert_eq_event_case_with_opts(

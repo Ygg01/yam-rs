@@ -6,34 +6,7 @@ use yam_core::prelude::ScalarType;
 use yam_core::serde::ser::YamlStyle;
 use yam_core::serde::YamlFormatter;
 use yam_core::{from_str, to_pretty_string};
-
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
-struct Person {
-    name: String,
-    uid: u64,
-}
-
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
-enum OneEnumToHoldThemAll {
-    F32(f32),
-    F64(f64),
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    U64(u64),
-    I8(i8),
-    I16(i16),
-    I32(i32),
-    I64(i64),
-    Char(char),
-    Option(Option<bool>),
-    UnitVariant,
-    TupleVariant(i32, bool),
-    StructVariant { uid: u64 },
-    NewTypeVariant(Person),
-    VariantTuple((i8, i8)),
-    VariantSeq(Vec<String>),
-}
+use yam_test_bench::{OneEnumToHoldThemAll, Person};
 
 #[rstest]
 #[case::f32(OneEnumToHoldThemAll::F32(3.0))]
