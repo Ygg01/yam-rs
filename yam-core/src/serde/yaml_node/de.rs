@@ -174,3 +174,105 @@ where
         deserializer.deserialize_any(YamlVisitor::new())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::node::Yaml;
+    use crate::serde::to_yaml;
+    use alloc::string::ToString;
+    use core::fmt::Error;
+
+    #[test]
+    fn test_yaml_eq() {
+        let int = 3i8;
+        let yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(yaml, int);
+
+        let int = 4i16;
+        let yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(yaml, int);
+
+        let int = 5i32;
+        let yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(yaml, int);
+
+        let int = 6i64;
+        let yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(yaml, int);
+
+        let int = 13u8;
+        let yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(yaml, int);
+
+        let int = 4u16;
+        let yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(yaml, int);
+
+        let int = 5u32;
+        let yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(yaml, int);
+
+        let int = 6u64;
+        let mut yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(&yaml, 6u64);
+        assert_eq!(int, yaml);
+        assert_eq!(&int, &mut yaml);
+        assert_eq!(&mut yaml, 6u64);
+        assert_eq!(yaml, int);
+
+        let int = 343usize;
+        let mut yaml: Yaml = to_yaml(int).unwrap();
+        assert_eq!(&yaml, 343usize);
+        assert_eq!(&int, &yaml);
+        assert_eq!(&yaml, &int);
+        assert_eq!(&int, &mut yaml);
+        assert_eq!(&mut yaml, 343usize);
+
+        let int = u64::MAX - 3;
+        let yaml: Result<Yaml, Error> = to_yaml(int);
+        assert!(yaml.is_err());
+
+        let float = 3.0f32;
+        let yaml: Yaml = to_yaml(float).unwrap();
+        assert_eq!(yaml, float);
+
+        let float = 1.0;
+        let mut yaml: Yaml = to_yaml(float).unwrap();
+        assert_eq!(yaml, float);
+        assert_eq!(float, yaml);
+        assert_eq!(&yaml, 1.0f64);
+        assert_eq!(&mut yaml, 1.0f64);
+
+        let chr = '#';
+        let yaml: Yaml = to_yaml(chr).unwrap();
+        assert_eq!(&yaml, &chr);
+        assert_eq!(&chr, &yaml);
+
+        let str = "A big fat string";
+        let mut yaml: Yaml = to_yaml(str).unwrap();
+        assert_eq!(&yaml, &str);
+        assert_eq!(&str, &yaml);
+        assert_eq!(&str, &mut yaml);
+        assert_eq!(&mut yaml, "A big fat string");
+        assert_eq!(&yaml, "A big fat string");
+
+        let str = "A big fat stringBuf".to_string();
+        let mut yaml: Yaml = to_yaml(str.clone()).unwrap();
+        assert_eq!(&yaml, &str);
+        assert_eq!(&str, &yaml);
+        assert_eq!(&yaml, "A big fat stringBuf".to_string());
+        assert_eq!(&mut yaml, "A big fat stringBuf".to_string());
+
+        let bool = true;
+        let mut yaml: Yaml = to_yaml(bool).unwrap();
+
+        assert_eq!(&yaml, &bool);
+        assert_eq!(&bool, &mut yaml);
+
+        let chr = '%';
+        let mut yaml: Yaml = to_yaml(chr).unwrap();
+        assert_eq!(&yaml, chr);
+        assert_eq!(&chr, &yaml);
+        assert_eq!(&mut yaml, chr);
+    }
+}
