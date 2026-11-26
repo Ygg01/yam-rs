@@ -31,7 +31,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run tests "${{matrix.rustflags}}"
-      run: cargo nextest run ${{matrix.rustflags}} --workspaces && cargo test -doc
+      run: cargo nextest run --workspace ${{matrix.rustflags}} && cargo test -doc
   coverage:
     runs-on: ubuntu-latest
     env:
