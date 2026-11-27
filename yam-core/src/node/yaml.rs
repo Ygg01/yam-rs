@@ -251,12 +251,6 @@ where
         Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(chr))))
     }
 
-    fn from_integer(int: impl Into<i64>) -> Self {
-        Yaml(YamlData::Scalar(YamlScalar::Integer(INT::into_owned(
-            int.into(),
-        ))))
-    }
-
     fn from_string(input: impl Into<String>) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::String(STR::from_string(
             input,
@@ -270,6 +264,12 @@ where
     fn from_float(input: impl Into<f64>) -> Self {
         Yaml(YamlData::Scalar(YamlScalar::FloatingPoint(FP::into_owned(
             input.into(),
+        ))))
+    }
+
+    fn from_integer(int: impl Into<i64>) -> Self {
+        Yaml(YamlData::Scalar(YamlScalar::Integer(INT::into_owned(
+            int.into(),
         ))))
     }
 }

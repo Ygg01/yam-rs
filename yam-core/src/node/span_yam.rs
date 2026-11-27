@@ -371,13 +371,6 @@ where
         }
     }
 
-    fn from_integer(int: impl Into<i64>) -> Self {
-        SpanYam {
-            yaml: YamlData::Scalar(YamlScalar::Integer(INT::into_owned(int.into()))),
-            span: Span::default(),
-        }
-    }
-
     fn from_string(input: impl Into<String>) -> Self {
         SpanYam {
             yaml: YamlData::Scalar(YamlScalar::String(STR::from_string(input))),
@@ -395,6 +388,13 @@ where
     fn from_float(input: impl Into<f64>) -> Self {
         SpanYam {
             yaml: YamlData::Scalar(YamlScalar::FloatingPoint(FP::into_owned(input.into()))),
+            span: Span::default(),
+        }
+    }
+
+    fn from_integer(int: impl Into<i64>) -> Self {
+        SpanYam {
+            yaml: YamlData::Scalar(YamlScalar::Integer(INT::into_owned(int.into()))),
             span: Span::default(),
         }
     }

@@ -241,47 +241,63 @@ pub enum YamlAccessError {
 ///  # Associated Types
 ///  - `Node`: A cloneable type that represents an individual node within the YAML document.
 ///
-///  # Methods
-///  ## Variant Checks
-///  - `is_bad_value(&self) -> bool`: Checks if the node represents an invalid value.
-///  - `is_null(&self) -> bool`: Checks if the node is a null value.
-///  - `is_string(&self) -> bool`: Checks if the node is a string.
-///  - `is_bool(&self) -> bool`: Checks if the node is a boolean.
-///  - `is_floating_point(&self) -> bool`: Checks if the node is a floating-point number.
-///  - `is_integer(&self) -> bool`: Checks if the node is an integer.
-///  - `is_alias(&self) -> bool`: Checks if the node is an alias.
-///  - `is_non_empty_collection(&self) -> bool`: Determines whether the node represents a non-empty collection.
-///  - `is_collection(&self) -> bool`: Determines whether the node represents a collection of either
-///    a mapping or a sequence. The default implementation checks `is_mapping()` or `is_sequence()`.
-///  - `is_mapping(&self) -> bool`: Determines whether the node represents a mapping.
-///  - `is_sequence(&self) -> bool`: Determines whether the node represents a sequence.
+/// # Methods
+/// ## Construction Methods
+/// These methods construct the Node for given input.
+/// - [`bad_value() -> Self`](YamlDocAccess::bad_value): Creates a node with bad value. If encountered it signals an error.
+///   It serializes into an empty value much like [`null()`]
+/// - [`null() -> Self`](YamlDocAccess::null): Creates a node with a missing value (i.e., null).
+/// - [`from_bool(bool) -> Self`](YamlDocAccess::from_bool): Creates a node based on a [`bool`] value.
+/// - [`from_char(bool) -> Self`](YamlDocAccess::from_char): Creates a node based on a [`char`] value. It serializes into a string.
+/// - [`from_string(String) -> Self`](YamlDocAccess::from_string): Creates a node based on a [`String`]-like value. Value will be copied into the Node.
+/// - [`from_str(&str) -> Self`](YamlDocAccess::from_str): Creates a node based on a [`str`] value. Value will be borrowed if possible. Useful for zero-copy parsing.
+/// - [`from_integer(impl Into<i64>) -> Self`](YamlDocAccess::from_integer): Creates a node based on a [`i64`]-like value.
+/// - [`from_float(impl Into<f64>) -> Self`](YamlDocAccess::from_float): Creates a node based on a [`f64`]-like value.
+/// - [`with_start(Marker) -> Self`](YamlDocAccess::with_start): Creates a node new node from [`Marker`] representing the start of a Node's span.
+/// - [`with_end(Marker) -> Self`](YamlDocAccess::with_start): Creates a node new node from [`Marker`] representing the end of a Node's  span.
+/// - [`with_span(Span) -> Self`](YamlDocAccess::with_start): Creates a node new node from [`Span`] representing the Node's span.
 ///
+///  ## Variant Checks
+///  - [`is_bad_value(&self) -> bool`](YamlDocAccess::is_bad_value): Checks if the node represents an invalid value.
+///  - [`is_null(&self) -> bool`](YamlDocAccess::is_null): Checks if the node is a null value.
+///  - [`is_string(&self) -> bool`](YamlDocAccess::is_string): Checks if the node is a string.
+///  - [`is_bool(&self) -> bool`](YamlDocAccess::is_bool): Checks if the node is a boolean.
+///  - [`is_floating_point(&self) -> bool`](YamlDocAccess::is_floating_point): Checks if the node is a floating-point number.
+///  - [`is_integer(&self) -> bool`](YamlDocAccess::is_integer): Checks if the node is an integer.
+///  - [`is_non_empty_collection(&self) -> bool`](YamlDocAccess::is_non_empty_collection): Determines whether the node represents a non-empty collection.
+///  - [`is_collection(&self) -> bool`](YamlDocAccess::is_collection): Determines whether the node represents a collection of either
+///    a mapping or a sequence. The default implementation checks `is_mapping()` or `is_sequence()`.
+///  - [`is_mapping(&self) -> bool`](YamlDocAccess::is_mapping): Determines whether the node represents a mapping.
+///  - [`is_sequence(&self) -> bool`](YamlDocAccess::is_sequence): Determines whether the node represents a sequence.
+///  - [`is_tagged(&self) -> bool`](YamlDocAccess::is_tagged): Determines whether the node represents has a tag.
+///  - [`is_binary_schema(&self) -> bool`](YamlDocAccess::is_binary_schema): Determines whether the node represents has a `!!binary` tag.
 ///  ## Accessor Methods
 ///  These methods include both immutable and mutable access patterns to the underlying data types:
-///  - `as_bool(&self) -> Option<bool>`: Retrieves the value as a boolean if applicable.
-///  - `as_bool_mut(&mut self) -> Option<&mut bool>`: Mutable access to the boolean value.
-///  - `as_i64(&self) -> Option<i64>`: Retrieves the value as a 64-bit integer if applicable.
-///  - `as_i64_mut(&mut self) -> Option<&mut i64>`: Mutable access to the integer value.
-///  - `as_f64(&self) -> Option<f64>`: Retrieves the value as a 64-bit floating-point number if applicable.
-///  - `as_f64_mut(&mut self) -> Option<&mut f64>`: Mutable access to the floating-point value.
-///  - `as_sequence(&self) -> Option<&NodeSequence<Self::Node>>`: Retrieves a reference to the value as a sequence if applicable.
-///  - `as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>>`: Mutable access to the sequence value.
-///  - `as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>>`: Retrieves a reference to the value as a mapping if applicable.
-///  - `as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>>`: Mutable access to the mapping value.
-///  - `as_str(&self) -> Option<&str>`: Retrieves the value as a string slice if applicable.
-///  - `as_str_mut(&mut self) -> Option<&mut str>`: Mutable access to the string value.
-///  - `get_tag(&self) -> Option<Tag>`: Retrieves the YAML tag associated with the node if applicable.
-///  - `get_type(&self) -> NodeType`: Returns a simplified [`NodeType`] of the given node.
+///  - [`as_bool(&self) -> Option<bool>`](YamlDocAccess::as_bool): Retrieves the value as a boolean if applicable.
+///  - [`as_bool_mut(&mut self) -> Option<&mut bool>`](YamlDocAccess::as_bool_mut): Mutable access to the boolean value.
+///  - [`as_i64(&self) -> Option<i64>`](YamlDocAccess::as_i64): Retrieves the value as a 64-bit integer if applicable.
+///  - [`as_i64_mut(&mut self) -> Option<&mut i64>`](YamlDocAccess::as_i64_mut): Mutable access to the integer value.
+///  - [`as_f64(&self) -> Option<f64>`](YamlDocAccess::as_f64): Retrieves the value as a 64-bit floating-point number if applicable.
+///  - [`as_f64_mut(&mut self) -> Option<&mut f64>`](YamlDocAccess::as_f64_mut): Mutable access to the floating-point value.
+///  - [`as_sequence(&self) -> Option<&NodeSequence<Self::Node>>`](YamlDocAccess::as_sequence): Retrieves a reference to the value as a sequence if applicable.
+///  - [`as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>>`](YamlDocAccess::as_sequence_mut): Mutable access to the sequence value.
+///  - [`as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>>`](YamlDocAccess::as_mapping): Retrieves a reference to the value as a mapping if applicable.
+///  - [`as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>>`](YamlDocAccess::as_mapping_mut): Mutable access to the mapping value.
+///  - [`as_str(&self) -> Option<&str>`](YamlDocAccess::as_str): Retrieves the value as a string slice if applicable.
+///  - [`as_str_mut(&mut self) -> Option<&mut str>`](YamlDocAccess::as_str_mut): Mutable access to the string value.
+///  - [`get_tag(&self) -> Option<Tag>`](YamlDocAccess::get_tag): Retrieves the YAML tag associated with the node if applicable.
+///  - [`get_type(&self) -> NodeType`](YamlDocAccess::get_type): Returns a simplified [`NodeType`] of the given node.
 ///
 ///  ## Conversion Methods
 ///  These methods consume the node and attempt to convert it into specific types:
-///  - `into_bool(self) -> Option<bool>`: Converts the node into a boolean if possible.
-///  - `into_string(self) -> Option<String>`: Converts the node into a `String` if possible.
-///  - `into_cow(self) -> Option<Cow<'input, str>>`: Converts the node into a `Cow` string if possible.
-///  - `into_f64(self) -> Option<f64>`: Converts the node into a floating-point value if possible.
-///  - `into_i64(self) -> Option<i64>`: Converts the node into an integer value if possible.
-///  - `into_mapping(self) -> Option<NodeMapping<'input, Self::Node>>`: Converts the node into a mapping if possible.
-///  - `into_sequence(self) -> Option<NodeSequence<Self::Node>>`: Converts the node into a sequence if possible.
+///  - [`into_bool(self) -> Option<bool>`](YamlDocAccess::into_bool): Converts the node into a boolean if possible.
+///  - [`into_string(self) -> Option<String>`](YamlDocAccess::into_string): Converts the node into a `String` if possible.
+///  - [`into_cow(self) -> Option<Cow<'input, str>>`](YamlDocAccess::into_cow): Converts the node into a `Cow` string if possible.
+///  - [`into_f64(self) -> Option<f64>`](YamlDocAccess::into_f64): Converts the node into a floating-point value if possible.
+///  - [`into_i64(self) -> Option<i64>`](YamlDocAccess::into_f64): Converts the node into an integer value if possible.
+///  - [`into_mapping(self) -> Option<NodeMapping<'input, Self::Node>>`](YamlDocAccess::into_mapping): Converts the node into a mapping if possible.
+///  - [`into_sequence(self) -> Option<NodeSequence<Self::Node>>`](YamlDocAccess::into_sequence): Converts the node into a sequence if possible.
+///  - [`take(&mut self) -> Self`](YamlDocAccess::take): Gets the node out and replaces it with a default value.
 pub trait YamlDocAccess<'input>: Clone {
     /// Type of node used in Sequence or Mapping
     type OutNode: Clone;
@@ -367,6 +383,7 @@ pub trait YamlDocAccess<'input>: Clone {
         matches!(self.get_type(), NodeType::Integer)
     }
 
+    #[doc(hidden)]
     /// Determines whether the current node is an alias
     ///
     /// # Example
@@ -787,18 +804,6 @@ pub trait YamlDocAccess<'input>: Clone {
     fn from_char(chr: char) -> Self;
 
     #[must_use]
-    /// Creates a new integer scalar from a value convertible into `i64`.
-    ///
-    /// # Example
-    /// ```rust
-    /// use yam_core::prelude::{Yaml, YamlDocAccess};
-    ///
-    /// let value : Yaml = Yaml::from_integer(32);
-    /// assert!(value.is_integer())
-    /// ```
-    fn from_integer(input: impl Into<i64>) -> Self;
-
-    #[must_use]
     /// Creates a new instance of the type from a char value.
     ///
     /// # Example
@@ -833,6 +838,18 @@ pub trait YamlDocAccess<'input>: Clone {
     /// assert!(value.is_string())
     /// ```
     fn from_float(input: impl Into<f64>) -> Self;
+
+    #[must_use]
+    /// Creates a new integer scalar from a value convertible into `i64`.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_integer(32);
+    /// assert!(value.is_integer())
+    /// ```
+    fn from_integer(input: impl Into<i64>) -> Self;
 
     ///
     /// Sets the starting marker for the current instance.
