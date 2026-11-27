@@ -53,9 +53,9 @@ where
 
 impl<'a, FP, INT, STR> YamlDocAccess<'a> for Yaml<'a, FP, INT, STR>
 where
-    FP: Copy + ToMut<f64>,
-    INT: Copy + ToMut<i64>,
-    STR: Clone + ToMutStr<'a>,
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr<'a> + PartialEq,
 {
     type OutNode = Self;
     type SequenceNode = Vec<Self>;
@@ -479,9 +479,9 @@ macro_rules! partialeq_numeric {
         $($(
             impl<'d, F, I, S>  PartialEq<$ty> for Yaml<'d, F, I, S>
             where
-                F: Copy + ToMut<f64>,
-                I: Copy + ToMut<i64>,
-                S: Clone + ToMutStr<'d>,
+                F: Copy + ToMut<f64> + PartialEq,
+                I: Copy + ToMut<i64> + PartialEq,
+                S: Clone + ToMutStr<'d> + PartialEq,
             {
                 fn eq(&self, other: &$ty) -> bool {
                     self.$as_method() == Some(*other as $num)
@@ -490,9 +490,9 @@ macro_rules! partialeq_numeric {
 
             impl<'d, F, I, S>  PartialEq<Yaml<'d, F, I, S> > for $ty
             where
-                F: Copy + ToMut<f64>,
-                I: Copy + ToMut<i64>,
-                S: Clone + ToMutStr<'d>,
+                F: Copy + ToMut<f64> + PartialEq,
+                I: Copy + ToMut<i64> + PartialEq,
+                S: Clone + ToMutStr<'d> + PartialEq,
             {
                 fn eq(&self, other: &Yaml<'d, F, I, S>) -> bool {
                     other.$as_method() == Some(*self as $num)
@@ -501,9 +501,9 @@ macro_rules! partialeq_numeric {
 
             impl<'d, F, I, S>  PartialEq<&$ty > for Yaml<'d, F, I, S>
             where
-                F: Copy + ToMut<f64>,
-                I: Copy + ToMut<i64>,
-                S: Clone + ToMutStr<'d>,
+                F: Copy + ToMut<f64> + PartialEq,
+                I: Copy + ToMut<i64> + PartialEq,
+                S: Clone + ToMutStr<'d> + PartialEq,
             {
                 fn eq(&self, other: &&$ty) -> bool {
                     self.$as_method() == Some(**other as $num)
@@ -512,9 +512,9 @@ macro_rules! partialeq_numeric {
 
             impl<'d, F, I, S> PartialEq<$ty> for &Yaml<'d, F, I, S>
             where
-                F: Copy + ToMut<f64>,
-                I: Copy + ToMut<i64>,
-                S: Clone + ToMutStr<'d>,
+                F: Copy + ToMut<f64> + PartialEq,
+                I: Copy + ToMut<i64> + PartialEq,
+                S: Clone + ToMutStr<'d> + PartialEq,
             {
                 fn eq(&self, other: &$ty) -> bool {
                     self.$as_method() == Some(*other as $num)
@@ -523,9 +523,9 @@ macro_rules! partialeq_numeric {
 
             impl<'a, 'd, F, I, S > PartialEq<$ty> for &mut Yaml<'d, F, I, S>
             where
-                F: Copy + ToMut<f64>,
-                I: Copy + ToMut<i64>,
-                S: Clone + ToMutStr<'d>,
+                F: Copy + ToMut<f64> + PartialEq,
+                I: Copy + ToMut<i64> + PartialEq,
+                S: Clone + ToMutStr<'d> + PartialEq,
             {    fn eq(&self, other: &$ty) -> bool {
                     self.$as_method() == Some(*other as $num)
                 }
@@ -545,9 +545,9 @@ partialeq_numeric!(
 /// in `Yaml`
 impl<'a, F, I, S> PartialEq<u64> for Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &u64) -> bool {
         self.as_i64().eq(&i64::try_from(*other).ok())
@@ -556,9 +556,9 @@ where
 
 impl<'a, F, I, S> PartialEq<Yaml<'a, F, I, S>> for u64
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &Yaml<'a, F, I, S>) -> bool {
         other.as_i64().eq(&i64::try_from(*self).ok())
@@ -567,9 +567,9 @@ where
 
 impl<'a, F, I, S> PartialEq<u64> for &Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &u64) -> bool {
         self.as_i64().eq(&i64::try_from(*other).ok())
@@ -578,9 +578,9 @@ where
 
 impl<'a, F, I, S> PartialEq<u64> for &mut Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &u64) -> bool {
         self.as_i64().eq(&i64::try_from(*other).ok())
@@ -592,9 +592,9 @@ where
 /// in `Yaml`
 impl<'a, F, I, S> PartialEq<usize> for Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &usize) -> bool {
         self.as_i64().eq(&i64::try_from(*other).ok())
@@ -603,9 +603,9 @@ where
 
 impl<'a, F, I, S> PartialEq<Yaml<'a, F, I, S>> for usize
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &Yaml<'a, F, I, S>) -> bool {
         other.as_i64().eq(&i64::try_from(*self).ok())
@@ -614,9 +614,9 @@ where
 
 impl<'a, F, I, S> PartialEq<usize> for &Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &usize) -> bool {
         self.as_i64().eq(&i64::try_from(*other).ok())
@@ -625,9 +625,9 @@ where
 
 impl<'a, F, I, S> PartialEq<usize> for &mut Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     fn eq(&self, other: &usize) -> bool {
         self.as_i64().eq(&i64::try_from(*other).ok())
@@ -637,9 +637,9 @@ where
 /// str conversions are a bit more tricky
 impl<'a, F, I, S> PartialEq<&str> for Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &&str) -> bool {
@@ -649,9 +649,9 @@ where
 
 impl<'a, F, I, S> PartialEq<Yaml<'a, F, I, S>> for &str
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &Yaml<'a, F, I, S>) -> bool {
@@ -661,9 +661,9 @@ where
 
 impl<'a, F, I, S> PartialEq<&str> for &Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &&str) -> bool {
@@ -673,9 +673,9 @@ where
 
 impl<'a, F, I, S> PartialEq<&str> for &mut Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &&str) -> bool {
@@ -686,9 +686,9 @@ where
 /// String conversions are a bit more tricky
 impl<'a, F, I, S> PartialEq<String> for Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &String) -> bool {
@@ -698,9 +698,9 @@ where
 
 impl<'a, F, I, S> PartialEq<Yaml<'a, F, I, S>> for String
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &Yaml<'a, F, I, S>) -> bool {
@@ -710,9 +710,9 @@ where
 
 impl<'a, F, I, S> PartialEq<&String> for Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &&String) -> bool {
@@ -722,9 +722,9 @@ where
 
 impl<'a, F, I, S> PartialEq<String> for &Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &String) -> bool {
@@ -734,9 +734,9 @@ where
 
 impl<'a, F, I, S> PartialEq<String> for &mut Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &String) -> bool {
@@ -747,9 +747,9 @@ where
 /// Char conversion is a bit more involved than others.
 impl<'a, F, I, S> PartialEq<char> for Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &char) -> bool {
@@ -759,9 +759,9 @@ where
 
 impl<'a, F, I, S> PartialEq<&char> for Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &&char) -> bool {
@@ -771,9 +771,9 @@ where
 
 impl<'a, F, I, S> PartialEq<Yaml<'a, F, I, S>> for char
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &Yaml<'a, F, I, S>) -> bool {
@@ -783,9 +783,9 @@ where
 
 impl<'a, F, I, S> PartialEq<char> for &Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &char) -> bool {
@@ -795,9 +795,9 @@ where
 
 impl<'a, F, I, S> PartialEq<char> for &mut Yaml<'a, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'a>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'a> + PartialEq,
 {
     #[inline]
     fn eq(&self, other: &char) -> bool {

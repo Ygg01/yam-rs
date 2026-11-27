@@ -9,9 +9,9 @@ use serde_core::{Deserialize, Deserializer};
 
 impl<'de, FLOAT, INT, STR> Deserialize<'de> for Yaml<'de, FLOAT, INT, STR>
 where
-    FLOAT: Copy + ToMut<f64>,
-    INT: Copy + From<i64> + ToMut<i64>,
-    STR: Clone + ToMutStr<'de>,
+    FLOAT: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr<'de> + PartialEq,
 {
     #[allow(clippy::too_many_lines)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -27,9 +27,9 @@ where
 
         impl<'de, F, I, S> Visitor<'de> for YamlVisitor<F, I, S>
         where
-            F: Copy + ToMut<f64>,
-            I: Copy + From<i64> + ToMut<i64>,
-            S: Clone + ToMutStr<'de>,
+            F: Copy + ToMut<f64> + PartialEq,
+            I: Copy + ToMut<i64> + PartialEq,
+            S: Clone + ToMutStr<'de> + PartialEq,
         {
             type Value = Yaml<'de, F, I, S>;
 

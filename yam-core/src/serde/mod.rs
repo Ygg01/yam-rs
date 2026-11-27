@@ -131,9 +131,9 @@ where
 pub fn to_yaml<'de, T, F, I, S>(value: T) -> Result<Yaml<'de, F, I, S>, Error>
 where
     T: ser::Serialize,
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     value.serialize(YamPhantomSerializer::default())
 }

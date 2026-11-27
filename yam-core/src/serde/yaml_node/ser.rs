@@ -85,9 +85,9 @@ pub struct YamStructVariantSerializer<'de, F, I, S> {
 
 impl<'de, F, I, S> Serializer for YamPhantomSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;
@@ -302,9 +302,9 @@ where
 
 impl<'de, F, I, S> SerializeSeq for YamSeqSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;
@@ -328,9 +328,9 @@ where
 
 impl<'de, F, I, S> SerializeTuple for YamSeqSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;
@@ -349,9 +349,9 @@ where
 
 impl<'de, F, I, S> SerializeTupleStruct for YamSeqSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;
@@ -370,9 +370,9 @@ where
 
 impl<'de, F, I, S> SerializeMap for YamMapSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;
@@ -409,9 +409,9 @@ where
 
 impl<'de, F, I, S> SerializeStruct for YamMapSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;
@@ -430,9 +430,9 @@ where
 
 impl<'de, F, I, S> SerializeTupleVariant for YamTupleVariantSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;
@@ -458,9 +458,9 @@ where
 
 impl<'de, F, I, S> SerializeStructVariant for YamStructVariantSerializer<'de, F, I, S>
 where
-    F: Copy + ToMut<f64>,
-    I: Copy + ToMut<i64>,
-    S: Clone + ToMutStr<'de>,
+    F: Copy + ToMut<f64> + PartialEq,
+    I: Copy + ToMut<i64> + PartialEq,
+    S: Clone + ToMutStr<'de> + PartialEq,
 {
     type Ok = Yaml<'de, F, I, S>;
     type Error = core::fmt::Error;

@@ -358,9 +358,9 @@ fn escape_str<W: Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
 #[allow(dead_code)]
 impl<'a, W, FP, INT, STR> YamlEmitter<'a, W, FP, INT, STR>
 where
-    FP: Copy + ToMut<f64>,
-    INT: Copy + ToMut<i64>,
-    STR: Clone + ToMutStr<'a>,
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr<'a> + PartialEq,
     W: Write,
 {
     /// Create a new emitter serializing into `writer`.
