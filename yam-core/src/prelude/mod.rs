@@ -438,6 +438,25 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```
     fn is_tagged(&self) -> bool;
 
+    /// Determines if the implementing object is a binary_schema node.
+    /// Returning `true` if node has a binary schema tag, and `false` otherwise.
+    /// # Example
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use yam_core::prelude::{Yaml, YamlDocAccess ,Tag, YamlData};
+    ///
+    /// let yaml : Yaml = Yaml(
+    ///     YamlData::Tagged(
+    ///         Cow::Owned(Tag::binary_schema()),
+    ///         Box::new(Yaml::from_str("atarst")),
+    ///     )
+    /// );
+    /// assert!(yaml.is_binary_schema());
+    /// ```
+    fn is_binary_schema(&self) -> bool {
+        matches!(self.get_tag(), Some(x) if x.is_binary_schema())
+    }
+
     /// Attempts to interpret the current instance as a boolean value.
     fn as_bool(&self) -> Option<bool>;
 

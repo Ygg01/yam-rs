@@ -175,6 +175,10 @@ pub struct Tag {
     pub suffix: String,
 }
 
+const YAML_SCHEMA_HANDLE: &str = "tag:yaml.org,2002:";
+const YAML_BINARY_SUFFIX: &str = "binary";
+const YAML_NULL_SUFFIX: &str = "null";
+
 impl Tag {
     ///
     /// Creates a new instance with the specified handle and suffix.
@@ -219,13 +223,28 @@ impl Tag {
         self.handle == "tag:yaml.org,2002:"
     }
 
-    /// Returns the binary schema tag.
+    /// Creates a new binary schema tag.
     #[must_use]
     pub fn binary_schema() -> Self {
         Tag {
             handle: "tag:yaml.org,2002:".to_string(),
             suffix: "binary".to_string(),
         }
+    }
+
+    /// Checks if the [`Tag`] is a binary schema. To make a binary schema use [`Tag::binary_schema()`]
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::parsing::Tag;
+    ///
+    /// let tag = Tag::binary_schema();
+    /// assert!(tag.is_yaml_core_schema());
+    /// assert!(tag.is_binary_schema());
+    /// ```
+    #[must_use]
+    pub fn is_binary_schema(&self) -> bool {
+        self.handle == YAML_SCHEMA_HANDLE && self.suffix == YAML_BINARY_SUFFIX
     }
 }
 
