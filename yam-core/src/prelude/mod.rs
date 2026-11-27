@@ -609,6 +609,15 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     fn into_string(self) -> Option<String>;
 
+    /// Converts the value of the type implementing this method into an `Option<String>`.
+    ///
+    /// # Returns
+    /// - `Some(String)` if the conversion is successful,
+    ///   depending on the implementation.
+    /// - `None` if the conversion is not possible or represents an invalid state.
+    ///
+    fn into_cow(self) -> Option<Cow<'input, str>>;
+
     /// Converts the value of the implementing type into an `Option<f64>`.
     ///
     /// This function is particularly useful when working with types that may need
@@ -673,6 +682,34 @@ pub trait YamlDocAccess<'input>: Clone {
     ///   will result in a compiler warning.
     #[must_use]
     fn into_tagged(self, tag: Cow<'input, Tag>) -> Self;
+
+    ///
+    /// Consumes the current value, leaving the object in an uninitialized or default state,
+    /// and returns an instance of `Self` that represents the previous state of the object.
+    ///
+    /// # Returns
+    /// A new instance of `Self` containing the previous state of the object.
+    ///
+    /// # Notes
+    /// - This method has the `#[must_use]` attribute, meaning the return value must be used;
+    ///   otherwise, a compiler warning will be issued.
+    /// - After calling this method, the current instance may no longer hold meaningful data,
+    ///   depending on the implementation.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::*;
+    ///
+    /// let mut value = Yaml::from(true);
+    /// let previous_value = value.take();
+    ///
+    /// assert_eq!(previous_value, Yaml(YamlData::Scalar(YamlScalar::Bool(true))));
+    /// assert_eq!(value, Yaml::bad_value());
+    /// ```
+    #[must_use]
+    fn take(&mut self) -> Self {
+        core::mem::replace(self, Self::bad_value())
+    }
 
     ///
     /// Constructs an instance of `Self` using a bad or default value.
@@ -796,34 +833,6 @@ pub trait YamlDocAccess<'input>: Clone {
     /// assert!(value.is_string())
     /// ```
     fn from_float(input: impl Into<f64>) -> Self;
-
-    ///
-    /// Consumes the current value, leaving the object in an uninitialized or default state,
-    /// and returns an instance of `Self` that represents the previous state of the object.
-    ///
-    /// # Returns
-    /// A new instance of `Self` containing the previous state of the object.
-    ///
-    /// # Notes
-    /// - This method has the `#[must_use]` attribute, meaning the return value must be used;
-    ///   otherwise, a compiler warning will be issued.
-    /// - After calling this method, the current instance may no longer hold meaningful data,
-    ///   depending on the implementation.
-    ///
-    /// # Example
-    /// ```rust
-    /// use yam_core::prelude::*;
-    ///
-    /// let mut value = Yaml::from(true);
-    /// let previous_value = value.take();
-    ///
-    /// assert_eq!(previous_value, Yaml(YamlData::Scalar(YamlScalar::Bool(true))));
-    /// assert_eq!(value, Yaml::bad_value());
-    /// ```
-    #[must_use]
-    fn take(&mut self) -> Self {
-        core::mem::replace(self, Self::bad_value())
-    }
 
     ///
     /// Sets the starting marker for the current instance.
@@ -999,6 +1008,8 @@ pub trait ToMutStr<'a> {
     fn from_string(input: impl Into<String>) -> Self;
     fn from_str(input: &'a str) -> Self;
     fn into_string(self) -> String;
+
+    fn into_cow(self) -> Cow<'a, str>;
 }
 
 impl<'a> ToMutStr<'a> for Cow<'a, str> {
@@ -1021,6 +1032,10 @@ impl<'a> ToMutStr<'a> for Cow<'a, str> {
     fn into_string(self) -> String {
         Cow::into_owned(self)
     }
+
+    fn into_cow(self) -> Cow<'a, str> {
+        self
+    }
 }
 
 impl ToMutStr<'static> for String {
@@ -1042,6 +1057,10 @@ impl ToMutStr<'static> for String {
 
     fn into_string(self) -> String {
         self
+    }
+
+    fn into_cow(self) -> Cow<'static, str> {
+        Cow::Owned(self)
     }
 }
 

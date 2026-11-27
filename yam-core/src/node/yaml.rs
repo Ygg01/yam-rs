@@ -205,6 +205,13 @@ where
         }
     }
 
+    fn into_cow(self) -> Option<Cow<'a, str>> {
+        match self.0 {
+            YamlData::Scalar(YamlScalar::String(s)) => Some(s.into_cow()),
+            _ => None,
+        }
+    }
+
     fn into_mapping(self) -> Option<Self::MappingNode> {
         match self.0 {
             YamlData::Mapping(s) => Some(s),
