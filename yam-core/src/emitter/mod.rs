@@ -387,8 +387,6 @@ where
     /// In this form, blocks cannot have any properties (such as anchors
     /// or tags), which should be OK, because this emitter doesn't
     /// (currently) emit those anyways.
-    ///
-    /// TODO(ethiraric, 2024/04/02): We can support those now.
     pub fn compact(&mut self, compact: bool) {
         self.compact = compact;
     }
