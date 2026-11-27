@@ -1,8 +1,8 @@
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use std::fmt::Error;
-use yam_core::prelude::{Yaml, YamlDocAccess};
-use yam_core::serde::{to_yaml, YamlFormatter};
+use yam_core::prelude::{Yaml, YamlDocAccess, YamlFormatter};
+use yam_core::serde::to_yaml;
 use yam_core::{from_str, to_formatted_string};
 use yam_test_bench::{OneEnumToHoldThemAll, Person};
 

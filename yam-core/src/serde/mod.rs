@@ -4,13 +4,12 @@ mod escape_str;
 pub mod ser;
 pub mod yaml_node;
 
-use crate::prelude::{ScalarType, ToMut, ToMutStr, Yaml};
+use crate::prelude::{ToMut, ToMutStr, Yaml, YamlFormatter};
 use crate::serde::yaml_node::ser::YamPhantomSerializer;
 use alloc::borrow::Cow;
 use alloc::string::String;
 use core::fmt::Error;
 use de::DeYamlError;
-use ser::{FlowStyle, YamlStyle};
 
 /// Attempts to deserialize an instance of type `T` from a YAML input string.
 ///
@@ -39,6 +38,7 @@ use ser::{FlowStyle, YamlStyle};
 ///
 /// ```rust
 /// use yam_core::{from_str};
+/// use yam_core::serde::de::DeYamlError;
 /// use serde::Deserialize;
 ///
 /// #[derive(Deserialize, Debug)]
@@ -91,9 +91,11 @@ where
 /// - The writer fails to finalize the output.
 ///
 /// # Example
-/// ```
-/// use yam_core::prelude::*;
+/// ```rust
+/// use yam_core::prelude::{YamlDocAccess, Yaml, YamlFormatter};
 /// use serde::Serialize;
+///
+/// use yam_core::to_formatted_string;
 ///
 /// #[derive(Serialize)]
 /// struct Person {
@@ -107,7 +109,7 @@ where
 /// };
 ///
 /// let formatter = YamlFormatter::default();
-/// let yaml_string = to_pretty_string(&person, formatter).unwrap();
+/// let yaml_string = to_formatted_string(&person, formatter).unwrap();
 /// println!("{}", yaml_string);
 /// ```
 pub fn to_formatted_string<T>(value: &T, formatter: YamlFormatter) -> Result<String, Error>
@@ -172,93 +174,5 @@ impl NullFormat {
             NullFormat::Plain => Cow::Borrowed(""),
             NullFormat::OldYaml => Cow::Borrowed("~"),
         }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct YamlFormatter {
-    /// Limit depth
-    pub block_depth_limit: u32,
-
-    /// Preferred string length
-    pub pref_string_length: u32,
-
-    /// Preferred indent length
-    indent_len: u32,
-
-    /// How to format null
-    null_format: Cow<'static, str>,
-
-    /// How to format a string in block style
-    pub block_preferred_style: ScalarType,
-
-    /// How to format a string in a root
-    pub root_preferred_style: ScalarType,
-
-    /// How to format a string in block style
-    pub flow_string_style: FlowStyle,
-
-    pub key_preferred_style: ScalarType,
-
-    /// Whether to prefer string to fit in a single line
-    pub compact_strings: bool,
-
-    /// What is the default style for the Root element
-    pub root_style: YamlStyle,
-}
-
-impl Default for YamlFormatter {
-    fn default() -> Self {
-        Self {
-            block_depth_limit: 0,
-            pref_string_length: 80,
-            indent_len: 2,
-            null_format: Cow::Borrowed(""),
-            block_preferred_style: ScalarType::Plain,
-            root_preferred_style: ScalarType::DoubleQuote,
-            flow_string_style: FlowStyle::DoubleQuote,
-            key_preferred_style: ScalarType::Plain,
-            compact_strings: false,
-            root_style: YamlStyle::default(),
-        }
-    }
-}
-
-impl YamlFormatter {
-    #[must_use]
-    pub fn pretty() -> Self {
-        Self {
-            block_depth_limit: 10,
-            pref_string_length: 80,
-            indent_len: 2,
-            null_format: Cow::Borrowed("null"),
-            block_preferred_style: ScalarType::Plain,
-            root_preferred_style: ScalarType::DoubleQuote,
-            flow_string_style: FlowStyle::DoubleQuote,
-            key_preferred_style: ScalarType::Plain,
-            compact_strings: false,
-            root_style: YamlStyle::default(),
-        }
-    }
-
-    #[must_use]
-    pub fn json() -> Self {
-        Self {
-            block_depth_limit: 0,
-            pref_string_length: 80,
-            indent_len: 2,
-            null_format: Cow::Borrowed("null"),
-            block_preferred_style: ScalarType::DoubleQuote,
-            root_preferred_style: ScalarType::DoubleQuote,
-            flow_string_style: FlowStyle::DoubleQuote,
-            key_preferred_style: ScalarType::DoubleQuote,
-            compact_strings: true,
-            root_style: YamlStyle::Flow,
-        }
-    }
-
-    #[inline]
-    pub fn set_null_format(&mut self, fmt: NullFormat) {
-        self.null_format = fmt.to_null_string();
     }
 }
