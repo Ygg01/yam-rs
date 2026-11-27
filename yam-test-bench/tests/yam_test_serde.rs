@@ -2,9 +2,8 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use yam_core::prelude::ScalarType;
+use yam_core::prelude::{ScalarType, YamlFormatter};
 use yam_core::serde::ser::YamlStyle;
-use yam_core::serde::YamlFormatter;
 use yam_core::{from_str, to_formatted_string};
 use yam_test_bench::{OneEnumToHoldThemAll, Person};
 
