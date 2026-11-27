@@ -180,8 +180,13 @@ where
         Ok(Yaml::null())
     }
 
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        self.serialize_unit()
+    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+        let mut mapping = Vec::new();
+        let key = Yaml::from_str(name);
+        let value = Yaml::null();
+        mapping.push(YamlEntry::new(key, value));
+
+        Ok(Yaml(YamlData::Mapping(mapping)))
     }
 
     fn serialize_unit_variant(
@@ -190,7 +195,12 @@ where
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        self.serialize_str(variant)
+        let mut mapping = Vec::new();
+        let key = Yaml::from_str(variant);
+        let value = Yaml::null();
+        mapping.push(YamlEntry::new(key, value));
+
+        Ok(Yaml(YamlData::Mapping(mapping)))
     }
 
     fn serialize_newtype_struct<T>(
@@ -216,7 +226,7 @@ where
     {
         let mut mapping = Vec::new();
         let key = Yaml::from_str(variant);
-        let value = to_yaml(&value)?;
+        let value = to_yaml(value)?;
         mapping.push(YamlEntry::new(key, value));
 
         Ok(Yaml(YamlData::Mapping(mapping)))

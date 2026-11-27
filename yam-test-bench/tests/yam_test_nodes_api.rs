@@ -1,9 +1,12 @@
 use rstest::rstest;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
 use yam_core::node::{SpanYam, Yaml, YamlScalar};
 use yam_core::parsing::Tag;
 use yam_core::prelude::{YamLoader, YamlDocAccess};
+use yam_core::serde::to_yaml;
 
 const SIMPLE_SEQ: &str = "[a, b]";
 const SIMPLE_MAP: &str = "{0: a, 1: b}";
@@ -405,4 +408,30 @@ fn test_loader() {
 
     assert_eq!(yaml["a"], "b");
     assert_eq!(yaml_span["a"].as_str().unwrap_or(""), "b");
+}
+
+#[test]
+fn test_mapping() {
+    let mut map = HashMap::new();
+    map.insert("answer", 42);
+
+    let yaml: Yaml = to_yaml(map).unwrap();
+    assert!(yaml.is_mapping());
+    assert_eq!(yaml["answer"], 42);
+}
+
+#[test]
+fn test_binary_mapping() {
+    #[derive(PartialEq, Debug, Serialize, Deserialize)]
+    struct BinaryConvert {
+        #[serde(with = "serde_bytes")]
+        byte_buf: Vec<u8>,
+    }
+
+    let bin_convert = BinaryConvert {
+        byte_buf: b"test".to_vec(),
+    };
+    let yaml: Yaml = to_yaml(bin_convert).unwrap();
+    assert!(yaml.is_mapping());
+    assert!(yaml["byte_buf"].is_tagged());
 }

@@ -61,12 +61,18 @@ where
     type SequenceNode = Vec<Self>;
     type MappingNode = Vec<YamlEntry<'a, Self>>;
 
+    #[inline]
     fn is_non_empty_collection(&self) -> bool {
         match &self.0 {
             YamlData::Sequence(s) => !s.is_collection_empty(),
             YamlData::Mapping(m) => !m.is_collection_empty(),
             _ => false,
         }
+    }
+
+    #[inline]
+    fn is_tagged(&self) -> bool {
+        matches!(self.0, YamlData::Tagged(..))
     }
 
     fn as_bool(&self) -> Option<bool> {
@@ -493,6 +499,17 @@ macro_rules! partialeq_numeric {
                 }
             }
 
+            impl<'d, F, I, S>  PartialEq<&$ty > for Yaml<'d, F, I, S>
+            where
+                F: Copy + ToMut<f64>,
+                I: Copy + ToMut<i64>,
+                S: Clone + ToMutStr<'d>,
+            {
+                fn eq(&self, other: &&$ty) -> bool {
+                    self.$as_method() == Some(**other as $num)
+                }
+            }
+
             impl<'d, F, I, S> PartialEq<$ty> for &Yaml<'d, F, I, S>
             where
                 F: Copy + ToMut<f64>,
@@ -691,6 +708,18 @@ where
     }
 }
 
+impl<'a, F, I, S> PartialEq<&String> for Yaml<'a, F, I, S>
+where
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+{
+    #[inline]
+    fn eq(&self, other: &&String) -> bool {
+        self.as_str().eq(&Some(other))
+    }
+}
+
 impl<'a, F, I, S> PartialEq<String> for &Yaml<'a, F, I, S>
 where
     F: Copy + ToMut<f64>,
@@ -724,6 +753,18 @@ where
 {
     #[inline]
     fn eq(&self, other: &char) -> bool {
+        self.as_str().eq(&Some(&other.to_string()))
+    }
+}
+
+impl<'a, F, I, S> PartialEq<&char> for Yaml<'a, F, I, S>
+where
+    F: Copy + ToMut<f64>,
+    I: Copy + ToMut<i64>,
+    S: Clone + ToMutStr<'a>,
+{
+    #[inline]
+    fn eq(&self, other: &&char) -> bool {
         self.as_str().eq(&Some(&other.to_string()))
     }
 }

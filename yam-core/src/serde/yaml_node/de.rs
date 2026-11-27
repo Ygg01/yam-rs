@@ -178,9 +178,32 @@ where
 #[cfg(test)]
 mod test {
     use crate::node::Yaml;
+    use crate::prelude::YamlDocAccess;
     use crate::serde::to_yaml;
-    use alloc::string::ToString;
+    use alloc::string::{String, ToString};
+    use alloc::vec;
     use core::fmt::Error;
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    pub struct Unit;
+
+    #[derive(Serialize)]
+    pub struct TupleStruct(u8, i16);
+
+    #[derive(Serialize)]
+    pub struct Address {
+        uid: u32,
+        name: String,
+    }
+
+    #[derive(Serialize)]
+    pub enum TestExample {
+        Unit,
+        Newtype(TupleStruct),
+        Tuple(i16, u32),
+        Struct { uid: u64 },
+    }
 
     #[test]
     fn test_yaml_eq() {
@@ -274,5 +297,69 @@ mod test {
         assert_eq!(&yaml, chr);
         assert_eq!(&chr, &yaml);
         assert_eq!(&mut yaml, chr);
+
+        let none: Option<f64> = None;
+        let yaml: Yaml = to_yaml(none).unwrap();
+        assert!(yaml.is_null());
+
+        let none: Option<f64> = Some(3.0f64);
+        let yaml: Yaml = to_yaml(none).unwrap();
+        assert_eq!(yaml, 3.0f64);
+
+        let vec = vec![2u8, 3u8, 4];
+        let yaml: Yaml = to_yaml(&vec).unwrap();
+        assert!(yaml.is_sequence());
+        assert_eq!(&yaml[0], &vec[0]);
+        assert_eq!(&yaml[1], &vec[1]);
+        assert_eq!(&yaml[2], &vec[2]);
+
+        let tuple = (3, 5, 7);
+        let yaml: Yaml = to_yaml(tuple).unwrap();
+        assert!(yaml.is_sequence());
+        assert_eq!(yaml[0], tuple.0);
+        assert_eq!(yaml[1], tuple.1);
+        assert_eq!(yaml[2], tuple.2);
+
+        let unit_struct = Unit;
+        let yaml: Yaml = to_yaml(unit_struct).unwrap();
+        assert!(yaml.is_mapping());
+        assert!(yaml["Unit"].is_null());
+
+        let unit_var = TestExample::Unit;
+        let yaml: Yaml = to_yaml(unit_var).unwrap();
+        assert!(yaml.is_mapping());
+        assert!(yaml["Unit"].is_null());
+
+        let newtype_var = TestExample::Newtype(TupleStruct(2, -3));
+        let yaml: Yaml = to_yaml(newtype_var).unwrap();
+        assert!(yaml.is_mapping());
+        assert_eq!(yaml["Newtype"][0], 2);
+        assert_eq!(yaml["Newtype"][1], -3);
+
+        let tuple_struct = TupleStruct(6, -32);
+        let yaml: Yaml = to_yaml(tuple_struct).unwrap();
+        assert!(yaml.is_sequence());
+        assert_eq!(yaml[0], 6);
+        assert_eq!(yaml[1], -32);
+
+        let tuple_var = TestExample::Tuple(0, 3);
+        let yaml: Yaml = to_yaml(tuple_var).unwrap();
+        assert!(yaml.is_mapping());
+        assert_eq!(yaml["Tuple"][0], 0);
+        assert_eq!(yaml["Tuple"][1], 3);
+
+        let struct_var = TestExample::Struct { uid: 33 };
+        let yaml: Yaml = to_yaml(struct_var).unwrap();
+        assert!(yaml.is_mapping());
+        assert_eq!(yaml["Struct"]["uid"], 33);
+
+        let strct = Address {
+            uid: 4343,
+            name: "Compton road 3233".to_string(),
+        };
+        let yaml: Yaml = to_yaml(&strct).unwrap();
+        assert!(yaml.is_mapping());
+        assert_eq!(yaml["uid"], &strct.uid);
+        assert_eq!(yaml["name"], &strct.name);
     }
 }

@@ -181,6 +181,10 @@ where
         }
     }
 
+    fn is_tagged(&self) -> bool {
+        matches!(self.yaml, YamlData::Tagged(..))
+    }
+
     fn as_bool(&self) -> Option<bool> {
         match &self.yaml {
             YamlData::Scalar(YamlScalar::Bool(b)) => Some(*b),

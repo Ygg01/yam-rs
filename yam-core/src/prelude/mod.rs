@@ -425,6 +425,19 @@ pub trait YamlDocAccess<'input>: Clone {
         matches!(self.get_type(), NodeType::Sequence)
     }
 
+    /// Determines if the implementing object is a tagged node.
+    /// Returning `true` if node has a tag, and `false` otherwise.
+    ///
+    /// # Example
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use yam_core::prelude::{Yaml, YamlDocAccess ,Tag, YamlData};
+    ///
+    /// let yaml : Yaml = Yaml(YamlData::Tagged(Cow::Owned(Tag::new("test", "???")), Box::new(Yaml::from_bool(true))));
+    /// assert!(yaml.is_tagged());
+    /// ```
+    fn is_tagged(&self) -> bool;
+
     /// Attempts to interpret the current instance as a boolean value.
     fn as_bool(&self) -> Option<bool>;
 
