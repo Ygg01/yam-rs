@@ -459,7 +459,7 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ```
     fn is_tagged(&self) -> bool;
 
-    /// Determines if the implementing object is a binary_schema node.
+    /// Determines if the implementing object is a `binary schema` node.
     /// Returning `true` if node has a binary schema tag, and `false` otherwise.
     /// # Example
     /// ```rust

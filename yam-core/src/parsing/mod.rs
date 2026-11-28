@@ -266,6 +266,7 @@ impl Tag {
     /// assert!(tag.is_yaml_core_schema());
     /// assert!(tag.is_binary_schema());
     /// ```
+    #[must_use]
     pub fn is_null(&self) -> bool {
         self.handle == YAML_SCHEMA_HANDLE && self.suffix == YAML_NULL_SUFFIX
     }
