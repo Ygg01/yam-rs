@@ -227,8 +227,17 @@ impl Tag {
     #[must_use]
     pub fn binary_schema() -> Self {
         Tag {
-            handle: "tag:yaml.org,2002:".to_string(),
-            suffix: "binary".to_string(),
+            handle: YAML_SCHEMA_HANDLE.to_string(),
+            suffix: YAML_BINARY_SUFFIX.to_string(),
+        }
+    }
+
+    /// Creates a new binary schema tag.
+    #[must_use]
+    pub fn null_schema() -> Self {
+        Tag {
+            handle: YAML_SCHEMA_HANDLE.to_string(),
+            suffix: YAML_NULL_SUFFIX.to_string(),
         }
     }
 
@@ -245,6 +254,20 @@ impl Tag {
     #[must_use]
     pub fn is_binary_schema(&self) -> bool {
         self.handle == YAML_SCHEMA_HANDLE && self.suffix == YAML_BINARY_SUFFIX
+    }
+
+    /// Checks if the [`Tag`] is a null schema. To make a null schema use [`Tag::null_schema()`]
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::parsing::Tag;
+    ///
+    /// let tag = Tag::binary_schema();
+    /// assert!(tag.is_yaml_core_schema());
+    /// assert!(tag.is_binary_schema());
+    /// ```
+    pub fn is_null(&self) -> bool {
+        self.handle == YAML_SCHEMA_HANDLE && self.suffix == YAML_NULL_SUFFIX
     }
 }
 
