@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use alloc::format;
 use alloc::string::{String, ToString};
 use core::fmt::{Display, Formatter};
@@ -10,14 +11,14 @@ use serde_core::{de, forward_to_deserialize_any};
 use crate::binary;
 use crate::binary::DecodeError;
 use crate::parsing::parser_iter::YamEvent;
-use crate::parsing::{ParserIter, ScalarValue};
-use crate::prelude::{InMemSource, Source, YamlScalar};
+use crate::parsing::{InMemSource, ScalarValue, YamParserIter};
+use crate::prelude::{Source, YamlScalar};
 
 pub(crate) struct YamIterDeserializer<'de, R>
 where
     R: Source,
 {
-    yaml_iter: ParserIter<'de, R>,
+    yaml_iter: YamParserIter<'de, R>,
     last_event: YamEvent<'de>,
     has_peeked: bool,
 }
@@ -25,18 +26,18 @@ where
 impl<'a> YamIterDeserializer<'a, InMemSource<'a>> {
     pub fn new(source: &'a str) -> Self {
         YamIterDeserializer {
-            yaml_iter: ParserIter::new(InMemSource::new(source)),
+            yaml_iter: YamParserIter::new(InMemSource::new(source)),
             last_event: YamEvent::DocStart,
             has_peeked: false,
         }
     }
 }
 
-impl<'a, R> YamIterDeserializer<'a, R>
+impl<'de, R> YamIterDeserializer<'de, R>
 where
     R: Source,
 {
-    fn next_el(&mut self) -> Option<YamEvent<'a>> {
+    fn next_el(&mut self) -> Option<YamEvent<'de>> {
         if self.has_peeked {
             self.has_peeked = false;
             return Some(self.last_event.clone());
@@ -59,16 +60,19 @@ where
         }
     }
 
-    fn resolve_scalar<V: Visitor<'a>>(
-        scalar_value: ScalarValue,
+    fn resolve_scalar<V: Visitor<'de>>(
+        scalar_value: ScalarValue<'de>,
         visitor: V,
     ) -> Result<V::Value, DeYamlError> {
         let scalar = YamlScalar::parse_from_scalar(scalar_value);
         match scalar {
-            Some(YamlScalar::Integer(x)) => visitor.visit_i64(x),
-            Some(YamlScalar::FloatingPoint(x)) => visitor.visit_f64(x),
-            Some(YamlScalar::Bool(x)) => visitor.visit_bool(x),
-            Some(YamlScalar::String(x)) => visitor.visit_str(&x),
+            Some(YamlScalar::Integer(int)) => visitor.visit_i64(int),
+            Some(YamlScalar::FloatingPoint(float)) => visitor.visit_f64(float),
+            Some(YamlScalar::Bool(boolean)) => visitor.visit_bool(boolean),
+            Some(YamlScalar::String(cow_str)) => match cow_str {
+                Cow::Borrowed(input) => visitor.visit_borrowed_str(input),
+                Cow::Owned(input) => visitor.visit_str(&input),
+            },
             Some(YamlScalar::Null(_)) => visitor.visit_unit(),
             None => Err(DeYamlError::Custom("Failed to parse scalar".to_string())),
         }
@@ -299,6 +303,8 @@ pub enum DeYamlError {
     ExpectedNull,
     ExpectedBytes,
     Base64DecodeError(DecodeError),
+    InvalidLength(usize),
+    InvalidType,
     UnExpectedEvent(&'static str, &'static str),
 }
 
@@ -318,6 +324,10 @@ impl Display for DeYamlError {
             DeYamlError::UnExpectedEvent(actual, expected) => {
                 write!(f, "Expected {expected} event instead got {actual} event")?;
             }
+            DeYamlError::InvalidLength(len) => {
+                write!(f, "Fewer elements in map")?;
+            }
+            DeYamlError::InvalidType => write!(f, "Invalid type map")?,
         }
         Ok(())
     }
@@ -538,5 +548,118 @@ mod test {
             format!("{}", from_str::<()>("zzz").unwrap_err()),
             EXPECTED_NULL,
         );
+    }
+
+    use crate::node::Yaml;
+    use crate::prelude::YamlDocAccess;
+    use alloc::string::String;
+    use alloc::vec;
+    use alloc::vec::Vec;
+    use serde::Deserialize;
+
+    #[test]
+    fn test_nested_collections() {
+        #[derive(Deserialize, Debug)]
+        pub struct Ex {
+            a: String,
+            b: Vec<f32>,
+        }
+
+        let ex = r#"{ a: "x",  b: [2.0, 3.1, -1.2] }"#;
+        let deserialized: Ex = crate::from_str(ex).unwrap();
+        assert_eq!(deserialized.a, "x");
+        assert_eq!(deserialized.b, vec![2.0, 3.1, -1.2]);
+    }
+
+    #[test]
+    fn test_schemas_null() {
+        #[derive(Deserialize, Debug)]
+        pub struct Ex {
+            a: Option<String>,
+        }
+        let input = r"a: !!null";
+        let deserialized: Ex = crate::from_str(input).unwrap();
+        assert_eq!(deserialized.a, None);
+
+        let input = r"a: !!null null";
+        let deserialized2: Ex = crate::from_str(input).unwrap();
+        assert_eq!(deserialized2.a, None);
+    }
+
+    #[test]
+    fn test_schemas_float() {
+        #[derive(Deserialize, Debug)]
+        pub struct Ex {
+            a: Option<f32>,
+        }
+        let input = r"a: 3";
+        let deserialized: Ex = crate::from_str(input).unwrap();
+        assert_eq!(deserialized.a, Some(3.0));
+    }
+
+    #[test]
+    fn test_enum() {
+        #[derive(Deserialize, PartialEq, Debug)]
+        enum E {
+            Unit,
+            Newtype(f32),
+            Tuple(u32, u32),
+            Struct { a: u32 },
+        }
+
+        let j = r#"{ Unit }"#;
+        let expected = E::Unit;
+        assert_eq!(expected, crate::from_str(j).unwrap());
+
+        let j = r#"{ Newtype: 1 }"#;
+        let expected = E::Newtype(1.0);
+        assert_eq!(expected, crate::from_str(j).unwrap());
+
+        let j = r#"{"Tuple":[1,2]}"#;
+        let expected = E::Tuple(1, 2);
+        assert_eq!(expected, crate::from_str(j).unwrap());
+
+        let j = r#"{"Struct":{"a":1}}"#;
+        let expected = E::Struct { a: 1 };
+        assert_eq!(expected, crate::from_str(j).unwrap());
+    }
+
+    #[test]
+    fn test_doc_example1() {
+        #[derive(Deserialize, PartialEq, Debug)]
+        pub struct Person {
+            name: String,
+            address: Option<String>,
+            phones: Vec<String>,
+        }
+
+        let data = r#"
+    name: John Smith
+    phones:
+        - "+44 1234567"
+        - "+32 2345678"
+    address:
+    "#;
+
+        let person: Person = crate::from_str(data).expect("Yaml to be parsed!");
+        assert_eq!(person.name, "John Smith");
+        assert_eq!(person.address, None);
+        assert_eq!(person.phones, vec!["+44 1234567", "+32 2345678"]);
+    }
+
+    #[test]
+    fn test_doc_example2() {
+        let data = r#"
+    name: John Smith
+    phones:
+        - "+44 1234567"
+        - "+32 2345678"
+    address:
+    "#;
+
+        let person = Yaml::load_single(data).expect("Yaml to be parsed!");
+        assert_eq!(person["name"].as_str(), Some("John Smith"));
+        assert_eq!(person["address"].as_str(), None);
+        assert_eq!(person["phones"][1].as_str(), Some("+32 2345678"));
     }
 }

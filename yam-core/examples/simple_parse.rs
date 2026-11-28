@@ -6,9 +6,9 @@ fn main() {
     let yaml_str = "{a: b, c: d}";
 
     if let Ok(yaml) = Yaml::load_single(yaml_str) {
-        let b = yaml["a"].as_str().unwrap_or_default();
-        let d = yaml["c"].as_str().unwrap_or_default();
-        assert_eq!(b, "b");
-        assert_eq!(d, "d");
+        let b = &yaml["a"];
+        let d = &yaml["c"];
+        assert_eq!(b, &"b");
+        assert_eq!(d, &"d");
     }
 }

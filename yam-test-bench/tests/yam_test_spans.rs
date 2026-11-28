@@ -1,13 +1,13 @@
 use rstest::rstest;
 use std::fmt::Write;
-use yam_core::parsing::{Event, Parser, SpannedEventReceiver};
+use yam_core::parsing::{Event, SpanEventReceiver, YamParser};
 use yam_core::prelude::Span;
 
-struct SpannedEventStr {
+struct SpanEventStr {
     buf: String,
 }
 
-impl<'input> SpannedEventReceiver<'input> for SpannedEventStr {
+impl<'input> SpanEventReceiver<'input> for SpanEventStr {
     fn on_event(&mut self, ev: Event<'input>, span: Span) {
         let _ = match ev {
             Event::DocumentStart(_) => {
@@ -120,12 +120,12 @@ VAL: Span [14..15] From (row: 2, col 14) To (row: 2, col 15)
 #[case::span_null_map_1(X1_NULL_MAP_INPUT, X1_NULL_MAP_EVENTS)]
 #[case::span_null_map_2(X2_NULL_MAP_INPUT, X2_NULL_MAP_EVENTS)]
 #[case::span_null_map_2(NESTED_INPUT, NESTED_EVENTS)]
-fn test_span(#[case] input: &str, #[case] expected_event: &str) {
-    let mut spanned_buf = SpannedEventStr {
+fn test_spans(#[case] input: &str, #[case] expected_event: &str) {
+    let mut span_buf = SpanEventStr {
         buf: String::with_capacity(200),
     };
-    let mut parser = Parser::new_from_str(input);
-    let _ = parser.load(&mut spanned_buf, true);
+    let mut parser = YamParser::new_from_str(input);
+    let _ = parser.load(&mut span_buf, true);
 
-    assert_eq!(spanned_buf.buf.trim(), expected_event.trim())
+    assert_eq!(span_buf.buf.trim(), expected_event.trim())
 }

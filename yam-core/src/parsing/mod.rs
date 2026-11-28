@@ -1,6 +1,5 @@
 //! Module dealing with parsing YAML documents into a series of events.
 //!
-mod buffered_source;
 mod char_utils;
 mod parser;
 pub mod parser_iter;
@@ -9,17 +8,17 @@ mod source;
 
 use crate::prelude::{ScalarType, YamlError};
 use alloc::borrow::Cow;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-pub use buffered_source::BufBytesSource;
 use core::fmt;
 use core::fmt::{Display, Formatter};
 pub use parser::EventReceiver;
-pub use parser::SpannedEventReceiver;
-pub use parser::{Event, Parser, ScalarValue};
-pub use parser_iter::ParserIter;
-pub use source::InMemSource;
+pub use parser::SpanEventReceiver;
+pub use parser::{Event, ScalarValue, YamParser};
+pub use parser_iter::YamParserIter;
 pub use source::Source;
+pub use source::byte_buf::BufBytesSource;
+pub use source::in_mem::InMemSource;
 
 ///
 /// Represents the different types of tokens that can be encountered in the input stream.
@@ -176,6 +175,10 @@ pub struct Tag {
     pub suffix: String,
 }
 
+const YAML_SCHEMA_HANDLE: &str = "tag:yaml.org,2002:";
+const YAML_BINARY_SUFFIX: &str = "binary";
+const YAML_NULL_SUFFIX: &str = "null";
+
 impl Tag {
     ///
     /// Creates a new instance with the specified handle and suffix.
@@ -218,6 +221,54 @@ impl Tag {
     #[must_use]
     pub fn is_yaml_core_schema(&self) -> bool {
         self.handle == "tag:yaml.org,2002:"
+    }
+
+    /// Creates a new binary schema tag.
+    #[must_use]
+    pub fn binary_schema() -> Self {
+        Tag {
+            handle: YAML_SCHEMA_HANDLE.to_string(),
+            suffix: YAML_BINARY_SUFFIX.to_string(),
+        }
+    }
+
+    /// Creates a new binary schema tag.
+    #[must_use]
+    pub fn null_schema() -> Self {
+        Tag {
+            handle: YAML_SCHEMA_HANDLE.to_string(),
+            suffix: YAML_NULL_SUFFIX.to_string(),
+        }
+    }
+
+    /// Checks if the [`Tag`] is a binary schema. To make a binary schema use [`Tag::binary_schema()`]
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::parsing::Tag;
+    ///
+    /// let tag = Tag::binary_schema();
+    /// assert!(tag.is_yaml_core_schema());
+    /// assert!(tag.is_binary_schema());
+    /// ```
+    #[must_use]
+    pub fn is_binary_schema(&self) -> bool {
+        self.handle == YAML_SCHEMA_HANDLE && self.suffix == YAML_BINARY_SUFFIX
+    }
+
+    /// Checks if the [`Tag`] is a null schema. To make a null schema use [`Tag::null_schema()`]
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::parsing::Tag;
+    ///
+    /// let tag = Tag::binary_schema();
+    /// assert!(tag.is_yaml_core_schema());
+    /// assert!(tag.is_binary_schema());
+    /// ```
+    #[must_use]
+    pub fn is_null(&self) -> bool {
+        self.handle == YAML_SCHEMA_HANDLE && self.suffix == YAML_NULL_SUFFIX
     }
 }
 

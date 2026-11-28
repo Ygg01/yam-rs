@@ -25,8 +25,7 @@
 //!
 //! This crate comes with multiple types of YAML representations:
 //! - [`Yaml`](prelude::Yaml): The default YAML object which borrows from the input.
-//! - [`YamlOwned`](prelude::YamlOwned): The version of [`Yaml`](prelude::Yaml) which owns its data.
-//! - [`SpannedYaml`](prelude::SpannedYaml): The version of [`Yaml`](prelude::Yaml) which borrows its data and includes [`Span`](prelude::Span) information.
+//! - [`SpanYam`](prelude::SpanYam): The version of [`Yaml`](prelude::Yaml) which borrows its data and includes [`Span`](prelude::Span) information.
 #![no_std]
 extern crate alloc;
 extern crate core;
@@ -44,7 +43,7 @@ pub mod prelude;
 pub mod serde;
 
 #[cfg(feature = "serde")]
-pub use serde::{from_str, to_pretty_string};
+pub use serde::{from_str, to_formatted_string};
 
 #[doc(hidden)]
 pub mod binary;

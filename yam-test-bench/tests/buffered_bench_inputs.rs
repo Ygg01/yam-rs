@@ -1,5 +1,5 @@
 use rstest::rstest;
-use yam_core::parsing::{BufBytesSource, Parser};
+use yam_core::parsing::{BufBytesSource, YamParser};
 
 const NESTED_YAML: &str = include_str!("../benches/nested.yaml");
 const BIG_TEXT: &str = include_str!("../benches/big_text.yaml");
@@ -7,8 +7,8 @@ const BIG_QUOTE_TEXT_YAML: &str = include_str!("../benches/big_quote_text.yaml")
 const SMALL_OBJECTS_YAML: &str = include_str!("../benches/small_objects.yaml");
 
 fn assert_same_events(input: &str) {
-    let expected: Vec<_> = Parser::new_from_str(input).collect();
-    let actual: Vec<_> = Parser::new(BufBytesSource::new(input)).collect();
+    let expected: Vec<_> = YamParser::new_from_str(input).collect();
+    let actual: Vec<_> = YamParser::new(BufBytesSource::new(input)).collect();
     assert!(
         expected.iter().all(Result::is_ok),
         "bench input must parse with StrSource"
@@ -37,7 +37,7 @@ fn lone_cr_is_line_break() {
     let input = "a: b\rc: d\r";
     assert_same_events(input);
     assert_eq!(
-        Parser::new_from_str(input).collect::<Vec<_>>(),
-        Parser::new_from_str("a: b\nc: d\n").collect::<Vec<_>>()
+        YamParser::new_from_str(input).collect::<Vec<_>>(),
+        YamParser::new_from_str("a: b\nc: d\n").collect::<Vec<_>>()
     );
 }

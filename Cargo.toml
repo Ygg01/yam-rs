@@ -5,6 +5,9 @@ members = [
     "yam-core",
     "yam-test-bench"
 ]
+default-members = [
+    "yam-core"
+]
 
 resolver = "3"
 

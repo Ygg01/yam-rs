@@ -356,8 +356,8 @@ where
 #[cfg(test)]
 mod tests {
     use crate::parsing::Source;
-    use crate::parsing::buffered_source::{BUF_MAX_LEN, BufBytesSource};
     use crate::parsing::scanner::SkipTabs;
+    use crate::parsing::source::byte_buf::{BUF_MAX_LEN, BufBytesSource};
     use alloc::vec::Vec;
 
     pub const BLOCK_MULTI_INPUT: &str = r"    word1

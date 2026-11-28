@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use std::hint::black_box;
 use std::time::Duration;
-use yam_core::parsing::{BufBytesSource, Parser};
+use yam_core::parsing::{BufBytesSource, YamParser};
 use yam_test_bench::{write_str_from_event, FormatOpts};
 
 const NESTED_YAML: &str = include_str!("nested.yaml");
@@ -30,21 +30,21 @@ fn bench_big_text(c: &mut Criterion) {
     group.bench_function("saphyr", |b| {
         b.iter(|| {
             buff.clear();
-            let mut parser = Parser::new_from_str(BIG_TEXT);
+            let mut parser = YamParser::new_from_str(BIG_TEXT);
             write_str_from_event(&mut buff, &mut parser, &FormatOpts::YamlFormat);
             assert!(!buff.is_empty());
         })
     });
     group.bench_function("parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new_from_str(BIG_TEXT) {
+            for ev in YamParser::new_from_str(BIG_TEXT) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufBytesSource::new(BIG_TEXT)) {
+            for ev in YamParser::new(BufBytesSource::new(BIG_TEXT)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
@@ -64,21 +64,21 @@ fn bench_nested(c: &mut Criterion) {
     group.bench_function("saphyr", |b| {
         b.iter(|| {
             buff.clear();
-            let mut parser = Parser::new_from_str(NESTED_YAML);
+            let mut parser = YamParser::new_from_str(NESTED_YAML);
             write_str_from_event(&mut buff, &mut parser, &FormatOpts::YamlFormat);
             assert!(!buff.is_empty());
         })
     });
     group.bench_function("parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new_from_str(NESTED_YAML) {
+            for ev in YamParser::new_from_str(NESTED_YAML) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufBytesSource::new(NESTED_YAML)) {
+            for ev in YamParser::new(BufBytesSource::new(NESTED_YAML)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
@@ -98,21 +98,21 @@ fn bench_small_object(c: &mut Criterion) {
     group.bench_function("saphyr", |b| {
         b.iter(|| {
             buff.clear();
-            let mut parser = Parser::new_from_str(SMALL_OBJECTS_YAML);
+            let mut parser = YamParser::new_from_str(SMALL_OBJECTS_YAML);
             write_str_from_event(&mut buff, &mut parser, &FormatOpts::YamlFormat);
             assert!(!buff.is_empty());
         })
     });
     group.bench_function("parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new_from_str(SMALL_OBJECTS_YAML) {
+            for ev in YamParser::new_from_str(SMALL_OBJECTS_YAML) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufBytesSource::new(SMALL_OBJECTS_YAML)) {
+            for ev in YamParser::new(BufBytesSource::new(SMALL_OBJECTS_YAML)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
@@ -132,21 +132,21 @@ fn bench_quoted(c: &mut Criterion) {
     group.bench_function("saphyr", |b| {
         b.iter(|| {
             buff.clear();
-            let mut parser = Parser::new_from_str(BIG_QUOTE_TEXT_YAML);
+            let mut parser = YamParser::new_from_str(BIG_QUOTE_TEXT_YAML);
             write_str_from_event(&mut buff, &mut parser, &FormatOpts::YamlFormat);
             assert!(!buff.is_empty());
         })
     });
     group.bench_function("parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new_from_str(BIG_QUOTE_TEXT_YAML) {
+            for ev in YamParser::new_from_str(BIG_QUOTE_TEXT_YAML) {
                 black_box(ev.expect("bench input must parse"));
             }
         })
     });
     group.bench_function("buffered-parse-only", |b| {
         b.iter(|| {
-            for ev in Parser::new(BufBytesSource::new(BIG_QUOTE_TEXT_YAML)) {
+            for ev in YamParser::new(BufBytesSource::new(BIG_QUOTE_TEXT_YAML)) {
                 black_box(ev.expect("bench input must parse"));
             }
         })

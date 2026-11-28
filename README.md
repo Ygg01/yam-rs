@@ -41,10 +41,10 @@ fn main() {
     let yaml_str = "{a: b, c: d}";
 
     if let Ok(yaml) = Yaml::load_single(yaml_str) {
-        let b = yaml["a"].as_str().unwrap_or_default();
-        let d = yaml["c"].as_str().unwrap_or_default();
-        assert_eq!(d, "d");
-        assert_eq!(b, "b");
+      let b = &yaml["a"];
+      let d = &yaml["c"];
+      assert_eq!(b, &"b");
+      assert_eq!(d, &"d");
     }
 }
 ```
@@ -56,8 +56,8 @@ Line `let yaml_str = "{a: b, c: d}";` creates a Yaml flow map with two entries a
 It's loaded using `Yaml::load_single` and parsed into a `Yaml` struct. `load_single` returns a `Result<Yaml, Error>` while a `load_from`
 returns a `Result<Vec<Yaml>, Error>` which is unnecessary for this example.
 
-To access the individual fields, `yaml["a"]` and `yaml["c"]` are used to get the `YamlData`. Since YamlData is an `enum`, the `as_str` part
-will return an `Option<&str>`, that needs to be dealt with (via `unwrap_or_default` because we don't care about the error case).
+To access the individual fields, `yaml["a"]` and `yaml["c"]` are used to get the `YamlData`. Since YamlData implements `PartialEq` you can
+compare it to value directly.`
 
 ## Emitter example
 
@@ -130,15 +130,16 @@ fn main() {
 Line `struct EventSink<'input>` is a struct that stores events it encountered. We went with borrowed events, although we could have
 extracted the events.
 
-Once we have an events sink we need to impleement an `EventReceiver` trait. We could also have used `SpannedEventReceiver` but we didn't
+Once we have an events sink we need to impleement an `EventReceiver` trait. We could also have used `SpanEventReceiver` but we didn't
 need span information.
 
 Much like in previous examples we take a Yaml string `{a: b, c: d}` and process it in `Parser::new_from_str(yaml_str)`.
 
-To get our events into the `EventSink` we have to call it via `parser.load(&mut sink, true)`. It returns a `Result` so for brevity sake, if
+To get our events into the `EventSink` we have to call it via `parser.load(&mut sink, true)`. It returns a `Result` so for brevity’s sake,
+if
 it's `Err` we just return. In a more robust application we could try to recover or do something else.
 
-Last but not least, in
+Finally in:
 
 ```rust
 for x in sink.events {

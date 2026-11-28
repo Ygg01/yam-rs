@@ -1,13 +1,11 @@
 //! Use `yam_core::prelude::*` to import common components and traits.
 pub use crate::emitter::YamlEmitter;
 pub use crate::node::YamlScalar;
-pub use crate::node::spanned_yaml::SpannedYaml;
+pub use crate::node::span_yam::SpanYam;
 pub use crate::node::yaml::Yaml;
 pub use crate::node::yaml_data::YamlData;
-pub use crate::parsing::BufBytesSource;
-pub use crate::parsing::InMemSource;
-pub use crate::parsing::Source;
-pub use crate::parsing::Tag;
+pub use crate::parsing::{InMemSource, Source, Tag};
+
 use alloc::borrow::Cow;
 use alloc::collections::{BTreeMap, LinkedList};
 use alloc::string::{String, ToString};
@@ -19,8 +17,12 @@ use core::str::Utf8Error;
 pub use loader::MappingLike;
 pub use loader::SequenceLike;
 pub use loader::YamLoader;
+#[cfg(feature = "serde")]
+pub use serde::YamlFormatter;
 
 mod loader;
+#[cfg(feature = "serde")]
+mod serde;
 
 /// Represents a marker within an input string for tracking position.
 ///
@@ -213,11 +215,11 @@ pub enum NodeType {
     /// Represents a node with a `null` value.
     Null,
     /// Represents a node that contains a string value.
-    String,
+    Text,
     /// Represents a node that contains a boolean value (`true` or `false`).
     Bool,
     /// Represents a node that contains a floating-point number.
-    Floating,
+    FloatingPoint,
     /// Represents a node that contains an integer value.
     Integer,
     /// Represents a node that acts as an alias or reference to another node.
@@ -243,47 +245,63 @@ pub enum YamlAccessError {
 ///  # Associated Types
 ///  - `Node`: A cloneable type that represents an individual node within the YAML document.
 ///
-///  # Methods
-///  ## Variant Checks
-///  - `is_bad_value(&self) -> bool`: Checks if the node represents an invalid value.
-///  - `is_null(&self) -> bool`: Checks if the node is a null value.
-///  - `is_string(&self) -> bool`: Checks if the node is a string.
-///  - `is_bool(&self) -> bool`: Checks if the node is a boolean.
-///  - `is_floating_point(&self) -> bool`: Checks if the node is a floating-point number.
-///  - `is_integer(&self) -> bool`: Checks if the node is an integer.
-///  - `is_alias(&self) -> bool`: Checks if the node is an alias.
-///  - `is_non_empty_collection(&self) -> bool`: Determines whether the node represents a non-empty collection.
-///  - `is_collection(&self) -> bool`: Determines whether the node represents a collection of either
-///    a mapping or a sequence. The default implementation checks `is_mapping()` or `is_sequence()`.
-///  - `is_mapping(&self) -> bool`: Determines whether the node represents a mapping.
-///  - `is_sequence(&self) -> bool`: Determines whether the node represents a sequence.
+/// # Methods
+/// ## Construction Methods
+/// These methods construct the Node for given input.
+/// - [`bad_value() -> Self`](YamlDocAccess::bad_value): Creates a node with bad value. If encountered it signals an error.
+///   It serializes into an empty value much like [`null()`]
+/// - [`null() -> Self`](YamlDocAccess::null): Creates a node with a missing value (i.e., null).
+/// - [`from_bool(bool) -> Self`](YamlDocAccess::from_bool): Creates a node based on a [`bool`] value.
+/// - [`from_char(bool) -> Self`](YamlDocAccess::from_char): Creates a node based on a [`char`] value. It serializes into a string.
+/// - [`from_string(String) -> Self`](YamlDocAccess::from_string): Creates a node based on a [`String`]-like value. Value will be copied into the Node.
+/// - [`from_str(&str) -> Self`](YamlDocAccess::from_str): Creates a node based on a [`str`] value. Value will be borrowed if possible. Useful for zero-copy parsing.
+/// - [`from_integer(impl Into<i64>) -> Self`](YamlDocAccess::from_integer): Creates a node based on a [`i64`]-like value.
+/// - [`from_float(impl Into<f64>) -> Self`](YamlDocAccess::from_float): Creates a node based on a [`f64`]-like value.
+/// - [`with_start(Marker) -> Self`](YamlDocAccess::with_start): Creates a node new node from [`Marker`] representing the start of a Node's span.
+/// - [`with_end(Marker) -> Self`](YamlDocAccess::with_start): Creates a node new node from [`Marker`] representing the end of a Node's  span.
+/// - [`with_span(Span) -> Self`](YamlDocAccess::with_start): Creates a node new node from [`Span`] representing the Node's span.
 ///
+///  ## Variant Checks
+///  - [`is_bad_value(&self) -> bool`](YamlDocAccess::is_bad_value): Checks if the node represents an invalid value.
+///  - [`is_null(&self) -> bool`](YamlDocAccess::is_null): Checks if the node is a null value.
+///  - [`is_string(&self) -> bool`](YamlDocAccess::is_string): Checks if the node is a string.
+///  - [`is_bool(&self) -> bool`](YamlDocAccess::is_bool): Checks if the node is a boolean.
+///  - [`is_floating_point(&self) -> bool`](YamlDocAccess::is_floating_point): Checks if the node is a floating-point number.
+///  - [`is_integer(&self) -> bool`](YamlDocAccess::is_integer): Checks if the node is an integer.
+///  - [`is_non_empty_collection(&self) -> bool`](YamlDocAccess::is_non_empty_collection): Determines whether the node represents a non-empty collection.
+///  - [`is_collection(&self) -> bool`](YamlDocAccess::is_collection): Determines whether the node represents a collection of either
+///    a mapping or a sequence. The default implementation checks `is_mapping()` or `is_sequence()`.
+///  - [`is_mapping(&self) -> bool`](YamlDocAccess::is_mapping): Determines whether the node represents a mapping.
+///  - [`is_sequence(&self) -> bool`](YamlDocAccess::is_sequence): Determines whether the node represents a sequence.
+///  - [`is_tagged(&self) -> bool`](YamlDocAccess::is_tagged): Determines whether the node represents has a tag.
+///  - [`is_binary_schema(&self) -> bool`](YamlDocAccess::is_binary_schema): Determines whether the node represents has a `!!binary` tag.
 ///  ## Accessor Methods
 ///  These methods include both immutable and mutable access patterns to the underlying data types:
-///  - `as_bool(&self) -> Option<bool>`: Retrieves the value as a boolean if applicable.
-///  - `as_bool_mut(&mut self) -> Option<&mut bool>`: Mutable access to the boolean value.
-///  - `as_i64(&self) -> Option<i64>`: Retrieves the value as a 64-bit integer if applicable.
-///  - `as_i64_mut(&mut self) -> Option<&mut i64>`: Mutable access to the integer value.
-///  - `as_f64(&self) -> Option<f64>`: Retrieves the value as a 64-bit floating-point number if applicable.
-///  - `as_f64_mut(&mut self) -> Option<&mut f64>`: Mutable access to the floating-point value.
-///  - `as_sequence(&self) -> Option<&NodeSequence<Self::Node>>`: Retrieves a reference to the value as a sequence if applicable.
-///  - `as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>>`: Mutable access to the sequence value.
-///  - `as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>>`: Retrieves a reference to the value as a mapping if applicable.
-///  - `as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>>`: Mutable access to the mapping value.
-///  - `as_str(&self) -> Option<&str>`: Retrieves the value as a string slice if applicable.
-///  - `as_str_mut(&mut self) -> Option<&mut str>`: Mutable access to the string value.
-///  - `get_tag(&self) -> Option<Tag>`: Retrieves the YAML tag associated with the node if applicable.
-///  - `get_type(&self) -> NodeType`: Returns a simplified [`NodeType`] of the given node.
+///  - [`as_bool(&self) -> Option<bool>`](YamlDocAccess::as_bool): Retrieves the value as a boolean if applicable.
+///  - [`as_bool_mut(&mut self) -> Option<&mut bool>`](YamlDocAccess::as_bool_mut): Mutable access to the boolean value.
+///  - [`as_i64(&self) -> Option<i64>`](YamlDocAccess::as_i64): Retrieves the value as a 64-bit integer if applicable.
+///  - [`as_i64_mut(&mut self) -> Option<&mut i64>`](YamlDocAccess::as_i64_mut): Mutable access to the integer value.
+///  - [`as_f64(&self) -> Option<f64>`](YamlDocAccess::as_f64): Retrieves the value as a 64-bit floating-point number if applicable.
+///  - [`as_f64_mut(&mut self) -> Option<&mut f64>`](YamlDocAccess::as_f64_mut): Mutable access to the floating-point value.
+///  - [`as_sequence(&self) -> Option<&NodeSequence<Self::Node>>`](YamlDocAccess::as_sequence): Retrieves a reference to the value as a sequence if applicable.
+///  - [`as_sequence_mut(&mut self) -> Option<&mut NodeSequence<Self::Node>>`](YamlDocAccess::as_sequence_mut): Mutable access to the sequence value.
+///  - [`as_mapping(&self) -> Option<&NodeMapping<'input, Self::Node>>`](YamlDocAccess::as_mapping): Retrieves a reference to the value as a mapping if applicable.
+///  - [`as_mapping_mut(&mut self) -> Option<&NodeMapping<'input, Self::Node>>`](YamlDocAccess::as_mapping_mut): Mutable access to the mapping value.
+///  - [`as_str(&self) -> Option<&str>`](YamlDocAccess::as_str): Retrieves the value as a string slice if applicable.
+///  - [`as_str_mut(&mut self) -> Option<&mut str>`](YamlDocAccess::as_str_mut): Mutable access to the string value.
+///  - [`get_tag(&self) -> Option<Tag>`](YamlDocAccess::get_tag): Retrieves the YAML tag associated with the node if applicable.
+///  - [`get_type(&self) -> NodeType`](YamlDocAccess::get_type): Returns a simplified [`NodeType`] of the given node.
 ///
 ///  ## Conversion Methods
 ///  These methods consume the node and attempt to convert it into specific types:
-///  - `into_bool(self) -> Option<bool>`: Converts the node into a boolean if possible.
-///  - `into_string(self) -> Option<String>`: Converts the node into a `String` if possible.
-///  - `into_cow(self) -> Option<Cow<'input, str>>`: Converts the node into a `Cow` string if possible.
-///  - `into_f64(self) -> Option<f64>`: Converts the node into a floating-point value if possible.
-///  - `into_i64(self) -> Option<i64>`: Converts the node into an integer value if possible.
-///  - `into_mapping(self) -> Option<NodeMapping<'input, Self::Node>>`: Converts the node into a mapping if possible.
-///  - `into_sequence(self) -> Option<NodeSequence<Self::Node>>`: Converts the node into a sequence if possible.
+///  - [`into_bool(self) -> Option<bool>`](YamlDocAccess::into_bool): Converts the node into a boolean if possible.
+///  - [`into_string(self) -> Option<String>`](YamlDocAccess::into_string): Converts the node into a `String` if possible.
+///  - [`into_cow(self) -> Option<Cow<'input, str>>`](YamlDocAccess::into_cow): Converts the node into a `Cow` string if possible.
+///  - [`into_f64(self) -> Option<f64>`](YamlDocAccess::into_f64): Converts the node into a floating-point value if possible.
+///  - [`into_i64(self) -> Option<i64>`](YamlDocAccess::into_f64): Converts the node into an integer value if possible.
+///  - [`into_mapping(self) -> Option<NodeMapping<'input, Self::Node>>`](YamlDocAccess::into_mapping): Converts the node into a mapping if possible.
+///  - [`into_sequence(self) -> Option<NodeSequence<Self::Node>>`](YamlDocAccess::into_sequence): Converts the node into a sequence if possible.
+///  - [`take(&mut self) -> Self`](YamlDocAccess::take): Gets the node out and replaces it with a default value.
 pub trait YamlDocAccess<'input>: Clone {
     /// Type of node used in Sequence or Mapping
     type OutNode: Clone;
@@ -293,10 +311,6 @@ pub trait YamlDocAccess<'input>: Clone {
     type MappingNode;
 
     /// Determines whether the current node is a bad value.
-    ///
-    /// # Returns
-    /// * `true` - if the value meets the criteria for being "bad".
-    /// * `false` - if the value does not meet the criteria for being "bad".
     ///
     /// # Example
     /// ```
@@ -309,15 +323,7 @@ pub trait YamlDocAccess<'input>: Clone {
         matches!(self.get_type(), NodeType::Bad)
     }
 
-    fn key_from_usize(index: usize) -> Self;
-
-    fn key_from_str(index: &str) -> Self;
-
     /// Determines whether the current node is a null value.
-    ///
-    /// # Returns
-    /// * `true` - if the value current node is null.
-    /// * `false` - otherwise.
     ///
     /// # Example
     /// ```
@@ -332,14 +338,6 @@ pub trait YamlDocAccess<'input>: Clone {
 
     /// Determines whether the current node is a string.
     ///
-    /// # Returns
-    /// * `true` - if the value is a string.
-    /// * `false` - otherwise.
-    ///
-    /// # Note
-    /// The specific definition of a "bad" value should be implemented
-    /// in the context of the struct or enum that provides this method.
-    ///
     /// # Example
     /// ```
     /// use std::borrow::Cow;
@@ -349,14 +347,10 @@ pub trait YamlDocAccess<'input>: Clone {
     /// assert!(str.is_string());
     ///```
     fn is_string(&self) -> bool {
-        matches!(self.get_type(), NodeType::String)
+        matches!(self.get_type(), NodeType::Text)
     }
 
     /// Determines whether the current node is a boolean value.
-    ///
-    /// # Returns
-    /// * `true` - if the node contains a boolean value.
-    /// * `false` - otherwise.
     ///
     /// # Example
     /// ```
@@ -370,10 +364,6 @@ pub trait YamlDocAccess<'input>: Clone {
     }
     /// Determines whether the current node is a floating point value.
     ///
-    /// # Returns
-    /// * `true` - if the node contains a floating point value.
-    /// * `false` - otherwise.
-    ///
     /// # Example
     /// ```
     /// use yam_core::prelude::{Yaml, YamlDocAccess};
@@ -382,13 +372,9 @@ pub trait YamlDocAccess<'input>: Clone {
     /// assert!(fp.is_floating_point());
     ///```
     fn is_floating_point(&self) -> bool {
-        matches!(self.get_type(), NodeType::Floating)
+        matches!(self.get_type(), NodeType::FloatingPoint)
     }
     /// Determines whether the current node is an integer point value.
-    ///
-    /// # Returns
-    /// * `true` - if the node contains an integer point value.
-    /// * `false` - otherwise.
     ///
     /// # Example
     /// ```
@@ -401,11 +387,8 @@ pub trait YamlDocAccess<'input>: Clone {
         matches!(self.get_type(), NodeType::Integer)
     }
 
+    #[doc(hidden)]
     /// Determines whether the current node is an alias
-    ///
-    /// # Returns
-    /// * `true` - if the node is an alias.
-    /// * `false` - otherwise.
     ///
     /// # Example
     /// ```
@@ -421,34 +404,17 @@ pub trait YamlDocAccess<'input>: Clone {
     /// Checks if the collection is non-empty.
     ///
     /// This method determines whether the collection contains
-    /// at least one element.
-    ///
-    /// # Returns
-    /// * `true` if the collection has one or more elements.
-    /// * `false` otherwise
-    ///
+    /// at least one element. It will return false if the node is not a collection or an empty
+    /// collection.
     fn is_non_empty_collection(&self) -> bool;
 
-    ///
-    /// Checks if the collection is a mapping or a sequence.
-    ///
-    /// This method determines whether the value is a collection
-    ///
-    /// # Returns
-    /// * `true` if the collection is a mapping or a sequence.
-    /// * `false` otherwise
-    ///
+    /// Checks if the node is a collection (i.e. a mapping or a sequence).
     fn is_collection(&self) -> bool {
         matches!(self.get_type(), NodeType::Sequence | NodeType::Mapping)
     }
 
     ///
     /// Determines if the implementing object represents a mapping.
-    ///
-    /// # Returns
-    ///
-    /// * `true` if the object is considered a mapping.
-    /// * `false` otherwise.
     ///
     /// # Example
     ///
@@ -458,21 +424,13 @@ pub trait YamlDocAccess<'input>: Clone {
     /// let example = Yaml::from(true);
     /// assert!(!example.is_mapping());
     /// ```
-    ///
-    /// This method can be used to verify whether an object follows a mapping
-    /// structure or behavior based on its implementation.
-    ///
     fn is_mapping(&self) -> bool {
         matches!(self.get_type(), NodeType::Mapping)
     }
 
     ///
     /// Determines if the implementing object represents a sequence.
-    ///
-    /// # Returns
-    ///
-    /// * `true` if the object is considered a sequence.
-    /// * `false` otherwise.
+    /// Returning `true` if it's a sequence, and `false` otherwise.
     ///
     /// # Example
     ///
@@ -484,22 +442,43 @@ pub trait YamlDocAccess<'input>: Clone {
     /// ]));
     /// assert!(example.is_sequence());
     /// ```
-    ///
-    /// This method can be used to verify whether an object follows a sequential
-    /// structure or behavior based on its implementation.
-    ///
     fn is_sequence(&self) -> bool {
         matches!(self.get_type(), NodeType::Sequence)
     }
 
+    /// Determines if the implementing object is a tagged node.
+    /// Returning `true` if node has a tag, and `false` otherwise.
+    ///
+    /// # Example
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use yam_core::prelude::{Yaml, YamlDocAccess ,Tag, YamlData};
+    ///
+    /// let yaml : Yaml = Yaml(YamlData::Tagged(Cow::Owned(Tag::new("test", "???")), Box::new(Yaml::from_bool(true))));
+    /// assert!(yaml.is_tagged());
+    /// ```
+    fn is_tagged(&self) -> bool;
+
+    /// Determines if the implementing object is a `binary schema` node.
+    /// Returning `true` if node has a binary schema tag, and `false` otherwise.
+    /// # Example
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use yam_core::prelude::{Yaml, YamlDocAccess ,Tag, YamlData};
+    ///
+    /// let yaml : Yaml = Yaml(
+    ///     YamlData::Tagged(
+    ///         Cow::Owned(Tag::binary_schema()),
+    ///         Box::new(Yaml::from_str("atarst")),
+    ///     )
+    /// );
+    /// assert!(yaml.is_binary_schema());
+    /// ```
+    fn is_binary_schema(&self) -> bool {
+        matches!(self.get_tag(), Some(x) if x.is_binary_schema())
+    }
+
     /// Attempts to interpret the current instance as a boolean value.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(true)` if the instance can be interpreted as a `true` value.
-    /// - `Some(false)` if the instance can be interpreted as a `false` value.
-    /// - `None` if the instance cannot be reasonably interpreted as a boolean.
-    ///
     fn as_bool(&self) -> Option<bool>;
 
     /// Provides a mutable reference to the inner boolean value if the type supports it.
@@ -507,19 +486,9 @@ pub trait YamlDocAccess<'input>: Clone {
     /// This method attempts to convert the current instance into a mutable reference
     /// to a boolean (`bool`) if the type allows such a conversion. If the conversion
     /// is not possible, it returns `None`.
-    ///
-    /// # Returns
-    /// - `Some(&mut bool)` if the type contains a mutable boolean value.
-    /// - `None` if the conversion to a mutable boolean reference is not applicable.
-    ///
     fn as_bool_mut(&mut self) -> Option<&mut bool>;
 
     /// Converts the value of the implementing type to an `i64`, if possible.
-    ///
-    /// # Returns
-    /// - `Some(i64)` if the conversion is successful.
-    /// - `None` if the conversion cannot be performed or if the value
-    ///   cannot be represented as an `i64`.
     fn as_i64(&self) -> Option<i64>;
 
     /// Provides a mutable reference to the inner `i64` value if the type supports it.
@@ -527,19 +496,10 @@ pub trait YamlDocAccess<'input>: Clone {
     /// This method attempts to convert the current instance into a mutable reference
     /// to an i64 if the type allows such a conversion. If the conversion
     /// is not possible, it returns `None`.
-    ///
-    /// # Returns
-    /// - `Some(&mut i64)` if the type contains a mutable boolean value.
-    /// - `None` if the conversion to a mutable boolean reference is not applicable.
-    ///
     fn as_i64_mut(&mut self) -> Option<&mut i64>;
 
-    /// Converts the value of the implementing type to a `f64`, if possible.
-    ///
-    /// # Returns
-    /// - `Some(f64)` if the conversion is successful.
-    /// - `None` if the conversion cannot be performed or if the value
-    ///   cannot be represented as an `f64`.
+    /// Converts the value of the implementing type to a `f64`, if possible. Otherwise, returns
+    /// `None`.
     fn as_f64(&self) -> Option<f64>;
 
     /// Provides a mutable reference to the inner `f64` value if the type supports it.
@@ -547,11 +507,6 @@ pub trait YamlDocAccess<'input>: Clone {
     /// This method attempts to convert the current instance into a mutable reference
     /// to an `f64 ` if the type allows such a conversion. If the conversion
     /// is not possible, it returns `None`.
-    ///
-    /// # Returns
-    /// - `Some(&mut f64)` if the type contains a mutable boolean value.
-    /// - `None` if the conversion to a mutable boolean reference is not applicable.
-    ///
     fn as_f64_mut(&mut self) -> Option<&mut f64>;
 
     /// Returns an optional reference to the sequence of nodes (`NodeSequence`).
@@ -559,10 +514,6 @@ pub trait YamlDocAccess<'input>: Clone {
     /// This method provides a way to access the underlying sequence of nodes if it exists,
     /// for the current instance. If the instance does not contain a sequence of nodes,
     /// `None` is returned.
-    ///
-    /// # Returns
-    /// * `Result<&Self::SequenceNode, YamlAccessError>` -
-    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Sequence`.
     ///
     /// # Errors
     /// If calling `as_sequence` on a non-mapping node.
@@ -574,9 +525,6 @@ pub trait YamlDocAccess<'input>: Clone {
     /// for the current instance. If the instance does not contain a sequence of nodes,
     /// `None` is returned.
     ///
-    /// # Returns
-    /// * `Result<&mut Self::SequenceNode, YamlAccessError>` -
-    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Sequence`.
     /// # Errors
     /// If calling `as_sequence_mut` on a non-sequence node.
     fn as_sequence_mut(&mut self) -> Result<&mut Self::SequenceNode, YamlAccessError>;
@@ -586,10 +534,6 @@ pub trait YamlDocAccess<'input>: Clone {
     /// This method provides a way to access the underlying mapping of nodes if it exists,
     /// for the current instance. If the instance does not contain a sequence of nodes,
     /// `None` is returned.
-    ///
-    /// # Returns
-    /// * `Result<&Self::MappingNode, YamlAccessError>` -
-    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Mapping`.
     ///
     /// # Errors
     /// If calling `as_mapping` on a non-mapping node.
@@ -601,122 +545,42 @@ pub trait YamlDocAccess<'input>: Clone {
     /// for the current instance. If the instance does not contain a sequence of nodes,
     /// `None` is returned.
     ///
-    /// # Returns
-    /// * `Result<&mut Self::MappingNode, YamlAccessError>` -
-    ///   A reference to the node sequence wrapped in `Ok` if the underlying node is `Mapping`.
-    ///
     /// # Errors
     /// If calling `as_mapping_mut` on a non-mapping node.
     fn as_mapping_mut(&mut self) -> Result<&mut Self::MappingNode, YamlAccessError>;
 
     /// Converts the current instance into an `Option` containing a string slice (`&str`).
-    ///
-    /// # Returns
-    ///
-    /// - `Some(&str)` if the underlying node is string
-    /// - `None` otherwise.
     fn as_str(&self) -> Option<&str>;
 
     /// Returns a mutable reference `Option` containing an underlying string slice (`&str`).
-    ///
-    /// # Returns
-    ///
-    /// - `Some(&mut str)` if the underlying node is string
-    /// - `None` otherwise.
-    ///
     fn as_str_mut(&mut self) -> Option<&mut str>;
 
     /// Provides mutable access to the sequence within the implementing type.
     ///
-    /// This method allows for getting a mutable reference to a `Vec` associated with
-    /// the implementing type. This enables modification of the underlying vector, such
-    /// as adding, removing, or altering elements.
-    ///
-    /// # Panics
-    /// If called on a node that isn't a mapping.
-    ///
-    /// # Returns
-    /// A mutable reference to a `Vec` of the type implementing this method.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use yam_core::prelude::{Yaml, YamlDocAccess};
-    ///
-    /// let mut instance = Yaml::load_single("[1, 2]").unwrap();
-    /// let sequence = instance.sequence_mut();
-    /// sequence.push(Yaml::from(3));
-    /// ```
-    fn sequence_mut(&mut self) -> &mut Self::SequenceNode;
+    /// # Safety
+    /// Calling this on a non-sequence node is undefined-behavior.
+    unsafe fn sequence_mut(&mut self) -> &mut Self::SequenceNode;
 
-    /// Provides access to the sequence within the implementing type.
+    #[doc(hidden)]
+    /// Provides unsafe access to the sequence without checking the node.
     ///
-    /// This method allows for getting a mutable reference to a `Vec` associated with
-    /// the implementing type. This enables access of the underlying vector, but not modification.
-    ///
-    /// # Panics
-    /// If called on a node that isn't a mapping.
-    ///
-    /// # Returns
-    /// A reference to a `Vec` of the type implementing this method.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use yam_core::prelude::{Yaml, YamlData, YamlDocAccess};
-    ///
-    /// let mut instance = Yaml(YamlData::Sequence(vec![Yaml::from(true)]));
-    /// let sequence = instance.sequence();
-    /// ```
-    fn sequence(&self) -> &Self::SequenceNode;
+    /// # Safety
+    /// Calling this on a non-sequence node is undefined-behavior.
+    unsafe fn sequence(&self) -> &Self::SequenceNode;
 
-    /// Provides mutable access to the mapping within the implementing type.
+    #[doc(hidden)]
+    /// Provides unsafe mutable access to the mapping without checking the node.
     ///
-    /// This method allows for getting a mutable reference to a `Vec` of `YamlEntry` associated with
-    /// the implementing type. This enables modification of the underlying vector, such
-    /// as adding, removing, or altering elements.
-    ///
-    /// # Returns
-    /// A mutable reference to a `Vec` of the type implementing this method.
-    ///
-    /// # Panics
-    /// If called on a node that isn't a mapping.
-    ///
-    /// # Examples
-    /// ```rust
-    ///
-    /// use std::borrow::Cow;
-    /// use yam_core::prelude::{Yaml, YamlEntry, YamlDocAccess, YamlData};
-    ///
-    /// let entry1 = YamlEntry::new("key".into(), "value".into());
-    /// let entry2 = YamlEntry::new("another_key".into(), "value2".into());
-    /// let mut instance = Yaml(YamlData::Mapping(vec![entry1]));
-    /// let sequence = instance.mapping_mut();
-    /// sequence.push(entry2);
-    /// ```
-    fn mapping_mut(&mut self) -> &mut Self::MappingNode;
+    /// # Safety
+    /// Calling this on a non-mapping node is undefined-behavior.
+    unsafe fn mapping_mut(&mut self) -> &mut Self::MappingNode;
 
-    /// Provides access to the mapping within the implementing type.
+    #[doc(hidden)]
+    /// Provides unsafe access to the mapping without checking the node.
     ///
-    /// This method allows for getting a reference to a `Vec` of `YamlEntry` associated with
-    /// the implementing type. This enables modification of the underlying vector, such
-    /// as adding, removing, or altering elements.
-    ///
-    /// # Returns
-    /// A reference to a `Vec` of the type implementing this method.
-    ///
-    /// # Panics
-    /// If called on a node that isn't a mapping.
-    ///
-    /// # Examples
-    /// ```rust
-    ///
-    /// use std::borrow::Cow;
-    /// use yam_core::prelude::{Yaml, YamlEntry, YamlDocAccess, YamlData};
-    ///
-    /// let entry1 = YamlEntry::new("key".into(), "value".into());
-    /// let mut instance = Yaml(YamlData::Mapping(vec![entry1]));
-    /// let sequence = instance.mapping();
-    /// ```
-    fn mapping(&self) -> &Self::MappingNode;
+    /// # Safety
+    /// Calling this on a non-mapping node is undefined-behavior.
+    unsafe fn mapping(&self) -> &Self::MappingNode;
 
     /// Retrieves the `Tag` associated with the current instance, if it exists.
     ///
@@ -735,9 +599,6 @@ pub trait YamlDocAccess<'input>: Clone {
     /// The `NodeType` can represent different kinds of nodes, allowing
     /// consumers of this method to determine the specific type or purpose
     /// of the node.
-    ///
-    /// # Returns
-    /// * `NodeType` - An enum value representing the type of the node.
     ///
     /// # Example
     /// ```rust
@@ -769,12 +630,16 @@ pub trait YamlDocAccess<'input>: Clone {
     ///
     fn into_string(self) -> Option<String>;
 
-    /// Converts the value of the implementing type into an `Option<f64>`.
+    /// Converts the value of the type implementing this method into an `Option<String>`.
     ///
     /// # Returns
-    /// - `Some(f64)` if the conversion is successful.
-    /// - `None` if the conversion cannot be performed.
+    /// - `Some(String)` if the conversion is successful,
+    ///   depending on the implementation.
+    /// - `None` if the conversion is not possible or represents an invalid state.
     ///
+    fn into_cow(self) -> Option<Cow<'input, str>>;
+
+    /// Converts the value of the implementing type into an `Option<f64>`.
     ///
     /// This function is particularly useful when working with types that may need
     /// to be represented as `f64` for numerical computations or interoperability.
@@ -784,11 +649,6 @@ pub trait YamlDocAccess<'input>: Clone {
     }
 
     /// Converts the value of the implementing type into an `Option<i64>`.
-    ///
-    /// # Returns
-    /// - `Some(i64)` if the conversion is successful.
-    /// - `None` if the conversion cannot be performed.
-    ///
     ///
     /// This function is particularly useful when working with types that may need
     /// to be represented as `f64` for numerical computations or interoperability.
@@ -802,10 +662,6 @@ pub trait YamlDocAccess<'input>: Clone {
     ///  This function attempts to transform the current object into a `NodeMapping` type,
     ///  which is a specific representation of node data used within the system. If the
     ///  conversion is not possible, the function will return `None`.
-    ///
-    ///  # Returns
-    ///  - `Some(NodeMapping<'input, Self::Node>)` if the conversion was successful.
-    ///  - `None` if the conversion could not be performed.
     ///
     ///  # Usage
     ///   This function is typically invoked on types that implement the necessary
@@ -821,10 +677,6 @@ pub trait YamlDocAccess<'input>: Clone {
     ///  This function attempts to transform the current object into a `NodeSequence` type,
     ///  which is a specific representation of node data used within the system. If the
     ///  conversion is not possible, the function will return `None`.
-    ///
-    ///  # Returns
-    ///  - `Some(NodeSequence<Self::Node>)` if the conversion was successful.
-    ///  - `None` if the conversion could not be performed.
     ///
     ///  # Usage
     ///   This function is typically invoked on types that implement the necessary
@@ -844,12 +696,6 @@ pub trait YamlDocAccess<'input>: Clone {
     /// the new tagged instance. The tagged instance retains all the original
     /// properties along with the added tag.
     ///
-    /// # Parameters
-    /// - `tag`: A `Cow<'input, Tag>` (copy-on-write smart pointer) representing
-    ///   the tag that will be associated with the instance.
-    ///
-    /// # Returns
-    /// The new instance with the provided `tag` attached.
     ///
     /// # Attributes
     /// - `#[must_use]`: This function is annotated with `#[must_use]`, meaning the
@@ -857,60 +703,6 @@ pub trait YamlDocAccess<'input>: Clone {
     ///   will result in a compiler warning.
     #[must_use]
     fn into_tagged(self, tag: Cow<'input, Tag>) -> Self;
-
-    ///
-    /// Constructs an instance of `Self` using a bad or default value.
-    ///
-    /// # Attributes
-    /// - `#[must_use]`: Caller must use this return value or the warning will be emitted.
-    ///
-    /// # Parameters
-    /// - `_span: Span`: A `Span` parameter that gives the bad element _span.
-    ///
-    /// # Returns
-    /// An instance of `Self` created using the `Self::bad_value()` method,
-    /// which represents a bad or default value.
-    ///
-    /// # Note
-    /// Since the provided parameter `_: Span` is unused, this function might
-    /// not utilize it for any meaningful computation.
-    #[must_use]
-    fn bad_span_value(_span: Span) -> Self;
-
-    ///
-    /// This method represents a constructor or initializer for creating an instance of `Self`
-    /// that represents a "bad" or invalid value.
-    ///
-    /// # Returns
-    /// An instance of `Self` that is considered to have a problematic, invalid, or undesirable state.
-    /// This method could be used as a placeholder, for testing, or to handle specific error conditions.
-    ///
-    /// # Note
-    /// The specific meaning of "bad" or "invalid" depends on the implementation
-    /// within the type that provides this method.
-    ///
-    #[must_use]
-    #[inline]
-    fn bad_value() -> Self {
-        Self::bad_span_value(Span::default())
-    }
-
-    /// Creates a new instance of the type with a "null" value.
-    ///
-    /// This function is typically used to initialize the type to an
-    /// empty or invalid state, depending on the specific implementation.
-    ///
-    /// # Returns
-    /// A new instance of the type in its "null" state.
-    ///
-    /// # Example
-    /// ```rust
-    /// use yam_core::prelude::{Yaml, YamlDocAccess};
-    ///
-    /// let value : Yaml = Yaml::null();
-    /// assert!(value.is_null())
-    /// ```
-    fn null() -> Self;
 
     ///
     /// Consumes the current value, leaving the object in an uninitialized or default state,
@@ -939,6 +731,129 @@ pub trait YamlDocAccess<'input>: Clone {
     fn take(&mut self) -> Self {
         core::mem::replace(self, Self::bad_value())
     }
+
+    ///
+    /// Constructs an instance of `Self` using a bad or default value.
+    ///
+    /// # Attributes
+    /// - `#[must_use]`: Caller must use this return value or the warning will be emitted.
+    ///
+    /// # Parameters
+    /// - `_span: Span`: A `Span` parameter that gives the bad element _span.
+    ///
+    /// # Returns
+    /// An instance of `Self` created using the `Self::bad_value()` method,
+    /// which represents a bad or default value.
+    ///
+    /// # Note
+    /// Since the provided parameter `_: Span` is unused, this function might
+    /// not utilize it for any meaningful computation.
+    #[must_use]
+    fn bad_span_value(_span: Span) -> Self;
+
+    ///
+    /// This method represents a constructor or initializer for creating an instance of `Self`
+    /// that represents a "bad" or invalid value.
+    ///
+    /// # Attributes
+    /// - `#[must_use]`: Caller must use this return value or the warning will be emitted.
+    ///
+    /// # Note
+    /// The specific meaning of "bad" or "invalid" depends on the implementation
+    /// within the type that provides this method.
+    ///
+    #[must_use]
+    #[inline]
+    fn bad_value() -> Self {
+        Self::bad_span_value(Span::default())
+    }
+
+    /// Creates a new instance of the type with a "null" value.
+    ///
+    /// This function is typically used to indicate an empty value.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::null();
+    /// assert!(value.is_null())
+    /// ```
+    fn null() -> Self;
+
+    #[must_use]
+    /// Creates a new instance of the type from a `bool` value.
+    ///
+    /// This function is typically used to initialize the type to bool scalar.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_bool(true);
+    /// assert!(value.is_bool())
+    /// ```
+    fn from_bool(b: bool) -> Self;
+
+    #[must_use]
+    /// Creates a new string scalar from a char value.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_char('b');
+    /// assert!(value.is_string())
+    /// ```
+    fn from_char(chr: char) -> Self;
+
+    #[must_use]
+    /// Creates a new instance of the type from a char value.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_string("32".to_string());
+    /// assert!(value.is_string())
+    /// ```
+    fn from_string(input: impl Into<String>) -> Self;
+
+    #[must_use]
+    /// Creates a new string scalar from a slice.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_str("32");
+    /// assert!(value.is_string())
+    /// ```
+    fn from_str(input: &'input str) -> Self;
+
+    #[must_use]
+    /// Creates a new instance of the type from a float value.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_str("32");
+    /// assert!(value.is_string())
+    /// ```
+    fn from_float(input: impl Into<f64>) -> Self;
+
+    #[must_use]
+    /// Creates a new integer scalar from a value convertible into `i64`.
+    ///
+    /// # Example
+    /// ```rust
+    /// use yam_core::prelude::{Yaml, YamlDocAccess};
+    ///
+    /// let value : Yaml = Yaml::from_integer(32);
+    /// assert!(value.is_integer())
+    /// ```
+    fn from_integer(input: impl Into<i64>) -> Self;
 
     ///
     /// Sets the starting marker for the current instance.
@@ -1108,15 +1023,17 @@ pub trait IsEmpty: Clone {
     fn is_collection_empty(&self) -> bool;
 }
 
-pub trait ToMutStr {
+pub trait ToMutStr<'a> {
     fn as_mut_str(&mut self) -> &mut str;
-
     fn as_str(&self) -> &str;
+    fn from_string(input: impl Into<String>) -> Self;
+    fn from_str(input: &'a str) -> Self;
+    fn into_string(self) -> String;
 
-    fn from_str(input: &str) -> Self;
+    fn into_cow(self) -> Cow<'a, str>;
 }
 
-impl ToMutStr for Cow<'_, str> {
+impl<'a> ToMutStr<'a> for Cow<'a, str> {
     fn as_mut_str(&mut self) -> &mut str {
         self.to_mut()
     }
@@ -1125,12 +1042,24 @@ impl ToMutStr for Cow<'_, str> {
         self.as_ref()
     }
 
-    fn from_str(input: &str) -> Self {
-        Cow::Owned(input.to_string())
+    fn from_string(input: impl Into<String>) -> Self {
+        Cow::Owned(input.into())
+    }
+
+    fn from_str(input: &'a str) -> Self {
+        Cow::Borrowed(input)
+    }
+
+    fn into_string(self) -> String {
+        Cow::into_owned(self)
+    }
+
+    fn into_cow(self) -> Cow<'a, str> {
+        self
     }
 }
 
-impl ToMutStr for String {
+impl ToMutStr<'static> for String {
     fn as_mut_str(&mut self) -> &mut str {
         self
     }
@@ -1139,8 +1068,20 @@ impl ToMutStr for String {
         self
     }
 
-    fn from_str(input: &str) -> Self {
+    fn from_string(input: impl Into<String>) -> Self {
+        input.into()
+    }
+
+    fn from_str(input: &'static str) -> Self {
         String::from(input)
+    }
+
+    fn into_string(self) -> String {
+        self
+    }
+
+    fn into_cow(self) -> Cow<'static, str> {
+        Cow::Owned(self)
     }
 }
 
@@ -1178,49 +1119,40 @@ where
 {
     fn as_mut_val(&mut self) -> &mut T;
     fn as_owned(&self) -> T;
+
+    fn into_owned(input: T) -> Self;
 }
 
-/// This macro, `to_mut_impl`, generates an implementation of the `ToMut` trait for a specific type.
-///
-/// # Parameters
-/// - `$x:ty`: The type for which the `ToMut` trait should be implemented.
-///
-/// # Trait: `ToMut`
-/// The `ToMut` trait is expected to have the following methods:
-/// - `as_mut_val(&mut self) -> &mut $x`: Returns a mutable reference to the type.
-/// - `as_owned(&self) -> $x`: Returns an owned value of the type.
-///
-/// # Generated Implementation
-/// For the type `$x`, this macro generates:
-/// - `impl ToMut<$x> for $x`: Implements the `ToMut` trait directly for the type `$x`.
-/// - `fn as_mut_val(&mut self) -> &mut $x`: Simply returns a mutable reference to itself (`self`).
-/// - `fn as_owned(&self) -> $x`: Returns an owned copy of the value by dereferencing `self`.
-///
-///
-/// # Notes
-/// - This macro assumes that `$x` implements the `Copy` trait because the implementation of
-///   `as_owned` dereferences `self`, which requires `Copy`.
-/// - The macro includes inline attribute hints (`#[inline]`) for performance optimization.
-macro_rules! to_mut_impl {
-    ($x:ty) => {
-        impl ToMut<$x> for $x {
-            #[inline]
-            fn as_mut_val(&mut self) -> &mut $x {
-                self
-            }
+impl ToMut<i64> for i64 {
+    #[inline]
+    fn as_mut_val(&mut self) -> &mut i64 {
+        self
+    }
 
-            #[inline]
-            fn as_owned(&self) -> $x {
-                *self
-            }
-        }
-    };
+    #[inline]
+    fn as_owned(&self) -> i64 {
+        *self
+    }
+
+    #[inline]
+    fn into_owned(input: i64) -> Self {
+        input
+    }
 }
 
-to_mut_impl!(i8);
-to_mut_impl!(i16);
-to_mut_impl!(i32);
-to_mut_impl!(i64);
-to_mut_impl!(i128);
-to_mut_impl!(f32);
-to_mut_impl!(f64);
+impl ToMut<f64> for f64 {
+    #[inline]
+    fn as_mut_val(&mut self) -> &mut f64 {
+        self
+    }
+
+    #[inline]
+    fn as_owned(&self) -> f64 {
+        *self
+    }
+
+    #[inline]
+    fn into_owned(input: f64) -> Self {
+        input
+    }
+}

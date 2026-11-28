@@ -358,9 +358,9 @@ fn escape_str<W: Write>(wr: &mut YamlWriter<W>, v: &str) -> EmitResult {
 #[allow(dead_code)]
 impl<'a, W, FP, INT, STR> YamlEmitter<'a, W, FP, INT, STR>
 where
-    FP: Copy + ToMut<f64> + Into<f64>,
-    INT: Copy + From<i64> + ToMut<i64> + PartialEq,
-    STR: Clone + ToMutStr,
+    FP: Copy + ToMut<f64> + PartialEq,
+    INT: Copy + ToMut<i64> + PartialEq,
+    STR: Clone + ToMutStr<'a> + PartialEq,
     W: Write,
 {
     /// Create a new emitter serializing into `writer`.
@@ -387,8 +387,6 @@ where
     /// In this form, blocks cannot have any properties (such as anchors
     /// or tags), which should be OK, because this emitter doesn't
     /// (currently) emit those anyways.
-    ///
-    /// TODO(ethiraric, 2024/04/02): We can support those now.
     pub fn compact(&mut self, compact: bool) {
         self.compact = compact;
     }

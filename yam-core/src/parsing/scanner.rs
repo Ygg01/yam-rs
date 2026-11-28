@@ -79,14 +79,17 @@ enum ImplicitMappingState {
     /// This state is the one when we have just encountered the opening `[`. We need more context
     /// to know whether an implicit mapping follows.
     Possible,
-    /// We are inside the implcit mapping.
+    /// We are inside the implicit mapping.
     ///
     /// Note that this state is not set immediately (we need to have encountered the `:` to know).
     Inside,
 }
 
+/// Scanner used by [`YamParser`]
+///
+/// It provides common functionality over the input source.
 #[allow(clippy::struct_excessive_bools)] // TODO maybe too much bools?
-pub struct Scanner<'input, S> {
+pub struct YamScanner<'input, S> {
     src: S,
     pub(crate) mark: Marker,
     tokens: VecDeque<Token<'input>>,
@@ -113,9 +116,9 @@ pub struct Scanner<'input, S> {
     buf_whitespaces: Vec<u8>,
 }
 
-impl<'input, S: Source> Scanner<'input, S> {
-    pub fn new(src: S) -> Scanner<'input, S> {
-        Scanner {
+impl<'input, S: Source> YamScanner<'input, S> {
+    pub fn new(src: S) -> YamScanner<'input, S> {
+        YamScanner {
             src,
             mark: Marker {
                 pos: 0,
@@ -302,7 +305,7 @@ impl<'input, S: Source> Scanner<'input, S> {
 
     fn fetch_stream_end(&mut self) -> ScanResult {
         // If the stream ended, we won't have more context. We can stall all the simple keys we
-        // had. If one was required, however, that was an error and we must propagate it.
+        // had. If one was required, however, that was an error, and we must propagate it.
         for sk in &mut self.simple_keys {
             if sk.required && sk.possible {
                 return Err(YamlError::new_str(self.mark, "simple key expected"));
@@ -724,7 +727,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     fn fetch_flow_value(&mut self) -> ScanResult {
         let nc = self.src.peekz(1);
 
-        // If we encounter a ':' inside a flow collection and it is not immediately
+        // If we encounter a ':' inside a flow collection, and it is not immediately
         // followed by a blank or breakz:
         //   - We must check whether an adjacent value is allowed
         //     `["a":[]]` is valid. If the key is double-quoted, no need for a space. This
@@ -884,7 +887,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             match self.src.peekz(0) {
                 // Tabs may not be used as indentation.
                 // "Indentation" only exists as long as a block is started, but does not exist
-                // inside of flow-style constructs. Tabs are allowed as part of leading
+                // inside flow-style constructs. Tabs are allowed as part of leading
                 // whitespaces outside of indentation.
                 // If a flow-style construct is in an indented block, its contents must still be
                 // indented. Also, tabs are allowed anywhere in it if it has no content.
@@ -1667,7 +1670,7 @@ impl<'input, S: Source> Scanner<'input, S> {
             }
         }
 
-        // In case a yaml looks like:
+        // In case a YAML looks like:
         // ```yaml
         // |
         // foo
@@ -2196,7 +2199,7 @@ impl<'input, S: Source> Scanner<'input, S> {
     }
 }
 
-impl<'input, S: Source> Iterator for Scanner<'input, S> {
+impl<'input, S: Source> Iterator for YamScanner<'input, S> {
     type Item = Token<'input>;
 
     fn next(&mut self) -> Option<Self::Item> {

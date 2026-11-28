@@ -1,10 +1,11 @@
 pub mod consts;
 
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::Write;
 use yam_core::parsing::BufBytesSource;
 use yam_core::parsing::Event;
-use yam_core::parsing::{Parser, ScalarValue, Source};
+use yam_core::parsing::{ScalarValue, Source, YamParser};
 use yam_core::prelude::Tag;
 
 #[derive(Copy, Clone)]
@@ -14,6 +15,34 @@ pub enum ParsingOptions {
 }
 
 pub const PAD: &str = "                                               ";
+
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub struct Person {
+    pub name: String,
+    pub uid: u64,
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub enum OneEnumToHoldThemAll {
+    F32(f32),
+    F64(f64),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    Char(char),
+    Option(Option<bool>),
+    UnitVariant,
+    TupleVariant(i32, bool),
+    StructVariant { uid: u64 },
+    NewTypeVariant(Person),
+    VariantTuple((i8, i8)),
+    VariantSeq(Vec<String>),
+}
 
 #[doc(hidden)]
 pub fn assert_eq_event_case_with_opts(
@@ -25,11 +54,11 @@ pub fn assert_eq_event_case_with_opts(
     let mut line = String::with_capacity(events.len());
     match parsing_options {
         ParsingOptions::InMem => {
-            let mut parser = Parser::new_from_str(input);
+            let mut parser = YamParser::new_from_str(input);
             write_str_from_event(&mut line, &mut parser, emit_opt);
         }
         ParsingOptions::Buff => {
-            let mut parser = Parser::new(BufBytesSource::new_from_bytes(input.as_bytes()));
+            let mut parser = YamParser::new(BufBytesSource::new_from_bytes(input.as_bytes()));
             write_str_from_event(&mut line, &mut parser, emit_opt);
         }
     }
@@ -79,7 +108,7 @@ impl FormatOpts {
 #[doc(hidden)]
 pub fn write_str_from_event<T: Source>(
     line: &mut String,
-    parser: &mut Parser<T>,
+    parser: &mut YamParser<T>,
     emit_opt: &FormatOpts,
 ) {
     if !emit_opt.emit_stream() {
@@ -153,7 +182,7 @@ fn extract_tag_full(tag: Option<Cow<Tag>>) -> String {
     }
 }
 
-fn extract_anchor<T: Source>(parser: &Parser<T>, anchor_id: usize) -> String {
+fn extract_anchor<T: Source>(parser: &YamParser<T>, anchor_id: usize) -> String {
     let anchor = if let Some(cow) = parser.get_anchor(anchor_id) {
         let mut out = String::with_capacity(cow.len() + 2);
         write!(out, " &{cow}").unwrap();
