@@ -240,3 +240,17 @@ fn test_yaml_ser_eq() {
     let yaml: Yaml = to_yaml(chr).unwrap();
     assert_eq!(yaml, chr);
 }
+
+#[test]
+fn test_borrow() {
+    #[derive(Deserialize)]
+    struct Ex {
+        optional: Option<char>,
+    }
+
+    let ex = Ex {
+        optional: Some('z'),
+    };
+    // let yaml: Yaml = to_yaml(ex).unwrap();
+    // assert_eq!(yaml["optional"], );
+}

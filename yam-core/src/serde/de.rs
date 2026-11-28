@@ -303,6 +303,8 @@ pub enum DeYamlError {
     ExpectedNull,
     ExpectedBytes,
     Base64DecodeError(DecodeError),
+    InvalidLength(usize),
+    InvalidType,
     UnExpectedEvent(&'static str, &'static str),
 }
 
@@ -322,6 +324,10 @@ impl Display for DeYamlError {
             DeYamlError::UnExpectedEvent(actual, expected) => {
                 write!(f, "Expected {expected} event instead got {actual} event")?;
             }
+            DeYamlError::InvalidLength(len) => {
+                write!(f, "Fewer elements in map")?;
+            }
+            DeYamlError::InvalidType => write!(f, "Invalid type map")?,
         }
         Ok(())
     }
