@@ -1,7 +1,6 @@
 use crate::binary;
 use crate::emitter::YamlWriter;
-use crate::prelude::ScalarType;
-use crate::serde::YamlFormatter;
+use crate::prelude::{ScalarType, YamlFormatter};
 use crate::serde::escape_str::{CanBeScalar, escape_double_quotes, escape_single_quotes};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -1277,7 +1276,7 @@ string: test"#;
         style.root_preferred_style = ScalarType::Plain;
         style.flow_string_style = FlowStyle::SingleQuote;
 
-        let result = crate::to_formatted_string(&str, style);
+        let result = to_formatted_string(&str, style);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "'@cant_be_plain'");
     }

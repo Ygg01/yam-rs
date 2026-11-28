@@ -17,6 +17,8 @@ use core::str::Utf8Error;
 pub use loader::MappingLike;
 pub use loader::SequenceLike;
 pub use loader::YamLoader;
+#[cfg(feature = "serde")]
+pub use serde::YamlFormatter;
 
 mod loader;
 #[cfg(feature = "serde")]
